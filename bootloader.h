@@ -12,4 +12,5 @@ struct bootloader_args{
 	void* ppagetables;
 	struct bootloader_graphicsInfo graphicsInfo;
 };
+typedef int(*kernelEntryType)(struct bootloader_args*);
 #endif

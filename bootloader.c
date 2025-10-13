@@ -7,6 +7,8 @@
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
 #include "bootloader.h"
+#include "pe.h"
+int uefi_execute_pe(void* pfiledata);
 int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UINTN* psize);
 int uefi_scan(CHAR16* buf, unsigned int bufmax, CHAR16 terminator);
 int uefi_atoi(long long num, CHAR16* buf, unsigned int bufmax);
@@ -100,19 +102,19 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	}
 	char* pbuffer = (char*)0x0;
 	UINTN size = 0;
-	if (uefi_readfile(kernelDir, L"test.txt", (void**)&pbuffer, &size)!=0){
+	if (uefi_readfile(kernelDir, L"kernel.exe", (void**)&pbuffer, &size)!=0){
 		conout->OutputString(conout, L"failed to read test file\n");
 		kernelDir->Close(kernelDir);
 		rootfsProtocol->Close(rootfsProtocol);
 		while (1){};
 		return EFI_ABORTED;
 	}
+	kernelDir->Close(kernelDir);
+	rootfsProtocol->Close(rootfsProtocol);
 	status = BS->LocateProtocol(&gopProtocolGuid, NULL, (void**)&gopProtocol);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to get GOP %x\r\n", status);
 		BS->FreePool((void*)pbuffer);
-		kernelDir->Close(kernelDir);
-		rootfsProtocol->Close(rootfsProtocol);
 		while (1){};
 		return EFI_ABORTED;
 	}
@@ -122,6 +124,14 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	unsigned int prefered_modes[][2] = {{640,480},{1920,1080},{320,200}};
 	unsigned int prefered_modecnt = sizeof(prefered_modes)/sizeof(prefered_modes[0]);
 	unsigned int mode_set = 0;
+	if (!modecnt){
+		conout->OutputString(conout, L"NO UEFI GRAPHICS MODE AVAILABLE!\r\n");
+		BS->FreePool((void*)pbuffer);
+		while (1){};
+		return EFI_ABORTED;
+	}
+	struct bootloader_args* blargs = (struct bootloader_args*)0x0;
+	status = BS->AllocatePool(EfiBootServicesData, sizeof(struct bootloader_args), (void**)&blargs);
 	for (unsigned int i = 0;i<prefered_modecnt;i++){
 		for (UINTN mode = 0;mode<modecnt;mode++){
 			status = gopProtocol->QueryMode(gopProtocol, mode, &infoSize, &pmodeinfo);
@@ -170,19 +180,53 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	}
 	conout->ClearScreen(conout);
 	conout->OutputString(conout, L"successfully read file\r\n");
-	for (unsigned int i = 0;i<size;i++){
-		char ch = pbuffer[i];	
-		uefi_putchar((CHAR16)ch);
+	if (uefi_execute_pe((void*)pbuffer)!=0){
+		conout->OutputString(conout, L"failed to execute kernel!\r\n");
+		BS->FreePool((void*)pbuffer);
+		while (1){};
+		return EFI_ABORTED;		
 	}
-	conout->OutputString(conout, L"\r\n");
 	BS->FreePool((void*)pbuffer);
-	kernelDir->Close(kernelDir);
-	rootfsProtocol->Close(rootfsProtocol);
 	while (1){
 		CHAR16 buf[16] = {0};
 		uefi_scan(buf, sizeof(buf), 0);
 	};
 	return EFI_SUCCESS;
+}
+int uefi_execute_pe(void* pfiledata){
+	if (!pfiledata)
+		return -1;
+	struct IMAGE_DOS_HEADER* pdoshdr = (struct IMAGE_DOS_HEADER*)pfiledata;
+	if (pdoshdr->magic!=MZ_MAGIC){
+		conout->OutputString(conout, L"Invalid MZ magic!\r\n");
+		return -1;
+	}
+	conout->OutputString(conout, L"valid MZ binary\r\n");
+	struct PE_HDR* pehdr = (struct PE_HDR*)(pfiledata+pdoshdr->exeOffset);
+	if (pehdr->magic!=PE_MAGIC){
+		conout->OutputString(conout, L"Invalid portable executable binary!\r\n");
+		return -1;
+	}
+	conout->OutputString(conout, L"valid portable executable binary\r\n");
+	struct PE64_OPTHDR* popthdr = (struct PE64_OPTHDR*)(pehdr+1);
+	if (popthdr->magic!=PE_OPT64_MAGIC){
+		conout->OutputString(conout, L"Invalid x64 portable executable binary!\r\n");
+		return -1;
+	}
+	conout->OutputString(conout, L"valid x64 portable executable binary\r\n");
+	unsigned int imagesize = popthdr->sizeOfImage;
+	unsigned char* pimage = (unsigned char*)0x0;
+	EFI_STATUS status = BS->AllocatePool(EfiBootServicesData, imagesize, (void**)&pimage);
+	if (status!=EFI_SUCCESS){
+		uefi_printf(L"failed to allocate memory for image %x\r\n", status);
+		return -1;
+	}
+	uint64_t imagedt = (uint64_t)pimage-popthdr->imageBase;
+	uefi_printf(L"prefered base: %p\r\n", popthdr->imageBase);
+	uefi_printf(L"new base: %p\r\n", (void*)pimage);
+	uefi_printf(L"image delta: %p\r\n", imagedt);
+	BS->FreePool((void*)pimage);
+	return 0;
 }
 int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UINTN* psize){
 	if (!pdir||!filename||!ppbuffer||!psize)
