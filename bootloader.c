@@ -31,8 +31,8 @@ EFI_GUID filesystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
 EFI_FILE_PROTOCOL* rootfsProtocol = (EFI_FILE_PROTOCOL*)0x0;
 EFI_GRAPHICS_OUTPUT_PROTOCOL* gopProtocol = (EFI_GRAPHICS_OUTPUT_PROTOCOL*)0x0;
 EFI_GUID gopProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
-EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL* simpleTextInputProtocol = (EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL*)0x0;
-EFI_GUID simpleTextInputProtocolGuid = EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID;
+EFI_SIMPLE_TEXT_INPUT_PROTOCOL* simpleTextInputProtocol = (EFI_SIMPLE_TEXT_INPUT_PROTOCOL*)0x0;
+EFI_GUID simpleTextInputProtocolGuid = EFI_SIMPLE_TEXT_INPUT_PROTOCOL_GUID;
 EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab){
 	EFI_STATUS status = {0};
 	ST = systab;
@@ -174,10 +174,14 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		char ch = pbuffer[i];	
 		uefi_putchar((CHAR16)ch);
 	}
+	conout->OutputString(conout, L"\r\n");
 	BS->FreePool((void*)pbuffer);
 	kernelDir->Close(kernelDir);
 	rootfsProtocol->Close(rootfsProtocol);
-	while (1){};
+	while (1){
+		CHAR16 buf[16] = {0};
+		uefi_scan(buf, sizeof(buf), 0);
+	};
 	return EFI_SUCCESS;
 }
 int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UINTN* psize){
@@ -235,21 +239,20 @@ int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UI
 int uefi_scan(CHAR16* buf, unsigned int bufmax, CHAR16 terminator){
 	if (!buf||!bufmax)
 		return -1;
+	unsigned int index = 0;
+	EFI_INPUT_KEY key = {0};
+	while (conin->ReadKeyStroke(conin, &key)==EFI_NOT_READY){};
+	conin->Reset(conin, 0);
 	while (1){
-		simpleTextInputProtocol->Reset(simpleTextInputProtocol, 0);
-		EFI_EVENT events[1];
-		events[0] = simpleTextInputProtocol->WaitForKeyEx;
+		EFI_EVENT event = conin->WaitForKey;
 		UINTN index = 0;
-		EFI_STATUS status = BS->WaitForEvent(1, events, &index);
-		if (status!=EFI_SUCCESS)
-			continue;
-		EFI_KEY_DATA keydata = {0};
-		status = simpleTextInputProtocol->ReadKeyStrokeEx(simpleTextInputProtocol, &keydata);
+		EFI_STATUS status = BS->WaitForEvent(1, &event, &index);
+		status = conin->ReadKeyStroke(conin, &key);
 		if (status!=EFI_SUCCESS)
 			continue;
 		if (index>bufmax-1)
 			break;
-		CHAR16 ch = keydata.Key.UnicodeChar;
+		CHAR16 ch = key.UnicodeChar;
 		if (ch=='\r'){
 			uefi_putchar(ch);
 			ch = '\n';
