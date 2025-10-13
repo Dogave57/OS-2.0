@@ -17,7 +17,8 @@ sudo mkdir efimnt
 sudo mount /dev/loop0p1 efimnt
 sudo mkdir -p efimnt/EFI/BOOT
 sudo cp bootloader.efi efimnt/EFI/BOOT/BOOTX64.EFI
-sudo cp test.txt efimnt/test.txt
+sudo mkdir efimnt/KERNEL
+sudo cp test.txt efimnt/KERNEL/test.txt
 sudo umount efimnt
 sudo losetup -d /dev/loop0
 sudo rm -rf efimnt

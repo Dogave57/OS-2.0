@@ -8,7 +8,6 @@
 #include <Guid/FileInfo.h>
 #include "bootloader.h"
 int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UINTN* psize);
-int uefi_scan(CHAR16* buf, unsigned int bufmax, CHAR16 terminator);
 int uefi_atoi(long long num, CHAR16* buf, unsigned int bufmax);
 long long uefi_stoi(CHAR16* buf);
 int uefi_putchar(CHAR16 ch);
@@ -31,8 +30,6 @@ EFI_GUID filesystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
 EFI_FILE_PROTOCOL* rootfsProtocol = (EFI_FILE_PROTOCOL*)0x0;
 EFI_GRAPHICS_OUTPUT_PROTOCOL* gopProtocol = (EFI_GRAPHICS_OUTPUT_PROTOCOL*)0x0;
 EFI_GUID gopProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
-EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL* simpleTextInputProtocol = (EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL*)0x0;
-EFI_GUID simpleTextInputProtocolGuid = EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID;
 EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab){
 	EFI_STATUS status = {0};
 	ST = systab;
@@ -77,12 +74,6 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		while (1){};
 		return EFI_ABORTED;
 	}
-	status = BS->LocateProtocol(&simpleTextInputProtocolGuid, NULL, (void**)&simpleTextInputProtocol);
-	if (status!=EFI_SUCCESS){
-		uefi_printf(L"failed to get simple text input protocol %x\r\n", status);
-		while (1){};
-		return EFI_ABORTED;
-	}
 	uefi_printf(L"filesystem protocol: %p\r\n", (void*)filesystemProtocol);
 	uefi_printf(L"drive id: %s\r\n", devicePathStr);
 	status = filesystemProtocol->OpenVolume(filesystemProtocol, &rootfsProtocol);
@@ -122,6 +113,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	unsigned int prefered_modes[][2] = {{640,480},{1920,1080},{320,200}};
 	unsigned int prefered_modecnt = sizeof(prefered_modes)/sizeof(prefered_modes[0]);
 	unsigned int mode_set = 0;
+	prefered_modecnt = 0;
 	for (unsigned int i = 0;i<prefered_modecnt;i++){
 		for (UINTN mode = 0;mode<modecnt;mode++){
 			status = gopProtocol->QueryMode(gopProtocol, mode, &infoSize, &pmodeinfo);
@@ -134,6 +126,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 				BS->FreePool((void*)pmodeinfo);
 				continue;
 			}
+			uefi_printf(L"switching mode\r\n");
 			gopProtocol->SetMode(gopProtocol, mode);
 			BS->FreePool((void*)pmodeinfo);
 			mode_set = 1;
@@ -154,19 +147,9 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 			}
 			uefi_printf(L"%d: width: %d, height: %d\r\n", mode, pmodeinfo->HorizontalResolution, pmodeinfo->VerticalResolution);
 		}
-		while(1){
-			conout->OutputString(conout, L"pick a graphics mode from the list: ");
-			CHAR16 input[32];
-			uefi_scan(input, sizeof(input), '\n');
-			long long mode = uefi_stoi(input);
-			if (mode==-1||mode>modecnt){
-				conout->OutputString(conout, L"Invalid mode!\r\n");
-				continue;
-			}
-			gopProtocol->SetMode(gopProtocol, mode);
-			mode_set = 1;
-			break;
-		}
+		conout->OutputString(conout, L"\r\npick a graphics mode from the list: ");
+		while (1){};
+		conout->OutputString(conout, L"\r\n");	
 	}
 	conout->ClearScreen(conout);
 	conout->OutputString(conout, L"successfully read file\r\n");
@@ -232,39 +215,6 @@ int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UI
 	*psize = fileSize;
 	return 0;
 }
-int uefi_scan(CHAR16* buf, unsigned int bufmax, CHAR16 terminator){
-	if (!buf||!bufmax)
-		return -1;
-	while (1){
-		simpleTextInputProtocol->Reset(simpleTextInputProtocol, 0);
-		EFI_EVENT events[1];
-		events[0] = simpleTextInputProtocol->WaitForKeyEx;
-		UINTN index = 0;
-		EFI_STATUS status = BS->WaitForEvent(1, events, &index);
-		if (status!=EFI_SUCCESS)
-			continue;
-		EFI_KEY_DATA keydata = {0};
-		status = simpleTextInputProtocol->ReadKeyStrokeEx(simpleTextInputProtocol, &keydata);
-		if (status!=EFI_SUCCESS)
-			continue;
-		if (index>bufmax-1)
-			break;
-		CHAR16 ch = keydata.Key.UnicodeChar;
-		if (ch=='\r'){
-			uefi_putchar(ch);
-			ch = '\n';
-		}
-		uefi_putchar(ch);
-		if (ch!=terminator){
-			*buf = ch;
-			buf++;
-			continue;
-		}
-		break;
-	}
-	*buf = 0;
-	return 0;
-}
 int uefi_atoi(long long num, CHAR16* buf, unsigned int bufmax){
 	if (!buf||bufmax<2)
 		return -1;
@@ -272,12 +222,9 @@ int uefi_atoi(long long num, CHAR16* buf, unsigned int bufmax){
 	if (num<0){
 		isNegative = 1;
 		num*=-1;
-		buf[0] = '-';
-		buf++;
-		bufmax--;
 	}
 	if (!num){
-		buf[0] = L'0';
+		buf[0] = 0;
 		return 0;
 	}
 	unsigned int digitcnt = 0;
@@ -304,22 +251,16 @@ long long uefi_stoi(CHAR16* str){
 	if (!str)
 		return -1;
 	long long res = 0; 
-	unsigned int isNegative = 0;
-	if (str[0]==L'-'){
+	if (str[0]=='-'){
 		str++;
-		isNegative = 1;
-	}	
-	if (str[0]==L'0'){
-		return 0;	
+		res = -1;		
 	}
 	for (unsigned int i = 0;str[i];i++){
 		if (str[i]>'9'||str[i]<'0')
 			return -1;
-		long long digit = (long long)str[i]-L'0';
+		long long digit = (long long)str[i]-'0';
 		res = res*10+digit;
 	}
-	if (isNegative)
-		res = res*-1;
 	return res;
 }
 int uefi_putchar(CHAR16 ch){
