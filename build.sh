@@ -6,7 +6,7 @@ $CC $CFLAGS -c bootloader.c -o bootloader.o
 echo linking bootloader
 sudo $LD -subsystem:efi_application -entry:UefiEntry bootloader.o -out:bootloader.efi 
 echo compiling kernel
-sudo $CC $CFLAGS -c kernel.c -o kernel.o
+sudo $CC $CFLAGS -c -fpic kernel.c -o kernel.o
 echo linking kernel
 sudo $LD -subsystem:native -entry:kmain kernel.o -out:kernel.exe
 echo done

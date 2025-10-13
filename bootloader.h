@@ -1,6 +1,8 @@
 #ifndef _BOOTLOADER
 #define _BOOTLOADER
 #include <Uefi.h>
+#include <Library/UefiLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 struct bootloader_graphicsInfo{
 	unsigned int width;
 	unsigned int height;

@@ -21,6 +21,53 @@
 #define DATA_DIRECTORY_DELAY_IMPORT_DESC 13
 #define DATA_DIRECTORY_CLR_HDR 14
 #define DATA_DIRECTORY_RESERVED 15
+#define IMAGE_SUBSYSTEM_UNKNOWN 0
+#define IMAGE_SUBSYSTEM_NATIVE 1
+#define IMAGE_SUBSYSTEM_WINDOWS_GUI 2
+#define IMAGE_SUBSYSTEM_IWNDOWS_CUI 3
+#define IMAGE_SUBSYSTEM_OS2_CUI 5
+#define IMAGE_SUBSYSTEM_POSIX_CUI 7
+#define IMAGE_SUBSYSTEM_NATIVE_WINDOWS 8
+#define IMAGE_SUBSYSTEM_WINDOWS_CE_GUI 9
+#define IMAGE_SUBSYSTEM_EFI_APPLICATION 10
+#define IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER 11
+#define IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER 12
+#define IMAGE_SUBSYSTEM_EFI_ROM 13
+#define IMAGE_SUBSYSTEM_XBOX 14
+#define IMAGE_SUBSYSTEM_WINDOWS_BOOT_APPLICATION 16
+#define IMAGE_REL_BASED_ABSOLUTE 0
+#define IMAGE_REL_BASED_HIGH 1
+#define IMAGE_REL_BASED_LOW 2
+#define IMAGE_REL_BASED_HIGHLOW 3
+#define IMAGE_REL_BASED_HIGHADJ 4
+#define IMAGE_REL_BASED_MACHINE_SPECIFIC_5 5
+#define IMAGE_REL_BASED_RESERVED 6
+#define IMAGE_REL_BASED_MACHINE_SPECIFIC_7 7
+#define IMAGE_REL_BASED_MACHINE_SPECIFIC_8 8
+#define IMAGE_REL_BASED_MACHINE_SPECIFIC_9 9
+#define IMAGE_REL_BASED_DIR64 10
+#define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
+struct IMAGE_SECTION_HEADER{
+	char sectname[8];
+	uint32_t virtualSize;
+	uint32_t virtualAddress;
+	uint32_t sizeOfRawData;
+	uint32_t pointerToRawData;
+	uint32_t pointerToRelocations;
+	uint32_t pointerToLineNumbers;
+	uint16_t numberOfRelocations;
+	uint16_t numberOfLineNumbers;
+	uint32_t characteristics;
+};
+struct IMAGE_DATA_DIRECTORY{
+	uint32_t virtualAddress;
+	uint32_t size;
+};
+struct IMAGE_BASE_RELOCATION{
+	uint32_t virtualAddress;
+	uint32_t sizeOfBlock;
+	uint16_t typeOffset[1];
+};
 struct PE_HDR{
 	uint32_t magic;
 	uint16_t machine;
@@ -92,21 +139,6 @@ struct PE64_OPTHDR{
 	uint64_t sizeOfHeapCommit;
 	uint32_t loaderFlags;
 	uint32_t numberOfRvaAndSizes;
-};
-struct IMAGE_SECTION_HEADER{
-	char sectname[8];
-	uint32_t virtualSize;
-	uint32_t virtualAddress;
-	uint32_t sizeOfRawData;
-	uint32_t pointerToRawData;
-	uint32_t pointerToRelocations;
-	uint32_t pointerToLineNumbers;
-	uint16_t numberOfRelocations;
-	uint16_t numberOfLineNumbers;
-	uint32_t characteristics;
-};
-struct IMAGE_DATA_DIRECTORY{
-	uint32_t virtualAddress;
-	uint32_t size;
+	struct IMAGE_DATA_DIRECTORY dataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
 };
 #endif

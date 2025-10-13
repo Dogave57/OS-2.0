@@ -9,6 +9,8 @@
 #include "bootloader.h"
 #include "pe.h"
 int uefi_execute_pe(void* pfiledata);
+int uefi_memcmp(void* mem1, void* mem2, uint64_t size);
+int uefi_memcpy(void* dst, void* src, uint64_t size);
 int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UINTN* psize);
 int uefi_scan(CHAR16* buf, unsigned int bufmax, CHAR16 terminator);
 int uefi_atoi(long long num, CHAR16* buf, unsigned int bufmax);
@@ -35,6 +37,7 @@ EFI_GRAPHICS_OUTPUT_PROTOCOL* gopProtocol = (EFI_GRAPHICS_OUTPUT_PROTOCOL*)0x0;
 EFI_GUID gopProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 EFI_SIMPLE_TEXT_INPUT_PROTOCOL* simpleTextInputProtocol = (EFI_SIMPLE_TEXT_INPUT_PROTOCOL*)0x0;
 EFI_GUID simpleTextInputProtocolGuid = EFI_SIMPLE_TEXT_INPUT_PROTOCOL_GUID;
+struct bootloader_args* blargs = (struct bootloader_args*)0x0;
 EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab){
 	EFI_STATUS status = {0};
 	ST = systab;
@@ -130,7 +133,6 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		while (1){};
 		return EFI_ABORTED;
 	}
-	struct bootloader_args* blargs = (struct bootloader_args*)0x0;
 	status = BS->AllocatePool(EfiBootServicesData, sizeof(struct bootloader_args), (void**)&blargs);
 	for (unsigned int i = 0;i<prefered_modecnt;i++){
 		for (UINTN mode = 0;mode<modecnt;mode++){
@@ -221,12 +223,76 @@ int uefi_execute_pe(void* pfiledata){
 		uefi_printf(L"failed to allocate memory for image %x\r\n", status);
 		return -1;
 	}
+	uefi_memcpy((void*)pimage, (void*)pfiledata, popthdr->sizeOfHeaders);
 	uint64_t imagedt = (uint64_t)pimage-popthdr->imageBase;
 	uefi_printf(L"prefered base: %p\r\n", popthdr->imageBase);
 	uefi_printf(L"new base: %p\r\n", (void*)pimage);
 	uefi_printf(L"image delta: %p\r\n", imagedt);
+	uefi_printf(L"%d\r\n", sizeof(struct PE64_OPTHDR));
+	struct IMAGE_SECTION_HEADER* pfirstsection = (struct IMAGE_SECTION_HEADER*)(pfiledata+pdoshdr->exeOffset+sizeof(struct PE_HDR)+240);
+	struct IMAGE_SECTION_HEADER* pcurrentsection = pfirstsection;
+	struct IMAGE_SECTION_HEADER* relocSectHeader = (struct IMAGE_SECTION_HEADER*)0x0;
+	for (unsigned int i = 0;i<pehdr->section_cnt;i++,pcurrentsection++){
+		unsigned char* pVirtualLocation = pimage+pcurrentsection->virtualAddress;
+		unsigned char* pFileLocation = pfiledata+pcurrentsection->pointerToRawData;
+		uefi_memcpy((void*)pVirtualLocation, (void*)pFileLocation, pcurrentsection->sizeOfRawData);
+		uefi_printf(L"%as\r\n", pcurrentsection->sectname);
+		if (uefi_memcmp((void*)".reloc", pcurrentsection->sectname, 6)!=0)
+			continue;
+		relocSectHeader = pcurrentsection;
+	}
+	unsigned char* pentry = (unsigned char*)(pimage+popthdr->addressOfEntryPoint);
+	if (imagedt&&relocSectHeader){
+		struct IMAGE_DATA_DIRECTORY* pRelocDir = popthdr->dataDirectory+DATA_DIRECTORY_BASE_RELOC_TABLE;
+		uefi_printf(L"va: %p\r\n", pRelocDir->virtualAddress);
+		unsigned char* pRelocData = (unsigned char*)(pimage+relocSectHeader->virtualAddress+pRelocDir->virtualAddress);
+		unsigned int relocOffset = 0;
+		while (relocOffset<pRelocDir->size){
+			struct IMAGE_BASE_RELOCATION* pBaseReloc = (struct IMAGE_BASE_RELOCATION*)(pRelocData+relocOffset);
+			if (pBaseReloc->sizeOfBlock<sizeof(struct IMAGE_BASE_RELOCATION)){
+				conout->OutputString(conout, L"Invalid block\r\n");
+				continue;
+			}
+			unsigned int entrycnt = (pBaseReloc->sizeOfBlock-sizeof(struct IMAGE_BASE_RELOCATION))/sizeof(uint16_t);
+			uint16_t* pentries = (uint16_t*)(pBaseReloc+1);
+			uefi_printf(L"entry cnt: %d\r\n", entrycnt);
+			for (unsigned int i = 0;i<entrycnt;i++){
+				uint16_t* entry = pentries+i;
+				uint16_t type = ((*pentry)>>12);
+				uint16_t address = ((*pentry)&0x0fff);
+				
+			}
+			relocOffset+=(sizeof(struct IMAGE_BASE_RELOCATION))+(sizeof(uint16_t)*entrycnt);			
+		}
+	}
+	kernelEntryType entry = (kernelEntryType)(pentry);
+	entry(blargs);
+	uefi_printf(L"kernel finished execution\r\n");
 	BS->FreePool((void*)pimage);
 	return 0;
+}
+int uefi_memcmp(void* mem1, void* mem2, uint64_t size){
+	if (!mem1||!mem2)
+		return 1;
+	for (uint64_t i = 0;i<size;i++){
+		if (*((unsigned char*)mem1+i)!=*((unsigned char*)mem2+i))
+			return 1;
+	}
+	return 0;
+}
+int uefi_memcpy(void* dst, void* src, uint64_t size){
+	if (!dst||!src)
+		return -1;
+	for (uint64_t i = 0;i<size;){
+/*		if (!(size%8)){
+			*((uint64_t*)((unsigned char*)dst+i)) = *((uint64_t*)((unsigned char*)src+i));
+			i+=8;
+			continue;
+		}
+*/		*((unsigned char*)((unsigned char*)dst+i)) = *((unsigned char*)((unsigned char*)src+i));
+		i++;
+	}
+	return 0;	
 }
 int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UINTN* psize){
 	if (!pdir||!filename||!ppbuffer||!psize)
@@ -400,25 +466,25 @@ int uefi_printf(const CHAR16* fmt, ...){
 			continue;
 		}
 		switch(fmt[i+1]){
-		case L'c':
+		case L'c':{
 		uefi_putchar(*((CHAR16*)parg));
 		parg++;
 		i++;
-		break;	
-		case L's':
+		break;}	
+		case L's':{
 		conout->OutputString(conout, *((CHAR16**)parg));
 		parg++;
 		i++;
-		break;
-		case L'd':
+		break;}
+		case L'd':{
 		CHAR16 str[64] = {0};
 		long long num = *((long long*)parg);
 		uefi_atoi(num, str, 32);	
 		conout->OutputString(conout, (CHAR16*)str);
 		parg++;
 		i++;
-		break;
-		case L'p':
+		break;}
+		case L'p':{
 		case L'x':
 		case L'X':
 		if (fmt[i+1]==L'p'){
@@ -436,10 +502,24 @@ int uefi_printf(const CHAR16* fmt, ...){
 		}
 		parg++;
 		i++;
-		break;
-		default:
+		break;}
+		default:{
 		uefi_putchar(ch);
 		break;
+		}
+		case L'a':{
+		if (fmt[i+2]!=L's')
+			break;
+		char* str = (char*)(*(char**)parg);
+		if (!str)
+			break;
+		for (unsigned int i = 0;str[i];i++){
+			uefi_putchar((CHAR16)str[i]);
+		}
+		parg++;
+		i+=2;
+		break;
+		}
 		}
 	}
 	return 0;	
