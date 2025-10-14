@@ -1,6 +1,6 @@
 CC='sudo x86_64-w64-mingw32-gcc'
 LD='lld-link'
-CFLAGS='-O0 -ffreestanding -fno-stack-protector -fpic -fshort-wchar -mno-red-zone -Iuefi_headers/Include -Iuefi_headers/Include/X64'
+CFLAGS='-O0 -ffreestanding -fno-stack-protector -fpic -fshort-wchar -mno-red-zone -Iuefi-headers/Include -Iuefi-headers/Include/X64'
 echo compiling bootloader
 $CC $CFLAGS -c bootloader.c -o bootloader.o
 echo linking bootloader
