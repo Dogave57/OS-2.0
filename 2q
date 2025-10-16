@@ -6,21 +6,15 @@
 struct bootloader_graphicsInfo{
 	unsigned int width;
 	unsigned int height;
-	unsigned char* physicalFrameBuffer;
+	unsigned char* pframebuffer;
 	unsigned char* pfontbuffer;
-	EFI_PIXEL_BITMASK pixelFormat;
-};
-struct bootloader_memoryInfo{
-	EFI_MEMORY_DESCRIPTOR* pMemoryMap;
-	unsigned int memoryMapSize;
+	EFI_PIXEL_FORMAT pixelFormat;
 };
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;
-	EFI_SYSTEM_TABLE* systable;
+	EFI_SYSTEM_TABLE* systable;		
 	void* ppagetables;
-	struct bootloader_memoryInfo memoryInfo;	
 	struct bootloader_graphicsInfo graphicsInfo;
 };
 typedef int(*kernelEntryType)(struct bootloader_args*);
-extern struct bootloader_args* pbootargs;
 #endif
