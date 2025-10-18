@@ -21,6 +21,6 @@ struct bootloader_args{
 	struct bootloader_memoryInfo memoryInfo;	
 	struct bootloader_graphicsInfo graphicsInfo;
 };
-typedef int(*kernelEntryType)(struct bootloader_args*);
+typedef int(*kernelEntryType)(unsigned char* pstack, struct bootloader_args*);
 extern struct bootloader_args* pbootargs;
 #endif
