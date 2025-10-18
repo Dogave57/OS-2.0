@@ -14,7 +14,7 @@ sudo $CC $CFLAGS -fpic -c kernel/graphics.c -o build/objects/graphics.o
 sudo $CC $CFLAGS -fpic -c kernel/kernel.c -o build/objects/kernel.o
 sudo $AS -f win64 kernel/stub.asm -o build/objects/kernel_stub.o
 echo linking kernel
-sudo $LD -subsystem:native build/objects/kernel.o build/objects/graphics.o build/objects/kernel_stub.o -entry:kmain -out:build/build/kernel.exe
+sudo $LD -subsystem:native build/objects/kernel.o build/objects/graphics.o build/objects/kernel_stub.o -entry:kernel_stub -out:build/build/kernel.exe
 echo done
 case "$OS" in
 "Linux")
