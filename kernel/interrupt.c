@@ -1,7 +1,7 @@
 #include "bootloader.h"
 #include "port.h"
 #include "interrupt.h"
-//__attribute__((aligned(0x10)))
+__attribute__((aligned(0x10)))
 static struct idt_entry_t idt[IDT_MAX_ENTRIES] = {0};
 static struct idt_ptr_t idtr = {0};
 int idt_add_entry(uint8_t vector, uint64_t isr, uint8_t flags){

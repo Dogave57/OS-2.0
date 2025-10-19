@@ -11,8 +11,8 @@ struct bootloader_graphicsInfo{
 	unsigned int height;
 	struct vec4* physicalFrameBuffer;
 	unsigned int font_initialized;
-	unsigned char* font_data;
-	unsigned char* font_datasize;
+	unsigned char* fontData;
+	unsigned int fontDataSize;
 	EFI_PIXEL_BITMASK pixelFormat;
 };
 struct bootloader_memoryInfo{
@@ -23,11 +23,14 @@ struct bootloader_memoryInfo{
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;
 	EFI_SYSTEM_TABLE* systable;
+	EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* filesystemProtocol;
 	struct bootloader_memoryInfo memoryInfo;	
 	struct bootloader_graphicsInfo graphicsInfo;
 };
 typedef int(*kernelEntryType)(unsigned char* pstack, struct bootloader_args*);
 extern EFI_SYSTEM_TABLE* systab;
+extern EFI_BOOT_SERVICES* BS;
 extern EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* conout;
+extern EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* filesystemProtocol;
 extern struct bootloader_args* pbootargs;
 #endif

@@ -10,9 +10,14 @@ struct vec3{
 struct vec4{
 	unsigned char x, y, z, w;
 };
-int write_pixel_coord(struct vec2 coord, struct vec4 color);
-int write_pixel(unsigned int pixel, struct vec4 color);
+int write_pixel_coord(struct vec2 coord, struct vec3 color);
+int write_pixel(unsigned int pixel, struct vec3 color);
+int clear(void);
 int putchar(CHAR16 ch);
 int puthex(unsigned char hex, unsigned char isUpper);
 int print(CHAR16* string);
+int init_fonts(void);
+int set_text_fg(struct vec3 fg);
+int set_text_bg(struct vec3 bg);
+int get_text_color(struct vec3* pFg, struct vec3* pBg);
 #endif

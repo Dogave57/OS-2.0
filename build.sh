@@ -3,7 +3,7 @@ BOOTLD='lld-link'
 CC='sudo x86_64-w64-mingw32-gcc'
 LD='lld-link'
 AS='nasm'
-CFLAGS='-O0 -ffreestanding -fno-stack-protector -fshort-wchar -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
+CFLAGS='-O0 -mabi=ms -ffreestanding -fno-stack-protector -fshort-wchar -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
 OS=$(uname -s)
 echo compiling bootloader
 $BOOTCC $CFLAGS -fpic -c boot/bootloader.c -o build/objects/bootloader.o
@@ -39,7 +39,7 @@ sudo mkdir -p efimnt/EFI/BOOT
 sudo cp build/build/bootloader.efi efimnt/EFI/BOOT/BOOTX64.EFI
 sudo mkdir efimnt/KERNEL
 sudo cp build/build/kernel.exe efimnt/KERNEL/kernel.exe
-sudo cp -r fonts efimnt/FONTS/
+sudo cp -r fonts efimnt/FONTS
 sudo losetup -d /dev/loop0
 sudo umount -r efimnt
 sudo rm -rf efimnt
@@ -60,6 +60,7 @@ sudo mkdir -p drivemnt/EFI/BOOT
 sudo mkdir -p drivemnt/KERNEL
 sudo cp build/build/bootloader.efi drivemnt/EFI/BOOT/BOOTX64.EFI
 sudo cp build/build/kernel.exe drivemnt/KERNEL/kernel.exe
+sudo cp -r fonts drivemnt/FONTS
 sudo umount drivemnt
 sudo hdiutil detach "$DEV"
 ;;

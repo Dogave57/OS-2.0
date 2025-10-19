@@ -2,12 +2,10 @@
 #include "graphics.h"
 #include "interrupt.h"
 #include "stdlib.h"
-#include "filesystem.h"
 #include "gdt.h"
 EFI_SYSTEM_TABLE* systab = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
 EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* conout = (EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL*)0x0;
-EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* filesystemProtocol = (EFI_SIMPLE_FILE_SYSTEM_PROTOCOL*)0x0;
 struct bootloader_args* pbootargs = (struct bootloader_args*)0x0;
 int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (!blargs)
@@ -15,18 +13,9 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (!blargs->systable)
 		return -1;
 	systab = blargs->systable;
-	BS = systab->BootServices;
 	conout = systab->ConOut;
 	pbootargs = blargs;
-	filesystemProtocol = pbootargs->filesystemProtocol;
-	if (init_fonts()!=0){
-		print(L"failed to initiailize fonts\r\n");
-		while (1){};
-		return -1;
-	}
-	BS->ExitBootServices(pbootargs->bootloaderHandle, pbootargs->memoryInfo.memoryMapKey);
-	clear();
-	print(L"kernel loaded\r\n");
+	print(L"kernel loaded\r\n"); 
 	if (gdt_init()!=0){
 		print(L"failed to load gdt\r\n");
 		while (1){};
@@ -39,8 +28,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	print(L"idt loaded\r\n");
-	printf(L"pentry: %p\r\n", (void*)kmain);
-	__asm__ volatile("int $0");
+	printf(L"test: %d\r\n", 5/0);
 	while (1){};
 	return 0;	
 }

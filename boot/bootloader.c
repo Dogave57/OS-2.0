@@ -149,6 +149,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		return EFI_ABORTED;
 	}
 	uefi_memset((void*)blargs, 0, sizeof(struct bootloader_args));
+	blargs->filesystemProtocol = filesystemProtocol;
 	unsigned int graphicsWidth = 0;
 	unsigned int graphicsHeight = 0;
 	for (unsigned int i = 0;i<prefered_modecnt;i++){

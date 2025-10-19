@@ -34,7 +34,6 @@ section .bss
 safe_stack_bottom:
 resb 1024 
 safe_stack_top:
-resb 8
 section .data
 exceptionmsg:
 dw __?utf16?__('exception 0x%x'), 10, 0
@@ -59,24 +58,16 @@ exception_bg:
 db 0, 0, 0
 deadly_exception:
 pushaq
-sub qword rsp, 32
-mov qword rcx, ripmsg
-mov qword rdx, [rel safe_stack_top]
-mov qword rdx, [rdx]
+mov rcx, exception_fg
+mov rdx, exception_bg
+sub rsp, 32
+call set_text_color
+call clear
+mov rcx, ripmsg
+mov rdx, [old_stack]
 mov qword [rsp], rcx
 mov qword [rsp+8], rdx
 call printf
-mov qword rcx, rspmsg
-mov qword rdx, [rel safe_stack_top]
-mov qword [rsp], rcx
-mov qword [rsp+8], rdx
-call printf
-mov qword rcx, rbpmsg
-mov qword rdx, rbp
-mov qword [rsp], rcx
-mov qword [rsp+8], rdx
-call printf
-add qword rsp, 32
 popaq
 hlt
 ret
@@ -87,9 +78,9 @@ isr0:
 cli
 push rax
 mov rax, [rsp+32]
-mov [rel safe_stack_top], rax
+mov [old_stack], rax
 pop rax
-lea rsp, [rel safe_stack_top]
+mov rsp, safe_stack_top-8
 push qword 0
 call deadly_exception
 hlt
