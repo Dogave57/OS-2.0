@@ -66,7 +66,7 @@ struct IMAGE_DATA_DIRECTORY{
 struct IMAGE_BASE_RELOCATION{
 	uint32_t virtualAddress;
 	uint32_t sizeOfBlock;
-	uint16_t typeOffset[1];
+	uint16_t relocData[];
 };
 struct PE_HDR{
 	uint32_t magic;

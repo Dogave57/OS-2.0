@@ -12,9 +12,17 @@ sudo $BOOTLD -subsystem:efi_application -entry:UefiEntry build/objects/bootloade
 echo compiling kernel
 sudo $CC $CFLAGS -fpic -c kernel/graphics.c -o build/objects/graphics.o
 sudo $CC $CFLAGS -fpic -c kernel/kernel.c -o build/objects/kernel.o
+sudo $CC $CFLAGS -fpic -c kernel/interrupt.c -o build/objects/interrupt.o
+sudo $CC $CFLAGS -fpic -c kernel/gdt.c -o build/objects/gdt.o
+sudo $CC $CFLAGS -fpic -c kernel/port.c -o build/objects/port.o
+sudo $CC $CFLAGS -fpic -c kernel/filesystem.c -o build/objects/filesystem.o
+sudo $CC $CFLAGS -fpic -c kernel/stdlib/stdlib.c -o build/objects/stdlib.o
 sudo $AS -f win64 kernel/stub.asm -o build/objects/kernel_stub.o
+sudo $AS -f win64 kernel/isrs.asm -o build/objects/isrs.o
+sudo $AS -f win64 kernel/gdt.asm -o build/objects/gdt_asm.o
+sudo $AS -f win64 kernel/idt.asm -o build/objects/idt_asm.o
 echo linking kernel
-sudo $LD -subsystem:native build/objects/kernel.o build/objects/graphics.o build/objects/kernel_stub.o -entry:kernel_stub -out:build/build/kernel.exe
+sudo $LD -subsystem:native build/objects/kernel.o build/objects/graphics.o build/objects/kernel_stub.o build/objects/interrupt.o build/objects/isrs.o build/objects/gdt_asm.o build/objects/gdt.o build/objects/idt_asm.o build/objects/port.o build/objects/filesystem.o build/objects/stdlib.o -entry:kernel_stub -out:build/build/kernel.exe
 echo done
 case "$OS" in
 "Linux")
@@ -31,6 +39,7 @@ sudo mkdir -p efimnt/EFI/BOOT
 sudo cp build/build/bootloader.efi efimnt/EFI/BOOT/BOOTX64.EFI
 sudo mkdir efimnt/KERNEL
 sudo cp build/build/kernel.exe efimnt/KERNEL/kernel.exe
+sudo cp -r fonts efimnt/FONTS/
 sudo losetup -d /dev/loop0
 sudo umount -r efimnt
 sudo rm -rf efimnt
