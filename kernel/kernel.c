@@ -39,8 +39,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	print(L"idt loaded\r\n");
-	printf(L"pentry: %p\r\n", (void*)kmain);
-	__asm__ volatile("int $0");
 	while (1){};
 	return 0;	
 }

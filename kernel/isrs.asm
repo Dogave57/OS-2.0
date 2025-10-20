@@ -30,25 +30,46 @@ pop rcx
 pop rbx
 pop rax
 %endmacro
+saved_registers:
+saved_reg_rip:
+dq 0
+saved_reg_rsp:
+dq 0
+saved_reg_rbp:
+dq 0
 section .bss
 safe_stack_bottom:
 resb 1024 
 safe_stack_top:
 resb 8
 section .data
+rspmsg:
+dw __?utf16?__('rsp: 0x%x'), 10, 0
 exceptionmsg:
 dw __?utf16?__('exception 0x%x'), 10, 0
-ripmsg:
-dw __?utf16?__('rip: %p'), 10, 0
-rspmsg:
-dw __?utf16?__('rsp: %p'), 10, 0
-rbpmsg:
-dw __?utf16?__('rbp: %p'), 10, 0
-old_stack:
-dq 0
+regmsg:
+dw __?utf16?__('rip: %p  '), __?utf16?__('rsp: %p  '), __?utf16?__('rbp: %p'), 10, __?utf16?__('rax: 0x%x  '), __?utf16?__('rbx: 0x%x  '),__?utf16?__('rcx: 0x%x  '), 10, __?utf16?__('rdx: 0x%x  '), __?utf16?__('cs: 0x%x  '), __?utf16?__('ds: 0x%x'), 10, 0
 section .text
 global default_isr
 global isr0
+global isr1
+global isr2
+global isr3
+global isr4
+global isr5
+global isr6
+global isr7
+global isr8
+global isr10
+global isr11
+global isr12
+global isr13
+global isr14
+global isr16
+global isr17
+global isr18
+global isr19
+global isr20
 extern print
 extern printf
 extern clear
@@ -59,25 +80,34 @@ exception_bg:
 db 0, 0, 0
 deadly_exception:
 pushaq
-sub qword rsp, 32
-mov qword rcx, ripmsg
-mov qword rdx, [rel safe_stack_top]
-mov qword rdx, [rdx]
-mov qword [rsp], rcx
-mov qword [rsp+8], rdx
-call printf
-mov qword rcx, rspmsg
-mov qword rdx, [rel safe_stack_top]
-mov qword [rsp], rcx
-mov qword [rsp+8], rdx
-call printf
-mov qword rcx, rbpmsg
-mov qword rdx, rbp
-mov qword [rsp], rcx
-mov qword [rsp+8], rdx
-call printf
-add qword rsp, 32
+mov rcx, exception_fg
+mov rdx, exception_bg
+sub rsp, 32
+call set_text_color
+call clear
+add rsp, 32
 popaq
+pushaq
+mov rcx, exceptionmsg
+mov rdx, [rbp-8]
+sub rsp, 32
+call printf
+add rsp, 32
+popaq
+sub qword rsp, 16
+mov word [rsp], cs
+mov word [rsp+8], ds
+push rdx
+push rcx
+push rbx
+push rax
+mov rcx, regmsg
+mov rdx, [rel saved_reg_rip]
+mov r8, [rel saved_reg_rsp]
+mov r9, [rel saved_reg_rbp]
+sub rsp, 32
+call printf
+add rsp, 32
 hlt
 ret
 default_isr:
@@ -86,11 +116,266 @@ iretq
 isr0:
 cli
 push rax
-mov rax, [rsp+32]
-mov [rel safe_stack_top], rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
 pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
 lea rsp, [rel safe_stack_top]
+mov rbp, rsp
 push qword 0
 call deadly_exception
 hlt
-iretq
+isr1:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 1
+call deadly_exception
+hlt
+isr2:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 2
+call deadly_exception
+hlt
+isr3:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 3
+call deadly_exception
+hlt
+isr4:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 4
+call deadly_exception
+hlt
+isr5:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 5
+call deadly_exception
+hlt
+isr6:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 6
+call deadly_exception
+hlt
+isr7:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 7
+call deadly_exception
+hlt
+isr8:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 32
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 8
+call deadly_exception
+hlt
+isr10:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 32
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 10
+call deadly_exception
+hlt
+isr11:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 32
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 11
+call deadly_exception
+hlt
+isr12:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 32
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 12
+call deadly_exception
+hlt
+isr13:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 32
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 13
+call deadly_exception
+hlt
+isr14:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 32
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 14
+call deadly_exception
+hlt
+isr16:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 16
+call deadly_exception
+hlt
+isr17:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 32
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 17
+call deadly_exception
+hlt
+isr18:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 18
+call deadly_exception
+hlt
+isr19:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 19
+call deadly_exception
+hlt
+isr20:
+cli
+push rax
+mov qword rax, [rsp+8]
+mov qword [rel saved_reg_rip], rax
+pop rax
+mov qword [rel saved_reg_rsp], rsp
+add qword [rel saved_reg_rsp], 24
+mov qword [rel saved_reg_rbp], rbp
+lea rsp, [rel safe_stack_top]
+mov rbp, rsp
+push qword 20
+call deadly_exception
+hlt

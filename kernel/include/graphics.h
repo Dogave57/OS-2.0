@@ -17,7 +17,6 @@ int putchar(CHAR16 ch);
 int puthex(unsigned char hex, unsigned char isUpper);
 int print(CHAR16* string);
 int init_fonts(void);
-int set_text_fg(struct vec3 fg);
-int set_text_bg(struct vec3 bg);
+int set_text_color(struct vec3 fg, struct vec3 bg);
 int get_text_color(struct vec3* pFg, struct vec3* pBg);
 #endif
