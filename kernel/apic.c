@@ -1,0 +1,81 @@
+#include "msr.h"
+#include "stdlib.h"
+#include "cpuid.h"
+#include "apic.h"
+uint64_t apic_base = 0;
+unsigned int x2lapic_supported = 0;
+int apic_init(void){
+	x2lapic_is_supported(&x2lapic_supported);
+	if (!x2lapic_supported){
+		printf(L"x2LAPIC unsupported! Falling back to normal LAPIC\r\n");
+	}
+	apic_base = read_msr(LAPIC_BASE_MSR);
+	apic_base&=0xfffff000;
+	if (x2lapic_supported)
+		apic_base|=0xC00;
+	else
+		apic_base|=0x800;
+	write_msr(LAPIC_BASE_MSR, apic_base);
+	uint64_t base = 0;
+	uint64_t lapic_version = 0;
+	uint64_t value = 0;
+	lapic_get_version(&lapic_version);
+	printf(L"LAPIC version: %x\r\n", lapic_version);
+	x2lapic_read_reg(LAPIC_REG_SPI, &value);
+	value|=0x100;
+	x2lapic_write_reg(LAPIC_REG_SPI, value);
+	x2lapic_write_reg(LAPIC_REG_TPR, 0);
+	x2lapic_write_reg(LAPIC_REG_DIV_CONFIG, 1);
+	x2lapic_write_reg(LAPIC_REG_LVT_TIMER, 0x30|(1<<17));
+	x2lapic_write_reg(LAPIC_REG_INIT_COUNT, 0xFFFFFF);
+	return 0;
+}
+int lapic_get_version(uint64_t* pversion){
+	if (!pversion)
+		return -1;
+	return lapic_read_reg(LAPIC_REG_LAPIC_VERSION, pversion);
+}
+int x2lapic_write_reg(unsigned int reg, uint64_t value){
+	reg/=16;
+	write_msr(0x800+reg, value);
+	return 0;
+}
+int x2lapic_read_reg(unsigned int reg, uint64_t* pvalue){
+	if (!pvalue)
+		return -1;
+	reg/=16;
+	*pvalue = read_msr(0x800+reg);
+	return 0;
+}
+int lapic_write_reg(unsigned int reg, uint64_t value){
+	if (x2lapic_supported){
+		x2lapic_write_reg(reg, value);
+		return 0;
+	}
+	*(unsigned int*)(apic_base+reg) = (unsigned int)value;
+	return 0;
+}
+int lapic_read_reg(unsigned int reg, uint64_t* pvalue){
+	if (!pvalue)
+		return -1;
+	if (x2lapic_supported){
+		x2lapic_read_reg(reg, pvalue);
+		return 0;
+	}
+	*(unsigned int*)pvalue = *(unsigned int*)(apic_base+reg);
+	return 0;
+}
+int lapic_send_eoi(void){
+	if (x2lapic_supported){
+		x2lapic_write_reg(LAPIC_REG_EOI, 0);
+		return 0;
+	}
+	lapic_write_reg(LAPIC_REG_EOI, 0);
+	return 0;
+}
+int x2lapic_is_supported(unsigned int* psupported){
+	unsigned int ecx = 0;
+	cpuid(0x1, 0x0, (unsigned int*)0x0, (unsigned int*)0x0, &ecx, (unsigned int*)0x0);
+	*psupported = (ecx>>21)&1;
+	return 0;
+}

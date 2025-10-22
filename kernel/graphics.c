@@ -36,6 +36,7 @@ int putchar(CHAR16 ch){
 	switch (ch){
 		case '\n':
 		char_position+=(pbootargs->graphicsInfo.width);
+		return 0;
 		case '\r':
 		char_position+=pbootargs->graphicsInfo.width-(char_position%(pbootargs->graphicsInfo.width/8));
 		return 0;

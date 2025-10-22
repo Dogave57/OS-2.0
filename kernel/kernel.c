@@ -3,6 +3,7 @@
 #include "interrupt.h"
 #include "stdlib.h"
 #include "filesystem.h"
+#include "apic.h"
 #include "gdt.h"
 EFI_SYSTEM_TABLE* systab = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
@@ -39,6 +40,13 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	print(L"idt loaded\r\n");
+	if (apic_init()!=0){
+		printf(L"failed to initialize the APIC\r\n");
+		while (1){};
+		return -1;
+	}
+	printf(L"APIC initialized\r\n");
+	__asm__ volatile("int $0x30");
 	while (1){};
 	return 0;	
 }

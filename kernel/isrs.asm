@@ -43,14 +43,13 @@ resb 1024
 safe_stack_top:
 resb 8
 section .data
-rspmsg:
-dw __?utf16?__('rsp: 0x%x'), 10, 0
 exceptionmsg:
-dw __?utf16?__('exception 0x%x'), 10, 0
+dw __?utf16?__('exception 0x%x'), 13, 10, 0
 regmsg:
-dw __?utf16?__('rip: %p  '), __?utf16?__('rsp: %p  '), __?utf16?__('rbp: %p'), 10, __?utf16?__('rax: 0x%x  '), __?utf16?__('rbx: 0x%x  '),__?utf16?__('rcx: 0x%x  '), 10, __?utf16?__('rdx: 0x%x  '), __?utf16?__('cs: 0x%x  '), __?utf16?__('ds: 0x%x'), 10, 0
+dw __?utf16?__('rip: %p  '), __?utf16?__('rsp: %p  '), __?utf16?__('rbp: %p'), 13, 10, __?utf16?__('rax: 0x%x  '), __?utf16?__('rbx: 0x%x  '),__?utf16?__('rcx: 0x%x  '), 13, 10, __?utf16?__('rdx: 0x%x  '), __?utf16?__('cs: 0x%x  '), __?utf16?__('ds: 0x%x'), 13, 10, 0
 section .text
 global default_isr
+global timer_isr
 global isr0
 global isr1
 global isr2
@@ -74,6 +73,8 @@ extern print
 extern printf
 extern clear
 extern set_text_color
+extern lapic_send_eoi
+time_ms dq 0
 exception_fg:
 db 255, 255, 255
 exception_bg:
@@ -111,6 +112,19 @@ add rsp, 32
 hlt
 ret
 default_isr:
+sti
+iretq
+msg dw __?utf16?__('timer'), 13, 10, 0
+timer_isr:
+cli
+pushaq
+mov qword rcx, msg
+sub qword rsp, 32
+call print
+add qword rsp, 32
+add qword [time_ms], 1
+call lapic_send_eoi
+popaq
 sti
 iretq
 isr0:
