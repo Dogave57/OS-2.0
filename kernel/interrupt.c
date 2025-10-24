@@ -46,6 +46,7 @@ int idt_init(void){
 		uint64_t isr = cpu_exception_table[i];
 		idt_add_entry(i, isr, 0x8E);
 	}
+	idt_add_entry(0x20, (uint64_t)pic_timer_isr, 0x8E);
 	idt_add_entry(0x30, (uint64_t)timer_isr, 0x8E);
 	idtr.limit = (uint16_t)(sizeof(struct idt_entry_t)*IDT_MAX_ENTRIES)-1;
 	idtr.base = (uint64_t)idt;

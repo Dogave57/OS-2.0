@@ -2,6 +2,7 @@
 #define _INTERRUPT
 #include "idt.h"
 void default_isr(void);
+void pic_timer_isr(void);
 void timer_isr(void);
 void isr0(void);
 void isr1(void);

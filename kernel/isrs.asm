@@ -48,7 +48,11 @@ dw __?utf16?__('exception 0x%x'), 13, 10, 0
 regmsg:
 dw __?utf16?__('rip: %p  '), __?utf16?__('rsp: %p  '), __?utf16?__('rbp: %p'), 13, 10, __?utf16?__('rax: 0x%x  '), __?utf16?__('rbx: 0x%x  '),__?utf16?__('rcx: 0x%x  '), 13, 10, __?utf16?__('rdx: 0x%x  '), __?utf16?__('cs: 0x%x  '), __?utf16?__('ds: 0x%x'), 13, 10, 0
 section .text
+global reset_timer
+global get_time_ms
+global set_time_ms
 global default_isr
+global pic_timer_isr
 global timer_isr
 global isr0
 global isr1
@@ -74,7 +78,7 @@ extern printf
 extern clear
 extern set_text_color
 extern lapic_send_eoi
-time_ms dq 0
+extern time_ms
 exception_fg:
 db 255, 255, 255
 exception_bg:
@@ -115,6 +119,16 @@ default_isr:
 sti
 iretq
 msg dw __?utf16?__('timer'), 13, 10, 0
+pic_timer_isr:
+cli
+push rdx
+add qword [rel time_ms], 1
+mov al, 20h
+mov dx, 20h
+out dx, al
+pop rdx
+sti
+iretq
 timer_isr:
 cli
 pushaq
@@ -122,7 +136,7 @@ mov qword rcx, msg
 sub qword rsp, 32
 call print
 add qword rsp, 32
-add qword [time_ms], 1
+add qword [rel time_ms], 1
 call lapic_send_eoi
 popaq
 sti
