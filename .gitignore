@@ -1,2 +1,5 @@
 drive.img
 drivemnt
+*.swp
+*.exe
+*.o
