@@ -6,6 +6,7 @@
 #include <Protocol/DevicePathToText.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
+#include <Guid/Acpi.h>
 #include "bootloader.h"
 #include "align.h"
 #include "pe.h"
@@ -132,7 +133,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	UINTN modecnt = gopProtocol->Mode->MaxMode;
 	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* pmodeinfo = (EFI_GRAPHICS_OUTPUT_MODE_INFORMATION*)0x0;
 	UINTN infoSize = 0;
-	unsigned int prefered_modes[][2] = {{640,480},{1920,1080},{320,200}};
+	unsigned int prefered_modes[][2] = {{1920, 1080}, {640,480},{320,200}};
 	unsigned int prefered_modecnt = sizeof(prefered_modes)/sizeof(prefered_modes[0]);
 	unsigned int mode_set = 0;
 	if (!modecnt){
@@ -228,6 +229,24 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	conout->ClearScreen(conout);
 	blargs->memoryInfo.pMemoryMap = pMemoryMap;
 	blargs->memoryInfo.memoryMapKey = memoryMapKey;
+	struct acpi_xsdp* pXsdp = (struct acpi_xsdp*)0x0;
+	EFI_GUID acpiTableGuid = EFI_ACPI_TABLE_GUID;
+	EFI_CONFIGURATION_TABLE* pConfTable = systab->ConfigurationTable;
+	UINTN tableCnt = systab->NumberOfTableEntries;
+	for (UINTN i = 0;i<tableCnt;i++){
+		EFI_GUID guid = pConfTable[i].VendorGuid;
+		if (guid.Data1!=acpiTableGuid.Data1||guid.Data2!=acpiTableGuid.Data2||guid.Data3!=acpiTableGuid.Data3)
+			continue;
+		if (uefi_memcmp((void*)guid.Data4, acpiTableGuid.Data4, 8)!=0)
+			continue;
+		
+		struct acpi_xsdp* hdr = (struct acpi_xsdp*)pConfTable[i].VendorTable;
+		if (hdr->signature!=XSDP_SIGNATURE)
+			continue;
+		pXsdp = hdr;
+		break;
+	}
+	blargs->acpiInfo.pXsdp = (struct acpi_xsdp*)pXsdp;
 	conout->ClearScreen(conout);
 	if (uefi_execute_elf((void*)pbuffer)!=0){
 		conout->OutputString(conout, L"failed to execute kernel!\r\n");

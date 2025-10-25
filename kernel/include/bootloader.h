@@ -6,6 +6,7 @@
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
 #include "graphics.h"
+#include "acpi.h"
 struct bootloader_graphicsInfo{
 	unsigned int width;
 	unsigned int height;
@@ -20,12 +21,16 @@ struct bootloader_memoryInfo{
 	UINTN memoryMapKey;
 	unsigned int memoryMapSize;
 };
+struct bootloader_acpiInfo{
+	struct acpi_xsdp* pXsdp;	
+};
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;
 	EFI_SYSTEM_TABLE* systable;
 	EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* filesystemProtocol;
 	struct bootloader_memoryInfo memoryInfo;	
 	struct bootloader_graphicsInfo graphicsInfo;
+	struct bootloader_acpiInfo acpiInfo;
 };
 typedef int(*kernelEntryType)(unsigned char* pstack, struct bootloader_args*);
 extern EFI_SYSTEM_TABLE* systab;

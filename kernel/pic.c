@@ -2,7 +2,9 @@
 #include "pic.h"
 int pic_remap(void);
 int pic_init(void){
+	__asm__ volatile("cli");
 	pic_remap();
+	__asm__ volatile("sti");
 	return 0;
 }
 int pic_remap(void){

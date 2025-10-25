@@ -54,6 +54,7 @@ global set_time_ms
 global default_isr
 global pic_timer_isr
 global timer_isr
+global thermal_isr
 global isr0
 global isr1
 global isr2
@@ -79,6 +80,7 @@ extern clear
 extern set_text_color
 extern lapic_send_eoi
 extern time_ms
+extern thermal_state
 exception_fg:
 db 255, 255, 255
 exception_bg:
@@ -137,6 +139,13 @@ sub rsp, 32
 ;call print
 add rsp, 32
 add qword [rel time_ms], 1
+call lapic_send_eoi
+popaq
+sti
+iretq
+thermal_isr:
+cli
+pushaq
 call lapic_send_eoi
 popaq
 sti

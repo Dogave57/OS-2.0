@@ -3,7 +3,9 @@
 #include "interrupt.h"
 #include "stdlib.h"
 #include "filesystem.h"
+#include "timer.h"
 #include "apic.h"
+#include "acpi.h"
 #include "gdt.h"
 EFI_SYSTEM_TABLE* systab = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
@@ -46,7 +48,15 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf(L"APIC initialized\r\n");
-	__asm__ volatile("int $0x30");
+	unsigned int start_time = get_time_ms();
+	if (acpi_init()!=0){
+		printf(L"failed to initialize ACPI\r\n");
+		while (1){};
+		return -1;
+	}
+	unsigned int elapsed_time = get_time_ms()-start_time;
+	printf(L"ACPI initialized\r\n");
+	printf(L"took %dms to initialize ACPI\r\n", elapsed_time);
 	while (1){};
 	return 0;	
 }

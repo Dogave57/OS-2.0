@@ -11,7 +11,8 @@ unsigned int x2lapic_supported = 0;
 int apic_init(void){
 	x2lapic_is_supported(&x2lapic_supported);
 	if (!x2lapic_supported){
-		printf(L"x2LAPIC unsupported! Falling back to normal LAPIC\r\n");
+		printf(L"x2lapic is unsupported!\r\n");
+		return -1;
 	}
 	apic_base = read_msr(LAPIC_BASE_MSR);
 	apic_base&=0xfffff000;
@@ -26,25 +27,24 @@ int apic_init(void){
 	uint64_t div_conf = 3;
 	lapic_get_version(&lapic_version);
 	printf(L"LAPIC version: %x\r\n", lapic_version);
-	x2lapic_write_reg(LAPIC_REG_TPR, 0);
-	x2lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
-	x2lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
-	outb(0x43, 0x30);
+	lapic_write_reg(LAPIC_REG_TPR, 0);
+	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
+	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
 	pic_init();
 	pit_set_freq(0, 1000);
 	uint64_t start_time = get_time_ms();
 	uint64_t elapsed_ms = 0;
 	uint64_t time_ms = 0;
 	uint64_t start_ticks = 0xFFFFFFFF;
-	uint64_t time_precision_ms = 40;
-	x2lapic_write_reg(LAPIC_REG_INIT_COUNT, start_ticks);
+	uint64_t time_precision_ms = 10;
+	lapic_write_reg(LAPIC_REG_INIT_COUNT, start_ticks);
 	while (elapsed_ms<time_precision_ms){
 		time_ms = get_time_ms();
 		elapsed_ms = time_ms-start_time;
 	}
-	x2lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<16));
+	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<16));
 	uint64_t elapsed_ticks = 0;
-	x2lapic_read_reg(LAPIC_REG_CURRENT_COUNT, &elapsed_ticks);
+	lapic_read_reg(LAPIC_REG_CURRENT_COUNT, &elapsed_ticks);
 	elapsed_ticks = (start_ticks-elapsed_ticks);
 	uint64_t tpms = elapsed_ticks/time_precision_ms;
 	outb(0x21, 0xFF);
@@ -53,12 +53,12 @@ int apic_init(void){
 	outb(0x00, 0x00);
 	timer_reset();
 	timer_set_tpms(tpms);
-	x2lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
-	x2lapic_write_reg(LAPIC_REG_INIT_COUNT, tpms);
-	x2lapic_write_reg(LAPIC_REG_LVT_TIMER, 0x30|(1<<17));
-	x2lapic_read_reg(LAPIC_REG_SPI, &value);
+	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
+	lapic_write_reg(LAPIC_REG_INIT_COUNT, tpms);
+	lapic_write_reg(LAPIC_REG_LVT_TIMER, 0x30|(1<<17));
+	lapic_read_reg(LAPIC_REG_SPI, &value);
 	value|=0x100;
-	x2lapic_write_reg(LAPIC_REG_SPI, value);
+	lapic_write_reg(LAPIC_REG_SPI, value);
 	return 0;
 }
 int lapic_get_version(uint64_t* pversion){
@@ -97,10 +97,6 @@ int lapic_read_reg(unsigned int reg, uint64_t* pvalue){
 	return 0;
 }
 int lapic_send_eoi(void){
-	if (x2lapic_supported){
-		x2lapic_write_reg(LAPIC_REG_EOI, 0);
-		return 0;
-	}
 	lapic_write_reg(LAPIC_REG_EOI, 0);
 	return 0;
 }

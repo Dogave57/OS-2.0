@@ -4,6 +4,7 @@
 void default_isr(void);
 void pic_timer_isr(void);
 void timer_isr(void);
+void thermal_isr(void);
 void isr0(void);
 void isr1(void);
 void isr2(void);
