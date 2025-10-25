@@ -3,6 +3,8 @@
 #include <stdint.h>
 #define XSDP_SIGNATURE (uint64_t)0x2052545020445352
 #define XSDT_SIGNATURE (uint64_t)0x54445358
+#define MADT_ENTRY_LAPIC 0
+#define MADT_ENTRY_IOAPIC 1
 struct acpi_sdt_hdr{
 	uint32_t signature;
 	uint32_t len;
@@ -32,8 +34,29 @@ struct acpi_xsdp{
 	uint8_t extendedChecksum;
 	uint8_t reserved[3];
 }__attribute__((packed));
+struct acpi_madt{
+	struct acpi_sdt_hdr hdr;
+	uint32_t lapic_base;
+	uint32_t lapic_flags;
+}__attribute__((packed));
+struct acpi_madtEntry_hdr{
+	uint8_t type;
+	uint8_t len;
+}__attribute__((packed));
+struct acpi_madtEntry_lapic{
+	uint16_t acpi_processor_id;
+	uint8_t apic_id;
+	uint32_t flags;
+}__attribute__((packed));
+struct acpi_madtEntry_ioapic{
+	uint8_t ioapic_id;
+	uint8_t reserved;
+	uint32_t ioapic_base;
+	uint32_t global_system_int_base;
+}__attribute__((packed));
 extern struct acpi_xdsp* pXdsp;
 extern struct acpi_sdt_hdr* pXsdt;
+extern struct acpi_madtEntry_ioapic* pIoApicInfo;
 int acpi_init(void);
 int acpi_find_table(unsigned int signature, struct acpi_sdt_hdr** ppTable);
 int acpi_find_xsdt(struct acpi_sdt_hdr** ppXsdt);

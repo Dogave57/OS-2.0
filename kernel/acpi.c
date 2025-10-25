@@ -3,6 +3,7 @@
 #include "acpi.h"
 struct acpi_xsdp* pXsdp = (struct acpi_xsdp*)0x0;
 struct acpi_sdt_hdr* pXsdt = (struct acpi_sdt_hdr*)0x0;
+struct acpi_madtEntry_ioapic* pIoApicInfo = (struct acpi_madtEntry_ioapic*)0x0;
 int acpi_init(void){
 	pXsdp = (struct acpi_xsdp*)0x0;
 	pXsdt = (struct acpi_sdt_hdr*)0x0;
@@ -21,10 +22,48 @@ int acpi_init(void){
 	}
 	printf(L"xsdt: %p\r\n", (void*)pXsdt);
 	printf(L"xsdt signature: 0x%x\r\n", pXsdt->signature);
+	struct acpi_madt* madt = (struct acpi_madt*)0x0;
+	if (acpi_find_table('CIPA', (struct acpi_sdt_hdr**)&madt)!=0){
+		printf(L"failed to find MADT\r\n");
+		return -1;
+	}
+	if (madt->hdr.signature!='CIPA'){
+		printf(L"invalid MADT signature\r\n");
+		return -1;
+	}
+	printf(L"found MADT at %p\r\n", (void*)madt);
+	printf(L"LAPIC base: %p\r\n", madt->lapic_base);
+	struct acpi_madtEntry_hdr* pMadtEntry = (struct acpi_madtEntry_hdr*)((unsigned char*)madt+0x2C);
+	unsigned int madtEntries = (madt->hdr.len-sizeof(struct acpi_sdt_hdr))/sizeof(struct acpi_madtEntry_hdr);
+	for (unsigned int i = 0;i<madtEntries;i++,pMadtEntry = (struct acpi_madtEntry_hdr*)((unsigned char*)pMadtEntry+pMadtEntry->len)){
+		if (pMadtEntry->type!=MADT_ENTRY_IOAPIC)
+			continue;
+		pIoApicInfo = (struct acpi_madtEntry_ioapic*)(pMadtEntry+1);
+	}
+	if (!pIoApicInfo){
+		printf(L"failed to get IOAPIC info\r\n");
+		return -1;
+	}
 	return 0;
 }
 int acpi_find_table(unsigned int signature, struct acpi_sdt_hdr** ppTable){
-
+	if (!ppTable)
+		return -1;
+	if (!pXsdt){
+		if (acpi_find_xsdt(&pXsdt)!=0)
+			return -1;
+	}
+	struct acpi_sdt_hdr** ptables = (struct acpi_sdt_hdr**)(pXsdt+1);
+	unsigned int tablecnt = (pXsdt->len-sizeof(struct acpi_sdt_hdr))/sizeof(uint64_t);
+	for (unsigned int i = 0;i<tablecnt;i++){
+		struct acpi_sdt_hdr* table = ptables[i];
+		if (!table)
+			continue;
+		if (table->signature!=signature)
+			continue;
+		*ppTable = table;
+		return 0;
+	}
 	return -1;
 }
 int acpi_find_xsdt(struct acpi_sdt_hdr** ppXsdt){

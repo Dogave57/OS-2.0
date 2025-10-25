@@ -3,7 +3,7 @@ BOOTLD='lld-link'
 CC='sudo x86_64-w64-mingw32-gcc'
 LD='lld-link'
 AS='nasm'
-CFLAGS='-O0 -mabi=ms -ffreestanding -fno-stack-protector -fshort-wchar -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
+CFLAGS='-O0 -mabi=ms -ffreestanding -fno-stack-protector -fshort-wchar -Wno-multichar -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
 OS=$(uname -s)
 echo compiling bootloader
 $BOOTCC $CFLAGS -fpic -c boot/bootloader.c -o build/objects/bootloader.o

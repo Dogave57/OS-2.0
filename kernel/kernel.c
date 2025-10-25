@@ -42,21 +42,18 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	print(L"idt loaded\r\n");
+	if (acpi_init()!=0){
+		printf(L"failed to initialize ACPI\r\n");
+		while (1){};
+		return -1;
+	}
+	printf(L"ACPI initialized\r\n");
 	if (apic_init()!=0){
 		printf(L"failed to initialize the APIC\r\n");
 		while (1){};
 		return -1;
 	}
 	printf(L"APIC initialized\r\n");
-	unsigned int start_time = get_time_ms();
-	if (acpi_init()!=0){
-		printf(L"failed to initialize ACPI\r\n");
-		while (1){};
-		return -1;
-	}
-	unsigned int elapsed_time = get_time_ms()-start_time;
-	printf(L"ACPI initialized\r\n");
-	printf(L"took %dms to initialize ACPI\r\n", elapsed_time);
 	while (1){};
 	return 0;	
 }

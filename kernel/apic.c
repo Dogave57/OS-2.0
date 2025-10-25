@@ -4,9 +4,11 @@
 #include "port.h"
 #include "pit.h"
 #include "pic.h"
+#include "acpi.h"
 #include "timer.h"
 #include "apic.h"
-uint64_t apic_base = 0;
+uint64_t lapic_base = 0;
+uint64_t ioapic_base = 0;
 unsigned int x2lapic_supported = 0;
 int apic_init(void){
 	x2lapic_is_supported(&x2lapic_supported);
@@ -14,13 +16,13 @@ int apic_init(void){
 		printf(L"x2lapic is unsupported!\r\n");
 		return -1;
 	}
-	apic_base = read_msr(LAPIC_BASE_MSR);
-	apic_base&=0xfffff000;
+	lapic_base = read_msr(LAPIC_BASE_MSR);
+	lapic_base&=0xfffff000;
 	if (x2lapic_supported)
-		apic_base|=0xC00;
+		lapic_base|=0xC00;
 	else
-		apic_base|=0x800;
-	write_msr(LAPIC_BASE_MSR, apic_base);
+		lapic_base|=0x800;
+	write_msr(LAPIC_BASE_MSR, lapic_base);
 	uint64_t base = 0;
 	uint64_t lapic_version = 0;
 	uint64_t value = 0;
@@ -59,6 +61,11 @@ int apic_init(void){
 	lapic_read_reg(LAPIC_REG_SPI, &value);
 	value|=0x100;
 	lapic_write_reg(LAPIC_REG_SPI, value);
+	if (ioapic_get_base(&ioapic_base)){
+		printf(L"failed to get IOAPIC base\r\n");
+		return -1;
+	}
+	printf(L"IOAPIC base: %p\r\n", (void*)ioapic_base);
 	return 0;
 }
 int lapic_get_version(uint64_t* pversion){
@@ -83,7 +90,7 @@ int lapic_write_reg(unsigned int reg, uint64_t value){
 		x2lapic_write_reg(reg, value);
 		return 0;
 	}
-	*(unsigned int*)(apic_base+reg) = (unsigned int)value;
+	*(unsigned int*)(lapic_base+reg) = (unsigned int)value;
 	return 0;
 }
 int lapic_read_reg(unsigned int reg, uint64_t* pvalue){
@@ -93,7 +100,7 @@ int lapic_read_reg(unsigned int reg, uint64_t* pvalue){
 		x2lapic_read_reg(reg, pvalue);
 		return 0;
 	}
-	*(unsigned int*)pvalue = *(unsigned int*)(apic_base+reg);
+	*(unsigned int*)pvalue = *(unsigned int*)(lapic_base+reg);
 	return 0;
 }
 int lapic_send_eoi(void){
@@ -104,5 +111,13 @@ int x2lapic_is_supported(unsigned int* psupported){
 	unsigned int ecx = 0;
 	cpuid(0x1, 0x0, (unsigned int*)0x0, (unsigned int*)0x0, &ecx, (unsigned int*)0x0);
 	*psupported = (ecx>>21)&1;
+	return 0;
+}
+int ioapic_get_base(uint64_t* pbase){
+	if (!pbase)
+		return -1;
+	if (!pIoApicInfo)
+		return -1;
+	*pbase = (uint64_t)pIoApicInfo->ioapic_base;
 	return 0;
 }

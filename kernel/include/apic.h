@@ -29,4 +29,5 @@ int lapic_send_eoi(void);
 int lapic_write_reg(unsigned int reg, uint64_t value);
 int lapic_read_reg(unsigned int reg, uint64_t* pvalue);
 int x2lapic_is_supported(unsigned int* psupported);
+int ioapic_get_base(uint64_t* pbase);
 #endif
