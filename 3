@@ -23,11 +23,11 @@ int apic_init(void){
 	uint64_t base = 0;
 	uint64_t lapic_version = 0;
 	uint64_t value = 0;
-	uint64_t div_conf = 3;
+	uint64_t div_conf = 16;
 	lapic_get_version(&lapic_version);
 	printf(L"LAPIC version: %x\r\n", lapic_version);
 	x2lapic_write_reg(LAPIC_REG_TPR, 0);
-	x2lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
+	x2lapic_write_reg(LAPIC_REG_LVT_TIMER, 0x30|(1<<17));
 	x2lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
 	outb(0x43, 0x30);
 	pic_init();
@@ -36,29 +36,33 @@ int apic_init(void){
 	uint64_t elapsed_ms = 0;
 	uint64_t time_ms = 0;
 	uint64_t start_ticks = 0xFFFFFFFF;
-	uint64_t time_precision_ms = 40;
+	uint64_t time_precision_ms = 10;
 	x2lapic_write_reg(LAPIC_REG_INIT_COUNT, start_ticks);
 	while (elapsed_ms<time_precision_ms){
 		time_ms = get_time_ms();
 		elapsed_ms = time_ms-start_time;
 	}
-	x2lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<16));
 	uint64_t elapsed_ticks = 0;
 	x2lapic_read_reg(LAPIC_REG_CURRENT_COUNT, &elapsed_ticks);
 	elapsed_ticks = (start_ticks-elapsed_ticks);
 	uint64_t tpms = elapsed_ticks/time_precision_ms;
+	uint64_t lapic_freq = elapsed_ticks*100;
 	outb(0x21, 0xFF);
 	outb(0x00, 0x00);
 	outb(0xA1, 0xFF);
 	outb(0x00, 0x00);
 	timer_reset();
 	timer_set_tpms(tpms);
+	printf(L"tptms: %d\r\n", elapsed_ticks);
+	printf(L"tpms: %d\r\n", tpms);
 	x2lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
-	x2lapic_write_reg(LAPIC_REG_INIT_COUNT, tpms);
-	x2lapic_write_reg(LAPIC_REG_LVT_TIMER, 0x30|(1<<17));
+	x2lapic_write_reg(LAPIC_REG_INIT_COUNT, lapic_freq/1000);
 	x2lapic_read_reg(LAPIC_REG_SPI, &value);
 	value|=0x100;
 	x2lapic_write_reg(LAPIC_REG_SPI, value);
+	start_time = get_time_ms();
+	while ((get_time_ms()-start_time)<10000){};
+	printf(L"done\r\n");
 	return 0;
 }
 int lapic_get_version(uint64_t* pversion){

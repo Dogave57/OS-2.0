@@ -12,8 +12,10 @@ tick_cnt dq 0
 tick_per_ms dq 0
 section .text
 timer_reset:
+cli
 mov qword [rel time_ms], 0
 mov qword [rel tick_cnt], 0
+sti
 xor rax, rax
 ret
 set_time_ms:
@@ -26,12 +28,15 @@ get_time_ms:
 cli
 mov qword rax, [rel time_ms]
 sti
-xor rax, rax
 ret
 timer_get_tpms:
-mov qword rax, [tick_per_ms]
+cli
+mov qword rax, [rel tick_per_ms]
+sti
 ret
 timer_set_tpms:
-mov qword [tick_per_ms], rcx
+cli
+mov qword [rel tick_per_ms], rcx
+sti
 xor rax, rax
 ret

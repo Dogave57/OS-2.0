@@ -121,21 +121,21 @@ iretq
 msg dw __?utf16?__('timer'), 13, 10, 0
 pic_timer_isr:
 cli
-push rdx
+pushaq
 add qword [rel time_ms], 1
 mov al, 20h
 mov dx, 20h
 out dx, al
-pop rdx
+popaq
 sti
 iretq
 timer_isr:
 cli
 pushaq
-mov qword rcx, msg
-sub qword rsp, 32
-call print
-add qword rsp, 32
+mov rcx, msg
+sub rsp, 32
+;call print
+add rsp, 32
 add qword [rel time_ms], 1
 call lapic_send_eoi
 popaq

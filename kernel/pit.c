@@ -5,8 +5,8 @@ int pit_set_freq(unsigned int channel, unsigned int freq){
 	outb(0x43, 0x34);	
 	outb(0x00, 0x00);
 	unsigned int channel_port = 0x40+channel;
-	unsigned int freq_low = freq&0xFFFF;
-	unsigned int freq_high = (freq>>16)&0xFFFF;
+	unsigned int freq_low = freq&0xFF;
+	unsigned int freq_high = (freq>>8)&0xFF;
 	outw(channel_port, freq_low);
 	outb(0x00, 0x00);
 	outw(channel_port, freq_high);
