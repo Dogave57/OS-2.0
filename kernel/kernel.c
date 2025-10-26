@@ -3,6 +3,7 @@
 #include "interrupt.h"
 #include "stdlib.h"
 #include "filesystem.h"
+#include "logo.h"
 #include "timer.h"
 #include "paging.h"
 #include "apic.h"
@@ -61,6 +62,8 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf(L"APIC initialized\r\n");
+	printf(L"Welcome to SlickOS\r\n");
+	printf(L"%s\r\n", logo);
 	while (1){};
 	return 0;	
 }

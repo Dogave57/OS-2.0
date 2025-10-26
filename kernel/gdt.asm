@@ -1,5 +1,6 @@
 global load_gdt
 section .text
+global reload_cs
 reload_cs:
 mov ax, 10h
 mov ds, ax

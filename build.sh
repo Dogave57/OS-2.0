@@ -32,8 +32,9 @@ sudo $AS -f win64 kernel/idt.asm -o build/objects/idt_asm.o
 sudo $AS -f win64 kernel/msr.asm -o build/objects/msr.o
 sudo $AS -f win64 kernel/timer.asm -o build/objects/timer.o
 sudo $AS -f win64 kernel/thermal.asm -o build/objects/thermal.o
+sudo $AS -f win64 kernel/paging.asm -o build/objects/paging_asm.o
 echo linking kernel
-sudo $LD -subsystem:native build/objects/kernel.o build/objects/graphics.o build/objects/kernel_stub.o build/objects/interrupt.o build/objects/isrs.o build/objects/gdt_asm.o build/objects/gdt.o build/objects/idt_asm.o build/objects/port.o build/objects/filesystem.o build/objects/stdlib.o build/objects/msr.o build/objects/apic.o build/objects/cpuid.o build/objects/pit.o build/objects/pic.o build/objects/timer.o build/objects/thermal.o build/objects/acpi.o build/objects/keyboard.o build/objects/paging.o -entry:kernel_stub -out:build/build/kernel.exe
+sudo $LD -subsystem:native build/objects/kernel.o build/objects/graphics.o build/objects/kernel_stub.o build/objects/interrupt.o build/objects/isrs.o build/objects/gdt_asm.o build/objects/gdt.o build/objects/idt_asm.o build/objects/port.o build/objects/filesystem.o build/objects/stdlib.o build/objects/msr.o build/objects/apic.o build/objects/cpuid.o build/objects/pit.o build/objects/pic.o build/objects/timer.o build/objects/thermal.o build/objects/acpi.o build/objects/keyboard.o build/objects/paging.o build/objects/paging_asm.o -entry:kernel_stub -out:build/build/kernel.exe
 echo done
 case "$OS" in
 "Linux")

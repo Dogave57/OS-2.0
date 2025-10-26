@@ -18,5 +18,6 @@ int paging_init(void){
 		freeMemory+=pMemDesc->NumberOfPages*EFI_PAGE_SIZE;
 	}
 	printf(L"%dmb of free memory\r\n", freeMemory/1000000);
+	load_pt(NULL);
 	return 0;
 }
