@@ -92,3 +92,11 @@ int printf(CHAR16* fmt, ...){
 	va_end(args);
 	return 0;
 }
+int memset(uint64_t* mem, uint64_t value, uint64_t size){
+	if (!mem)
+		return -1;
+	for (uint64_t i = 0;i<size/8;i++){
+		mem[i] = value;
+	}
+	return 0;
+}

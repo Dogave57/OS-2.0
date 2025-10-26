@@ -3,7 +3,7 @@
 #include "filesystem.h"
 #include "graphics.h"
 unsigned int char_position = 0;
-struct vec3 text_fg = {200,0,0};
+struct vec3 text_fg = {255,255,255};
 struct vec3 text_bg = {0,0,0};
 int write_pixel_coord(struct vec2 coord, struct vec3 color){
 	unsigned int pixel = (coord.y*pbootargs->graphicsInfo.height)+coord.x;
@@ -27,7 +27,6 @@ int clear(void){
 	return 0;
 }
 int writechar(unsigned int position, CHAR16 ch){
-	struct vec3 color = {200,0,0};
 	unsigned int font_offset = ((8*16)/8)*ch;
 	unsigned int position_x = position%pbootargs->graphicsInfo.width;
 	unsigned int position_y = position/pbootargs->graphicsInfo.width;
