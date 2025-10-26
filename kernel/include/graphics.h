@@ -13,6 +13,7 @@ struct vec4{
 int write_pixel_coord(struct vec2 coord, struct vec3 color);
 int write_pixel(unsigned int pixel, struct vec3 color);
 int clear(void);
+int writechar(unsigned int position, CHAR16 ch);
 int putchar(CHAR16 ch);
 int puthex(unsigned char hex, unsigned char isUpper);
 int print(CHAR16* string);

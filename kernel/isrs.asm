@@ -83,6 +83,7 @@ extern lapic_send_eoi
 extern time_ms
 extern thermal_state
 extern putchar
+extern ps2_keyboard_handler
 exception_fg:
 db 255, 255, 255
 exception_bg:
@@ -155,12 +156,7 @@ iretq
 ps2_kbd_isr:
 cli
 pushaq
-mov rcx, 'a'
-sub rsp, 32
-call putchar
-add rsp, 32
-mov dx, 60h
-in al, dx
+call ps2_keyboard_handler
 call lapic_send_eoi
 popaq
 sti

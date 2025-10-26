@@ -78,6 +78,7 @@ int apic_init(void){
 	printf(L"IOAPIC version: 0x%x\r\n", ioapic_version);
 	printf(L"IOAPIC id: 0x%x\r\n", ioapic_id);
 	printf(L"IOAPIC max redirection entries: %d\r\n", ioapic_max_redirs);
+	inb(0x60);
 	ioapic_enable_irq(1, 0x40, (uint8_t)main_lapic_id);
 	return 0;
 }
