@@ -8,7 +8,12 @@
 #include "timer.h"
 #include "apic.h"
 uint64_t lapic_base = 0;
+uint64_t lapic_version = 0;
+uint64_t lapic_id = 0;
 uint64_t ioapic_base = 0;
+uint32_t ioapic_version = 0;
+uint32_t ioapic_id = 0;
+uint32_t ioapic_max_redirs = 0;
 unsigned int x2lapic_supported = 0;
 int apic_init(void){
 	x2lapic_is_supported(&x2lapic_supported);
@@ -24,11 +29,12 @@ int apic_init(void){
 		lapic_base|=0x800;
 	write_msr(LAPIC_BASE_MSR, lapic_base);
 	uint64_t base = 0;
-	uint64_t lapic_version = 0;
 	uint64_t value = 0;
 	uint64_t div_conf = 3;
 	lapic_get_version(&lapic_version);
 	printf(L"LAPIC version: %x\r\n", lapic_version);
+	lapic_get_id(&lapic_id);
+	printf(L"LAPIC id: 0x%x\r\n", lapic_id);
 	lapic_write_reg(LAPIC_REG_TPR, 0);
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
 	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
@@ -65,13 +71,24 @@ int apic_init(void){
 		printf(L"failed to get IOAPIC base\r\n");
 		return -1;
 	}
+	ioapic_get_version(&ioapic_version);
+	ioapic_get_id(&ioapic_id);
+	ioapic_get_max_redirs(&ioapic_max_redirs);
 	printf(L"IOAPIC base: %p\r\n", (void*)ioapic_base);
+	printf(L"IOAPIC version: 0x%x\r\n", ioapic_version);
+	printf(L"IOAPIC id: 0x%x\r\n", ioapic_id);
+	printf(L"IOAPIC max redirection entries: %d\r\n", ioapic_max_redirs);
 	return 0;
 }
 int lapic_get_version(uint64_t* pversion){
 	if (!pversion)
 		return -1;
 	return lapic_read_reg(LAPIC_REG_LAPIC_VERSION, pversion);
+}
+int lapic_get_id(uint64_t* pId){
+	if (!pId)
+		return -1;
+	return lapic_read_reg(LAPIC_REG_LAPIC_ID, pId);
 }
 int x2lapic_write_reg(unsigned int reg, uint64_t value){
 	reg/=16;
@@ -119,5 +136,46 @@ int ioapic_get_base(uint64_t* pbase){
 	if (!pIoApicInfo)
 		return -1;
 	*pbase = (uint64_t)pIoApicInfo->ioapic_base;
+	return 0;
+}
+int ioapic_get_version(uint32_t* pversion){
+	if (!pversion)
+		return -1;
+	uint32_t version = 0;
+	if (ioapic_read_reg(IOAPIC_REG_VERSION, &version)!=0)
+		return -1;
+	version&=0xFF;
+	*pversion = version;
+	return 0;
+}
+int ioapic_get_max_redirs(uint32_t* pmax_redirs){
+	if (!pmax_redirs)
+		return -1;
+	uint32_t max_redirs = 0;
+	if (ioapic_read_reg(IOAPIC_REG_VERSION, &max_redirs)!=0)
+		return -1;
+	max_redirs = ((max_redirs>>16)&0xFF)+1;
+	*pmax_redirs = max_redirs;
+	return 0;
+}
+int ioapic_get_id(uint32_t* pId){
+	if (!pId)
+		return -1;
+	return ioapic_read_reg(IOAPIC_REG_ID, pId);
+}
+int ioapic_write_reg(uint32_t reg, uint32_t value){
+	unsigned char* pbase = (unsigned char*)ioapic_base;
+	*(unsigned int*)(pbase) = (unsigned int)reg;
+	*(unsigned int*)(pbase+0x10) = value;
+	outb(0x00, 0x00);
+	return 0;	
+}
+int ioapic_read_reg(uint32_t reg, uint32_t* pvalue){
+	if (!pvalue)
+		return -1;
+	unsigned char* pbase = (unsigned char*)ioapic_base;
+	*(unsigned int*)(pbase) = reg;
+	outb(0x00, 0x00);
+	*pvalue = *(unsigned int*)(pbase+0x10);
 	return 0;
 }

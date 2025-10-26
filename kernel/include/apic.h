@@ -20,9 +20,13 @@
 #define LAPIC_REG_INIT_COUNT 0x380
 #define LAPIC_REG_CURRENT_COUNT 0x390
 #define LAPIC_REG_DIV_CONFIG 0x3E0
+#define IOAPIC_REG_ID 0x00
+#define IOAPIC_REG_VERSION 0x01
+#define IOAPIC_REG_ARB 0x02
 extern uint64_t apic_base;
 int apic_init(void);
 int lapic_get_version(uint64_t* pversion);
+int lapic_get_id(uint64_t* pId);
 int x2lapic_write_reg(unsigned int reg, uint64_t value);
 int x2lapic_read_reg(unsigned int reg, uint64_t* pvalue);
 int lapic_send_eoi(void);
@@ -30,4 +34,9 @@ int lapic_write_reg(unsigned int reg, uint64_t value);
 int lapic_read_reg(unsigned int reg, uint64_t* pvalue);
 int x2lapic_is_supported(unsigned int* psupported);
 int ioapic_get_base(uint64_t* pbase);
+int ioapic_get_version(uint32_t* pversion);
+int ioapic_get_max_redirs(uint32_t* pmax_redirs);
+int ioapic_get_id(uint32_t* pId);
+int ioapic_write_reg(uint32_t reg, uint32_t value);
+int ioapic_read_reg(uint32_t reg, uint32_t* pvalue);
 #endif
