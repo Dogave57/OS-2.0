@@ -4,6 +4,7 @@
 #include "stdlib.h"
 #include "filesystem.h"
 #include "timer.h"
+#include "paging.h"
 #include "apic.h"
 #include "acpi.h"
 #include "gdt.h"
@@ -42,6 +43,12 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	print(L"idt loaded\r\n");
+	if (paging_init()!=0){
+		printf(L"failed to initialize paging\r\n");
+		while (1){};
+		return -1;
+	}
+	printf(L"paging initialized\r\n");
 	if (acpi_init()!=0){
 		printf(L"failed to initialize ACPI\r\n");
 		while (1){};

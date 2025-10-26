@@ -210,7 +210,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		while (1){};
 		return EFI_ABORTED;
 	}
-	memoryMapSize+=EFI_PAGE_SIZE;
+	memoryMapSize+=(EFI_PAGE_SIZE*4);
 	status = BS->AllocatePool(EfiLoaderData, memoryMapSize, (void**)&pMemoryMap);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for memory map %x\r\n", status);
@@ -226,9 +226,18 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		while (1){};
 		return EFI_ABORTED;
 	}
+	uint64_t freeMem = 0;
+	for (UINTN i = 0;i<memoryMapSize/memoryMapDescSize;i++){
+		EFI_MEMORY_DESCRIPTOR* memDesc = (EFI_MEMORY_DESCRIPTOR*)(((uint64_t)pMemoryMap)+(i*memoryMapDescSize));
+		if (memDesc->Type!=EfiConventionalMemory)
+			continue;
+		freeMem+=memDesc->NumberOfPages*EFI_PAGE_SIZE;
+	}
 	conout->ClearScreen(conout);
 	blargs->memoryInfo.pMemoryMap = pMemoryMap;
 	blargs->memoryInfo.memoryMapKey = memoryMapKey;
+	blargs->memoryInfo.memoryMapSize = memoryMapSize;
+	blargs->memoryInfo.memoryDescSize = memoryMapDescSize;
 	struct acpi_xsdp* pXsdp = (struct acpi_xsdp*)0x0;
 	EFI_GUID acpiTableGuid = EFI_ACPI_TABLE_GUID;
 	EFI_CONFIGURATION_TABLE* pConfTable = systab->ConfigurationTable;
@@ -280,7 +289,7 @@ int uefi_execute_elf(void* pfiledata){
 		return -1;
 	}
 	unsigned char* pimage = (unsigned char*)0x0;
-	EFI_STATUS status = BS->AllocatePool(EfiLoaderData, pOptHeader->sizeOfImage, (void**)&pimage);
+	EFI_STATUS status = BS->AllocatePool(EfiRuntimeServicesData, pOptHeader->sizeOfImage, (void**)&pimage);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for portable executable binary image %x\r\n", status);
 		return -1;
@@ -382,7 +391,7 @@ int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UI
 		return -1;
 	}	
 	uefi_printf(L"file info size: %x\r\n", fileInfoSize);
-	status = BS->AllocatePool(EfiBootServicesData, fileInfoSize, (void**)&pFileInfo);
+	status = BS->AllocatePool(EfiLoaderData, fileInfoSize, (void**)&pFileInfo);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for file info %x\r\n", status);
 		pFileProtocol->Close(pFileProtocol);

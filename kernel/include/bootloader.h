@@ -1,6 +1,7 @@
 #ifndef _BOOTLOADER
 #define _BOOTLOADER
 #include <Uefi.h>
+#include <Uefi/UefiMultiPhase.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/SimpleFileSystem.h>
@@ -19,6 +20,7 @@ struct bootloader_graphicsInfo{
 struct bootloader_memoryInfo{
 	EFI_MEMORY_DESCRIPTOR* pMemoryMap;
 	UINTN memoryMapKey;
+	UINTN memoryDescSize;
 	unsigned int memoryMapSize;
 };
 struct bootloader_acpiInfo{

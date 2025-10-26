@@ -11,7 +11,6 @@ int acpi_init(void){
 		printf(L"failed to find xsdp\r\n");
 		return -1;
 	}
-	printf(L"xsdp: %p\r\n", (void*)pXsdp);
 	if (acpi_find_xsdt(&pXsdt)!=0){
 		printf(L"failed to find XSDT\r\n");
 		return -1;
@@ -20,8 +19,6 @@ int acpi_init(void){
 		printf(L"invalid XSDT signature\r\n");
 		return -1;
 	}
-	printf(L"xsdt: %p\r\n", (void*)pXsdt);
-	printf(L"xsdt signature: 0x%x\r\n", pXsdt->signature);
 	struct acpi_madt* madt = (struct acpi_madt*)0x0;
 	if (acpi_find_table('CIPA', (struct acpi_sdt_hdr**)&madt)!=0){
 		printf(L"failed to find MADT\r\n");
@@ -31,7 +28,6 @@ int acpi_init(void){
 		printf(L"invalid MADT signature\r\n");
 		return -1;
 	}
-	printf(L"found MADT at %p\r\n", (void*)madt);
 	printf(L"LAPIC base: %p\r\n", madt->lapic_base);
 	struct acpi_madtEntry_hdr* pMadtEntry = (struct acpi_madtEntry_hdr*)((unsigned char*)madt+0x2C);
 	unsigned int madtEntries = (madt->hdr.len-sizeof(struct acpi_sdt_hdr))/sizeof(struct acpi_madtEntry_hdr);

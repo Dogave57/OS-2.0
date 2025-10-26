@@ -53,6 +53,8 @@ int putchar(CHAR16 ch){
 		conout->OutputString(conout, str);
 		return 0;
 	}
+	if (char_position>=pbootargs->graphicsInfo.width*(pbootargs->graphicsInfo.height/16))
+		clear();
 	switch (ch){
 		case '\n':
 		char_position+=pbootargs->graphicsInfo.width;
@@ -64,6 +66,8 @@ int putchar(CHAR16 ch){
 		default:
 		break;
 		case '\b':
+		if (char_position<8)
+			break;
 		char_position-=8;
 		writechar(char_position, L' ');
 		return 0;
