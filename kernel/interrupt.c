@@ -49,6 +49,7 @@ int idt_init(void){
 	idt_add_entry(0x20, (uint64_t)pic_timer_isr, 0x8E);
 	idt_add_entry(0x30, (uint64_t)timer_isr, 0x8E);
 	idt_add_entry(0x31, (uint64_t)thermal_isr, 0x8E);
+	idt_add_entry(0x40, (uint64_t)ps2_kbd_isr, 0x8E);
 	idtr.limit = (uint16_t)(sizeof(struct idt_entry_t)*IDT_MAX_ENTRIES)-1;
 	idtr.base = (uint64_t)idt;
 	outb(0x21, 0xFF);

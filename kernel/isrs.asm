@@ -55,6 +55,7 @@ global default_isr
 global pic_timer_isr
 global timer_isr
 global thermal_isr
+global ps2_kbd_isr
 global isr0
 global isr1
 global isr2
@@ -81,6 +82,7 @@ extern set_text_color
 extern lapic_send_eoi
 extern time_ms
 extern thermal_state
+extern putchar
 exception_fg:
 db 255, 255, 255
 exception_bg:
@@ -120,7 +122,7 @@ ret
 default_isr:
 sti
 iretq
-msg dw __?utf16?__('timer'), 13, 10, 0
+msg dw __?utf16?__('keyboard'), 13, 10, 0
 pic_timer_isr:
 cli
 pushaq
@@ -146,6 +148,19 @@ iretq
 thermal_isr:
 cli
 pushaq
+call lapic_send_eoi
+popaq
+sti
+iretq
+ps2_kbd_isr:
+cli
+pushaq
+mov rcx, 'a'
+sub rsp, 32
+call putchar
+add rsp, 32
+mov dx, 60h
+in al, dx
 call lapic_send_eoi
 popaq
 sti

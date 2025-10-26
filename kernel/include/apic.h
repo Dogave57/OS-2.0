@@ -39,4 +39,5 @@ int ioapic_get_max_redirs(uint32_t* pmax_redirs);
 int ioapic_get_id(uint32_t* pId);
 int ioapic_write_reg(uint32_t reg, uint32_t value);
 int ioapic_read_reg(uint32_t reg, uint32_t* pvalue);
+int ioapic_enable_irq(uint8_t irq, uint8_t vector, uint8_t lapic_id);
 #endif

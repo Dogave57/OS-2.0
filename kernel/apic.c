@@ -9,7 +9,7 @@
 #include "apic.h"
 uint64_t lapic_base = 0;
 uint64_t lapic_version = 0;
-uint64_t lapic_id = 0;
+uint64_t main_lapic_id = 0;
 uint64_t ioapic_base = 0;
 uint32_t ioapic_version = 0;
 uint32_t ioapic_id = 0;
@@ -33,8 +33,8 @@ int apic_init(void){
 	uint64_t div_conf = 3;
 	lapic_get_version(&lapic_version);
 	printf(L"LAPIC version: %x\r\n", lapic_version);
-	lapic_get_id(&lapic_id);
-	printf(L"LAPIC id: 0x%x\r\n", lapic_id);
+	lapic_get_id(&main_lapic_id);
+	printf(L"LAPIC id: 0x%x\r\n", main_lapic_id);
 	lapic_write_reg(LAPIC_REG_TPR, 0);
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
 	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
@@ -78,6 +78,7 @@ int apic_init(void){
 	printf(L"IOAPIC version: 0x%x\r\n", ioapic_version);
 	printf(L"IOAPIC id: 0x%x\r\n", ioapic_id);
 	printf(L"IOAPIC max redirection entries: %d\r\n", ioapic_max_redirs);
+	ioapic_enable_irq(1, 0x40, (uint8_t)main_lapic_id);
 	return 0;
 }
 int lapic_get_version(uint64_t* pversion){
@@ -177,5 +178,17 @@ int ioapic_read_reg(uint32_t reg, uint32_t* pvalue){
 	*(unsigned int*)(pbase) = reg;
 	outb(0x00, 0x00);
 	*pvalue = *(unsigned int*)(pbase+0x10);
+	return 0;
+}
+int ioapic_enable_irq(uint8_t irq, uint8_t vector, uint8_t lapic_id){
+	__asm__ volatile("cli");
+	uint32_t reg = 0x10+(irq*2);
+	uint32_t low = vector;
+	low|=(0<<8);
+	low|=(0<<15);
+	uint32_t high = (uint32_t)lapic_id<<24;
+	ioapic_write_reg(reg, low);
+	ioapic_write_reg(reg+1, high);
+	__asm__ volatile("sti");
 	return 0;
 }
