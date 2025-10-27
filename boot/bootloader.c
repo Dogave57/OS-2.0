@@ -298,6 +298,10 @@ int uefi_execute_elf(void* pfiledata){
 	struct IMAGE_SECTION_HEADER* pSectionHeader = pFirstSection;
 	for (unsigned int i = 0;i<pPeHeader->section_cnt;i++,pSectionHeader++){
 		uefi_memcpy((void*)(pimage+pSectionHeader->virtualAddress), (void*)(pfiledata+pSectionHeader->pointerToRawData), pSectionHeader->sizeOfRawData);
+		if (pSectionHeader->virtualSize<=pSectionHeader->sizeOfRawData)
+			continue;
+		unsigned long long extra_bytes = pSectionHeader->virtualSize-pSectionHeader->sizeOfRawData;
+		uefi_memset((void*)(pimage+pSectionHeader->virtualAddress+pSectionHeader->sizeOfRawData), 0, extra_bytes);
 	}
 	unsigned long long imagedt = (unsigned long long)pimage - pOptHeader->imageBase;
 	struct IMAGE_DATA_DIRECTORY* pRelocDir = pOptHeader->dataDirectory+DATA_DIRECTORY_BASE_RELOC_TABLE;
