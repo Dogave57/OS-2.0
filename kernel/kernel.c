@@ -62,6 +62,15 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf(L"APIC initialized\r\n");
+	uint64_t start_ms = get_time_ms();
+	uint64_t mem = 0;
+	if (physicalAllocPage(&mem)!=0){
+		printf(L"failed to allocate page\r\n");
+		while (1){};
+		return -1;
+	}
+	uint64_t elapsed_ms = get_time_ms()-start_ms;
+	printf(L"took %dms to allocate page\r\n", elapsed_ms);
 	printf(L"Welcome to SlickOS\r\n");
 	printf(L"%s\r\n", logo);
 	while (1){};

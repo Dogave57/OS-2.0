@@ -4,19 +4,31 @@
 #include "pmm.h"
 uint64_t installedMemory = 0;
 uint64_t freeMemory = 0;
-struct page* pageTable = (struct page*)0x0;
-uint64_t pageTableSize = 0;
+struct p_pt_info* pt = (struct p_pt_info*)0x0;
+uint64_t pt_size = 0;
 int pmm_init(void){
 	getInstalledMemory(&installedMemory);
 	getFreeMemory(&freeMemory);
-	if (allocatePageTable(&pageTable, &pageTableSize)!=0){
+	if (allocatePageTable()!=0){
 		printf(L"failed to allocate memory for physical page table\r\n");
+		return -1;
+	}
+	if (initPageTable()!=0){
+		printf(L"failed to intialize physical page table\r\n");
 		return -1;
 	}
 	printf(L"installed memory: %dmb\r\n", installedMemory/MEM_MB);
 	printf(L"free memory: %dmb\r\n", freeMemory/MEM_MB);
-	printf(L"page table: %p\r\n", (void*)pageTable);
-	printf(L"page table size: %dmb\r\n", pageTableSize/MEM_MB);
+	uint64_t mem = 0;
+	if (physicalAllocPage(&mem)!=0){
+		printf(L"failed to allocate page\r\n");
+		return -1;
+	}
+	printf(L"pa: %p\r\n", (void*)mem);
+	if (physicalFreePage(mem)!=0){
+		printf(L"failed to free page\r\n");	
+		return -1;
+	}
 	return 0;
 }
 int getInstalledMemory(uint64_t* pInstalledMemory){
@@ -53,13 +65,12 @@ int getFreeMemory(uint64_t* pFreeMemory){
 	*pFreeMemory = freeMemory;
 	return 0;
 }
-int allocatePageTable(struct page** ppPageTable, uint64_t* pPageTableSize){
-	if (!ppPageTable||!pPageTableSize)
-		return -1;
+int allocatePageTable(void){
 	if (!freeMemory)
 		getFreeMemory(&freeMemory);
-	uint64_t pt_size = (freeMemory/PAGE_SIZE)*sizeof(struct page);
-	struct page* pt = (struct page*)0x0;
+	uint64_t max_pages = installedMemory/PAGE_SIZE;
+	printf(L"max pages: %d\r\n", max_pages);
+	pt_size = (max_pages*(sizeof(struct p_page)+sizeof(struct p_page*)+sizeof(struct p_page*))+sizeof(struct p_pt_info));
 	unsigned int pt_found = 0;
 	UINTN memoryDescCnt = pbootargs->memoryInfo.memoryMapSize/pbootargs->memoryInfo.memoryDescSize;
 	for (UINTN i = 0;i<memoryDescCnt;i++){
@@ -71,14 +82,77 @@ int allocatePageTable(struct page** ppPageTable, uint64_t* pPageTableSize){
 			continue;
 		pMemDesc->Type = EfiLoaderData;
 		pMemDesc->NumberOfPages-=pt_size/PAGE_SIZE;
-		pt = (struct page*)pMemDesc->PhysicalStart;
-		pt_found = 1;
-		break;
+		pt = (struct p_pt_info*)pMemDesc->PhysicalStart;
+		pt->pPageEntries = (struct p_page*)(pt+1);
+		pt->pFreeEntries = (struct p_page**)(pt->pPageEntries+max_pages);
+		pt->pUsedEntries = pt->pFreeEntries+max_pages;
+		printf(L"p entries: %p\r\nfree entries: %p\r\nused entries: %p\r\n", (void*)pt->pPageEntries, (void*)pt->pFreeEntries, (void*)pt->pUsedEntries);
+		freeMemory-=pt_size;
+		return 0;
 	}
-	if (!pt_found)
-		return -1;
-	*ppPageTable = pt;
-	*pPageTableSize = pt_size;
-	freeMemory-=pt_size;
+	return -1;
+}
+int initPageTable(void){
+	UINTN memoryDescCnt = pbootargs->memoryInfo.memoryMapSize/pbootargs->memoryInfo.memoryDescSize;
+	uint64_t pageTableEntry = 0;
+	uint64_t max_entries = pt_size/sizeof(struct p_page);
+	for (UINTN i = 0;i<memoryDescCnt;i++){
+		EFI_MEMORY_DESCRIPTOR* pMemDesc = (EFI_MEMORY_DESCRIPTOR*)((unsigned char*)pbootargs->memoryInfo.pMemoryMap+(i*pbootargs->memoryInfo.memoryDescSize));
+		if (pMemDesc->Type==EfiReservedMemoryType||pMemDesc->Type==EfiMemoryMappedIO||pMemDesc->Type==EfiMemoryMappedIOPortSpace||pMemDesc->Type==EfiACPIMemoryNVS||pMemDesc->Type==EfiACPIReclaimMemory)
+			continue;
+		uint64_t pa = pMemDesc->PhysicalStart;
+		for (unsigned int page = 0;page<pMemDesc->NumberOfPages;page++){
+			struct p_page* pentry = pt->pPageEntries+pageTableEntry;
+			pentry->physicalAddress = pa+(page*PAGE_SIZE);
+			if (pMemDesc->Type==EfiConventionalMemory){
+				pentry->status = PAGE_FREE;
+				pt->pFreeEntries[pt->freeEntryCnt] = pentry;
+				pt->freeEntryCnt++;
+			}
+			else{
+				pentry->status = PAGE_INUSE;
+				pt->pUsedEntries[pt->usedEntryCnt] = pentry;
+				pt->usedEntryCnt++;
+			}
+			pageTableEntry++;
+		}
+	}
+	uint64_t null_entries = max_entries-pageTableEntry;
+	for (uint64_t i = 0;i<null_entries;i++){
+		struct p_page* pentry = pt->pPageEntries+i;
+		pentry->status = PAGE_INVALID;
+		pentry->physicalAddress = 0x0;
+		pentry->virtualAddress = 0;
+	}
 	return 0;
+}
+int physicalAllocPage(uint64_t* pPhysicalAddress){
+	if (!pPhysicalAddress)
+		return -1;
+	if (!pt->freeEntryCnt)
+		return -1;
+	struct p_page* pNewPage = pt->pFreeEntries[pt->freeEntryCnt-1];
+	if (!pNewPage){
+		return -1;
+	}
+	pNewPage->status = PAGE_INUSE;
+	pt->pUsedEntries[pt->usedEntryCnt] = pNewPage;
+	pt->usedEntryCnt++;
+	pt->freeEntryCnt--;
+	return 0;
+}
+int physicalFreePage(uint64_t physicalAddress){
+	for (unsigned int i = 0;i<pt->usedEntryCnt;i++){
+		struct p_page* page = pt->pUsedEntries[i];
+		if (!page)
+			continue;
+		if (page->physicalAddress!=physicalAddress)
+			continue;
+		page->status = PAGE_FREE;
+		pt->pFreeEntries[pt->freeEntryCnt] = page;
+		pt->usedEntryCnt--;
+		pt->freeEntryCnt++;
+		return 0;
+	}	
+	return -1;
 }

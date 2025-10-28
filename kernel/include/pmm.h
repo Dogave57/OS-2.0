@@ -9,13 +9,24 @@ enum pageStatus{
 	PAGE_FREE,
 	PAGE_INUSE,
 };
-struct page{
+struct p_page{
 	enum pageStatus status;
 	uint64_t virtualAddress;
 	uint64_t physicalAddress;
 };
+struct p_pt_info{
+	uint64_t pt_size;
+	uint64_t freeEntryCnt;
+	uint64_t usedEntryCnt;
+	struct p_page* pPageEntries;
+	struct p_page** pFreeEntries;
+	struct p_page** pUsedEntries;
+};
 int pmm_init(void);
 int getInstalledMemory(uint64_t* pInstalledMemory);
 int getFreeMemory(uint64_t* pFreeMemory);
-int allocatePageTable(struct page** ppPageTable, uint64_t* pPageTableSize);
+int allocatePageTable(void);
+int initPageTable(void);
+int physicalAllocPage(uint64_t* pPhysicalAddress);
+int physicalFreePage(uint64_t physicalAddress);
 #endif
