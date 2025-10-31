@@ -1,5 +1,6 @@
 drive.img
 drivemnt
+build
 *.swp
 *.exe
 *.o
