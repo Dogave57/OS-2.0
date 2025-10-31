@@ -6,6 +6,7 @@
 #include "logo.h"
 #include "timer.h"
 #include "pmm.h"
+#include "serial.h"
 #include "apic.h"
 #include "acpi.h"
 #include "gdt.h"
@@ -32,6 +33,11 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	BS->ExitBootServices(pbootargs->bootloaderHandle, pbootargs->memoryInfo.memoryMapKey);
 	clear();
 	print(L"kernel loaded\r\n");
+	if (serial_init()!=0){
+		printf(L"failed to intialize serial ports\r\n");
+		while (1){};
+		return -1;
+	}
 	if (gdt_init()!=0){
 		print(L"failed to load gdt\r\n");
 		while (1){};
@@ -78,6 +84,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	printf(L"%dmb block: %p\r\n", blockSize/MEM_MB, (void*)pBlock);
 	printf(L"Welcome to SlickOS\r\n");
 	printf(L"%s\r\n", logo);
+	serial_print(0, L"OS initialized\r\n");
 	while (1){};
 	return 0;	
 }

@@ -25,6 +25,7 @@ sudo $CC $CFLAGS -fpic -c kernel/pic.c -o build/objects/pic.o
 sudo $CC $CFLAGS -fpic -c kernel/acpi.c -o build/objects/acpi.o
 sudo $CC $CFLAGS -fpic -c kernel/keyboard.c -o build/objects/keyboard.o
 sudo $CC $CFLAGS -fpic -c kernel/pmm.c -o build/objects/pmm.o
+sudo $CC $CFLAGS -fpic -c kernel/serial.c -o build/objects/serial.o
 sudo $AS -f win64 kernel/stub.asm -o build/objects/kernel_stub.o
 sudo $AS -f win64 kernel/isrs.asm -o build/objects/isrs.o
 sudo $AS -f win64 kernel/gdt.asm -o build/objects/gdt_asm.o
@@ -34,7 +35,7 @@ sudo $AS -f win64 kernel/timer.asm -o build/objects/timer.o
 sudo $AS -f win64 kernel/thermal.asm -o build/objects/thermal.o
 sudo $AS -f win64 kernel/vmm.asm -o build/objects/vmm_asm.o
 echo linking kernel
-sudo $LD -subsystem:native build/objects/kernel.o build/objects/graphics.o build/objects/kernel_stub.o build/objects/interrupt.o build/objects/isrs.o build/objects/gdt_asm.o build/objects/gdt.o build/objects/idt_asm.o build/objects/port.o build/objects/filesystem.o build/objects/stdlib.o build/objects/msr.o build/objects/apic.o build/objects/cpuid.o build/objects/pit.o build/objects/pic.o build/objects/timer.o build/objects/thermal.o build/objects/acpi.o build/objects/keyboard.o build/objects/pmm.o build/objects/vmm_asm.o -entry:kernel_stub -out:build/build/kernel.exe
+sudo $LD -subsystem:native build/objects/kernel.o build/objects/graphics.o build/objects/kernel_stub.o build/objects/interrupt.o build/objects/isrs.o build/objects/gdt_asm.o build/objects/gdt.o build/objects/idt_asm.o build/objects/port.o build/objects/filesystem.o build/objects/stdlib.o build/objects/msr.o build/objects/apic.o build/objects/cpuid.o build/objects/pit.o build/objects/pic.o build/objects/timer.o build/objects/thermal.o build/objects/acpi.o build/objects/keyboard.o build/objects/pmm.o build/objects/vmm_asm.o build/objects/serial.o -entry:kernel_stub -out:build/build/kernel.exe
 echo done
 case "$OS" in
 "Linux")

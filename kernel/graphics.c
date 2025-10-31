@@ -1,6 +1,7 @@
 #include "bootloader.h"
 #include "stdlib.h"
 #include "filesystem.h"
+#include "serial.h"
 #include "graphics.h"
 unsigned int char_position = 0;
 struct vec3 text_fg = {255,255,255};
@@ -43,6 +44,7 @@ int writechar(unsigned int position, CHAR16 ch){
 				write_pixel(pixel, text_bg);
 		}
 	}	
+	serial_putchar(SERIAL_DEBUG_PORT, (unsigned char)ch);
 	return 0;
 }
 int putchar(CHAR16 ch){
@@ -58,9 +60,11 @@ int putchar(CHAR16 ch){
 		case '\n':
 		char_position+=pbootargs->graphicsInfo.width;
 		char_position-=(char_position%pbootargs->graphicsInfo.width);
+		serial_putchar(SERIAL_DEBUG_PORT, '\n');
 		return 0;
 		case '\r':
 		char_position-=(char_position%pbootargs->graphicsInfo.width);
+		serial_putchar(SERIAL_DEBUG_PORT, '\r');
 		return 0;
 		default:
 		break;
@@ -69,6 +73,7 @@ int putchar(CHAR16 ch){
 			break;
 		char_position-=8;
 		writechar(char_position, L' ');
+		serial_putchar(SERIAL_DEBUG_PORT, '\b');
 		return 0;
 	}
 	writechar(char_position, ch);	
