@@ -4,6 +4,7 @@
 #define MEM_MB 1048576
 #define MEM_KB 1024
 #define PAGE_SIZE 4096
+#define MAX_ORDER 2048
 enum pageStatus{
 	PAGE_INVALID,
 	PAGE_FREE,
@@ -21,7 +22,11 @@ struct p_pt_info{
 	struct p_page* pPageEntries;
 	struct p_page** pFreeEntries;
 	struct p_page** pUsedEntries;
+	struct p_page** pOrderList;
 };
+extern uint64_t installedMemory;
+extern uint64_t freeMemory;
+extern uint64_t totalMemory;
 int pmm_init(void);
 int getTotalMemory(uint64_t* pTotalMemory);
 int getInstalledMemory(uint64_t* pInstalledMemory);
@@ -30,6 +35,8 @@ int allocatePageTable(void);
 int initPageTable(void);
 int physicalAllocPage(uint64_t* pPhysicalAddress);
 int physicalFreePage(uint64_t physicalAddress);
+int physicalAllocPages(uint64_t* pPhysicalAddress, unsigned int pagecnt);
+int physicalFreePages(uint64_t physicalAddress, unsigned int pagecnt);
 int physicalMapPage(uint64_t physicalAddress);
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);

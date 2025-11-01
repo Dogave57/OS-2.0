@@ -92,6 +92,71 @@ int printf(CHAR16* fmt, ...){
 	va_end(args);
 	return 0;
 }
+int printf_ascii(unsigned char* fmt, ...){
+	if (!fmt)
+		return -1;
+	va_list args = 0;
+	va_start(args, fmt);
+	for (unsigned int i = 0;fmt[i];i++){
+		unsigned char ch = fmt[i];
+		if (ch!='%'){
+			putchar(ch);
+			continue;
+		}
+		switch (fmt[i+1]){
+			case 'd':{
+			case 'l':
+			if (fmt[i+1]=='l'&&fmt[i+2]!='l'&&fmt[i+3]!='d')
+				break;
+			long long value = (long long)0;
+			if (fmt[i+1]=='d'){
+				value = (long long)va_arg(args, int);
+				i++;
+			}
+			else{
+				value = (long long)va_arg(args, long long);
+				i+=3;
+			}
+			CHAR16 buf[64] = {0};
+			atoi(value, buf, 63);
+			print(buf);
+			break;	 
+			}
+			case 'p':{
+			case 'X':
+			case 'x':
+			unsigned long long value = (unsigned long long)va_arg(args, unsigned long long);
+			unsigned char isUpper = 0;
+			if (fmt[i+1]=='X')
+				isUpper = 1;
+			if (fmt[i+1]=='p'){
+				putchar('0');
+				putchar('x');
+			}
+			for (int i = 15;i>-1;i--){
+				unsigned char hex = (unsigned char)((value>>(i*4))&0xF);
+				puthex(hex, isUpper);
+			}	
+			i++;
+			break;
+			}
+			case 's':{
+			unsigned char* str = (unsigned char*)va_arg(args, unsigned char*);
+	 		print_ascii(str);
+			i++;
+			break;	 
+			}
+			case 'c':{
+			unsigned char ch = (unsigned char)va_arg(args, unsigned int);
+	       		putchar_ascii(ch);		
+			i++;
+			break;
+			}
+		}
+	}
+	va_end(args);
+	return 0;
+}
 int memset(uint64_t* mem, uint64_t value, uint64_t size){
 	if (!mem)
 		return -1;

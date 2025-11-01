@@ -118,6 +118,8 @@ mov r9, [rel saved_reg_rbp]
 sub rsp, 32
 call printf
 add rsp, 32
+b:
+jmp b
 hlt
 ret
 default_isr:

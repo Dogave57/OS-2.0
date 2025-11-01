@@ -20,7 +20,7 @@ int pmm_init(void){
 		printf(L"failed to intialize physical page table\r\n");
 		return -1;
 	}
-	printf(L"intsalled memory + hardware memorey: %dmb\r\n", totalMemory/MEM_MB);
+	printf(L"installed memory + hardware memory: %dmb\r\n", totalMemory/MEM_MB);
 	printf(L"installed memory: %dmb\r\n", installedMemory/MEM_MB);
 	printf(L"free memory: %dmb\r\n", freeMemory/MEM_MB);
 	return 0;
@@ -156,6 +156,16 @@ int physicalFreePage(uint64_t physicalAddress){
 	pentry->status = PAGE_FREE;
 	pt->pFreeEntries[pt->freeEntryCnt] = pentry;
 	pt->freeEntryCnt++;
+	return 0;
+}
+int physicalAllocPages(uint64_t* pPhysicalAddress, unsigned int pagecnt){
+	if (!pPhysicalAddress)
+		return -1;
+
+	return 0;
+}
+int physicalFreePages(uint64_t physicalAddress, unsigned int pagecnt){
+
 	return 0;
 }
 int physicalMapPage(uint64_t physicalAddress){

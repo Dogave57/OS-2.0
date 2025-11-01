@@ -7,6 +7,7 @@
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
 #include <Guid/Acpi.h>
+#include <Guid/smbios.h>
 #include "bootloader.h"
 #include "align.h"
 #include "pe.h"
@@ -22,6 +23,8 @@ long long uefi_stoi(CHAR16* buf);
 int uefi_putchar(CHAR16 ch);
 int uefi_puthex(unsigned char hex, unsigned char upper);
 int uefi_printf(const CHAR16* fmt, ...);
+int getConfTableEntry(EFI_GUID guid, void** ppEntry);
+int compareGuid(EFI_GUID guid1, EFI_GUID guid2);
 EFI_HANDLE imgHandle = {0};
 EFI_SYSTEM_TABLE* ST = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
@@ -239,21 +242,19 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	blargs->memoryInfo.memoryMapSize = memoryMapSize;
 	blargs->memoryInfo.memoryDescSize = memoryMapDescSize;
 	struct acpi_xsdp* pXsdp = (struct acpi_xsdp*)0x0;
-	EFI_GUID acpiTableGuid = EFI_ACPI_TABLE_GUID;
-	EFI_CONFIGURATION_TABLE* pConfTable = systab->ConfigurationTable;
-	UINTN tableCnt = systab->NumberOfTableEntries;
-	for (UINTN i = 0;i<tableCnt;i++){
-		EFI_GUID guid = pConfTable[i].VendorGuid;
-		if (guid.Data1!=acpiTableGuid.Data1||guid.Data2!=acpiTableGuid.Data2||guid.Data3!=acpiTableGuid.Data3)
-			continue;
-		if (uefi_memcmp((void*)guid.Data4, acpiTableGuid.Data4, 8)!=0)
-			continue;
-		
-		struct acpi_xsdp* hdr = (struct acpi_xsdp*)pConfTable[i].VendorTable;
-		if (hdr->signature!=XSDP_SIGNATURE)
-			continue;
-		pXsdp = hdr;
-		break;
+	EFI_GUID xsdpGuid = EFI_ACPI_TABLE_GUID;
+	EFI_GUID smbiosGuid = SMBIOS_TABLE_GUID;
+	if (getConfTableEntry(xsdpGuid, (void**)(&pXsdp))!=0){
+		conout->OutputString(conout, L"failed to get XSDP entry\r\n");
+		BS->FreePool((void*)pbuffer);
+		while (1){};
+		return EFI_ABORTED;
+	}	
+	if (getConfTableEntry(smbiosGuid, (void**)(&blargs->smbiosInfo.pSmbios))!=0){
+		conout->OutputString(conout, L"failed to get SMBIOS table\r\n");
+		BS->FreePool((void*)pbuffer);
+		while (1){};
+		return EFI_ABORTED;
 	}
 	blargs->acpiInfo.pXsdp = (struct acpi_xsdp*)pXsdp;
 	conout->ClearScreen(conout);
@@ -603,4 +604,28 @@ int uefi_printf(const CHAR16* fmt, ...){
 		}
 	}
 	return 0;	
+}
+int getConfTableEntry(EFI_GUID guid, void** ppEntry){
+	EFI_CONFIGURATION_TABLE* pConfigTable = ST->ConfigurationTable;
+	UINTN configEntryCnt = ST->NumberOfTableEntries;
+	for (UINTN i = 0;i<configEntryCnt;i++){
+		EFI_CONFIGURATION_TABLE* pentry = pConfigTable+i;
+		EFI_GUID vendorGuid = pentry->VendorGuid;
+		if (compareGuid(vendorGuid, guid)!=0)
+			continue;
+		*ppEntry = (void*)(pentry->VendorTable);
+		return 0;
+	}
+	return -1;
+}
+int compareGuid(EFI_GUID guid1, EFI_GUID guid2){
+	if (guid1.Data1!=guid2.Data1)
+		return 1;
+	if (guid1.Data2!=guid2.Data2)
+		return 1;
+	if (guid1.Data3!=guid2.Data3)
+		return 1;
+	if (*((uint64_t*)guid1.Data4)!=*((uint64_t*)guid2.Data4))
+		return 1;
+	return 0;
 }

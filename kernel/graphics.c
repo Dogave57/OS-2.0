@@ -80,6 +80,10 @@ int putchar(CHAR16 ch){
 	char_position+=8;
 	return 0;
 }
+int putchar_ascii(unsigned char ch){
+	putchar((CHAR16)ch);
+	return 0;
+}
 int puthex(unsigned char hex, unsigned char isUpper){
 	if (hex>16)
 		return -1;
@@ -98,6 +102,14 @@ int print(CHAR16* string){
 		return -1;
 	for (unsigned int i = 0;string[i];i++){
 		putchar(string[i]);
+	}
+	return 0;
+}
+int print_ascii(unsigned char* string){
+	if (!string)
+		return -1;
+	for (unsigned int i = 0;string[i];i++){
+		putchar_ascii(string[i]);
 	}
 	return 0;
 }

@@ -8,6 +8,7 @@
 #include <Guid/FileInfo.h>
 #include "graphics.h"
 #include "acpi.h"
+#include "smbios.h"
 struct bootloader_graphicsInfo{
 	unsigned int width;
 	unsigned int height;
@@ -26,6 +27,9 @@ struct bootloader_memoryInfo{
 struct bootloader_acpiInfo{
 	struct acpi_xsdp* pXsdp;	
 };
+struct bootloader_smbiosInfo{
+	struct smbios_eps* pSmbios;
+};
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;
 	EFI_SYSTEM_TABLE* systable;
@@ -33,6 +37,7 @@ struct bootloader_args{
 	struct bootloader_memoryInfo memoryInfo;	
 	struct bootloader_graphicsInfo graphicsInfo;
 	struct bootloader_acpiInfo acpiInfo;
+	struct bootloader_smbiosInfo smbiosInfo;
 };
 typedef int(*kernelEntryType)(unsigned char* pstack, struct bootloader_args*);
 extern EFI_SYSTEM_TABLE* systab;

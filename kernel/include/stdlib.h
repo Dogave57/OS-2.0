@@ -4,5 +4,6 @@
 #include "bootloader.h"
 int atoi(long long num, CHAR16* buf, unsigned int bufmax);
 int printf(CHAR16* fmt, ...);
+int printf_ascii(unsigned char* fmt, ...);
 int memset(uint64_t* mem, uint64_t value, uint64_t size);
 #endif

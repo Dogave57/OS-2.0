@@ -6,6 +6,9 @@
 #include "logo.h"
 #include "timer.h"
 #include "pmm.h"
+#include "vmm.h"
+#include "smbios.h"
+#include "smp.h"
 #include "serial.h"
 #include "apic.h"
 #include "acpi.h"
@@ -56,35 +59,58 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf(L"physical memory management initialized\r\n");
+	if (vmm_init()!=0){
+		printf(L"failed to initialize vmm\r\n");
+		while (1){};
+		return -1;
+	}
+	printf(L"virtual memory management initialized\r\n");
 	if (acpi_init()!=0){
 		printf(L"failed to initialize ACPI\r\n");
 		while (1){};
 		return -1;
 	}
 	printf(L"ACPI initialized\r\n");
+	if (smbios_init()!=0){
+		printf(L"failed to initialize SMBIOS\r\n");
+		while (1){};
+		return -1;
+	}
+	printf(L"SMBIOS initialized\r\n");
 	if (apic_init()!=0){
 		printf(L"failed to initialize the APIC\r\n");
 		while (1){};
 		return -1;
 	}
 	printf(L"APIC initialized\r\n");
-	uint64_t pBlock = 0;
-	uint64_t blockSize = MEM_MB;
-	if (physicalAllocRaw(&pBlock, blockSize)!=0){
-		printf(L"failed to allocate %dmb raw block\r\n", blockSize/MEM_MB);
-		while (1){};
-		return -1;
-	}	
-	printf(L"%dmb block: %p\r\n", blockSize/MEM_MB, (void*)pBlock);
-	if (physicalAllocRaw(&pBlock, blockSize)!=0){
-		printf(L"failed to allocate %dmb raw block\r\n", blockSize/MEM_MB);
+	printf(L"Welcome to SlickOS\r\n");
+	struct smbios_hdr* pCpuInfo = (struct smbios_hdr*)0x0;
+	if (smbios_get_entry(SMBIOS_CPU_INFO, &pCpuInfo)!=0){
+		printf(L"failed to get SMBIOS CPU info entry\r\n");
 		while (1){};
 		return -1;
 	}
-	printf(L"%dmb block: %p\r\n", blockSize/MEM_MB, (void*)pBlock);
-	printf(L"Welcome to SlickOS\r\n");
-	printf(L"%s\r\n", logo);
-	serial_print(0, L"OS initialized\r\n");
+	unsigned char* cpu_manufacturer = (unsigned char*)0x0;
+	if (smbios_get_string(pCpuInfo, 1, &cpu_manufacturer)!=0){
+		printf(L"failed to get CPU manufacturer\r\n");
+		while (1){};
+		return -1;
+	}
+	printf_ascii("CPU manufacturer: %s\r\n", cpu_manufacturer);
+	unsigned char* cpu_family = (unsigned char*)0x0;
+	if (smbios_get_string(pCpuInfo, 2, &cpu_family)!=0){
+		printf(L"failed to get CPU family\r\n");
+		while (1){};
+		return -1;
+	}
+	printf_ascii("CPU family: %s\r\n", cpu_family);
+	unsigned int coreCnt = 0;
+	if (getCpuCoreCount(&coreCnt)!=0){
+		printf(L"failed to get CPU core count\r\n");
+		while (1){};
+		return -1;
+	}
+	printf(L"core count: %d\r\n", coreCnt);
 	while (1){};
 	return 0;	
 }
