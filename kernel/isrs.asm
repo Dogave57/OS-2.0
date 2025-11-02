@@ -30,6 +30,64 @@ pop rcx
 pop rbx
 pop rax
 %endmacro
+exception_names:
+de_name dw __?utf16?__('divide by zero'), 10, 0
+db_name dw __?utf16?__('debug'), 10, 0
+nmi_name dw __?utf16?__('non-maskable interrupt'), 10, 0
+bp_name dw __?utf16?__('breakpoint'), 10, 0
+of_name dw __?utf16?__('overflow'), 10, 0
+br_name dw __?utf16?__('bound range exceeded'), 10, 0
+ud_name dw __?utf16?__('invalid opcode'), 10, 0
+nm_name dw __?utf16?__('device not available'), 10, 0
+df_name dw __?utf16?__('double fault'), 10, 0
+csor_name dw __?utf16?__('coprocessor segment overrun'), 10, 0
+ts_name dw __?utf16?__('invalid tss'), 10, 0
+np_name dw __?utf16?__('segment not present'), 10, 0
+ss_name dw __?utf16?__('stack segment fault'), 10, 0
+gp_name dw __?utf16?__('general protection fault'), 10, 0
+pf_name dw __?utf16?__('page fault'), 10, 0
+mf_name dw __?utf16?__('x87 floating point exception'), 10, 0
+ac_name dw __?utf16?__('alignment check'), 10, 0
+mc_name dw __?utf16?__('machine check'), 10, 0
+xm_name dw __?utf16?__('simd floating point exception'), 10, 0
+ve_name dw __?utf16?__('virtualization exception'), 10, 0
+cp_name dw __?utf16?__('control protection exception'), 10, 0
+hv_name dw __?utf16?__('hypervisor injection exception'), 10, 0
+vc_name dw __?utf16?__('vmm communication exception'), 10, 0
+sx_name dw __?utf16?__('security exception'), 10, 0
+exception_name_map:
+dq de_name;0
+dq db_name;1
+dq nmi_name;2
+dq bp_name;3
+dq of_name;4
+dq br_name;5
+dq ud_name;6
+dq nm_name;7
+dq df_name;8
+dq csor_name;9
+dq ts_name;10
+dq np_name;11
+dq ss_name;12
+dq gp_name;13
+dq pf_name;14
+dq 0;reserved 15
+dq mf_name;16
+dq ac_name;17
+dq mc_name;18
+dq xm_name;19
+dq ve_name;20
+dq cp_name;21
+dq 0;22-27 reserved
+dq 0;23
+dq 0;24
+dq 0;25
+dq 0;26
+dq 0;27
+dq hv_name;28
+dq vc_name;29
+dq sx_name;30
+dq 0;reserved 31
 saved_registers:
 saved_reg_rip:
 dq 0
@@ -95,6 +153,12 @@ mov rdx, exception_bg
 sub rsp, 32
 call set_text_color
 call clear
+mov rdx, [rbp-8]
+lea rcx, [rel exception_name_map]
+imul rdx, rdx, 8
+add rcx, rdx
+mov rcx, [rcx]
+call print
 add rsp, 32
 popaq
 pushaq

@@ -179,6 +179,7 @@ int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size){
 			continue;
 		pMemDesc->NumberOfPages-=requestedPages;
 		pMemDesc->PhysicalStart+=size;
+		pMemDesc->Type = EfiLoaderData;
 		if (!pt){
 			*pPhysicalAddress = (uint64_t)pMemDesc->PhysicalStart;
 			return 0;
@@ -187,7 +188,6 @@ int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size){
 		for (UINTN page = 0;page<pMemDesc->NumberOfPages;page++){
 			physicalMapPage(pMemDesc->PhysicalStart+(page*PAGE_SIZE));
 		}
-		return 0;
 	}
 	printf(L"failed to find %d page entries to fit block of size: %d\r\n", requestedPages, size);
 	return -1;

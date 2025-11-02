@@ -17,6 +17,7 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 int virtualMapPage(uint64_t pa, uint64_t* pVa, uint64_t flags, unsigned int alloc_new);
 int virtualMapPages(uint64_t pa, uint64_t* pVa, uint64_t flags, uint64_t page_cnt, unsigned int alloc_new);
 int virtualUnmapPage(uint64_t va);
+int virtualUnmapPages(uint64_t va, uint64_t page_cnt);
 uint64_t get_pt(void);
 int load_pt(uint64_t pml4);
 int flush_tlb(void);

@@ -35,6 +35,7 @@ int idt_init(void){
 		(uint64_t)isr12,
 		(uint64_t)isr13,
 		(uint64_t)isr14,
+		(uint64_t)0,
 		(uint64_t)isr16,
 		(uint64_t)isr17,
 		(uint64_t)isr18,
