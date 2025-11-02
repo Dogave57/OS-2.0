@@ -158,16 +158,6 @@ int physicalFreePage(uint64_t physicalAddress){
 	pt->freeEntryCnt++;
 	return 0;
 }
-int physicalAllocPages(uint64_t* pPhysicalAddress, unsigned int pagecnt){
-	if (!pPhysicalAddress)
-		return -1;
-
-	return 0;
-}
-int physicalFreePages(uint64_t physicalAddress, unsigned int pagecnt){
-
-	return 0;
-}
 int physicalMapPage(uint64_t physicalAddress){
 	struct p_page* pNewPage = pt->pPageEntries+(physicalAddress/sizeof(struct p_page));
 	pNewPage->status = PAGE_INUSE;

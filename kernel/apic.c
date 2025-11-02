@@ -4,6 +4,7 @@
 #include "port.h"
 #include "pit.h"
 #include "pic.h"
+#include "vmm.h"
 #include "acpi.h"
 #include "timer.h"
 #include "apic.h"
@@ -69,6 +70,10 @@ int apic_init(void){
 	lapic_write_reg(LAPIC_REG_SPI, value);
 	if (ioapic_get_base(&ioapic_base)){
 		printf(L"failed to get IOAPIC base\r\n");
+		return -1;
+	}
+	if (virtualMapPages(ioapic_base, &ioapic_base, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 1,  0)!=0){
+		printf(L"failed to map IOAPIC\r\n");
 		return -1;
 	}
 	ioapic_get_version(&ioapic_version);

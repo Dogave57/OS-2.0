@@ -30,6 +30,10 @@ struct bootloader_acpiInfo{
 struct bootloader_smbiosInfo{
 	struct smbios_eps* pSmbios;
 };
+struct bootloader_kernelInfo{
+	unsigned char* pKernel;
+	uint64_t kernelSize;
+};
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;
 	EFI_SYSTEM_TABLE* systable;
@@ -38,6 +42,7 @@ struct bootloader_args{
 	struct bootloader_graphicsInfo graphicsInfo;
 	struct bootloader_acpiInfo acpiInfo;
 	struct bootloader_smbiosInfo smbiosInfo;
+	struct bootloader_kernelInfo kernelInfo;
 };
 typedef int(*kernelEntryType)(unsigned char* pstack, struct bootloader_args*);
 extern EFI_SYSTEM_TABLE* systab;

@@ -35,8 +35,6 @@ int allocatePageTable(void);
 int initPageTable(void);
 int physicalAllocPage(uint64_t* pPhysicalAddress);
 int physicalFreePage(uint64_t physicalAddress);
-int physicalAllocPages(uint64_t* pPhysicalAddress, unsigned int pagecnt);
-int physicalFreePages(uint64_t physicalAddress, unsigned int pagecnt);
 int physicalMapPage(uint64_t physicalAddress);
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);

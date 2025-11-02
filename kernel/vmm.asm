@@ -4,6 +4,11 @@ global flush_tlb
 section .text
 extern reload_cs
 load_pt:
+cli
+mov cr3, rcx
+sti
+xor rax, rax
+ret
 mov dword cr3, rcx
 cli
 call reload_cs

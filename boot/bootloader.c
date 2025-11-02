@@ -12,7 +12,7 @@
 #include "align.h"
 #include "pe.h"
 #include "mz.h"
-int uefi_execute_elf(void* pfiledata);
+int uefi_execute_kernel(void* pfiledata);
 int uefi_memset(void* mem, unsigned long long value, unsigned long long size);
 int uefi_memcmp(void* mem1, void* mem2, uint64_t size);
 int uefi_memcpy(void* dst, void* src, uint64_t size);
@@ -258,7 +258,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	}
 	blargs->acpiInfo.pXsdp = (struct acpi_xsdp*)pXsdp;
 	conout->ClearScreen(conout);
-	if (uefi_execute_elf((void*)pbuffer)!=0){
+	if (uefi_execute_kernel((void*)pbuffer)!=0){
 		conout->OutputString(conout, L"failed to execute kernel!\r\n");
 		BS->FreePool((void*)pbuffer);
 		while (1){};
@@ -271,7 +271,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	};
 	return EFI_SUCCESS;
 }
-int uefi_execute_elf(void* pfiledata){
+int uefi_execute_kernel(void* pfiledata){
 	if (!pfiledata)
 		return -1;
 	struct IMAGE_DOS_HEADER* pDosHeader = (struct IMAGE_DOS_HEADER*)pfiledata;
@@ -290,7 +290,7 @@ int uefi_execute_elf(void* pfiledata){
 		return -1;
 	}
 	unsigned char* pimage = (unsigned char*)0x0;
-	EFI_STATUS status = BS->AllocatePool(EfiRuntimeServicesData, pOptHeader->sizeOfImage, (void**)&pimage);
+	EFI_STATUS status = BS->AllocatePool(EfiLoaderData, pOptHeader->sizeOfImage, (void**)&pimage);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for portable executable binary image %x\r\n", status);
 		return -1;
@@ -340,6 +340,8 @@ int uefi_execute_elf(void* pfiledata){
 	}
 	unsigned char* pstack = pbase_stack+stack_size;
 	unsigned char* pentry = (unsigned char*)(pimage+pOptHeader->addressOfEntryPoint);
+	blargs->kernelInfo.pKernel = (unsigned char*)pimage;
+	blargs->kernelInfo.kernelSize = pOptHeader->sizeOfImage;
 	kernelEntryType entry = (kernelEntryType)pentry;
 	int kstatus = entry(pstack, blargs);
 	uefi_printf(L"kernel returned with status 0x%x\r\n", kstatus);
