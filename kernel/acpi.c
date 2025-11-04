@@ -1,5 +1,7 @@
 #include "stdlib.h"
 #include "bootloader.h"
+#include "pmm.h"
+#include "vmm.h"
 #include "acpi.h"
 struct acpi_xsdp* pXsdp = (struct acpi_xsdp*)0x0;
 struct acpi_sdt_hdr* pXsdt = (struct acpi_sdt_hdr*)0x0;
@@ -18,6 +20,19 @@ int acpi_init(void){
 	if (pXsdt->signature!=XSDT_SIGNATURE){
 		printf(L"invalid XSDT signature\r\n");
 		return -1;
+	}
+	if (virtualMapPage((uint64_t)pXsdt, (uint64_t)pXsdt, PTE_RW, 1)!=0){
+		printf(L"failed to map XSDT\r\n");
+		return -1;
+	}
+	struct acpi_sdt_hdr** ptables = (struct acpi_sdt_hdr**)(pXsdt+1);
+	unsigned int tablecnt = (pXsdt->len-sizeof(struct acpi_sdt_hdr))/sizeof(uint64_t);
+	for (unsigned int i = 0;i<tablecnt;i++){
+		uint64_t ptable = (uint64_t)ptables[i];
+		if (virtualMapPage((uint64_t)ptable, (uint64_t)ptable, PTE_RW, 1)!=0){
+			printf(L"failed to map ACPI table\r\n");
+			return -1;
+		}
 	}
 	struct acpi_madt* madt = (struct acpi_madt*)0x0;
 	if (acpi_find_table('CIPA', (struct acpi_sdt_hdr**)&madt)!=0){

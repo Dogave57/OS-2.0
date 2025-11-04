@@ -77,18 +77,17 @@ int getFreeMemory(uint64_t* pFreeMemory){
 int allocatePageTable(void){
 	if (!freeMemory)
 		getFreeMemory(&freeMemory);
-	uint64_t max_pages = installedMemory/PAGE_SIZE;
-	pt_size = (max_pages*(sizeof(struct p_page)+sizeof(struct p_page*)+sizeof(struct p_page*))+sizeof(struct p_pt_info));
-	unsigned int pt_found = 0;
-	uint64_t pt_pages = pt_size/PAGE_SIZE;
-	UINTN memoryDescCnt = pbootargs->memoryInfo.memoryMapSize/pbootargs->memoryInfo.memoryDescSize;
-	if (physicalAllocRaw((uint64_t*)&pt, pt_size)!=0){
+	uint64_t max_pages = totalMemory/PAGE_SIZE;
+	pt->pt_size = (max_pages*(sizeof(struct p_page)+sizeof(struct p_page*)+sizeof(struct p_page*))+sizeof(struct p_pt_info));
+	if (physicalAllocRaw((uint64_t*)&pt, pt->pt_size)!=0){
 		printf(L"failed to allocate page tables\r\n");
 		return -1;
 	}
 	pt->pPageEntries = (struct p_page*)(pt+1);
 	pt->pFreeEntries = (struct p_page**)(pt->pPageEntries+max_pages);
 	pt->pUsedEntries = (struct p_page**)(pt->pFreeEntries+max_pages);
+	pt->freeEntryCnt = 0;
+	pt->usedEntryCnt = 0;
 	return 0;
 }
 int initPageTable(void){
@@ -96,7 +95,6 @@ int initPageTable(void){
 	for (uint64_t i = 0;i<max_entries;i++){
 		struct p_page* pentry = pt->pPageEntries+i;
 		pentry->status = PAGE_RESERVED;
-		pentry->virtualAddress = 0x0;
 		pt->pFreeEntries[i] = (struct p_page*)0x0;
 		pt->pUsedEntries[i] = (struct p_page*)0x0;
 	}
@@ -105,10 +103,10 @@ int initPageTable(void){
 		EFI_MEMORY_DESCRIPTOR* pMemDesc = (EFI_MEMORY_DESCRIPTOR*)(((unsigned char*)pbootargs->memoryInfo.pMemoryMap)+(i*pbootargs->memoryInfo.memoryDescSize));
 		if (pMemDesc->Type==EfiMemoryMappedIO||pMemDesc->Type==EfiMemoryMappedIOPortSpace||pMemDesc->Type==EfiACPIReclaimMemory||pMemDesc->Type==EfiACPIMemoryNVS||pMemDesc->Type==EfiReservedMemoryType)
 			continue;
-		uint64_t page_index = (pMemDesc->PhysicalStart+(pMemDesc->NumberOfPages*EFI_PAGE_SIZE))/EFI_PAGE_SIZE;
-		struct p_page* pentry = (struct p_page*)(pt->pPageEntries+page_index);
+		uint64_t page_index = pMemDesc->PhysicalStart/EFI_PAGE_SIZE;
 		uint64_t pa = pMemDesc->PhysicalStart;
-		for (UINTN page = 0;page<pMemDesc->NumberOfPages;page++){
+		for (UINTN page = 0;page<pMemDesc->NumberOfPages;page++,page_index++){
+			struct p_page* pentry = pt->pPageEntries+page_index;
 			if (pMemDesc->Type==EfiConventionalMemory){
 				pentry->status = PAGE_FREE;
 				pt->pFreeEntries[pt->freeEntryCnt] = pentry;
@@ -117,15 +115,7 @@ int initPageTable(void){
 			else{
 				pentry->status = PAGE_RESERVED;
 			}
-			pentry->virtualAddress = 0x0;
 		}
-		pentry->status = PAGE_RESERVED;
-		pentry->virtualAddress = 0x0;
-	}
-	uint64_t pt_pages = pt_size/PAGE_SIZE;
-	for (uint64_t i = 0;i<pt_pages;i++){
-		uint64_t pa = ((uint64_t)pt)+(i*PAGE_SIZE);
-		physicalFreePage(pa);
 	}
 	return 0;
 }
@@ -154,7 +144,8 @@ int physicalFreePage(uint64_t physicalAddress){
 	uint64_t pageEntry = (physicalAddress/PAGE_SIZE);
 	struct p_page* pentry = pt->pPageEntries+pageEntry;
 	pentry->status = PAGE_FREE;
-	pt->pFreeEntries[pt->freeEntryCnt] = pentry;
+	struct p_page** pFreeEntry = pt->pFreeEntries+pt->freeEntryCnt;
+	*pFreeEntry = pentry;
 	pt->freeEntryCnt++;
 	return 0;
 }
@@ -173,21 +164,16 @@ int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size){
 	UINTN entryCnt = pbootargs->memoryInfo.memoryMapSize/pbootargs->memoryInfo.memoryDescSize;
 	for (UINTN i = 0;i<entryCnt;i++){
 		EFI_MEMORY_DESCRIPTOR* pMemDesc = (EFI_MEMORY_DESCRIPTOR*)(((unsigned char*)pbootargs->memoryInfo.pMemoryMap)+(i*pbootargs->memoryInfo.memoryDescSize));
-		if (pMemDesc->Type!=EfiConventionalMemory)
+		if (pMemDesc->Type!=EfiConventionalMemory||!pMemDesc->PhysicalStart)
 			continue;
 		if (pMemDesc->NumberOfPages<requestedPages)
 			continue;
-		pMemDesc->NumberOfPages-=requestedPages;
-		pMemDesc->PhysicalStart+=size;
 		pMemDesc->Type = EfiLoaderData;
 		if (!pt){
 			*pPhysicalAddress = (uint64_t)pMemDesc->PhysicalStart;
 			return 0;
 		}
 		*pPhysicalAddress = (uint64_t)pMemDesc->PhysicalStart;
-		for (UINTN page = 0;page<pMemDesc->NumberOfPages;page++){
-			physicalMapPage(pMemDesc->PhysicalStart+(page*PAGE_SIZE));
-		}
 	}
 	printf(L"failed to find %d page entries to fit block of size: %d\r\n", requestedPages, size);
 	return -1;
@@ -196,11 +182,17 @@ int physicalFreeRaw(uint64_t physicalAddress, uint64_t size){
 	UINTN entryCnt = pbootargs->memoryInfo.memoryMapSize/pbootargs->memoryInfo.memoryDescSize;
 	for (UINTN i = 0;i<entryCnt;i++){
 		EFI_MEMORY_DESCRIPTOR* pMemDesc = (EFI_MEMORY_DESCRIPTOR*)(((unsigned char*)pbootargs->memoryInfo.pMemoryMap)+(i*pbootargs->memoryInfo.memoryDescSize));
-		if (pMemDesc->PhysicalStart-size!=physicalAddress)
+		if (pMemDesc->PhysicalStart!=physicalAddress)
 			continue;
-		pMemDesc->PhysicalStart-=size;
 		pMemDesc->Type = EfiConventionalMemory;
 		return 0;
 	}
 	return -1;
+}
+int getPhysicalPageTable(uint64_t* pPa, uint64_t* pSize){
+	if (!pPa||!pSize)
+		return -1;
+	*pPa = (uint64_t)pt;
+	*pSize = pt->pt_size;
+	return 0;
 }

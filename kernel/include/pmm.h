@@ -13,7 +13,6 @@ enum pageStatus{
 };
 struct p_page{
 	enum pageStatus status;
-	uint64_t virtualAddress;
 };
 struct p_pt_info{
 	uint64_t pt_size;
@@ -22,7 +21,6 @@ struct p_pt_info{
 	struct p_page* pPageEntries;
 	struct p_page** pFreeEntries;
 	struct p_page** pUsedEntries;
-	struct p_page** pOrderList;
 };
 extern uint64_t installedMemory;
 extern uint64_t freeMemory;
@@ -38,4 +36,5 @@ int physicalFreePage(uint64_t physicalAddress);
 int physicalMapPage(uint64_t physicalAddress);
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);
+int getPhysicalPageTable(uint64_t* pPa, uint64_t* pSize);
 #endif

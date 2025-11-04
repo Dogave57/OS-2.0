@@ -15,19 +15,19 @@
 #define SMBIOS_SYSBOOT_INFO ((uint8_t)32)
 struct smbios_eps{
 	uint32_t anchor_str;
-	uint8_t entry_checksum;
-	uint8_t entry_len;
-	uint8_t major_version;
-	uint8_t minor_version;
-	uint16_t smbios_struct_max_size;
-	uint8_t entry_revision;
-	uint8_t fmt_area[5];
-	uint8_t inter_anchorstr[5];
-	uint8_t inter_checksum;
-	uint16_t struct_table_len;
-	uint32_t struct_table_addr;
-	uint16_t struct_cnt;
-	uint8_t bcd_revision;
+	uint8_t checksum;
+	uint8_t len;
+	uint8_t majorVersion;
+	uint8_t minorVersion;
+	uint16_t maxStructSize;
+	uint8_t entryPointRevision;
+	unsigned char fmtArea[5];
+	unsigned char interAnchor[5];
+	uint8_t interChecksum;
+	uint16_t tableLen;
+	uint32_t tableAddr;
+	uint16_t numberOfStructures;
+	uint8_t BCDRevision;
 }__attribute__((packed));
 struct smbios_hdr{
 	uint8_t type;

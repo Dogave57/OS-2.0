@@ -31,8 +31,10 @@ struct bootloader_smbiosInfo{
 	struct smbios_eps* pSmbios;
 };
 struct bootloader_kernelInfo{
-	unsigned char* pKernel;
+	uint64_t pKernel;
+	uint64_t pKernelStack;
 	uint64_t kernelSize;
+	uint64_t kernelStackSize;
 };
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;

@@ -1,10 +1,24 @@
 #include "bootloader.h"
 #include "stdlib.h"
+#include "vmm.h"
+#include "pmm.h"
 #include "smbios.h"
 struct smbios_hdr* pEntries[64]={0};
 struct smbios_hdr* pSmbiosData = (struct smbios_hdr*)0x0;
 int smbios_init(void){
 	struct smbios_hdr* pentry = (struct smbios_hdr*)0x0;
+	if (virtualMapPage((uint64_t)pbootargs->smbiosInfo.pSmbios, (uint64_t)pbootargs->smbiosInfo.pSmbios, PTE_RW, 1)!=0){
+		printf(L"failed to map SMBIOS entry point structure\r\n");
+		return -1;
+	}
+	uint64_t smbios_pages = pbootargs->smbiosInfo.pSmbios->tableLen/PAGE_SIZE;
+	if (pbootargs->smbiosInfo.pSmbios->tableLen%PAGE_SIZE)
+		smbios_pages++;
+	pSmbiosData = (struct smbios_hdr*)((uint64_t)pbootargs->smbiosInfo.pSmbios->tableAddr);
+	if (virtualMapPages((uint64_t)pSmbiosData, (uint64_t)pSmbiosData, PTE_RW, smbios_pages, 1)!=0){
+		printf(L"failed to map smbios tables\r\n");
+		return -1;
+	}
 	smbios_get_entry(SMBIOS_FIRMARE_INFO, &pentry);
 	smbios_get_entry(SMBIOS_SYS_INFO, &pentry);
 	smbios_get_entry(SMBIOS_MOBO_INFO, &pentry);
@@ -17,7 +31,6 @@ int smbios_init(void){
 	smbios_get_entry(SMBIOS_MEM_ARRAY_MAPPED_ADDR, &pentry);
 	smbios_get_entry(SMBIOS_MEM_DEV_MAPPED_ADDR, &pentry);
 	smbios_get_entry(SMBIOS_SYSBOOT_INFO, &pentry);
-	pSmbiosData = (struct smbios_hdr*)((uint64_t)pbootargs->smbiosInfo.pSmbios->struct_table_addr);
 	return 0;
 }
 int smbios_get_entry(uint8_t type, struct smbios_hdr** ppEntry){

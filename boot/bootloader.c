@@ -331,7 +331,7 @@ int uefi_execute_kernel(void* pfiledata){
 		}
 	}
 	unsigned char* pbase_stack = (unsigned char*)0x0;
-	unsigned int stack_size = 8192;
+	uint64_t stack_size = 8192;
 	status = BS->AllocatePool(EfiLoaderData, stack_size, (void**)&pbase_stack);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for stack %x\r\n", status);
@@ -340,8 +340,10 @@ int uefi_execute_kernel(void* pfiledata){
 	}
 	unsigned char* pstack = pbase_stack+stack_size;
 	unsigned char* pentry = (unsigned char*)(pimage+pOptHeader->addressOfEntryPoint);
-	blargs->kernelInfo.pKernel = (unsigned char*)pimage;
-	blargs->kernelInfo.kernelSize = pOptHeader->sizeOfImage;
+	blargs->kernelInfo.pKernel = (uint64_t)pimage;
+	blargs->kernelInfo.pKernelStack = (uint64_t)pbase_stack;
+	blargs->kernelInfo.kernelSize = (uint64_t)pOptHeader->sizeOfImage;
+	blargs->kernelInfo.kernelStackSize = (uint64_t)stack_size;
 	kernelEntryType entry = (kernelEntryType)pentry;
 	int kstatus = entry(pstack, blargs);
 	uefi_printf(L"kernel returned with status 0x%x\r\n", kstatus);

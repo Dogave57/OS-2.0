@@ -72,7 +72,7 @@ int apic_init(void){
 		printf(L"failed to get IOAPIC base\r\n");
 		return -1;
 	}
-	if (virtualMapPages(ioapic_base, &ioapic_base, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 1,  0)!=0){
+	if (virtualMapPages(ioapic_base, ioapic_base, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 1, 1)!=0){
 		printf(L"failed to map IOAPIC\r\n");
 		return -1;
 	}
@@ -83,8 +83,9 @@ int apic_init(void){
 	printf(L"IOAPIC version: 0x%x\r\n", ioapic_version);
 	printf(L"IOAPIC id: 0x%x\r\n", ioapic_id);
 	printf(L"IOAPIC max redirection entries: %d\r\n", ioapic_max_redirs);
-	inb(0x60);
 	ioapic_enable_irq(1, 0x40, (uint8_t)main_lapic_id);
+	inb(0x60);
+	lapic_send_eoi();
 	return 0;
 }
 int lapic_get_version(uint64_t* pversion){

@@ -13,11 +13,13 @@
 #define PTE_ADDR_MASK 0x000ffffffffffff000
 #define PTE_GET_ADDR(addr)(((uint64_t)addr&PTE_ADDR_MASK))
 int vmm_init(void);
+int vmm_getPageTableEntry(uint64_t va, uint64_t** ppEntry);
 int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t index, uint64_t flags);
-int virtualMapPage(uint64_t pa, uint64_t* pVa, uint64_t flags, unsigned int alloc_new);
-int virtualMapPages(uint64_t pa, uint64_t* pVa, uint64_t flags, uint64_t page_cnt, unsigned int alloc_new);
+int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared);
+int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared);
 int virtualUnmapPage(uint64_t va);
 int virtualUnmapPages(uint64_t va, uint64_t page_cnt);
+int virtualToPhysical(uint64_t va, uint64_t* pVa);
 uint64_t get_pt(void);
 int load_pt(uint64_t pml4);
 int flush_tlb(void);
