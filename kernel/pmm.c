@@ -78,11 +78,12 @@ int allocatePageTable(void){
 	if (!freeMemory)
 		getFreeMemory(&freeMemory);
 	uint64_t max_pages = totalMemory/PAGE_SIZE;
-	pt->pt_size = (max_pages*(sizeof(struct p_page)+sizeof(struct p_page*)+sizeof(struct p_page*))+sizeof(struct p_pt_info));
-	if (physicalAllocRaw((uint64_t*)&pt, pt->pt_size)!=0){
+	uint64_t pt_size = (max_pages*(sizeof(struct p_page)+sizeof(struct p_page*)+sizeof(struct p_page*))+sizeof(struct p_pt_info));
+	if (physicalAllocRaw((uint64_t*)&pt, pt_size)!=0){
 		printf(L"failed to allocate page tables\r\n");
 		return -1;
 	}
+	pt->pt_size = pt_size;
 	pt->pPageEntries = (struct p_page*)(pt+1);
 	pt->pFreeEntries = (struct p_page**)(pt->pPageEntries+max_pages);
 	pt->pUsedEntries = (struct p_page**)(pt->pFreeEntries+max_pages);
@@ -143,17 +144,21 @@ int physicalAllocPage(uint64_t* pPhysicalAddress){
 int physicalFreePage(uint64_t physicalAddress){
 	uint64_t pageEntry = (physicalAddress/PAGE_SIZE);
 	struct p_page* pentry = pt->pPageEntries+pageEntry;
+	if (pentry->status==PAGE_FREE)
+		return 0;
 	pentry->status = PAGE_FREE;
-	struct p_page** pFreeEntry = pt->pFreeEntries+pt->freeEntryCnt;
-	*pFreeEntry = pentry;
+	pt->pFreeEntries[pt->freeEntryCnt] = pentry;
 	pt->freeEntryCnt++;
 	return 0;
 }
 int physicalMapPage(uint64_t physicalAddress){
-	struct p_page* pNewPage = pt->pPageEntries+(physicalAddress/sizeof(struct p_page));
+	struct p_page* pNewPage = pt->pPageEntries+(physicalAddress/PAGE_SIZE);
 	pNewPage->status = PAGE_INUSE;
-	pt->pUsedEntries[pt->usedEntryCnt] = pNewPage;
-	pt->usedEntryCnt++;
+	return 0;
+}
+int physicalUnmapPage(uint64_t physicalAddress){
+	struct p_page* pPage = pt->pPageEntries+(physicalAddress/PAGE_SIZE);
+	pPage->status = PAGE_FREE;
 	return 0;
 }
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size){

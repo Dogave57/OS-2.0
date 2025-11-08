@@ -7,6 +7,10 @@ struct acpi_xsdp* pXsdp = (struct acpi_xsdp*)0x0;
 struct acpi_sdt_hdr* pXsdt = (struct acpi_sdt_hdr*)0x0;
 struct acpi_madtEntry_ioapic* pIoApicInfo = (struct acpi_madtEntry_ioapic*)0x0;
 int acpi_init(void){
+	if (virtualMapPage((uint64_t)pbootargs->acpiInfo.pXsdp, (uint64_t)pbootargs->acpiInfo.pXsdp, PTE_RW, 1, 0)!=0){
+		printf(L"failed to map XSDP\r\n");
+		return -1;
+	}
 	pXsdp = (struct acpi_xsdp*)0x0;
 	pXsdt = (struct acpi_sdt_hdr*)0x0;
 	if (acpi_find_xsdp(&pXsdp)!=0){
@@ -17,19 +21,19 @@ int acpi_init(void){
 		printf(L"failed to find XSDT\r\n");
 		return -1;
 	}
-	if (pXsdt->signature!=XSDT_SIGNATURE){
-		printf(L"invalid XSDT signature\r\n");
+	if (virtualMapPage((uint64_t)pXsdt, (uint64_t)pXsdt, PTE_RW, 1, 0)!=0){
+		printf(L"failed to map XSDT\r\n");
 		return -1;
 	}
-	if (virtualMapPage((uint64_t)pXsdt, (uint64_t)pXsdt, PTE_RW, 1)!=0){
-		printf(L"failed to map XSDT\r\n");
+	if (pXsdt->signature!=XSDT_SIGNATURE){
+		printf(L"invalid XSDT\r\n");
 		return -1;
 	}
 	struct acpi_sdt_hdr** ptables = (struct acpi_sdt_hdr**)(pXsdt+1);
 	unsigned int tablecnt = (pXsdt->len-sizeof(struct acpi_sdt_hdr))/sizeof(uint64_t);
 	for (unsigned int i = 0;i<tablecnt;i++){
 		uint64_t ptable = (uint64_t)ptables[i];
-		if (virtualMapPage((uint64_t)ptable, (uint64_t)ptable, PTE_RW, 1)!=0){
+		if (virtualMapPage((uint64_t)ptable, (uint64_t)ptable, PTE_RW, 1, 0)!=0){
 			printf(L"failed to map ACPI table\r\n");
 			return -1;
 		}

@@ -111,6 +111,24 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf(L"core count: %d\r\n", coreCnt);
+	uint64_t va = 0;
+	uint64_t pagecnt = (MEM_MB*512)/PAGE_SIZE;
+	uint64_t before_ms = get_time_ms();
+	uint64_t elapsed_ms = 0;
+	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0)!=0){
+		printf(L"failed to allocate %d pages\r\n", pagecnt);	
+		while (1){};
+		return -1;
+	}
+	elapsed_ms = get_time_ms()-before_ms;
+	printf(L"took %dms to allocate %d 4KB pages\r\n", elapsed_ms, pagecnt);
+	printf(L"%dGB/s allocation\r\n", 500/elapsed_ms);
+	if (virtualFreePages(va, pagecnt)!=0){
+		printf(L"failed to free %d pages\r\n", pagecnt);
+		while (1){};
+		return -1;
+	}
+	printf(L"took %dms to allocate and free %d pages\r\n", get_time_ms()-before_ms, pagecnt);
 	while (1){};
 	return 0;	
 }

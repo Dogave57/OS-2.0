@@ -415,7 +415,7 @@ int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UI
 	fileSize = (UINTN)pFileInfo->FileSize;
 	BS->FreePool((void*)pFileInfo);
 	void* pbuffer = (void*)0x0;
-	status = BS->AllocatePool(EfiBootServicesData, fileSize, (void**)&pbuffer);
+	status = BS->AllocatePool(EfiLoaderData, fileSize, (void**)&pbuffer);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for file buffer %x\r\n", status);
 		pFileProtocol->Close(pFileProtocol);

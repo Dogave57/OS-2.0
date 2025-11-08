@@ -1,5 +1,6 @@
 #ifndef _PMM
 #define _PMM
+#include "vmm.h"
 #define MEM_GB 1073741824
 #define MEM_MB 1048576
 #define MEM_KB 1024
@@ -34,6 +35,7 @@ int initPageTable(void);
 int physicalAllocPage(uint64_t* pPhysicalAddress);
 int physicalFreePage(uint64_t physicalAddress);
 int physicalMapPage(uint64_t physicalAddress);
+int physicalUnmapPage(uint64_t physicalAddress);
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);
 int getPhysicalPageTable(uint64_t* pPa, uint64_t* pSize);
