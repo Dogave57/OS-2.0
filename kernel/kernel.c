@@ -7,6 +7,7 @@
 #include "timer.h"
 #include "pmm.h"
 #include "vmm.h"
+#include "heap.h"
 #include "smbios.h"
 #include "smp.h"
 #include "serial.h"
@@ -35,7 +36,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	BS->ExitBootServices(pbootargs->bootloaderHandle, pbootargs->memoryInfo.memoryMapKey);
 	clear();
-	print(L"kernel loaded\r\n");
 	if (serial_init()!=0){
 		printf(L"failed to intialize serial ports\r\n");
 		while (1){};
@@ -46,13 +46,11 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	print(L"gdt loaded\r\n");
 	if (idt_init()!=0){
 		print(L"failed to load idt\r\n");
 		while (1){};
 		return -1;
 	}
-	print(L"idt loaded\r\n");
 	if (pmm_init()!=0){
 		printf(L"failed to initiallize pmm\r\n");
 		while (1){};
@@ -65,6 +63,12 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf(L"virtual memory management initialized\r\n");
+	if (heap_init()!=0){
+		printf(L"failed to initialize heap\r\n");
+		while (1){};
+		return -1;
+	}
+	printf(L"heap initialized\r\n");
 	if (acpi_init()!=0){
 		printf(L"failed to initialize ACPI\r\n");
 		while (1){};
@@ -112,7 +116,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	printf(L"core count: %d\r\n", coreCnt);
 	uint64_t va = 0;
-	uint64_t pagecnt = (MEM_MB*512)/PAGE_SIZE;
+	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
 	uint64_t before_ms = get_time_ms();
 	uint64_t elapsed_ms = 0;
 	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0)!=0){
@@ -122,7 +126,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	elapsed_ms = get_time_ms()-before_ms;
 	printf(L"took %dms to allocate %d 4KB pages\r\n", elapsed_ms, pagecnt);
-	printf(L"%dGB/s allocation\r\n", 500/elapsed_ms);
+	printf(L"%dGB/s allocation\r\n", 250/elapsed_ms);
 	if (virtualFreePages(va, pagecnt)!=0){
 		printf(L"failed to free %d pages\r\n", pagecnt);
 		while (1){};

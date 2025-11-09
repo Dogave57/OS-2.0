@@ -6,7 +6,7 @@ uint64_t* pml4 = (uint64_t*)0x0;
 uint64_t next_page_va = 0;
 int vmm_init(void){
 	uint64_t max_pages = installedMemory/PAGE_SIZE;
-	if (physicalAllocPage((uint64_t*)&pml4)!=0){
+	if (physicalAllocPage((uint64_t*)&pml4, PAGE_TYPE_NORMAL)!=0){
 		printf(L"failed to allocate page for pml4\r\n");
 		return -1;
 	}
@@ -73,15 +73,14 @@ int vmm_init(void){
 	uint64_t physicalPageTablePages = physicalPageTableSize/PAGE_SIZE;
 	if (physicalPageTableSize%PAGE_SIZE)
 		physicalPageTablePages++;
-	printf(L"physical PT size: %d\r\n", physicalPageTableSize);
 	if (virtualMapPages((uint64_t)pPhysicalPageTable, (uint64_t)pPhysicalPageTable, PTE_RW, physicalPageTablePages, 1, 0)!=0){
 		printf(L"failed to map physical page table\r\n");
 		return -1;
 	}
 	load_pt((uint64_t)pml4);
 	flush_full_tlb();
-	printf(L"pt loaded\r\n");
 	virtualUnmapPage(0x0, 0);
+	physicalMapPage(0x0, PAGE_TYPE_RESERVED);
 	return 0;
 }
 int vmm_getPageTableEntry(uint64_t va, uint64_t** ppEntry){
@@ -112,7 +111,7 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 		*ppNextLevel = (uint64_t*)PTE_GET_ADDR(pNextLevel);
 		return 0;
 	}
-	if (physicalAllocPage((uint64_t*)&pNextLevel)!=0){
+	if (physicalAllocPage((uint64_t*)&pNextLevel, PAGE_TYPE_NORMAL)!=0){
 		return -1;
 	}
 	memset((void*)pNextLevel, 0, PAGE_SIZE);
@@ -127,7 +126,7 @@ int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared
 	uint64_t pt_entry = pa|flags|PTE_PRESENT;
 	if (!shared&&PTE_IS_PRESENT(*pentry))
 		return -1;
-	if (physicalMapPage(pa)!=0){
+	if (physicalMapPage(pa, PAGE_TYPE_NORMAL)!=0){
 		return -1;
 	}
 	*pentry = pt_entry;
@@ -186,7 +185,7 @@ int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags){
 	if (!pVa)
 		return -1;
 	uint64_t pa = 0;
-	if (physicalAllocPage(&pa)!=0){
+	if (physicalAllocPage(&pa, PAGE_TYPE_NORMAL)!=0){
 		return -1;
 	}
 	if (virtualMapPage(pa, pa, flags, 1, map_flags)!=0){
@@ -220,7 +219,7 @@ int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t
 	for (uint64_t i = 0;i<page_cnt;i++){
 		uint64_t new_ppage = (uint64_t)0;
 		uint64_t page_va = va+(i*PAGE_SIZE);
-		if (physicalAllocPage(&new_ppage)!=0)
+		if (physicalAllocPage(&new_ppage, PAGE_TYPE_NORMAL)!=0)
 			return -1;
 		if (virtualMapPage(new_ppage, page_va, flags, 1, map_flags)!=0)
 			return -1;

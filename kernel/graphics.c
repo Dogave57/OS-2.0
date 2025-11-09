@@ -114,30 +114,8 @@ int print_ascii(unsigned char* string){
 	return 0;
 }
 int init_fonts(void){
-	EFI_FILE_PROTOCOL* rootVolume = (EFI_FILE_PROTOCOL*)0x0;
-	EFI_STATUS status = filesystemProtocol->OpenVolume(filesystemProtocol, &rootVolume);
-	if (status!=EFI_SUCCESS){
-		printf(L"failed to open root volume when initializing fonts %x\r\n", status);
-		return -1;
-	}	
-	EFI_FILE_PROTOCOL* fontsDir = (EFI_FILE_PROTOCOL*)0x0;
-	status = rootVolume->Open(rootVolume, &fontsDir, L"FONTS", EFI_FILE_MODE_READ, 0);
-	if (status!=EFI_SUCCESS){
-		printf(L"failed to open fonts directory when initiializing fonts %x\r\n", status);
-		return -1;
-	}
-	unsigned char* fontData = (unsigned char*)0x0;
-	unsigned int fontDataSize = 0;
-	if (efi_readfile(fontsDir, L"font.bin", (void**)&fontData, &fontDataSize)!=0){
-		printf(L"failed to read fonts file\r\n");
-		fontsDir->Close(fontsDir);
-		rootVolume->Close(rootVolume);
-		return -1;
-	}
-	fontsDir->Close(fontsDir);
-	rootVolume->Close(rootVolume);
-	pbootargs->graphicsInfo.fontData = fontData;
-	pbootargs->graphicsInfo.fontDataSize = fontDataSize;
+	pbootargs->graphicsInfo.fontDataSize = sizeof(mainfont_data);
+	pbootargs->graphicsInfo.fontData = (unsigned char*)mainfont_data;
 	pbootargs->graphicsInfo.font_initialized = 1;
 	return 0;
 }

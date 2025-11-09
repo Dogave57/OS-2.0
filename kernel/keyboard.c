@@ -1,5 +1,6 @@
 #include "port.h"
 #include "bootloader.h"
+#include "stdlib.h"
 #include "graphics.h"
 #include "keyboard.h"
 unsigned int keysPressed[256]={0};
@@ -40,6 +41,15 @@ void ps2_keyboard_handler(void){
 	}
 	if (!mapping)
 		return;
+	if (keysPressed[KEY_LSHIFT]&&keysPressed[KEY_ESC]&&mapping=='d'){
+		__asm__ volatile("cli");
+		__asm__ volatile("int $1");
+		__asm__ volatile("hlt");
+		while (1){};
+		return;
+	}
+	if (keysPressed[KEY_LSHIFT]||keysPressed[KEY_RSHIFT])
+		mapping = toUpper(mapping);
 	putchar(mapping);
 	return;
 }

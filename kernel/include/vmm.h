@@ -1,5 +1,6 @@
 #ifndef _VMM
 #define _VMM
+#include <stdint.h>
 #include "pmm.h"
 #define PTE_PRESENT (1ull<<0)
 #define PTE_RW (1ull<<1)

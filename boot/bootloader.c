@@ -136,7 +136,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	UINTN modecnt = gopProtocol->Mode->MaxMode;
 	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* pmodeinfo = (EFI_GRAPHICS_OUTPUT_MODE_INFORMATION*)0x0;
 	UINTN infoSize = 0;
-	unsigned int prefered_modes[][2] = {{640, 480}, {1920, 1080}, {320,200}};
+	unsigned int prefered_modes[][2] = {{1280, 720}, {1920, 1080}, {640, 480}, {320,200}};
 	unsigned int prefered_modecnt = sizeof(prefered_modes)/sizeof(prefered_modes[0]);
 	unsigned int mode_set = 0;
 	if (!modecnt){

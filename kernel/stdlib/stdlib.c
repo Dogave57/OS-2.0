@@ -165,3 +165,31 @@ int memset(uint64_t* mem, uint64_t value, uint64_t size){
 	}
 	return 0;
 }
+CHAR16 toUpper(CHAR16 ch){
+	CHAR16 upper = ch;
+	static const CHAR16 mapping[255]={
+		[L'`'] = '~',
+		[L'1'] = '!',
+		[L'2'] = '@',
+		[L'3'] = '#',
+		[L'4'] = '$',
+		[L'5'] = '%',
+		[L'6'] = '^',
+		[L'7'] = '&',
+		[L'8'] = '*',
+		[L'9'] = '(',
+		[L'0'] = ')',
+		[L','] = '<',
+		[L'.'] = '>',
+		[L';'] = ':',
+		[L'\''] = '\"',
+		[L'['] = '{',
+		[L']'] = '}',
+		['\\'] = '|',
+		['='] = '+',
+		['-'] = '_',
+	};
+	if (upper>=L'a'&&upper<=L'z')
+		return L'A'+(upper-L'a');
+	return mapping[upper];
+}
