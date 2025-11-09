@@ -53,6 +53,24 @@ int heap_init(void){
 			return -1;
 		}
 	}
+	uint64_t* test1 = (uint64_t*)kmalloc(1024);
+	if (!test1){
+		printf(L"failed to allocate test1\r\n");
+		return -1;
+	}
+	if (kfree((void*)test1)!=0){
+		printf(L"heap free mechanism failed so it litreally cooked bro\r\n");
+		return -1;
+	}
+	uint64_t* test2 = (uint64_t*)kmalloc(1024);
+	if (!test2){
+		printf(L"failed to allocate test2\r\n");
+		return -1;
+	}
+	if (test1!=test2){
+		printf(L"heap free mechanism is cooked bro\r\n");
+		return -1;
+	}
 	return 0;
 }
 void* kmalloc(uint64_t size){
