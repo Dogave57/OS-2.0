@@ -1,6 +1,6 @@
 #include <stdarg.h>
-#include "graphics.h"
-#include "stdlib.h"
+#include "drivers/graphics.h"
+#include "stdlib/stdlib.h"
 int atoi(long long num, CHAR16* buf, unsigned int bufmax){
 	if (!buf)
 		return -1;

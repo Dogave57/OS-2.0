@@ -1,5 +1,5 @@
-#include "port.h"
-#include "pit.h"
+#include "cpu/port.h"
+#include "drivers/pit.h"
 int pit_set_freq(unsigned int channel, unsigned int freq){
 	freq = 1193182/freq;
 	outb(0x43, 0x34);	

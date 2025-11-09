@@ -11,35 +11,40 @@ $BOOTCC $CFLAGS -fpic -c boot/bootloader.c -o build/objects/bootloader.o
 echo linking bootloader
 sudo $BOOTLD -subsystem:efi_application -entry:UefiEntry build/objects/bootloader.o -out:build/build/bootloader.efi 
 echo compiling kernel
-sudo $CC $CFLAGS -fpic -c kernel/graphics.c -o build/objects/graphics.o
+sudo mkdir -p build/objects/mem
+sudo mkdir -p build/objects/drivers
+sudo mkdir -p build/objects/cpu
+sudo mkdir -p build/objects/stdlib
+sudo $CC $CFLAGS -fpic -c kernel/drivers/graphics.c -o build/objects/drivers/graphics.o
 sudo $CC $CFLAGS -fpic -c kernel/kernel.c -o build/objects/kernel.o
-sudo $CC $CFLAGS -fpic -c kernel/interrupt.c -o build/objects/interrupt.o
-sudo $CC $CFLAGS -fpic -c kernel/gdt.c -o build/objects/gdt.o
-sudo $CC $CFLAGS -fpic -c kernel/port.c -o build/objects/port.o
-sudo $CC $CFLAGS -fpic -c kernel/filesystem.c -o build/objects/filesystem.o
-sudo $CC $CFLAGS -fpic -c kernel/stdlib/stdlib.c -o build/objects/stdlib.o
-sudo $CC $CFLAGS -fpic -c kernel/apic.c -o build/objects/apic.o
-sudo $CC $CFLAGS -fpic -c kernel/cpuid.c -o build/objects/cpuid.o
-sudo $CC $CFLAGS -fpic -c kernel/pit.c -o build/objects/pit.o
-sudo $CC $CFLAGS -fpic -c kernel/pic.c -o build/objects/pic.o
-sudo $CC $CFLAGS -fpic -c kernel/acpi.c -o build/objects/acpi.o
-sudo $CC $CFLAGS -fpic -c kernel/keyboard.c -o build/objects/keyboard.o
-sudo $CC $CFLAGS -fpic -c kernel/pmm.c -o build/objects/pmm.o
-sudo $CC $CFLAGS -fpic -c kernel/serial.c -o build/objects/serial.o
-sudo $CC $CFLAGS -fpic -c kernel/smbios.c -o build/objects/smbios.o
-sudo $CC $CFLAGS -fpic -c kernel/vmm.c -o build/objects/vmm.o
-sudo $CC $CFLAGS -fpic -c kernel/smp.c -o build/objects/smp.o
-sudo $CC $CFLAGS -fpic -c kernel/heap.c -o build/objects/heap.o
+sudo $CC $CFLAGS -fpic -c kernel/cpu/interrupt.c -o build/objects/cpu/interrupt.o
+sudo $CC $CFLAGS -fpic -c kernel/cpu/gdt.c -o build/objects/cpu/gdt.o
+sudo $CC $CFLAGS -fpic -c kernel/cpu/port.c -o build/objects/cpu/port.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/filesystem.c -o build/objects/drivers/filesystem.o
+sudo $CC $CFLAGS -fpic -c kernel/stdlib/stdlib.c -o build/objects/stdlib/stdlib.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/apic.c -o build/objects/drivers/apic.o
+sudo $CC $CFLAGS -fpic -c kernel/cpu/cpuid.c -o build/objects/cpu/cpuid.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/pit.c -o build/objects/drivers/pit.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/pic.c -o build/objects/drivers/pic.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/acpi.c -o build/objects/drivers/acpi.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/keyboard.c -o build/objects/drivers/keyboard.o
+sudo $CC $CFLAGS -fpic -c kernel/mem/pmm.c -o build/objects/mem/pmm.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/serial.c -o build/objects/drivers/serial.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/smbios.c -o build/objects/drivers/smbios.o
+sudo $CC $CFLAGS -fpic -c kernel/mem/vmm.c -o build/objects/mem/vmm.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/smp.c -o build/objects/drivers/smp.o
+sudo $CC $CFLAGS -fpic -c kernel/mem/heap.c -o build/objects/mem/heap.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/ahci.c -o build/objects/drivers/ahci.o
 sudo $AS -f win64 kernel/stub.asm -o build/objects/kernel_stub.o
-sudo $AS -f win64 kernel/isrs.asm -o build/objects/isrs.o
-sudo $AS -f win64 kernel/gdt.asm -o build/objects/gdt_asm.o
-sudo $AS -f win64 kernel/idt.asm -o build/objects/idt_asm.o
-sudo $AS -f win64 kernel/msr.asm -o build/objects/msr.o
-sudo $AS -f win64 kernel/timer.asm -o build/objects/timer.o
-sudo $AS -f win64 kernel/thermal.asm -o build/objects/thermal.o
-sudo $AS -f win64 kernel/vmm.asm -o build/objects/vmm_asm.o
+sudo $AS -f win64 kernel/cpu/isrs.asm -o build/objects/cpu/isrs.o
+sudo $AS -f win64 kernel/cpu/gdt.asm -o build/objects/cpu/gdt_asm.o
+sudo $AS -f win64 kernel/cpu/idt.asm -o build/objects/cpu/idt_asm.o
+sudo $AS -f win64 kernel/cpu/msr.asm -o build/objects/cpu/msr.o
+sudo $AS -f win64 kernel/drivers/timer.asm -o build/objects/drivers/timer.o
+sudo $AS -f win64 kernel/drivers/thermal.asm -o build/objects/drivers/thermal.o
+sudo $AS -f win64 kernel/mem/vmm.asm -o build/objects/mem/vmm_asm.o
 echo linking kernel
-sudo $LD -subsystem:native build/objects/kernel.o build/objects/graphics.o build/objects/kernel_stub.o build/objects/interrupt.o build/objects/isrs.o build/objects/gdt_asm.o build/objects/gdt.o build/objects/idt_asm.o build/objects/port.o build/objects/filesystem.o build/objects/stdlib.o build/objects/msr.o build/objects/apic.o build/objects/cpuid.o build/objects/pit.o build/objects/pic.o build/objects/timer.o build/objects/thermal.o build/objects/acpi.o build/objects/keyboard.o build/objects/pmm.o build/objects/vmm_asm.o build/objects/serial.o build/objects/smbios.o build/objects/vmm.o build/objects/smp.o build/objects/heap.o -entry:kernel_stub -out:build/build/kernel.exe
+sudo $LD -subsystem:native build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o -entry:kernel_stub -out:build/build/kernel.exe
 echo done
 case "$OS" in
 "Linux")

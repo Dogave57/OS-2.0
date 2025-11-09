@@ -1,13 +1,13 @@
-#include "msr.h"
-#include "stdlib.h"
-#include "cpuid.h"
-#include "port.h"
-#include "pit.h"
-#include "pic.h"
-#include "vmm.h"
-#include "acpi.h"
-#include "timer.h"
-#include "apic.h"
+#include "cpu/msr.h"
+#include "stdlib/stdlib.h"
+#include "cpu/cpuid.h"
+#include "cpu/port.h"
+#include "drivers/pit.h"
+#include "drivers/pic.h"
+#include "mem/vmm.h"
+#include "drivers/acpi.h"
+#include "drivers/timer.h"
+#include "drivers/apic.h"
 uint64_t lapic_base = 0;
 uint64_t lapic_version = 0;
 uint64_t main_lapic_id = 0;

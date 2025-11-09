@@ -6,9 +6,9 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
-#include "graphics.h"
-#include "acpi.h"
-#include "smbios.h"
+#include "drivers/graphics.h"
+#include "drivers/acpi.h"
+#include "drivers/smbios.h"
 struct bootloader_graphicsInfo{
 	unsigned int width;
 	unsigned int height;

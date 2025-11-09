@@ -1,9 +1,9 @@
-#include "vmm.h"
-#include "pmm.h"
+#include "mem/vmm.h"
+#include "mem/pmm.h"
 #include "align.h"
-#include "stdlib.h"
-#include "graphics.h"
-#include "heap.h"
+#include "stdlib/stdlib.h"
+#include "drivers/graphics.h"
+#include "mem/heap.h"
 struct heap_block_list* pBlockLists = (struct heap_block_list*)0x0;
 uint64_t blockList_cnt = 0;
 int heap_init(void){

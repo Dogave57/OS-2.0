@@ -1,5 +1,5 @@
-#include "port.h"
-#include "serial.h"
+#include "cpu/port.h"
+#include "drivers/serial.h"
 static unsigned int serial_portmap[]={
 	[0] = 0x3F8,
 	[1] = 0x2F8,

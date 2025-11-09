@@ -1,8 +1,8 @@
 #include "bootloader.h"
-#include "stdlib.h"
-#include "filesystem.h"
-#include "serial.h"
-#include "graphics.h"
+#include "stdlib/stdlib.h"
+#include "drivers/filesystem.h"
+#include "drivers/serial.h"
+#include "drivers/graphics.h"
 unsigned int char_position = 0;
 struct vec3 text_fg = {255,255,255};
 struct vec3 text_bg = {0,0,0};

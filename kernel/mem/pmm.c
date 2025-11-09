@@ -1,8 +1,8 @@
-#include "stdlib.h"
-#include "graphics.h"
+#include "stdlib/stdlib.h"
+#include "drivers/graphics.h"
 #include "align.h"
 #include "bootloader.h"
-#include "pmm.h"
+#include "mem/pmm.h"
 uint64_t totalMemory = 0;
 uint64_t installedMemory = 0;
 uint64_t freeMemory = 0;

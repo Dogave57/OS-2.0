@@ -1,8 +1,8 @@
 #include "bootloader.h"
-#include "stdlib.h"
-#include "vmm.h"
-#include "pmm.h"
-#include "smbios.h"
+#include "stdlib/stdlib.h"
+#include "mem/vmm.h"
+#include "mem/pmm.h"
+#include "drivers/smbios.h"
 struct smbios_hdr* pEntries[64]={0};
 struct smbios_hdr* pSmbiosData = (struct smbios_hdr*)0x0;
 int smbios_init(void){

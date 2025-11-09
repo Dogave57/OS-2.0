@@ -1,5 +1,5 @@
-#include "acpi.h"
-#include "smp.h"
+#include "drivers/acpi.h"
+#include "drivers/smp.h"
 int getCpuCoreCount(unsigned int* pcount){
 	if (!pcount)
 		return -1;

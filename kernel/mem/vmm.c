@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include "stdlib.h"
-#include "pmm.h"
-#include "vmm.h"
+#include "stdlib/stdlib.h"
+#include "mem/pmm.h"
+#include "mem/vmm.h"
 uint64_t* pml4 = (uint64_t*)0x0;
 uint64_t next_page_va = 0;
 int vmm_init(void){

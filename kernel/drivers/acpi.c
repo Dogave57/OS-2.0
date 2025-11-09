@@ -1,8 +1,8 @@
-#include "stdlib.h"
+#include "stdlib/stdlib.h"
 #include "bootloader.h"
-#include "pmm.h"
-#include "vmm.h"
-#include "acpi.h"
+#include "mem/pmm.h"
+#include "mem/vmm.h"
+#include "drivers/acpi.h"
 struct acpi_xsdp* pXsdp = (struct acpi_xsdp*)0x0;
 struct acpi_sdt_hdr* pXsdt = (struct acpi_sdt_hdr*)0x0;
 struct acpi_madtEntry_ioapic* pIoApicInfo = (struct acpi_madtEntry_ioapic*)0x0;

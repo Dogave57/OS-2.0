@@ -1,5 +1,5 @@
 #include "bootloader.h"
-#include "gdt.h"
+#include "cpu/gdt.h"
 struct gdt_entry_t gdt[GDT_ENTRIES] = {0};
 struct gdt_ptr pgdt = {0};
 int gdt_add_entry(struct gdt_entry_t* ptarget, uint32_t base, uint32_t limit, uint8_t access, uint16_t flags){

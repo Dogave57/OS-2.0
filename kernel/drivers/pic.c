@@ -1,5 +1,5 @@
-#include "port.h"
-#include "pic.h"
+#include "cpu/port.h"
+#include "drivers/pic.h"
 int pic_remap(void);
 int pic_init(void){
 	__asm__ volatile("cli");

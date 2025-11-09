@@ -1,6 +1,6 @@
 #include "bootloader.h"
-#include "port.h"
-#include "interrupt.h"
+#include "cpu/port.h"
+#include "cpu/interrupt.h"
 __attribute__((aligned(0x10)))
 static struct idt_entry_t idt[IDT_MAX_ENTRIES] = {0};
 static struct idt_ptr_t idtr = {0};
