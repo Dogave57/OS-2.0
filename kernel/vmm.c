@@ -130,7 +130,8 @@ int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared
 		return -1;
 	}
 	*pentry = pt_entry;
-	next_page_va = va+PAGE_SIZE;
+	if (va+PAGE_SIZE>next_page_va)
+		next_page_va = va+PAGE_SIZE;
 	if (get_pt()!=(uint64_t)pml4)
 		return 0;
 	flush_tlb(va);

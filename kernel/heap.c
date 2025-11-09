@@ -29,24 +29,22 @@ int heap_init(void){
 			printf(L"failed to allocate heap block %d\r\n", i);
 			return -1;
 		}
-//		printf(L"1: %p\r\n", (void*)pBlock);
 		*pBlock = 67;
 		kfree((void*)pBlock);
 	}
 	for (uint64_t i = 0;i<5;i++){
-		uint64_t* pBlock = (uint64_t*)kmalloc(16);
+		uint64_t* pBlock = (uint64_t*)kmalloc(1024);
 		if (!pBlock){
 			printf(L"failed to allocate heap block %d\r\n", i);
 			return -1;
 		}
-		uint64_t* pBlock2 = (uint64_t*)kmalloc(256);
+		uint64_t* pBlock2 = (uint64_t*)kmalloc(64);
 		if (!pBlock2){
 			printf(L"failed to allocate heap block 2: %d\r\n", i);
 			return -1;
 		}
 		*pBlock = 67;
-		printf(L"2: %p\r\n", (void*)pBlock);
-		printf(L"3: %p\r\n", (void*)pBlock2);
+		*pBlock2 = 67;
 		if (!(i%2))
 			continue;
 		if (kfree((void*)pBlock)!=0){
@@ -173,10 +171,11 @@ int heap_push_block(struct heap_block_list* pBlockList, uint64_t va){
 		return -1;
 	}
 	pLastNode->va[pLastNode->freeBlockCnt] = va;
-	pLastNode->freeBlockCnt++;
 	struct heap_block_hdr* pHdr = (struct heap_block_hdr*)va;
+	pHdr->onHeap = 1;
 	pHdr->pList = pBlockList;
 	pHdr->va = va;
+	pLastNode->freeBlockCnt++;
 	if (pLastNode->freeBlockCnt>HEAP_BLOCK_PER_NODE){
 		if (heap_free_block_node(pBlockList, pLastNode)!=0){
 			printf(L"failed to free node\r\n");
@@ -189,23 +188,14 @@ int heap_push_block(struct heap_block_list* pBlockList, uint64_t va){
 int heap_pop_block(struct heap_block_list* pBlockList){
 	if (!pBlockList)
 		return -1;
-	if (!pBlockList->pLastNode){
+	struct heap_block_node* pLastNode = pBlockList->pLastNode;
+	if (!pLastNode){
 		printf(L"no last node\r\n");
 		return -1;
 	}
-	struct heap_block_node* pLastNode = pBlockList->pLastNode;
 	if (!pLastNode->freeBlockCnt)
 		return -1;
 	pLastNode->freeBlockCnt--;
-	if (!pLastNode->freeBlockCnt){
-		if (virtualFreePages((uint64_t)pLastNode->pPage, (uint64_t)pLastNode->pageCnt)!=0){
-			heap_free_block_node(pBlockList, pLastNode);
-			return -1;
-		}
-		if (heap_free_block_node(pBlockList, pLastNode)!=0)
-			return -1;
-		return 0;
-	}
 	return 0;
 }
 int heap_get_block(uint64_t* pVa, struct heap_block_list* pBlockList){

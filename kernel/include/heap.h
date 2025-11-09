@@ -20,6 +20,7 @@ struct heap_block_list{
 	struct heap_block_node* pLastNode;
 };
 struct heap_block_hdr{
+	uint64_t onHeap;
 	struct heap_block_list* pList;
 	uint64_t va;
 };
