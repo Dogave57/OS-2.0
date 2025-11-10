@@ -9,7 +9,7 @@ int pcie_init(void){
 		printf(L"failed to get PCIE controller info\r\n");
 		return -1;
 	}
-	if (virtualMapPages(pcie_info.pBase, pcie_info.pBase, PTE_RW, 1, 1, 0)!=0){
+	if (virtualMapPages(pcie_info.pBase, pcie_info.pBase, PTE_RW, 1, 1, 0, PAGE_TYPE_MMIO)!=0){
 		printf(L"failed to map PCIE controller registers\r\n");
 		return -1;
 	}
@@ -73,7 +73,7 @@ int pcie_get_ecam_base(uint8_t bus, uint8_t dev, uint8_t func, uint64_t* pBase){
 	uint64_t ecam_offset = (bus<<20)+(dev<<15)+(func<<12);
 	uint64_t base = pcie_info.pBase+ecam_offset;
 	uint64_t base_page = align_down(base, PAGE_SIZE);
-	if (virtualMapPages(base_page, base_page, PTE_RW, 2, 1, 0)!=0)
+	if (virtualMapPages(base_page, base_page, PTE_RW, 2, 1, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
 	*pBase = base;
 	return 0;

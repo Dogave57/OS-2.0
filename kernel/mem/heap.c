@@ -13,7 +13,7 @@ int heap_init(void){
 	uint64_t blockListPages = blockListSize/PAGE_SIZE;
 	if (blockListSize%PAGE_SIZE)
 		blockListPages++;
-	if (virtualAllocPages((uint64_t*)&pBlockLists, blockListPages, PTE_RW, 0)!=0){
+	if (virtualAllocPages((uint64_t*)&pBlockLists, blockListPages, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
 		printf(L"failed to allocate block lists\r\n");
 		return -1;
 	}
@@ -139,7 +139,7 @@ int heap_fill_block_list(struct heap_block_list* pBlockList){
 	uint64_t blockDataSize = align_up(blockSize*blocksToAlloc, PAGE_SIZE);
 	uint64_t blockDataPages = blockDataSize/PAGE_SIZE;
 	uint64_t pPage = 0;
-	if (virtualAllocPages(&pPage, blockDataPages, PTE_RW, 0)!=0){
+	if (virtualAllocPages(&pPage, blockDataPages, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
 		return -1;
 	}
 	struct heap_block_node* pNewNode = (struct heap_block_node*)0x0;
@@ -243,7 +243,7 @@ int heap_alloc_block_node(struct heap_block_list* pBlockList){
 	if (!pBlockList)
 		return -1;
 	struct heap_block_node* pNewNode = (struct heap_block_node*)0x0;
-	if (virtualAllocPage((uint64_t*)&pNewNode, PTE_RW, 0)!=0){
+	if (virtualAllocPage((uint64_t*)&pNewNode, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
 		printf(L"failed to allocate page for new block node\r\n");
 		return -1;
 	}

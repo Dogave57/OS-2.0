@@ -150,6 +150,7 @@ int physicalFreePage(uint64_t physicalAddress){
 	pentry->status = PAGE_FREE;
 	pt->pFreeEntries[pt->freeEntryCnt] = pentry;
 	pt->freeEntryCnt++;
+	pt->usedEntryCnt--;
 	return 0;
 }
 int physicalMapPage(uint64_t physicalAddress, uint64_t pageType){
@@ -201,5 +202,17 @@ int getPhysicalPageTable(uint64_t* pPa, uint64_t* pSize){
 		return -1;
 	*pPa = (uint64_t)pt;
 	*pSize = pt->pt_size;
+	return 0;
+}
+int getUsedPhysicalPages(uint64_t* pUsedPages){
+	if (!pUsedPages)
+		return -1;
+	*pUsedPages = pt->usedEntryCnt;
+	return 0;
+}
+int getFreePhysicalPages(uint64_t* pFreePages){
+	if (!pFreePages)
+		return -1;
+	*pFreePages = pt->freeEntryCnt;
 	return 0;
 }

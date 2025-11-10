@@ -98,7 +98,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
 	uint64_t before_ms = get_time_ms();
 	uint64_t elapsed_ms = 0;
-	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0)!=0){
+	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf(L"failed to allocate %d pages\r\n", pagecnt);	
 		while (1){};
 		return -1;
@@ -112,6 +112,30 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf(L"took %dms to allocate and free %d pages\r\n", get_time_ms()-before_ms, pagecnt);
+	uint64_t usedPages = 0;
+	uint64_t freePages = 0;
+	if (getUsedPhysicalPages(&usedPages)!=0){
+		printf(L"failed to get used physical pages\r\n");
+		while (1){};
+		return -1;
+	}
+	if (getFreePhysicalPages(&freePages)!=0){
+		printf(L"failed to get free physical pages\r\n");
+		while (1){};
+		return -1;
+	}
+	printf(L"--page info--\r\n");
+	struct vec3 green = {0, 255, 0};
+	struct vec3 red = {255, 0, 0};
+	struct vec3 old_fg = {0,0,0};
+	struct vec3 old_bg = {0,0,0};
+	get_text_color(&old_fg, &old_bg);
+	set_text_color(red, old_bg);
+	printf(L"used pages: %d\r\n", usedPages);
+	set_text_color(green, old_bg);
+	printf(L"free pages: %d\r\n", freePages);
+	set_text_color(old_fg, old_bg);
+	printf(L"--end of page info---\r\n");
 	while (1){};
 	return 0;	
 }

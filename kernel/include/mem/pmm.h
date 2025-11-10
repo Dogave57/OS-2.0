@@ -7,11 +7,15 @@
 #define MEM_KB 1024
 #define PAGE_SIZE 4096
 #define MAX_ORDER 2048
-#define PAGE_TYPE_FREE 0
-#define PAGE_TYPE_NORMAL 1
-#define PAGE_TYPE_STACK 2
-#define PAGE_TYPE_HEAP 3
-#define PAGE_TYPE_RESERVED 4
+#define PAGE_TYPE_RESERVED 0
+#define PAGE_TYPE_FREE 1
+#define PAGE_TYPE_NORMAL 2
+#define PAGE_TYPE_STACK 3
+#define PAGE_TYPE_HEAP 4
+#define PAGE_TYPE_MMIO 5
+#define PAGE_TYPE_FIRMWARE_DATA 6
+#define PAGE_TYPE_PMM 7
+#define PAGE_TYPE_VMM 8
 enum pageStatus{
 	PAGE_INVALID,
 	PAGE_FREE,
@@ -46,4 +50,6 @@ int physicalUnmapPage(uint64_t physicalAddress);
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);
 int getPhysicalPageTable(uint64_t* pPa, uint64_t* pSize);
+int getUsedPhysicalPages(uint64_t* pUsedPages);
+int getFreePhysicalPages(uint64_t* pFreePages);
 #endif
