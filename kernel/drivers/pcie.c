@@ -176,3 +176,36 @@ int pcie_get_subclass(uint8_t bus, uint8_t dev, uint8_t func, uint8_t* pSubclass
 		return -1;
 	return pcie_read_byte(bus, dev, func, 0x0A, pSubclass);
 }
+int pcie_device_exists(uint8_t bus, uint8_t dev, uint8_t func){
+	uint16_t vendor_id = 0;
+	if (pcie_get_vendor_id(bus, dev, func, &vendor_id)!=0)
+		return -1;
+	if (vendor_id!=0xffff)
+		return 0;
+	return -1;
+}
+int pcie_get_device_by_class(uint8_t class, uint8_t subclass, uint8_t* pBus, uint8_t* pDev, uint8_t* pFunc){
+	if (!pBus||!pDev||!pFunc)
+		return -1;
+	for (uint8_t bus = pcie_info.startBus;bus<pcie_info.endBus;bus++){
+		for (uint8_t dev = 0;dev<32;dev++){
+			for (uint8_t func = 0;func<8;func++){
+				uint8_t dev_class = 0;
+				uint8_t dev_subclass = 0;
+				if (pcie_device_exists(bus, dev, func)!=0)
+					continue;
+				if (pcie_get_class(bus, dev, func, &dev_class)!=0)
+					continue;
+				if (pcie_get_subclass(bus, dev, func, &dev_subclass)!=0)
+					continue;
+				if (dev_class!=class||dev_subclass!=subclass)
+					continue;
+				*pBus = bus;
+				*pDev = dev;
+				*pFunc = func;
+				return 0;
+			}
+		}
+	}
+	return -1;
+}

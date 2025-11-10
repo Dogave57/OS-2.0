@@ -24,7 +24,7 @@ enum pageStatus{
 };
 struct p_page{
 	enum pageStatus status;
-	uint64_t pageType;
+	uint32_t pageType;
 };
 struct p_pt_info{
 	uint64_t pt_size;
@@ -43,9 +43,9 @@ int getInstalledMemory(uint64_t* pInstalledMemory);
 int getFreeMemory(uint64_t* pFreeMemory);
 int allocatePageTable(void);
 int initPageTable(void);
-int physicalAllocPage(uint64_t* pPhysicalAddress, uint64_t pageType);
+int physicalAllocPage(uint64_t* pPhysicalAddress, uint32_t pageType);
 int physicalFreePage(uint64_t physicalAddress);
-int physicalMapPage(uint64_t physicalAddress, uint64_t pageType);
+int physicalMapPage(uint64_t physicalAddress, uint32_t pageType);
 int physicalUnmapPage(uint64_t physicalAddress);
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);

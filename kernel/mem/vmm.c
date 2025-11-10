@@ -119,7 +119,7 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 	*ppNextLevel = (uint64_t*)pNextLevel;
 	return 0;
 }
-int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint64_t pageType){
+int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint32_t pageType){
 	uint64_t* pentry = (uint64_t*)0x0;
 	if (vmm_getPageTableEntry(va, &pentry)!=0)
 		return -1;
@@ -137,7 +137,7 @@ int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared
 	flush_tlb(va);
 	return 0;
 }
-int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared, uint64_t map_flags, uint64_t pageType){
+int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared, uint64_t map_flags, uint32_t pageType){
 	for (uint64_t i = 0;i<page_cnt;i++){
 		uint64_t page_pa = pa+(i*PAGE_SIZE);
 		uint64_t page_va = va+(i*PAGE_SIZE);
@@ -182,7 +182,7 @@ int virtualToPhysical(uint64_t va, uint64_t* pPa){
 	*pPa = pa;
 	return 0;
 }
-int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint64_t pageType){
+int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t pageType){
 	if (!pVa)
 		return -1;
 	uint64_t pa = 0;
@@ -213,7 +213,7 @@ int virtualFreePage(uint64_t va, uint64_t map_flags){
 	}
 	return 0;
 }
-int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint64_t pageType){
+int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType){
 	if (!pVa)
 		return -1;
 	uint64_t va = next_page_va;

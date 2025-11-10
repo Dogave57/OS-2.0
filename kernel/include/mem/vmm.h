@@ -43,14 +43,14 @@ struct vmm_range_node{
 int vmm_init(void);
 int vmm_getPageTableEntry(uint64_t va, uint64_t** ppEntry);
 int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t index);
-int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint64_t pageType);
-int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared, uint64_t map_flags, uint64_t pageType);
+int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint32_t pageType);
+int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared, uint64_t map_flags, uint32_t pageType);
 int virtualUnmapPage(uint64_t va, uint64_t map_flags);
 int virtualUnmapPages(uint64_t va, uint64_t page_cnt, uint64_t map_flags);
 int virtualToPhysical(uint64_t va, uint64_t* pVa);
-int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint64_t pageType);
+int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t pageType);
 int virtualFreePage(uint64_t va, uint64_t map_flags);
-int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint64_t pageType);
+int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType);
 int virtualFreePages(uint64_t va, uint64_t pagecnt);
 uint64_t get_pt(void);
 int load_pt(uint64_t pml4);
