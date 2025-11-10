@@ -54,6 +54,17 @@ struct acpi_madtEntry_ioapic{
 	uint32_t ioapic_base;
 	uint32_t global_system_int_base;
 }__attribute__((packed));
+struct acpi_mcfgEntry{
+	uint64_t pBase;
+	uint16_t segmentGroup;
+	uint8_t startBus;
+	uint8_t endBus;
+	uint8_t padding[4];
+}__attribute__((packed));
+struct acpi_mcfgHdr{
+	struct acpi_sdt_hdr hdr;
+	struct acpi_mcfgEntry firstEntry;
+}__attribute__((packed));
 extern struct acpi_xdsp* pXdsp;
 extern struct acpi_sdt_hdr* pXsdt;
 extern struct acpi_madtEntry_ioapic* pIoApicInfo;

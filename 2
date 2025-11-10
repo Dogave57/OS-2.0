@@ -1,4 +1,5 @@
 #include "bootloader.h"
+#include "stdlib/stdlib.h"
 #include "logo.h"
 #include "stdlib/stdlib.h"
 #include "cpu/interrupt.h"
@@ -94,6 +95,33 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf(L"Welcome to SlickOS\r\n");
+	struct smbios_hdr* pCpuInfo = (struct smbios_hdr*)0x0;
+	if (smbios_get_entry(SMBIOS_CPU_INFO, &pCpuInfo)!=0){
+		printf(L"failed to get SMBIOS CPU info entry\r\n");
+		while (1){};
+		return -1;
+	}
+	unsigned char* cpu_manufacturer = (unsigned char*)0x0;
+	if (smbios_get_string(pCpuInfo, 1, &cpu_manufacturer)!=0){
+		printf(L"failed to get CPU manufacturer\r\n");
+		while (1){};
+		return -1;
+	}
+	printf_ascii("CPU manufacturer: %s\r\n", cpu_manufacturer);
+	unsigned char* cpu_family = (unsigned char*)0x0;
+	if (smbios_get_string(pCpuInfo, 2, &cpu_family)!=0){
+		printf(L"failed to get CPU family\r\n");
+		while (1){};
+		return -1;
+	}
+	printf_ascii("CPU family: %s\r\n", cpu_family);
+	unsigned int coreCnt = 0;
+	if (getCpuCoreCount(&coreCnt)!=0){
+		printf(L"failed to get CPU core count\r\n");
+		while (1){};
+		return -1;
+	}
+	printf(L"core count: %d\r\n", coreCnt);
 	uint64_t va = 0;
 	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
 	uint64_t before_ms = get_time_ms();
