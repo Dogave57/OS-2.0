@@ -2,12 +2,13 @@
 #include "mem/heap.h"
 #include "stdlib/stdlib.h"
 #include "drivers/pcie.h"
+#include "drivers/timer.h"
 #include "drivers/ahci.h"
 struct ahci_info ahciInfo = {0};
 int ahci_init(void){
 	if (ahci_get_info(&ahciInfo)!=0)
 		return -1;
-	if (virtualMapPages((uint64_t)ahciInfo.pBase, (uint64_t)ahciInfo.pBase, PTE_RW|PTE_NX, 9, 1, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualMapPages((uint64_t)ahciInfo.pBase, (uint64_t)ahciInfo.pBase, PTE_RW|PTE_NX, 2, 1, 0, PAGE_TYPE_MMIO)!=0){
 		printf(L"failed to map AHCI controller registers\r\n");
 		return -1;
 	}
@@ -22,7 +23,17 @@ int ahci_init(void){
 	for (uint32_t i = 0;i<AHCI_MAX_PORTS;i++){
 		if (ahci_drive_exists(i)!=0)
 			continue;
-		printf(L"drive at port %d\r\n", i);	
+		printf(L"drive at port %d\r\n", i);
+		uint64_t sector_data[64] = {0};
+		memset((void*)sector_data, 0, 512);
+		if (ahci_read_sectors(i, 0, 1, (uint8_t*)sector_data)!=0){
+			printf(L"failed to read sector\r\n");
+			return -1;
+		}	
+		printf(L"successfully read sector\r\n");
+		for (unsigned int i = 0;i<64;i++){
+			printf(L"%d, ", sector_data[i]);
+		}
 	}
 	return 0;
 }
@@ -130,5 +141,57 @@ int ahci_drive_exists(uint8_t drive_port){
 	}
 	if (drive_signature!=AHCI_DRIVE_SIGNATURE)
 		return -1;
+	return 0;
+}
+int ahci_read_sectors(uint8_t drive_port, uint64_t sector, uint64_t sector_cnt, uint8_t* pBuffer){
+	if (!pBuffer||!sector_cnt)
+		return -1;
+	uint64_t port_offset = AHCI_DRIVE_MMIO_OFFSET+(drive_port*0x80);
+	struct ahci_cmd_hdr* pCmdList = (struct ahci_cmd_hdr*)kmalloc(sizeof(struct ahci_cmd_hdr)*32);
+	if (!pCmdList){
+		printf(L"failed to allocate command list\r\n");
+		return -1;
+	}
+	uint64_t cmdTableSize = sizeof(struct ahci_cmd_table)+(sizeof(struct ahci_prdt_entry)*sector_cnt);
+	struct ahci_cmd_table* pCmdTable = (struct ahci_cmd_table*)kmalloc(cmdTableSize);
+	if (!pCmdTable){
+		printf(L"failed to allocate memory for cmd table\r\n");
+		kfree((void*)pCmdList);
+		return -1;
+	}
+	for (uint64_t i = 0;i<sector_cnt;i++){
+		uint64_t pSector = ((uint64_t)pBuffer)+(i*512);
+		struct ahci_prdt_entry* pEntry = pCmdTable->prdt+i;
+		pEntry->buffer_base_lower = (uint32_t)(pSector&0xFFFFFFFFUL);
+		pEntry->buffer_base_upper = (uint32_t)(pSector>>32);
+	}
+	struct ahci_cmd_hdr* pFirstCmd = pCmdList;
+	pFirstCmd->cmd_table_base_lower = ((uint64_t)pCmdTable)&0xFFFFFFFFUL;
+	pFirstCmd->cmd_table_base_upper = ((uint64_t)pCmdTable)>>32;
+	uint32_t pCmdList_lower = (uint32_t)(((uint64_t)pCmdList)&0xFFFFFFFFUL);
+	uint32_t pCmdList_higher = (uint32_t)(((uint64_t)pCmdList)>>32);
+	ahci_write_dword(port_offset, pCmdList_lower);	
+	ahci_write_dword(port_offset+0x4, pCmdList_higher);	
+	uint32_t drive_status = 0;
+	ahci_read_dword(port_offset+0x18, &drive_status);
+	drive_status|=(1<<0);
+	ahci_write_dword(port_offset+0x18, drive_status);	
+	uint32_t cmd_issue = 0;
+	while (1){
+		ahci_read_dword(port_offset+0x38, &cmd_issue);
+		if (cmd_issue!=0)
+			continue;
+		break;
+	}
+	uint32_t sata_error = 0;
+	ahci_read_dword(port_offset+0x30, &sata_error);
+	if (sata_error!=0){
+		printf(L"SATA read fail\r\n");
+		kfree((void*)pCmdTable);
+		kfree((void*)pCmdList);
+		return -1;
+	}
+	kfree((void*)pCmdTable);
+	kfree((void*)pCmdList);
 	return 0;
 }

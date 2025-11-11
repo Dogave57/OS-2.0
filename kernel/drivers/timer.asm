@@ -6,6 +6,7 @@ global set_time_ms
 global get_time_ms
 global timer_get_tpms
 global timer_set_tpms
+global sleep
 section .data
 time_ms dq 0
 tick_cnt dq 0
@@ -38,5 +39,15 @@ timer_set_tpms:
 cli
 mov qword [rel tick_per_ms], rcx
 sti
+xor rax, rax
+ret
+sleep:
+call get_time_ms
+mov rdx, rax
+sleep_loop:
+call get_time_ms
+sub rax, rdx
+cmp rax, rcx
+jb sleep_loop
 xor rax, rax
 ret

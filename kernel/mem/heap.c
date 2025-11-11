@@ -74,8 +74,21 @@ int heap_init(void){
 	return 0;
 }
 void* kmalloc(uint64_t size){
-	if (size>HEAP_MAX_BLOCK_SIZE||size<HEAP_MIN_BLOCK_SIZE)
+	if (size<HEAP_MIN_BLOCK_SIZE)
 		return (void*)0x0;
+	if (size>HEAP_MAX_BLOCK_SIZE){
+		uint64_t totalSize = sizeof(struct heap_block_hdr)+size;
+		uint64_t pagesNeeded = align_up(totalSize, PAGE_SIZE)/PAGE_SIZE;
+		uint64_t pPages = 0;
+		if (virtualAllocPages(&pPages, pagesNeeded, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
+			return (void*)0x0;
+		}	
+		struct heap_block_hdr* pHdr = (struct heap_block_hdr*)pPages;
+		pHdr->heapTracked = 0;
+		pHdr->pageCnt = pagesNeeded;
+		pHdr->va = pPages;
+		return (void*)(pHdr+1);
+	}
 	if (!pBlockLists){
 		if (heap_init()!=0)
 			return (void*)0x0;
@@ -95,6 +108,7 @@ void* kmalloc(uint64_t size){
 		return (void*)0x0;
 	}
 	struct heap_block_hdr* pHdr = (struct heap_block_hdr*)block_va;
+	pHdr->heapTracked = 1;
 	return (void*)(pHdr+1);
 }
 int kfree(void* pBlock){
@@ -106,6 +120,10 @@ int kfree(void* pBlock){
 		return -1;
 	struct heap_block_hdr* pHdr = (struct heap_block_hdr*)pBlock;
 	pHdr--;
+	if (!pHdr->heapTracked){
+		uint64_t pPages = (uint64_t)pHdr;
+		return virtualFreePages(pPages, pHdr->pageCnt);
+	}
 	if (pHdr->va!=((uint64_t)pHdr)){
 		printf(L"corrupted heap block at: %p\r\n", (void*)pBlock);
 		printf(L"va points to: %p\r\n", (void*)pHdr->va);
@@ -190,7 +208,7 @@ int heap_push_block(struct heap_block_list* pBlockList, uint64_t va){
 	}
 	pLastNode->va[pLastNode->freeBlockCnt] = va;
 	struct heap_block_hdr* pHdr = (struct heap_block_hdr*)va;
-	pHdr->onHeap = 1;
+	pHdr->heapTracked = 1;
 	pHdr->pList = pBlockList;
 	pHdr->va = va;
 	pLastNode->freeBlockCnt++;
