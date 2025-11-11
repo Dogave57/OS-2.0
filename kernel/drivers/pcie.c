@@ -13,9 +13,6 @@ int pcie_init(void){
 		printf(L"failed to map PCIE controller registers\r\n");
 		return -1;
 	}
-	printf(L"PCIE base: %p\r\n", (void*)(pcie_info.pBase));
-	printf(L"PCIE start bus: %d\r\n", pcie_info.startBus);
-	printf(L"PCIE end bus: %d\r\n", pcie_info.endBus);
 	for (uint8_t bus = 0;bus<255;bus++){
 		for (uint8_t dev = 0;dev<32;dev++){
 			for (uint8_t func = 0;func<8;func++){
@@ -61,7 +58,6 @@ int pcie_get_info(struct pcie_info* pInfo){
 		printf(L"no PCIE controller!\r\n");
 		return -1;
 	}
-	printf(L"PCIE controller cnt: %d\r\n", entryCnt);
 	pInfo->pBase = pFirstEntry->pBase;
 	pInfo->startBus = pFirstEntry->startBus;
 	pInfo->endBus = pFirstEntry->endBus;

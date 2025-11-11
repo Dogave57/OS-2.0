@@ -144,6 +144,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	printf(L"free pages: %d\r\n", freePages);
 	set_text_color(old_fg, old_bg);
 	printf(L"--end of page info---\r\n");
+	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};
 	return 0;	
 }

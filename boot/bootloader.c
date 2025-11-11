@@ -25,6 +25,7 @@ int uefi_puthex(unsigned char hex, unsigned char upper);
 int uefi_printf(const CHAR16* fmt, ...);
 int getConfTableEntry(EFI_GUID guid, void** ppEntry);
 int compareGuid(EFI_GUID guid1, EFI_GUID guid2);
+int uefi_strlen(CHAR16* pStr, uint64_t* pLen);
 EFI_HANDLE imgHandle = {0};
 EFI_SYSTEM_TABLE* ST = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
@@ -257,6 +258,23 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		return EFI_ABORTED;
 	}
 	blargs->acpiInfo.pXsdp = (struct acpi_xsdp*)pXsdp;
+	uint64_t devicePathStrLen = 0;
+	if (uefi_strlen(devicePathStr, &devicePathStrLen)!=0){
+		conout->OutputString(conout, L"failed to get boot device path length\r\n");
+		BS->FreePool((void*)pbuffer);
+		while (1){};
+		return EFI_ABORTED;
+	}
+	CHAR16* devicePathStrCopy = (CHAR16*)0x0;
+	status = BS->AllocatePool(EfiLoaderData, devicePathStrLen, (void**)&devicePathStrCopy);
+	if (status!=EFI_SUCCESS){
+		uefi_printf(L"failed to allocate memory for device path string copy (0x%x)\r\n", status);
+		BS->FreePool((void*)pbuffer);
+		while (1){};
+		return EFI_ABORTED;
+	}
+	uefi_memcpy((void*)devicePathStrCopy, (void*)devicePathStr, devicePathStrLen);
+	blargs->driveInfo.devicePathStr = devicePathStr;
 	conout->ClearScreen(conout);
 	if (uefi_execute_kernel((void*)pbuffer)!=0){
 		conout->OutputString(conout, L"failed to execute kernel!\r\n");
@@ -631,5 +649,13 @@ int compareGuid(EFI_GUID guid1, EFI_GUID guid2){
 		return 1;
 	if (*((uint64_t*)guid1.Data4)!=*((uint64_t*)guid2.Data4))
 		return 1;
+	return 0;
+}
+int uefi_strlen(CHAR16* pStr, uint64_t* pLen){
+	if (!pStr||!pLen)
+		return -1;
+	uint64_t len = 0;
+	for (;pStr[len];len++){};
+	*pLen = len;
 	return 0;
 }

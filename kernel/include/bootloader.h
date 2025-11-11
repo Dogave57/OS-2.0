@@ -9,6 +9,7 @@
 #include "drivers/graphics.h"
 #include "drivers/acpi.h"
 #include "drivers/smbios.h"
+#include "drive.h"
 struct bootloader_graphicsInfo{
 	unsigned int width;
 	unsigned int height;
@@ -36,6 +37,11 @@ struct bootloader_kernelInfo{
 	uint64_t kernelSize;
 	uint64_t kernelStackSize;
 };
+struct bootloader_driveInfo{
+	CHAR16* devicePathStr;
+	uint64_t driveType;
+	uint64_t drivePort;
+};
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;
 	EFI_SYSTEM_TABLE* systable;
@@ -45,6 +51,7 @@ struct bootloader_args{
 	struct bootloader_acpiInfo acpiInfo;
 	struct bootloader_smbiosInfo smbiosInfo;
 	struct bootloader_kernelInfo kernelInfo;
+	struct bootloader_driveInfo driveInfo;
 };
 typedef int(*kernelEntryType)(unsigned char* pstack, struct bootloader_args*);
 extern EFI_SYSTEM_TABLE* systab;

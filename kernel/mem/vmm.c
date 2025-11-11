@@ -77,6 +77,10 @@ int vmm_init(void){
 		printf(L"failed to map physical page table\r\n");
 		return -1;
 	}
+	if (virtualMapPage((uint64_t)pbootargs->driveInfo.devicePathStr, (uint64_t)pbootargs->driveInfo.devicePathStr, PTE_RW, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
+		printf(L"failed to map drive device path string\r\n");
+		return -1;
+	}
 	load_pt((uint64_t)pml4);
 	flush_full_tlb();
 	virtualUnmapPage(0x0, 0);
