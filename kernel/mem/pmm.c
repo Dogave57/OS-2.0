@@ -120,7 +120,7 @@ int initPageTable(void){
 	}
 	return 0;
 }
-int physicalAllocPage(uint64_t* pPhysicalAddress, uint32_t pageType){
+int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType){
 	if (!pPhysicalAddress)
 		return -1;
 	if (!pt->freeEntryCnt){
@@ -153,7 +153,7 @@ int physicalFreePage(uint64_t physicalAddress){
 	pt->usedEntryCnt--;
 	return 0;
 }
-int physicalMapPage(uint64_t physicalAddress, uint32_t pageType){
+int physicalMapPage(uint64_t physicalAddress, uint8_t pageType){
 	struct p_page* pNewPage = pt->pPageEntries+(physicalAddress/PAGE_SIZE);
 	pNewPage->status = PAGE_INUSE;
 	pNewPage->pageType = pageType;

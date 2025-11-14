@@ -16,16 +16,14 @@
 #define PAGE_TYPE_FIRMWARE_DATA 6
 #define PAGE_TYPE_PMM 7
 #define PAGE_TYPE_VMM 8
-enum pageStatus{
-	PAGE_INVALID,
-	PAGE_FREE,
-	PAGE_INUSE,
-	PAGE_RESERVED,
-};
+#define PAGE_INVALID 0
+#define PAGE_FREE 1
+#define PAGE_INUSE 2
+#define PAGE_RESERVED 3
 struct p_page{
-	enum pageStatus status;
-	uint32_t pageType;
-};
+	uint8_t status;
+	uint8_t pageType;
+}__attribute__((packed));
 struct p_pt_info{
 	uint64_t pt_size;
 	uint64_t freeEntryCnt;
@@ -43,9 +41,9 @@ int getInstalledMemory(uint64_t* pInstalledMemory);
 int getFreeMemory(uint64_t* pFreeMemory);
 int allocatePageTable(void);
 int initPageTable(void);
-int physicalAllocPage(uint64_t* pPhysicalAddress, uint32_t pageType);
+int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType);
 int physicalFreePage(uint64_t physicalAddress);
-int physicalMapPage(uint64_t physicalAddress, uint32_t pageType);
+int physicalMapPage(uint64_t physicalAddress, uint8_t pageType);
 int physicalUnmapPage(uint64_t physicalAddress);
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);

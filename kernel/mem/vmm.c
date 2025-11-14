@@ -183,7 +183,8 @@ int virtualToPhysical(uint64_t va, uint64_t* pPa){
 	if (vmm_getPageTableEntry(va, &pentry)!=0)
 		return -1;
 	uint64_t pa = PTE_GET_ADDR(*pentry);
-	*pPa = pa;
+	uint64_t page_offset = PAGE_SIZE-(va%PAGE_SIZE);
+	*pPa = pa+page_offset;
 	return 0;
 }
 int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t pageType){
