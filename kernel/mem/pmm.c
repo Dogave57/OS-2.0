@@ -176,7 +176,8 @@ int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size){
 			continue;
 		if (pMemDesc->NumberOfPages<requestedPages)
 			continue;
-		pMemDesc->Type = EfiLoaderData;
+		pMemDesc->PhysicalStart+=size;
+		pMemDesc->NumberOfPages-=requestedPages;
 		if (!pt){
 			*pPhysicalAddress = (uint64_t)pMemDesc->PhysicalStart;
 			return 0;

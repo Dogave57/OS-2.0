@@ -81,8 +81,8 @@ int vmm_init(void){
 		printf(L"failed to map drive device path string\r\n");
 		return -1;
 	}
+	printf(L"loading pt\r\n");
 	load_pt((uint64_t)pml4);
-	flush_full_tlb();
 	virtualUnmapPage(0x0, 0);
 	physicalMapPage(0x0, PAGE_TYPE_RESERVED);
 	return 0;
@@ -120,6 +120,8 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 	}
 	memset((void*)pNextLevel, 0, PAGE_SIZE);
 	*((uint64_t*)(pCurrentLevel)+index) = (uint64_t)(((uint64_t)(pNextLevel))|PTE_RW|PTE_PRESENT);
+	if (virtualMapPage((uint64_t)pNextLevel, (uint64_t)pNextLevel, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 1, 0, PAGE_TYPE_VMM)!=0)
+		return -1;
 	*ppNextLevel = (uint64_t*)pNextLevel;
 	return 0;
 }

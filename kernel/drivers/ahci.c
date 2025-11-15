@@ -26,11 +26,6 @@ int ahci_init(void){
 		return -1;
 	}
 	printf(L"AHCI controller version: 0x%x\r\n", ahci_version);
-	struct ahci_drive_info driveInfo = {0};
-	if (ahci_get_drive_info(0, &driveInfo)!=0){
-		printf(L"failed to get drive info\r\n");
-		return -1;
-	}
 	for (uint32_t i = 0;i<AHCI_MAX_PORTS;i++){
 		if (ahci_drive_exists(i)!=0)
 			continue;

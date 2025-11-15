@@ -1,9 +1,16 @@
 #ifndef _PCIE
 #define _PCIE
+#define PCIE_CLASS_DRIVE_CONTROLLER 0x01
+#define PCIE_SUBCLASS_NVME_CONTROLLER 0x08
 struct pcie_info{
 	uint64_t pBase;
 	uint8_t startBus;
 	uint8_t endBus;
+};
+struct pcie_location{
+	uint8_t bus;
+	uint8_t dev;
+	uint8_t func;	
 };
 int pcie_init(void);
 int pcie_get_info(struct pcie_info* pInfo);

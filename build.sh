@@ -3,7 +3,7 @@ BOOTLD='lld-link'
 CC='sudo x86_64-w64-mingw32-gcc'
 LD='lld-link'
 AS='nasm'
-CFLAGS='-O0 -mabi=ms -ffreestanding -fno-stack-protector -fshort-wchar -Wno-multichar -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
+CFLAGS='-O0 -mabi=ms -ffreestanding -fno-stack-protector -fshort-wchar -Wno-multichar -Wno-address-of-packed-member -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
 OS=$(uname -s)
 bash clean.sh
 echo compiling bootloader
@@ -36,6 +36,7 @@ sudo $CC $CFLAGS -fpic -c kernel/drivers/smp.c -o build/objects/drivers/smp.o
 sudo $CC $CFLAGS -fpic -c kernel/mem/heap.c -o build/objects/mem/heap.o
 sudo $CC $CFLAGS -fpic -c kernel/drivers/ahci.c -o build/objects/drivers/ahci.o
 sudo $CC $CFLAGS -fpic -c kernel/drivers/pcie.c -o build/objects/drivers/pcie.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/nvme.c -o build/objects/drivers/nvme.o
 sudo $AS -f win64 kernel/stub.asm -o build/objects/kernel_stub.o
 sudo $AS -f win64 kernel/cpu/isrs.asm -o build/objects/cpu/isrs.o
 sudo $AS -f win64 kernel/cpu/gdt.asm -o build/objects/cpu/gdt_asm.o
@@ -45,7 +46,7 @@ sudo $AS -f win64 kernel/drivers/timer.asm -o build/objects/drivers/timer.o
 sudo $AS -f win64 kernel/drivers/thermal.asm -o build/objects/drivers/thermal.o
 sudo $AS -f win64 kernel/mem/vmm.asm -o build/objects/mem/vmm_asm.o
 echo linking kernel
-sudo $LD -subsystem:native build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o -entry:kernel_stub -out:build/build/kernel.exe
+sudo $LD -subsystem:native build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o -entry:kernel_stub -out:build/build/kernel.exe
 echo done
 case "$OS" in
 "Linux")
@@ -62,7 +63,6 @@ sudo mkdir -p efimnt/EFI/BOOT
 sudo cp build/build/bootloader.efi efimnt/EFI/BOOT/BOOTX64.EFI
 sudo mkdir efimnt/KERNEL
 sudo cp build/build/kernel.exe efimnt/KERNEL/kernel.exe
-sudo cp -r fonts efimnt/FONTS
 sudo losetup -d /dev/loop0
 sudo umount -r efimnt
 sudo rm -rf efimnt

@@ -7,7 +7,7 @@
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
 #include <Guid/Acpi.h>
-#include <Guid/smbios.h>
+#include <Guid/SmBios.h>
 #include "bootloader.h"
 #include "align.h"
 #include "pe.h"
@@ -137,7 +137,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	UINTN modecnt = gopProtocol->Mode->MaxMode;
 	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* pmodeinfo = (EFI_GRAPHICS_OUTPUT_MODE_INFORMATION*)0x0;
 	UINTN infoSize = 0;
-	unsigned int prefered_modes[][2] = {{1280, 720}, {1920, 1080}, {640, 480}, {320,200}};
+	unsigned int prefered_modes[][2] = {{1920, 1080}, {640,480}, {320,200}};
 	unsigned int prefered_modecnt = sizeof(prefered_modes)/sizeof(prefered_modes[0]);
 	unsigned int mode_set = 0;
 	if (!modecnt){
@@ -146,7 +146,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		while (1){};
 		return EFI_ABORTED;
 	}
-	status = BS->AllocatePool(EfiLoaderData, sizeof(struct bootloader_args), (void**)&blargs);
+	status = BS->AllocatePool(EfiRuntimeServicesData, sizeof(struct bootloader_args), (void**)&blargs);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocatea memory for bootloader args %x\r\n", status);
 		BS->FreePool((void*)pbuffer);
@@ -215,7 +215,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		return EFI_ABORTED;
 	}
 	memoryMapSize+=(EFI_PAGE_SIZE*4);
-	status = BS->AllocatePool(EfiLoaderData, memoryMapSize, (void**)&pMemoryMap);
+	status = BS->AllocatePool(EfiRuntimeServicesData, memoryMapSize, (void**)&pMemoryMap);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for memory map %x\r\n", status);
 		BS->FreePool((void*)pbuffer);
@@ -266,7 +266,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		return EFI_ABORTED;
 	}
 	CHAR16* devicePathStrCopy = (CHAR16*)0x0;
-	status = BS->AllocatePool(EfiLoaderData, devicePathStrLen, (void**)&devicePathStrCopy);
+	status = BS->AllocatePool(EfiRuntimeServicesData, devicePathStrLen, (void**)&devicePathStrCopy);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for device path string copy (0x%x)\r\n", status);
 		BS->FreePool((void*)pbuffer);
@@ -308,11 +308,12 @@ int uefi_execute_kernel(void* pfiledata){
 		return -1;
 	}
 	unsigned char* pimage = (unsigned char*)0x0;
-	EFI_STATUS status = BS->AllocatePool(EfiLoaderData, pOptHeader->sizeOfImage, (void**)&pimage);
+	EFI_STATUS status = BS->AllocatePool(EfiRuntimeServicesData, pOptHeader->sizeOfImage, (void**)&pimage);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for portable executable binary image %x\r\n", status);
 		return -1;
 	}
+	uefi_memset((void*)pimage, 0, pOptHeader->sizeOfImage);
 	struct IMAGE_SECTION_HEADER* pFirstSection = (struct IMAGE_SECTION_HEADER*)(pOptHeader+1);
 	struct IMAGE_SECTION_HEADER* pSectionHeader = pFirstSection;
 	for (unsigned int i = 0;i<pPeHeader->section_cnt;i++,pSectionHeader++){
@@ -350,7 +351,7 @@ int uefi_execute_kernel(void* pfiledata){
 	}
 	unsigned char* pbase_stack = (unsigned char*)0x0;
 	uint64_t stack_size = 8192;
-	status = BS->AllocatePool(EfiLoaderData, stack_size, (void**)&pbase_stack);
+	status = BS->AllocatePool(EfiRuntimeServicesData, stack_size, (void**)&pbase_stack);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for stack %x\r\n", status);
 		BS->FreePool((void*)pimage);
