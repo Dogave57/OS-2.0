@@ -7,6 +7,8 @@
 #define AHCI_MAX_PRDT_ENTRIES 8
 #define AHCI_PORT_OFFSET(port)(AHCI_DRIVE_MMIO_OFFSET+(port*0x80))
 #define AHCI_CMD_IDENT 0xEC
+#define AHCI_CMD_READ 0x25
+#define AHCI_CMD_WRITE 0x35
 #define AHCI_CMD_CLEAR_BIT 0x8000
 #define AHCI_FIS_TYPE_H2D 0x27
 #define AHCI_FIS_TYPE_D2H 0x34
@@ -158,6 +160,10 @@ int ahci_pop_cmd_table(struct ahci_cmd_list_desc* pCmdListDesc);
 int ahci_run_port(uint8_t port);
 int ahci_stop_port(uint8_t port);
 int ahci_poll_port_finish(uint8_t port, uint8_t cmd_max);
+int ahci_write_return_fis(uint8_t port, uint64_t fis_base);
 int ahci_debug_cmd_list(volatile struct ahci_cmd_hdr* pCmdHdr, volatile struct ahci_cmd_table* pCmdTable);
+int ahci_drive_error(uint8_t port);
 int ahci_get_drive_info(uint8_t drive_port, struct ahci_drive_info* pInfo);
+int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
+int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
 #endif

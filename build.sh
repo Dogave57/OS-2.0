@@ -70,7 +70,7 @@ sudo rm -rf efimnt
 "Darwin")
 sudo rm drive.img
 sudo rm -rf drivemnt
-sudo dd if=/dev/zero of=drive.img bs=1M count=64
+sudo dd if=/dev/urandom of=drive.img bs=1M count=64
 sudo chmod 777 drive.img
 sudo mkdir drivemnt
 echo attaching disk
