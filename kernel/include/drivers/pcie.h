@@ -19,7 +19,7 @@ int pcie_read_byte(uint8_t bus, uint8_t dev, uint8_t func, uint64_t byte_offset,
 int pcie_write_byte(uint8_t bus, uint8_t dev, uint8_t func, uint64_t byte_offset, uint8_t value);
 int pcie_read_word(uint8_t bus, uint8_t dev, uint8_t func, uint64_t word_offset, uint16_t* pValue);
 int pcie_write_word(uint8_t bus, uint8_t dev, uint8_t func, uint64_t word_offset, uint16_t value);
-int pcie_read_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offset, uint16_t* pValue);
+int pcie_read_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offset, uint32_t* pValue);
 int pcie_write_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offset, uint32_t value);
 int pcie_read_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offset, uint64_t* pValue);
 int pcie_write_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offset, uint64_t value);

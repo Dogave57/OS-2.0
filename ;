@@ -14,22 +14,6 @@ int ahci_init(void){
 		printf(L"failed to map AHCI controller registers\r\n");
 		return -1;
 	}
-	uint32_t pcie_cmd_reg = 0;
-	pcie_read_dword(ahciInfo.bus, ahciInfo.dev, ahciInfo.func, 0x4, &pcie_cmd_reg);
-	pcie_cmd_reg|=(1<<0);
-	pcie_cmd_reg|=(1<<1);
-	pcie_write_dword(ahciInfo.bus, ahciInfo.dev, ahciInfo.func, 0x4, pcie_cmd_reg);
-	volatile struct ahci_hba_mem* pBase = (volatile struct ahci_hba_mem*)ahciInfo.pBase;
-	if (pBase->os_handoff_ctrl_status&(1<<0)){
-		printf(L"firmware still locked on\r\n");
-		pBase->os_handoff_ctrl_status|=(1<<1);
-		sleep(50);
-		while (pBase->os_handoff_ctrl_status&(1<<2)){};
-	}
-	if (pBase->os_handoff_ctrl_status&(1<<0)){
-		printf(L"firmware refused to remove AHCI HBA lock\r\n");
-		return -1;
-	}
 	printf(L"AHCI base: %p\r\n", (void*)ahciInfo.pBase);
 	printf(L"AHCI controller bus: %d, device: %d, function: %d\r\n", ahciInfo.bus, ahciInfo.dev, ahciInfo.func);
 	if (ahci_init_cmd_list(&cmdListDesc)!=0){
@@ -48,7 +32,6 @@ int ahci_init(void){
 			printf(L"failed to get drive info\r\n");
 			continue;
 		}
-		printf(L"drive size: %dMB\r\n", (driveInfo.sector_count*DRIVE_SECTOR_SIZE)/MEM_MB);
 	}
 	return 0;
 }
@@ -175,7 +158,7 @@ int ahci_init_cmd_list(struct ahci_cmd_list_desc* pCmdListDesc){
 	uint64_t cmdTableListPages = align_up(cmdTableListSize, PAGE_SIZE)/PAGE_SIZE;
 	volatile struct ahci_cmd_table* pCmdTableList = (volatile struct ahci_cmd_table*)0x0;
 	printf(L"cmd list pages: %d\r\n", cmdTableListPages);
-	if (virtualAllocPages((uint64_t*)&pCmdTableList, cmdTableListPages, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0)
+	if (virtualAllocPages((uint64_t*)&pCmdTableList, cmdTableListPages, PTE_RW|PTE_NX, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
 	memset((void*)pCmdList, 0, sizeof(struct ahci_cmd_hdr)*AHCI_MAX_CMD_ENTRIES);
 	memset((void*)pCmdTableList, 0, cmdTableListSize);
@@ -183,14 +166,6 @@ int ahci_init_cmd_list(struct ahci_cmd_list_desc* pCmdListDesc){
 	pCmdListDesc->pCmdTableList = pCmdTableList;
 	pCmdListDesc->cmdTableListPages = cmdTableListPages;
 	pCmdListDesc->currentEntry = 0;
-	if (virtualToPhysical((uint64_t)pCmdList, (uint64_t*)&pCmdListDesc->pCmdList_pa)!=0){
-		return -1;
-	}
-	if (virtualToPhysical((uint64_t)pCmdTableList, (uint64_t*)&pCmdListDesc->pCmdTableList_pa)!=0){
-		return -1;
-	}
-	if (pCmdListDesc->pCmdTableList_pa%1024)
-		return -1;
 	return 0;
 }
 int ahci_deinit_cmd_list(struct ahci_cmd_list_desc* pCmdListDesc){
@@ -202,8 +177,8 @@ int ahci_deinit_cmd_list(struct ahci_cmd_list_desc* pCmdListDesc){
 		return -1;
 	return 0;
 }
-int ahci_push_cmd_table(struct ahci_cmd_list_desc* pCmdListDesc, uint64_t prdt_cnt, volatile struct ahci_cmd_hdr** ppCmdHdr, volatile struct ahci_cmd_table** ppCmdTable){
-	if (!pCmdListDesc||!ppCmdHdr||!ppCmdTable)
+int ahci_push_cmd_table(struct ahci_cmd_list_desc* pCmdListDesc, uint64_t prdt_cnt, volatile struct ahci_cmd_hdr** ppCmdHdr){
+	if (!pCmdListDesc||!ppCmdTable)
 		return -1;
 	if (pCmdListDesc->currentEntry>=AHCI_MAX_CMD_ENTRIES)
 		return -1;
@@ -217,12 +192,8 @@ int ahci_push_cmd_table(struct ahci_cmd_list_desc* pCmdListDesc, uint64_t prdt_c
 		return -1;
 	uint64_t cmdTableSize = sizeof(struct ahci_cmd_table)+(prdt_cnt*sizeof(struct ahci_prdt_entry));
 	memset((void*)pCmdTable, 0, cmdTableSize);
-	uint64_t pCmdTable_pa = 0;
-	if (virtualToPhysical((uint64_t)pCmdTable, &pCmdTable_pa)!=0)
-		return -1;
-	pCmdHdr->cmd_table_base = (uint64_t)pCmdTable_pa;
+	pCmdHdr->cmd_table_base = (uint64_t)pCmdTable;
 	pCmdHdr->prdt_len = prdt_cnt;
-	*ppCmdHdr = pCmdHdr;
 	*ppCmdTable = pCmdTable;
 	pCmdListDesc->currentEntry++;
 	return 0;
@@ -238,23 +209,17 @@ int ahci_pop_cmd_table(struct ahci_cmd_list_desc* pCmdListDesc){
 	return 0;
 }
 int ahci_write_prdt(volatile struct ahci_cmd_table* pCmdTable, uint64_t prdt_index, uint64_t va, uint64_t size){
-	if (!pCmdTable)
+	if (!pCmdTable||!va)
 		return -1;
-	volatile struct ahci_prdt_entry* pPrdtEntry = (volatile struct ahci_prdt_entry*)(pCmdTable->prdt_list+prdt_index);
+	volatile struct ahci_prdt_entry* pPrdt = (volatile struct ahci_prdt_entry*)(pCmdTable->prdt_list+prdt_index);
 	uint64_t pa = 0;
 	if (virtualToPhysical(va, &pa)!=0)
 		return -1;
-	if (!pa){
-		printf(L"unmapped page\r\n");
-		return -1;
-	}
-	pPrdtEntry->base = pa;
-	pPrdtEntry->reserved0 = 0;
-	pPrdtEntry->byte_cnt = size-1;
-	pPrdtEntry->reserved1 = 0;
-	pPrdtEntry->interrupt = 0;
-	printf(L"prdt%d pa: %p\r\n", prdt_index, (void*)pPrdtEntry->base);
-	printf(L"cmd table: %p\r\n", (void*)pCmdTable);
+	pPrdt->base = pa;
+	pPrdt->byte_cnt = size-1;
+	pPrdt->reserved0 = 0;
+	pPrdt->interrupt = 0;
+	pPrdt->reserved1 = 0;
 	return 0;
 }
 int ahci_run_port(uint8_t port){
@@ -262,8 +227,9 @@ int ahci_run_port(uint8_t port){
 	if (ahci_get_port_base(port, &pPort)!=0)
 		return -1;
 	while (pPort->cmd&(1<<4)){};
-	pPort->cmd|=(1<<0);
 	pPort->cmd|=(1<<4);
+	pPort->cmd|=(1<<0);
+	while (!(pPort->cmd&(1<<15))){};
 	return 0;
 }
 int ahci_stop_port(uint8_t port){
@@ -275,147 +241,57 @@ int ahci_stop_port(uint8_t port){
 	while (pPort->cmd&(1<<4)){};
 	return 0;
 }
-int ahci_poll_port_finish(uint8_t port, uint8_t cmd_max){
-	if (cmd_max>AHCI_MAX_CMD_ENTRIES)
-		return -1;
-	volatile struct ahci_port_mem* pPort = (struct ahci_port_mem*)0x0;
-	if (ahci_get_port_base(port, &pPort)!=0)
-		return -1;
-	for (uint64_t i = 0;i<cmd_max;i++){
-		pPort->cmd_issue|=(1<<i);
-		while (pPort->cmd_issue&(1<<i)){};
-	}
-	return 0;
-}
-int ahci_debug_cmd_table(volatile struct ahci_cmd_hdr* pCmdHdr, volatile struct ahci_cmd_table* pCmdTable){
-	if (!pCmdHdr||!pCmdTable)
-		return -1;
-	virtualMapPage((uint64_t)pCmdHdr, (uint64_t)pCmdHdr, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, 0, PAGE_TYPE_MMIO);
-	virtualMapPage((uint64_t)pCmdTable, (uint64_t)pCmdTable, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, 0, PAGE_TYPE_MMIO);
-	if (!pCmdHdr->cmd_table_base){
-		printf(L"invalid cmd table\r\n");
-		return -1;
-	}
-	if (!pCmdHdr->cmd_fis_len){
-		printf(L"no FIS\r\n");
-		return -1;
-	}
-	printf(L"--FIS data--\r\n");
-	printf(L"FIS length: %d\r\n", pCmdHdr->cmd_fis_len);	
-	volatile struct ahci_fis_host_to_dev* pFisBase = (volatile struct ahci_fis_host_to_dev*)pCmdTable->fis;
-	if (!pFisBase){
-		printf(L"invalid FIS\r\n");
-		return -1;
-	}
-	printf(L"FIS type: 0x%x\r\n", (uint32_t)pFisBase->fis_type);
-	switch (pFisBase->fis_type){
-		case AHCI_FIS_TYPE_H2D:{
-			volatile struct ahci_fis_host_to_dev* pFis = (volatile struct ahci_fis_host_to_dev*)pFisBase;
-			printf(L"FIS cmd: 0x%x\r\n", pFis->cmd);	
-			break;
-		}
-	};
-	printf(L"--PRDT data\r\n");
-	for (uint64_t prdt_index = 0;prdt_index<pCmdHdr->prdt_len;prdt_index++){
-		volatile struct ahci_prdt_entry* pPrdt = (volatile struct ahci_prdt_entry*)(pCmdTable->prdt_list+prdt_index);
-		printf(L"--prdt %d--\r\n", prdt_index);
-		printf(L"physical address: %p\r\n", (void*)pPrdt->base);
-		printf(L"size: %d\r\n", pPrdt->byte_cnt);
-	}
-	return 0;
-}
 int ahci_get_drive_info(uint8_t drive_port, struct ahci_drive_info* pDriveInfo){
 	if (!pDriveInfo)
 		return -1;
-	ahci_stop_port(drive_port);
 	volatile struct ahci_port_mem* pPort = (struct ahci_port_mem*)0x0;
 	if (ahci_get_port_base(drive_port, &pPort)!=0)
 		return -1;
-	pPort->interrupt_status = (uint32_t)-1;
-	pPort->cmd_issue = 0;
-	pPort->interrupt_enable = 0;
-	volatile struct ahci_cmd_hdr* pCmdHdr = (volatile struct ahci_cmd_hdr*)0x0;
 	volatile struct ahci_cmd_table* pCmdTable = (volatile struct ahci_cmd_table*)0x0;
-	if (ahci_push_cmd_table(&cmdListDesc, 1, &pCmdHdr, &pCmdTable)!=0){
+	if (ahci_push_cmd_table(&cmdListDesc, 1, &pCmdTable)!=0){
 		printf(L"failed to push cmd to cmd table\r\n");
 		return -1;
 	}
+	printf(L"successfully pushed cmd\r\n");
 	volatile struct ahci_fis_host_to_dev* pIdentFis = (volatile struct ahci_fis_host_to_dev*)pCmdTable->fis;
-	if (!pIdentFis){
-		printf(L"invalid FIS\r\n");
-		ahci_pop_cmd_table(&cmdListDesc);
-		return -1;
-	}
 	memset((void*)pIdentFis, 0, sizeof(struct ahci_fis_host_to_dev));
 	pIdentFis->fis_type = AHCI_FIS_TYPE_H2D;
 	pIdentFis->c = 1;
 	pIdentFis->cmd = AHCI_CMD_IDENT;
-	pCmdHdr->cmd_fis_len = sizeof(struct ahci_fis_host_to_dev);
-	pCmdHdr->w = 0;
-	volatile struct ahci_fis_host_to_dev* pReturnFis = (volatile struct ahci_fis_host_to_dev*)0x0;
-	if (virtualAllocPage((uint64_t*)&pReturnFis, PTE_RW|PTE_NX, 0, PAGE_TYPE_MMIO)!=0){
-		printf(L"failed to allocate return FIS\r\n");
+	pPort->fis_base = (uint64_t)pIdentFis;
+	unsigned char driveData[512] = {0};
+	if (ahci_write_prdt(pCmdTable, 0, (uint64_t)driveData, sizeof(driveData))!=0){
+		printf(L"failed to write drive data prdt\r\n");
 		ahci_pop_cmd_table(&cmdListDesc);
 		return -1;
 	}
-	uint64_t pReturnFis_pa = 0;
-	if (virtualToPhysical((uint64_t)pReturnFis, (uint64_t*)&pReturnFis_pa)!=0){
-		printf(L"failed to get physical address of return FIS\r\n");
+	if (ahci_run_port(drive_port)!=0){
+		printf(L"failed to run port\r\n");
 		ahci_pop_cmd_table(&cmdListDesc);
 		return -1;
 	}
-	pPort->fis_base = pReturnFis_pa;
-	uint16_t driveData[256] = {0};
-	memset((void*)driveData, 0, sizeof(driveData));
-	ahci_write_prdt(pCmdTable, 0, (uint64_t)driveData, sizeof(driveData));
-	pPort->cmdlist_base = (uint64_t)cmdListDesc.pCmdList_pa;
-	if (pPort->cmdlist_base%1024){
-		printf(L"misaligned physical cmd list base\r\n");
-		ahci_pop_cmd_table(&cmdListDesc);
-		return -1;
-	}
-	uint64_t va = 0;
-	if (physicalToVirtual(cmdListDesc.pCmdList_pa, &va)!=0){
-		printf(L"failed to convert cmd list physical address to virtual address\r\n");
-		ahci_pop_cmd_table(&cmdListDesc);
-		return -1;
-	}
-	if (va!=(uint64_t)cmdListDesc.pCmdList){
-		printf(L"virtual address does not match! offset %d\r\n", (uint64_t)va-(uint64_t)cmdListDesc.pCmdList);
-		ahci_pop_cmd_table(&cmdListDesc);
-		return -1;
-	}
-	ahci_run_port(drive_port);
-	if (ahci_poll_port_finish(drive_port, 1)!=0){
-		printf(L"error when running commands\r\n");
-		ahci_pop_cmd_table(&cmdListDesc);
-		return -1;
-	}
-	sleep(250);
-	ahci_stop_port(drive_port);
-	if (pPort->interrupt_status&(1<<30)){
+	while (pPort->cmd&(1<<4)){};
+	sleep(50);
+	if (pPort->sata_error){
 		printf(L"failed to read drive data sector\r\n");
 		ahci_pop_cmd_table(&cmdListDesc);
 		return -1;
 	}
-	if (pPort->task_file_data&1){
-		printf(L"failed to read drive data sector\r\n");
+	if (ahci_stop_port(drive_port)!=0){
+		printf(L"failed to stop port\r\n");
 		ahci_pop_cmd_table(&cmdListDesc);
 		return -1;
+	}
+	uint16_t sectors_low = *(((uint16_t*)driveData)+60);
+	uint16_t sectors_high = *(((uint16_t*)driveData)+61);
+	printf(L"drive sectors low: %d high: %d\r\n", sectors_low, sectors_high);
+	for (uint64_t i = 0;i<sizeof(driveData)/sizeof(uint64_t);i++){
+		if (driveData[i]!=0)
+			printf(L"no zero at offset\r\n");
 	}
 	if (ahci_pop_cmd_table(&cmdListDesc)!=0){
-		printf(L"faield to pop cmd off cmd table\r\n");
+		printf(L"failed to pop cmd off cmd table\r\n");
 		return -1;
 	}
-	uint16_t cap_value = driveData[83];
-	uint64_t sector_count = 0;
-	if (!(cap_value&(1<<26))){
-		sector_count = (uint64_t)(*(uint32_t*)(driveData+60));
-	}else
-		sector_count = *(uint64_t*)(driveData+120);
-	struct ahci_drive_info driveInfo = {0};
-	driveInfo.port = drive_port;
-	driveInfo.sector_count = sector_count;
-	*pDriveInfo = driveInfo;
 	return 0;
 }

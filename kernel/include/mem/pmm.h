@@ -23,6 +23,8 @@
 struct p_page{
 	uint8_t status;
 	uint8_t pageType;
+	uint64_t virtualAddress;
+	uint8_t padding[6];
 }__attribute__((packed));
 struct p_pt_info{
 	uint64_t pt_size;
@@ -43,11 +45,12 @@ int allocatePageTable(void);
 int initPageTable(void);
 int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType);
 int physicalFreePage(uint64_t physicalAddress);
-int physicalMapPage(uint64_t physicalAddress, uint8_t pageType);
+int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType);
 int physicalUnmapPage(uint64_t physicalAddress);
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);
 int getPhysicalPageTable(uint64_t* pPa, uint64_t* pSize);
 int getUsedPhysicalPages(uint64_t* pUsedPages);
 int getFreePhysicalPages(uint64_t* pFreePages);
+int physicalToVirtual(uint64_t pa, uint64_t* pVa);
 #endif

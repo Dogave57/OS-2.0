@@ -173,18 +173,18 @@ int ioapic_get_id(uint32_t* pId){
 }
 int ioapic_write_reg(uint32_t reg, uint32_t value){
 	unsigned char* pbase = (unsigned char*)ioapic_base;
-	*(unsigned int*)(pbase) = (unsigned int)reg;
-	*(unsigned int*)(pbase+0x10) = value;
+	*(volatile uint32_t*)(pbase) = (uint32_t)reg;
+	*(volatile uint32_t*)(pbase+0x10) = value;
 	outb(0x00, 0x00);
 	return 0;	
 }
 int ioapic_read_reg(uint32_t reg, uint32_t* pvalue){
 	if (!pvalue)
 		return -1;
-	unsigned char* pbase = (unsigned char*)ioapic_base;
-	*(unsigned int*)(pbase) = reg;
+	volatile unsigned char* pbase = (volatile unsigned char*)ioapic_base;
+	*(volatile uint32_t*)(pbase) = reg;
 	outb(0x00, 0x00);
-	*pvalue = *(unsigned int*)(pbase+0x10);
+	*pvalue = *(volatile uint32_t*)(pbase+0x10);
 	return 0;
 }
 int ioapic_enable_irq(uint8_t irq, uint8_t vector, uint8_t lapic_id){

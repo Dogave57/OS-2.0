@@ -80,7 +80,7 @@ int pcie_read_byte(uint8_t bus, uint8_t dev, uint8_t func, uint64_t byte_offset,
 	uint64_t ecam_base = 0;
 	if (pcie_get_ecam_base(bus, dev, func, &ecam_base)!=0)
 		return -1;
-	uint8_t* pReg = (uint8_t*)(ecam_base+byte_offset);
+	volatile uint8_t* pReg = (volatile uint8_t*)(ecam_base+byte_offset);
 	*pValue = *pReg;
 	return 0;
 }
@@ -88,7 +88,7 @@ int pcie_write_byte(uint8_t bus, uint8_t dev, uint8_t func, uint64_t byte_offset
 	uint64_t ecam_base = 0;
 	if (pcie_get_ecam_base(bus, dev, func, &ecam_base)!=0)
 		return -1;
-	uint8_t* pReg = (uint8_t*)(ecam_base+byte_offset);
+	volatile uint8_t* pReg = (volatile uint8_t*)(ecam_base+byte_offset);
 	*pReg = value;
 	return 0;
 }
@@ -98,7 +98,7 @@ int pcie_read_word(uint8_t bus, uint8_t dev, uint8_t func, uint64_t word_offset,
 	uint64_t ecam_base = 0;
 	if (pcie_get_ecam_base(bus, dev, func, &ecam_base)!=0)
 		return -1;
-	uint16_t* pReg = (uint16_t*)(ecam_base+word_offset);
+	volatile uint16_t* pReg = (volatile uint16_t*)(ecam_base+word_offset);
 	*pValue = *pReg;
 	return 0;
 }
@@ -106,17 +106,17 @@ int pcie_write_word(uint8_t bus, uint8_t dev, uint8_t func, uint64_t word_offset
 	uint64_t ecam_base = 0;
 	if (pcie_get_ecam_base(bus, dev, func, &ecam_base)!=0)
 		return -1;
-	uint16_t* pReg = (uint16_t*)(ecam_base+word_offset);
+	volatile uint16_t* pReg = (volatile uint16_t*)(ecam_base+word_offset);
 	*pReg = value;
 	return 0;
 }
-int pcie_read_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offset, uint16_t* pValue){
+int pcie_read_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offset, uint32_t* pValue){
 	if (!pValue)
 		return -1;
 	uint64_t ecam_base = 0;
 	if (pcie_get_ecam_base(bus, dev, func, &ecam_base)!=0)
 		return -1;
-	uint16_t* pReg = (uint16_t*)(ecam_base+dword_offset);
+	volatile uint32_t* pReg = (volatile uint32_t*)(ecam_base+dword_offset);
 	*pValue = *pReg;
 	return 0;
 }
@@ -124,7 +124,7 @@ int pcie_write_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offs
 	uint64_t ecam_base = 0;
 	if (pcie_get_ecam_base(bus, dev, func, &ecam_base)!=0)
 		return -1;
-	uint32_t* pReg = (uint32_t*)(ecam_base+dword_offset);
+	volatile uint32_t* pReg = (volatile uint32_t*)(ecam_base+dword_offset);
 	*pReg = value;
 	return 0;
 }
@@ -134,7 +134,7 @@ int pcie_read_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offse
 	uint64_t ecam_base = 0;
 	if (pcie_get_ecam_base(bus, dev, func, &ecam_base)!=0)
 		return -1;
-	uint64_t* pReg = (uint64_t*)(ecam_base+qword_offset);
+	volatile uint64_t* pReg = (volatile uint64_t*)(ecam_base+qword_offset);
 	*pValue = *pReg;
 	return 0;
 }
@@ -142,7 +142,7 @@ int pcie_write_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offs
 	uint64_t ecam_base = 0;
 	if (pcie_get_ecam_base(bus, dev, func, &ecam_base)!=0)
 		return -1;
-	uint64_t* pReg = (uint64_t*)(ecam_base+qword_offset);
+	volatile uint64_t* pReg = (volatile uint64_t*)(ecam_base+qword_offset);
 	*pReg = value;
 	return 0;
 }

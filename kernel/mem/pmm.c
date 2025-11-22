@@ -153,10 +153,11 @@ int physicalFreePage(uint64_t physicalAddress){
 	pt->usedEntryCnt--;
 	return 0;
 }
-int physicalMapPage(uint64_t physicalAddress, uint8_t pageType){
+int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType){
 	struct p_page* pNewPage = pt->pPageEntries+(physicalAddress/PAGE_SIZE);
 	pNewPage->status = PAGE_INUSE;
 	pNewPage->pageType = pageType;
+	pNewPage->virtualAddress = align_down(virtualAddress, PAGE_SIZE);
 	return 0;
 }
 int physicalUnmapPage(uint64_t physicalAddress){
@@ -216,4 +217,16 @@ int getFreePhysicalPages(uint64_t* pFreePages){
 		return -1;
 	*pFreePages = pt->freeEntryCnt;
 	return 0;
+}
+int physicalToVirtual(uint64_t pa, uint64_t* pVa){
+	if (!pVa)
+		return -1;
+	uint64_t pageEntry = pa/PAGE_SIZE;
+	struct p_page* pPageEntry = pt->pPageEntries+pageEntry;
+	uint64_t page_offset = PAGE_SIZE-(pa%PAGE_SIZE);
+	uint64_t va = pPageEntry->virtualAddress;
+	if (pPageEntry->status==PAGE_FREE)
+		return -1;
+	*pVa = va;
+	return 0;	
 }

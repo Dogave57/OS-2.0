@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "stdlib/stdlib.h"
+#include "align.h"
 #include "mem/pmm.h"
 #include "mem/vmm.h"
 uint64_t* pml4 = (uint64_t*)0x0;
@@ -84,7 +85,7 @@ int vmm_init(void){
 	printf(L"loading pt\r\n");
 	load_pt((uint64_t)pml4);
 	virtualUnmapPage(0x0, 0);
-	physicalMapPage(0x0, PAGE_TYPE_RESERVED);
+	physicalMapPage(0x0, 0x0, PAGE_TYPE_RESERVED);
 	return 0;
 }
 int vmm_getPageTableEntry(uint64_t va, uint64_t** ppEntry){
@@ -132,7 +133,7 @@ int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared
 	uint64_t pt_entry = pa|flags|PTE_PRESENT;
 	if (!shared&&PTE_IS_PRESENT(*pentry))
 		return -1;
-	if (physicalMapPage(pa, pageType)!=0){
+	if (physicalMapPage(pa, va, pageType)!=0){
 		return -1;
 	}
 	*pentry = pt_entry;
@@ -184,9 +185,9 @@ int virtualToPhysical(uint64_t va, uint64_t* pPa){
 	uint64_t* pentry = (uint64_t*)0x0;
 	if (vmm_getPageTableEntry(va, &pentry)!=0)
 		return -1;
-	uint64_t pa = PTE_GET_ADDR(*pentry);
-	uint64_t page_offset = PAGE_SIZE-(va%PAGE_SIZE);
-	*pPa = pa+page_offset;
+	uint64_t page_pa = PTE_GET_ADDR(*pentry);
+	uint64_t page_offset = va-align_down(va, PAGE_SIZE);
+	*pPa = page_pa+page_offset;
 	return 0;
 }
 int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t pageType){

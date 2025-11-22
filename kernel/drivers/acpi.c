@@ -2,10 +2,13 @@
 #include "bootloader.h"
 #include "mem/pmm.h"
 #include "mem/vmm.h"
+#include "mem/heap.h"
+#include "align.h"
 #include "drivers/acpi.h"
 struct acpi_xsdp* pXsdp = (struct acpi_xsdp*)0x0;
 struct acpi_sdt_hdr* pXsdt = (struct acpi_sdt_hdr*)0x0;
 struct acpi_madtEntry_ioapic* pIoApicInfo = (struct acpi_madtEntry_ioapic*)0x0;
+struct aml_execution_context* pAmlContext = (struct aml_execution_context*)0x0;
 int acpi_init(void){
 	if (virtualMapPage((uint64_t)pbootargs->acpiInfo.pXsdp, (uint64_t)pbootargs->acpiInfo.pXsdp, PTE_RW, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
 		printf(L"failed to map XSDP\r\n");
@@ -59,6 +62,10 @@ int acpi_init(void){
 		printf(L"failed to get IOAPIC info\r\n");
 		return -1;
 	}
+	if (aml_init_execution_context(&pAmlContext)!=0){
+		printf(L"failed to initialize AML execution context\r\n");
+		return -1;
+	}
 	return 0;
 }
 int acpi_find_table(unsigned int signature, struct acpi_sdt_hdr** ppTable){
@@ -104,4 +111,82 @@ int acpi_find_xsdp(struct acpi_xsdp** ppXsdp){
 		return 0;
 	}
 	return -1;	
+}
+int acpi_find_dsdt(struct acpi_sdt_hdr** ppSdtHdr){
+	if (!ppSdtHdr)
+		return -1;
+	struct acpi_fadt* pFadt = (struct acpi_fadt*)0x0;
+	if (acpi_find_table((unsigned int)'PCAF', (struct acpi_sdt_hdr**)&pFadt)!=0)
+		return -1;
+	virtualMapPage((uint64_t)pFadt, (uint64_t)pFadt, PTE_RW|PTE_NX, 0, 0, PAGE_TYPE_NORMAL);
+	struct acpi_sdt_hdr* pSdtHdr = (struct acpi_sdt_hdr*)((uint64_t)pFadt->dsdt);
+	virtualMapPage((uint64_t)pSdtHdr, (uint64_t)pSdtHdr, PTE_RW|PTE_NX, 0, 0, PAGE_TYPE_NORMAL);
+	if (pSdtHdr->signature!=(uint32_t)'TDSD')
+		return -1;
+	*ppSdtHdr = pSdtHdr;
+	return 0;
+}
+int aml_init_execution_context(struct aml_execution_context** ppExecutionContext){
+	if (!ppExecutionContext)
+		return -1;
+	struct acpi_sdt_hdr* pSdt = (struct acpi_sdt_hdr*)0x0;
+	if (acpi_find_dsdt(&pSdt)!=0)
+		return -1;
+	struct aml_execution_context* pExecutionContext = (struct aml_execution_context*)kmalloc(sizeof(struct aml_execution_context));
+	if (!pExecutionContext)
+		return -1;
+	uint64_t amlSize = pSdt->len-sizeof(struct acpi_sdt_hdr);
+	uint64_t amlPages = align_up(amlSize, PAGE_SIZE)/PAGE_SIZE;
+	printf(L"aml size: %dkb\r\n", amlSize/MEM_KB);
+	unsigned char* pAml = (unsigned char*)(pSdt+1);
+	uint64_t stackSize = 8192;
+	unsigned char* pStackBase = (unsigned char*)kmalloc(stackSize);
+	if (!pStackBase){
+		printf(L"failed to allocate memory for stack\r\n");
+		return -1;
+	}
+	unsigned char* pStack = pStackBase+stackSize-8;
+	for (uint64_t ip = 0;ip<amlSize;ip++){
+		
+	}
+	pExecutionContext->ip = (unsigned char*)0x0;
+	pExecutionContext->stackSize = stackSize;
+	pExecutionContext->sp = pStack;
+	pExecutionContext->sb = pExecutionContext->sp;
+	*ppExecutionContext = pExecutionContext;
+	return 0;
+}
+int aml_push_stack(struct aml_execution_context* pExecutionContext, uint64_t size){
+	if (!pExecutionContext)
+		return -1;
+	pExecutionContext->sp-=size;
+	return 0;
+}
+int aml_pop_stack(struct aml_execution_context* pExecutionContext, uint64_t size){
+	pExecutionContext->sp+=size;
+	return 0;
+}
+int aml_push_frame(struct aml_execution_context* pExecutionContext){
+	if (!pExecutionContext)
+		return -1;
+	pExecutionContext->sb = pExecutionContext->sp;
+	return 0;
+}
+int aml_pop_frame(struct aml_execution_context* pExecutionContext){
+	if (!pExecutionContext)
+		return -1;
+	pExecutionContext->sp = pExecutionContext->sb;
+	return 0;
+}
+int aml_run_instruction(struct aml_execution_context* pExecutionContext){
+	if (!pExecutionContext)
+		return -1;
+	pExecutionContext->ip++;
+	return 0;	
+}
+int shutdown(void){
+	printf(L"shutting down...\r\n");
+	unsigned char* pAml = (unsigned char*)0x0;
+	uint64_t amlSize = 0;
+	return 0;
 }

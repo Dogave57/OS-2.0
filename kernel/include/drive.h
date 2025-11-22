@@ -6,4 +6,5 @@
 #define DRIVE_TYPE_SATA (2)
 #define DRIVE_TYPE_NVME (3)
 #define DRIVE_TYPE_USB (4)
+#define DRIVE_SECTOR_SIZE 512
 #endif
