@@ -283,16 +283,6 @@ int ahci_poll_port_finish(uint8_t port, uint8_t cmd_max){
 	}
 	return 0;
 }
-int ahci_write_return_fis(uint8_t port, uint64_t fis_base){
-	volatile struct ahci_port_mem* pPort = (struct ahci_port_mem*)0x0;
-	if (ahci_get_port_base(port, &pPort)!=0)
-		return -1;
-	uint64_t fis_pa = 0;
-	if (virtualToPhysical(fis_base, &fis_pa)!=0)
-		return -1;
-	pPort->fis_base = fis_pa;
-	return 0;
-}
 int ahci_debug_cmd_table(volatile struct ahci_cmd_hdr* pCmdHdr, volatile struct ahci_cmd_table* pCmdTable){
 	if (!pCmdHdr||!pCmdTable)
 		return -1;
@@ -365,13 +355,6 @@ int ahci_get_drive_info(uint8_t drive_port, struct ahci_drive_info* pDriveInfo){
 	pIdentFis->cmd = AHCI_CMD_IDENT;
 	pCmdHdr->cmd_fis_len = sizeof(struct ahci_fis_host_to_dev);
 	pCmdHdr->w = 0;
-	volatile struct ahci_fis_host_to_dev* pReturnFis = (volatile struct ahci_fis_host_to_dev*)0x0;
-	if (virtualAllocPage((uint64_t*)&pReturnFis, PTE_RW|PTE_NX, 0, PAGE_TYPE_MMIO)!=0){
-		printf(L"failed to allocate return FIS\r\n");
-		ahci_pop_cmd_table(&cmdListDesc);
-		return -1;
-	}
-	ahci_write_return_fis(drive_port, (uint64_t)pReturnFis);
 	uint16_t driveData[256] = {0};
 	memset((void*)driveData, 0, sizeof(driveData));
 	ahci_write_prdt(pCmdTable, 0, (uint64_t)driveData, sizeof(driveData));
@@ -379,19 +362,12 @@ int ahci_get_drive_info(uint8_t drive_port, struct ahci_drive_info* pDriveInfo){
 	ahci_run_port(drive_port);
 	if (ahci_poll_port_finish(drive_port, 1)!=0){
 		printf(L"error when running commands\r\n");
-		virtualFreePage((uint64_t)pReturnFis, 0);
 		ahci_pop_cmd_table(&cmdListDesc);
 		return -1;
 	}
 	ahci_stop_port(drive_port);
 	if (ahci_drive_error(drive_port)!=0){
 		printf(L"error when reading drive data sector\r\n");
-		virtualFreePage((uint64_t)pReturnFis, 0);
-		ahci_pop_cmd_table(&cmdListDesc);
-		return -1;
-	}
-	if (virtualFreePage((uint64_t)pReturnFis, 0)!=0){
-		printf(L"failed to free return FIS\r\n");
 		ahci_pop_cmd_table(&cmdListDesc);
 		return -1;
 	}

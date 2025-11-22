@@ -160,7 +160,6 @@ int ahci_pop_cmd_table(struct ahci_cmd_list_desc* pCmdListDesc);
 int ahci_run_port(uint8_t port);
 int ahci_stop_port(uint8_t port);
 int ahci_poll_port_finish(uint8_t port, uint8_t cmd_max);
-int ahci_write_return_fis(uint8_t port, uint64_t fis_base);
 int ahci_debug_cmd_list(volatile struct ahci_cmd_hdr* pCmdHdr, volatile struct ahci_cmd_table* pCmdTable);
 int ahci_drive_error(uint8_t port);
 int ahci_get_drive_info(uint8_t drive_port, struct ahci_drive_info* pInfo);
