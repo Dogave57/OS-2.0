@@ -6,10 +6,10 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
+#include "subsystem/drive.h"
 #include "drivers/graphics.h"
 #include "drivers/acpi.h"
 #include "drivers/smbios.h"
-#include "drive.h"
 struct bootloader_graphicsInfo{
 	unsigned int width;
 	unsigned int height;
@@ -40,7 +40,7 @@ struct bootloader_kernelInfo{
 struct bootloader_driveInfo{
 	CHAR16* devicePathStr;
 	uint64_t driveType;
-	uint64_t drivePort;
+	uint8_t port;
 };
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;

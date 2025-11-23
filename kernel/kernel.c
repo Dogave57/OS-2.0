@@ -16,6 +16,8 @@
 #include "drivers/timer.h"
 #include "drivers/ahci.h"
 #include "drivers/nvme.h"
+#include "subsystem/drive.h"
+#include "subsystem/subsystem.h"
 #include "cpu/gdt.h"
 EFI_SYSTEM_TABLE* systab = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
@@ -98,10 +100,14 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	printf(L"PCIE initialized\r\n");
 	if (ahci_init()!=0){
 		printf(L"no AHCI controller available\r\n");
-		while (1){};
 	}
 	if (nvme_init()!=0){
 		printf(L"failed to initialize NVME driver\r\n");
+	}
+	if (drive_subsystem_init()!=0){
+		printf(L"failed to initialize drive subsystem\r\n");
+		while (1){};
+		return -1;
 	}
 	printf(L"Welcome to SlickOS\r\n");
 	uint64_t va = 0;

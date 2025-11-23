@@ -1,5 +1,6 @@
 #ifndef _AHCI
 #define _AHCI
+#include "subsystem/drive.h"
 #define AHCI_DRIVE_MMIO_OFFSET 0x100
 #define AHCI_SATA_SIGNATURE 0x101
 #define AHCI_MAX_PORTS 32
@@ -165,4 +166,7 @@ int ahci_drive_error(uint8_t port);
 int ahci_get_drive_info(uint8_t drive_port, struct ahci_drive_info* pInfo);
 int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
 int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
+int ahci_subsystem_read(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
+int ahci_subsystem_write(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
+int ahci_subsystem_get_drive_info(struct drive_dev_hdr* pHdr, struct drive_info* pDriveInfo);
 #endif

@@ -3,6 +3,7 @@
 #include "stdlib/stdlib.h"
 #include "drivers/pcie.h"
 #include "drivers/timer.h"
+#include "subsystem/drive.h"
 #include "align.h"
 #include "drivers/ahci.h"
 struct ahci_info ahciInfo = {0};
@@ -47,7 +48,7 @@ int ahci_init(void){
 			continue;
 		}
 		printf(L"drive size: %dMB\r\n", (driveInfo.sector_count*DRIVE_SECTOR_SIZE)/MEM_MB);
-		uint64_t sector_count = (MEM_MB*8)/DRIVE_SECTOR_SIZE;
+		uint64_t sector_count = (MEM_MB*48)/DRIVE_SECTOR_SIZE;
 		uint64_t sectorBufferSize = sector_count*DRIVE_SECTOR_SIZE;
 		uint64_t sectorBufferPages = align_up(sectorBufferSize, PAGE_SIZE)/PAGE_SIZE;
 		unsigned char* pSectorBuffer = (unsigned char*)0x0;
@@ -535,5 +536,33 @@ int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_c
 		printf(L"failed to pop cmd table\r\n");
 		return -1;
 	}
+	return 0;
+}
+int ahci_subsystem_read(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
+	if (!pHdr||!pBuffer)
+		return -1;
+	if (pHdr->type!=DRIVE_TYPE_AHCI)
+		return -1;
+	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
+	return ahci_read(pDev->driveInfo, lba, sector_count, pBuffer);
+}
+int ahci_subsystem_write(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
+	if (!pHdr||!pBuffer)
+		return -1;
+	if (pHdr->type!=DRIVE_TYPE_AHCI)
+		return -1;
+	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
+	return ahci_write(pDev->driveInfo, lba, sector_count, pBuffer);
+}
+int ahci_subsystem_get_drive_info(struct drive_dev_hdr* pHdr, struct drive_info* pDriveInfo){
+	if (!pHdr||!pDriveInfo)
+		return -1;
+	if (pHdr->type!=DRIVE_TYPE_AHCI)
+		return -1;
+	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
+	struct drive_info driveInfo = {0};
+	driveInfo.driveType = DRIVE_TYPE_AHCI;
+	driveInfo.sector_count = pDev->driveInfo.sector_count;
+	*pDriveInfo = driveInfo;
 	return 0;
 }
