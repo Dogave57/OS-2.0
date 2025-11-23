@@ -47,6 +47,24 @@ int ahci_init(void){
 			continue;
 		}
 		printf(L"drive size: %dMB\r\n", (driveInfo.sector_count*DRIVE_SECTOR_SIZE)/MEM_MB);
+		uint64_t sector_count = (MEM_MB*8)/DRIVE_SECTOR_SIZE;
+		uint64_t sectorBufferSize = sector_count*DRIVE_SECTOR_SIZE;
+		uint64_t sectorBufferPages = align_up(sectorBufferSize, PAGE_SIZE)/PAGE_SIZE;
+		unsigned char* pSectorBuffer = (unsigned char*)0x0;
+		uint64_t time_ms = get_time_ms();
+		if (virtualAllocPages((uint64_t*)&pSectorBuffer, sectorBufferPages, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
+			printf(L"failed to allocate pages for sectors\r\n");	
+			return -1;
+		}
+		memset((void*)pSectorBuffer, 0, sectorBufferSize);
+		if (ahci_read(driveInfo, 0, sector_count, (unsigned char*)pSectorBuffer)!=0){
+			printf(L"failed to read %d sectors\r\n", sector_count);
+			virtualFreePages((uint64_t)pSectorBuffer, sectorBufferPages);
+			return -1;
+		}
+		uint64_t elapsed_ms = get_time_ms()-time_ms;
+		printf(L"%dMB/s\r\n", ((1000/elapsed_ms)*sectorBufferSize)/MEM_MB);
+		virtualFreePages((uint64_t)pSectorBuffer, sectorBufferPages);
 	}
 	return 0;
 }
@@ -208,16 +226,14 @@ int ahci_push_cmd_table(struct ahci_cmd_list_desc* pCmdListDesc, uint64_t prdt_c
 	if (prdt_cnt>AHCI_MAX_PRDT_ENTRIES)
 		return -1;
 	volatile struct ahci_cmd_hdr* pCmdHdr = pCmdListDesc->pCmdList+pCmdListDesc->currentEntry;
-	if (((uint64_t)pCmdHdr)%128)
-		return -1;
 	volatile struct ahci_cmd_table* pCmdTable = pCmdListDesc->pCmdTableList+pCmdListDesc->currentEntry;
-	if (((uint64_t)pCmdTable)%128)
-		return -1;
 	uint64_t cmdTableSize = sizeof(struct ahci_cmd_table)+(prdt_cnt*sizeof(struct ahci_prdt_entry));
 	memset((void*)pCmdTable, 0, cmdTableSize);
 	uint64_t pCmdTable_pa = 0;
-	if (virtualToPhysical((uint64_t)pCmdTable, &pCmdTable_pa)!=0)
+	if (virtualToPhysical((uint64_t)pCmdTable, &pCmdTable_pa)!=0){
+		printf(L"faileld to convert cmd table VA to PA\r\n");
 		return -1;
+	}
 	pCmdHdr->cmd_table_base = (uint64_t)pCmdTable_pa;
 	pCmdHdr->prdt_len = prdt_cnt;
 	*ppCmdHdr = pCmdHdr;
@@ -353,7 +369,7 @@ int ahci_get_drive_info(uint8_t drive_port, struct ahci_drive_info* pDriveInfo){
 	pIdentFis->fis_type = AHCI_FIS_TYPE_H2D;
 	pIdentFis->c = 1;
 	pIdentFis->cmd = AHCI_CMD_IDENT;
-	pCmdHdr->cmd_fis_len = sizeof(struct ahci_fis_host_to_dev);
+	pCmdHdr->cmd_fis_len = sizeof(struct ahci_fis_host_to_dev)/sizeof(uint32_t);
 	pCmdHdr->w = 0;
 	uint16_t driveData[256] = {0};
 	memset((void*)driveData, 0, sizeof(driveData));
@@ -388,13 +404,34 @@ int ahci_get_drive_info(uint8_t drive_port, struct ahci_drive_info* pDriveInfo){
 	return 0;
 }
 int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
-	if (!pBuffer)
+	if (!pBuffer){
 		return -1;
+	}
+	if (lba+sector_count>driveInfo.sector_count){
+		printf(L"sectors requested to read exceeds drive size\r\n");
+		return -1;
+	}
+	if (sector_count>8){
+		uint64_t reads_max = align_up(sector_count, 8)/8;
+		for (uint64_t i = 0;i<reads_max;i++){
+			uint64_t read_lba = lba+(i*8);
+			unsigned char* read_buffer = pBuffer+(i*4096);
+			uint64_t read_count = 8;
+			if (i==reads_max-1&&sector_count%8)
+				read_count = sector_count%8;
+			if (ahci_read(driveInfo, read_lba, read_count, read_buffer)!=0){
+				printf(L"failed to read sector\r\n");
+				return -1;
+			}
+		}
+		return 0;
+	}
 	uint64_t bufferSize = ((uint64_t)sector_count)*DRIVE_SECTOR_SIZE;
 	ahci_stop_port(driveInfo.port);
 	volatile struct ahci_port_mem* pPort = (volatile struct ahci_port_mem*)0x0;
-	if (ahci_get_port_base(driveInfo.port, &pPort)!=0)
+	if (ahci_get_port_base(driveInfo.port, &pPort)!=0){
 		return -1;
+	}
 	volatile struct ahci_cmd_hdr* pCmdHdr = (volatile struct ahci_cmd_hdr*)0x0;
 	volatile struct ahci_cmd_table* pCmdTable = (volatile struct ahci_cmd_table*)0x0;
 	if (ahci_push_cmd_table(&cmdListDesc, 1, &pCmdHdr, &pCmdTable)!=0){
@@ -404,7 +441,7 @@ int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_co
 	volatile struct ahci_fis_host_to_dev* pFis = (volatile struct ahci_fis_host_to_dev*)pCmdTable->fis;
 	memset((void*)pFis, 0, sizeof(struct ahci_fis_host_to_dev));
 	pCmdHdr->w = 0;
-	pCmdHdr->cmd_fis_len = sizeof(struct ahci_fis_host_to_dev);
+	pCmdHdr->cmd_fis_len = sizeof(struct ahci_fis_host_to_dev)/sizeof(uint32_t);
 	pFis->fis_type = AHCI_FIS_TYPE_H2D;
 	pFis->cmd = AHCI_CMD_READ;
 	pFis->c = 1;
@@ -439,6 +476,21 @@ int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_co
 int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
 	if (!pBuffer)
 		return -1;
+	if (lba+sector_count>driveInfo.sector_count)
+		return -1;
+	if (sector_count>8){
+		uint64_t writes_max = align_up(sector_count, 8)/8;
+		for (uint64_t i = 0;i<writes_max;i++){
+			uint64_t write_lba = lba+(i*8);	
+			unsigned char* write_buffer = pBuffer+(i*4096);
+			uint64_t write_count = 8;
+			if (i==writes_max-1&&sector_count%8)
+				write_count = sector_count%8;
+			if (ahci_write(driveInfo, write_lba, write_count, write_buffer)!=0)
+				return -1;
+		}	
+		return 0;
+	}
 	uint64_t bufferSize = ((uint64_t)sector_count)*DRIVE_SECTOR_SIZE;
 	ahci_stop_port(driveInfo.port);
 	volatile struct ahci_port_mem* pPort = (volatile struct ahci_port_mem*)0x0;
@@ -453,7 +505,7 @@ int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_c
 	volatile struct ahci_fis_host_to_dev* pFis = (volatile struct ahci_fis_host_to_dev*)pCmdTable->fis;
 	memset((void*)pFis, 0, sizeof(struct ahci_fis_host_to_dev));
 	pCmdHdr->w = 1;
-	pCmdHdr->cmd_fis_len = sizeof(struct ahci_fis_host_to_dev);
+	pCmdHdr->cmd_fis_len = sizeof(struct ahci_fis_host_to_dev)/sizeof(uint32_t);
 	pFis->fis_type = AHCI_FIS_TYPE_H2D;
 	pFis->cmd = AHCI_CMD_WRITE;
 	pFis->c = 1;

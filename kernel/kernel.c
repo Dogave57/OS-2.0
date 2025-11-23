@@ -98,6 +98,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	printf(L"PCIE initialized\r\n");
 	if (ahci_init()!=0){
 		printf(L"no AHCI controller available\r\n");
+		while (1){};
 	}
 	if (nvme_init()!=0){
 		printf(L"failed to initialize NVME driver\r\n");

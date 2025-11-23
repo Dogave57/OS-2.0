@@ -350,7 +350,7 @@ int uefi_execute_kernel(void* pfiledata){
 		}
 	}
 	unsigned char* pbase_stack = (unsigned char*)0x0;
-	uint64_t stack_size = 8192;
+	uint64_t stack_size = 8192*4;
 	status = BS->AllocatePool(EfiRuntimeServicesData, stack_size, (void**)&pbase_stack);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for stack %x\r\n", status);

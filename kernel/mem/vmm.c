@@ -4,7 +4,7 @@
 #include "mem/pmm.h"
 #include "mem/vmm.h"
 uint64_t* pml4 = (uint64_t*)0x0;
-uint64_t next_page_va = 0;
+uint64_t last_page_va = 0;
 int vmm_init(void){
 	uint64_t max_pages = installedMemory/PAGE_SIZE;
 	if (physicalAllocPage((uint64_t*)&pml4, PAGE_TYPE_NORMAL)!=0){
@@ -137,8 +137,8 @@ int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared
 		return -1;
 	}
 	*pentry = pt_entry;
-	if (va+PAGE_SIZE>next_page_va)
-		next_page_va = va+PAGE_SIZE;
+	if (va>last_page_va)
+		last_page_va = va;
 	if (get_pt()!=(uint64_t)pml4)
 		return 0;
 	flush_tlb(va);
@@ -224,13 +224,12 @@ int virtualFreePage(uint64_t va, uint64_t map_flags){
 int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType){
 	if (!pVa)
 		return -1;
-	uint64_t va = next_page_va;
+	uint64_t va = last_page_va+PAGE_SIZE;
 	for (uint64_t i = 0;i<page_cnt;i++){
 		uint64_t new_ppage = (uint64_t)0;
-		uint64_t page_va = va+(i*PAGE_SIZE);
 		if (physicalAllocPage(&new_ppage, PAGE_TYPE_NORMAL)!=0)
 			return -1;
-		if (virtualMapPage(new_ppage, page_va, flags, 1, map_flags, pageType)!=0)
+		if (virtualMapPage(new_ppage, last_page_va+PAGE_SIZE, flags, 0, map_flags, pageType)!=0)
 			return -1;
 	}
 	*pVa = va;
