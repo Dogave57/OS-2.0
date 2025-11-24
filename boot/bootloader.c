@@ -1,6 +1,7 @@
 #include <Uefi.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/DevicePathToText.h>
@@ -8,6 +9,7 @@
 #include <Guid/FileInfo.h>
 #include <Guid/Acpi.h>
 #include <Guid/SmBios.h>
+#include <Guid/GlobalVariable.h>
 #include "bootloader.h"
 #include "align.h"
 #include "pe.h"
@@ -29,6 +31,7 @@ int uefi_strlen(CHAR16* pStr, uint64_t* pLen);
 EFI_HANDLE imgHandle = {0};
 EFI_SYSTEM_TABLE* ST = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
+EFI_RUNTIME_SERVICES* RT = (EFI_RUNTIME_SERVICES*)0x0;
 EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* conout = (EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL*)0x0;
 EFI_SIMPLE_TEXT_INPUT_PROTOCOL* conin = (EFI_SIMPLE_TEXT_INPUT_PROTOCOL*)0x0;
 EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* stderr = (EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL*)0x0;
@@ -55,6 +58,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	EFI_STATUS status = {0};
 	ST = systab;
 	BS = ST->BootServices;
+	RT = ST->RuntimeServices;
 	imgHandle = imgHandle;
 	conout = systab->ConOut;
 	stderr = systab->StdErr;

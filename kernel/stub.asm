@@ -4,7 +4,7 @@ global kernel_stub
 kernel_stub:
 mov rsp, rcx
 sub rsp, 32
-jmp kmain
+call kmain
 add rsp, 32
 cli
 hlt

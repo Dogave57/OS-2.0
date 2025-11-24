@@ -193,3 +193,19 @@ CHAR16 toUpper(CHAR16 ch){
 		return L'A'+(upper-L'a');
 	return mapping[upper];
 }
+int strcpy(CHAR16* dest, CHAR16* src){
+	if (!dest||!src)
+		return -1;
+	for (uint64_t i = 0;src[i];i++){
+		dest[i] = src[i];
+	}
+	return 0;
+}
+int strcpy_ascii(unsigned char* dest, unsigned char* src){
+	if (!dest||!src)
+		return -1;
+	for (uint64_t i = 0;src[i];i++){
+		dest[i] = src[i];
+	}
+	return 0;
+}

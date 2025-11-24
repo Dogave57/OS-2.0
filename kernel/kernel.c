@@ -18,6 +18,7 @@
 #include "drivers/nvme.h"
 #include "subsystem/drive.h"
 #include "subsystem/subsystem.h"
+#include "drivers/gpt.h"
 #include "cpu/gdt.h"
 EFI_SYSTEM_TABLE* systab = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
@@ -109,25 +110,49 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	uint64_t time_ms = get_time_ms();
+	if (gpt_verify(0)!=0){
+		printf(L"invalid GPT partition table\r\n");
+		while (1){};
+		return -1;
+	}
+	uint64_t elapsed_ms = get_time_ms()-time_ms;
+	printf(L"took %dms to verify GPT partition table\r\n", elapsed_ms);
+	struct gpt_header gptHeader = {0};
+	if (gpt_get_header(0, &gptHeader)!=0){
+		printf(L"failed to get GPT header\r\n");
+		while (1){};
+		return -1;
+	}
+	for (uint64_t i = 0;i<gptHeader.partition_count;i++){
+		struct gpt_partition partition = {0};
+		if (gpt_get_partition(0, i, &partition)!=0){
+			printf(L"failed to get partition %d\r\n", i);
+			while (1){};
+			return -1;
+		}
+		if (!partition.end_lba)
+			continue;
+		uint64_t partition_size = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
+		printf(L"partition %d size: %dMB\r\n", i, partition_size/MEM_MB);
+		printf_ascii("partition %d name: %s\r\n", i, partition.name);
+	}
 	printf(L"Welcome to SlickOS\r\n");
 	uint64_t va = 0;
 	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
 	uint64_t before_ms = get_time_ms();
-	uint64_t elapsed_ms = 0;
 	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf(L"failed to allocate %d pages\r\n", pagecnt);	
 		while (1){};
 		return -1;
 	}
 	elapsed_ms = get_time_ms()-before_ms;
-	printf(L"took %dms to allocate %d 4KB pages\r\n", elapsed_ms, pagecnt);
 	printf(L"%dGB/s allocation\r\n", 250/elapsed_ms);
 	if (virtualFreePages(va, pagecnt)!=0){
 		printf(L"failed to free %d pages\r\n", pagecnt);
 		while (1){};
 		return -1;
 	}
-	printf(L"took %dms to allocate and free %d pages\r\n", get_time_ms()-before_ms, pagecnt);
 	uint64_t usedPages = 0;
 	uint64_t freePages = 0;
 	if (getUsedPhysicalPages(&usedPages)!=0){
@@ -152,7 +177,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	printf(L"free pages: %d\r\n", freePages);
 	set_text_color(old_fg, old_bg);
 	printf(L"--end of page info---\r\n");
-	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
+//	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};
 	return 0;	
 }
