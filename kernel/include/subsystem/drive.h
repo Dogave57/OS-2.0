@@ -30,8 +30,10 @@ typedef int(*driveSectorReadFunc)(struct drive_dev_hdr* pHdr, uint64_t lba, uint
 typedef int(*driveSectorWriteFunc)(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
 typedef int(*driveGetInfoFunc)(struct drive_dev_hdr* pHdr, struct drive_info* pDriveInfo);
 int drive_subsystem_init(void);
-int drive_ahci_register(uint8_t port, uint64_t* pId);
-int drive_get_info(uint64_t id, struct drive_info* pDriveInfo);
-int drive_read_sectors(uint64_t id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
-int drive_write_sectors(uint64_t id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
+int drive_ahci_register(uint8_t port, uint64_t* pDriveId);
+int drive_get_info(uint64_t drive_id, struct drive_info* pDriveInfo);
+int drive_read_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
+int drive_write_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
+int partition_read_sectors(uint64_t drive_id, uint64_t partition_id, uint64_t lba_offset, uint16_t sector_count, unsigned char* pBuffer);
+int partition_write_sectors(uint64_t drive_id, uint64_t partition_id, uint64_t lba_offset, uint16_t sector_count, unsigned char* pBuffer);
 #endif

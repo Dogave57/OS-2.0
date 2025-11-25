@@ -181,6 +181,11 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			printf(L"{%d}, ", partition.partTypeGuid[x]);
 		}
 		putchar('\n');
+		if (fat32_verify(0, i)!=0){
+			printf(L"invalid FAT32\r\n");
+			continue;
+		}
+		printf(L"valid FAT32\r\n");
 	}
 	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};
