@@ -142,6 +142,8 @@ extern time_ms
 extern thermal_state
 extern putchar
 extern ps2_keyboard_handler
+extern crypto_entropy
+extern entropy_shuffle
 exception_fg:
 db 255, 255, 255
 exception_bg:
@@ -197,6 +199,7 @@ add qword [rel time_ms], 1
 mov al, 20h
 mov dx, 20h
 out dx, al
+call entropy_shuffle
 popaq
 sti
 iretq
@@ -207,6 +210,7 @@ mov rcx, msg
 sub rsp, 32
 ;call print
 add rsp, 32
+call entropy_shuffle
 add qword [rel time_ms], 1
 call lapic_send_eoi
 popaq
@@ -222,6 +226,7 @@ iretq
 ps2_kbd_isr:
 cli
 pushaq
+call entropy_shuffle
 call ps2_keyboard_handler
 call lapic_send_eoi
 popaq

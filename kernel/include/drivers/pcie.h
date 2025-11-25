@@ -2,6 +2,8 @@
 #define _PCIE
 #define PCIE_CLASS_DRIVE_CONTROLLER 0x01
 #define PCIE_SUBCLASS_NVME_CONTROLLER 0x08
+#define PCIE_CLASS_SERIAL_BUS_CONTROLLER (0x0C)
+#define PCIE_SUBCLASS_USB_CONTROLLER (0x03)
 struct pcie_info{
 	uint64_t pBase;
 	uint8_t startBus;

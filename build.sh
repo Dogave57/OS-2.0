@@ -17,6 +17,7 @@ sudo mkdir -p build/objects/cpu
 sudo mkdir -p build/objects/stdlib
 sudo mkdir -p build/objects/subsystem
 sudo mkdir -p build/objects/crypto
+sudo mkdir -p build/objects/drivers/filesystem
 sudo $CC $CFLAGS -fpic -c kernel/drivers/graphics.c -o build/objects/drivers/graphics.o
 sudo $CC $CFLAGS -fpic -c kernel/kernel.c -o build/objects/kernel.o
 sudo $CC $CFLAGS -fpic -c kernel/cpu/interrupt.c -o build/objects/cpu/interrupt.o
@@ -43,6 +44,9 @@ sudo $CC $CFLAGS -fpic -c kernel/subsystem/subsystem.c -o build/objects/subsyste
 sudo $CC $CFLAGS -fpic -c kernel/subsystem/drive.c -o build/objects/subsystem/drive.o
 sudo $CC $CFLAGS -fpic -c kernel/drivers/gpt.c -o build/objects/drivers/gpt.o
 sudo $CC $CFLAGS -fpic -c kernel/crypto/crc.c -o build/objects/crypto/crc.o
+sudo $CC $CFLAGS -fpic -c kernel/drivers/filesystem/fat32.c -o build/objects/drivers/filesystem/fat32.o
+sudo $CC $CFLAGS -fpic -c kernel/crypto/guid.c -o build/objects/crypto/guid.o
+sudo $CC $CFLAGS -fpic -c kernel/crypto/random.c -o build/objects/crypto/random.o
 sudo $AS -f win64 kernel/stub.asm -o build/objects/kernel_stub.o
 sudo $AS -f win64 kernel/cpu/isrs.asm -o build/objects/cpu/isrs.o
 sudo $AS -f win64 kernel/cpu/gdt.asm -o build/objects/cpu/gdt_asm.o
@@ -52,7 +56,7 @@ sudo $AS -f win64 kernel/drivers/timer.asm -o build/objects/drivers/timer.o
 sudo $AS -f win64 kernel/drivers/thermal.asm -o build/objects/drivers/thermal.o
 sudo $AS -f win64 kernel/mem/vmm.asm -o build/objects/mem/vmm_asm.o
 echo linking kernel
-sudo $LD -subsystem:native build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o -entry:kernel_stub -out:build/build/kernel.exe
+sudo $LD -subsystem:native build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o build/objects/drivers/filesystem/fat32.o build/objects/crypto/guid.o build/objects/crypto/random.o -entry:kernel_stub -out:build/build/kernel.exe
 echo done
 case "$OS" in
 "Linux")
@@ -82,7 +86,7 @@ sudo mkdir drivemnt
 echo attaching disk
 DEV=$(hdiutil attach -nomount drive.img | awk '{print $1}')
 echo partitioning disk
-sudo diskutil partitionDisk "$DEV" GPT FAT32 EFI 64M
+sudo diskutil partitionDisk "$DEV" GPT FAT32 "ESP" 16MB
 sudo diskutil unmount ${DEV}s1
 sudo mount -t msdos ${DEV}s1 drivemnt
 sudo mkdir -p drivemnt/EFI/BOOT
