@@ -80,19 +80,21 @@ sudo rm -rf efimnt
 "Darwin")
 sudo rm drive.img
 sudo rm -rf drivemnt
-sudo dd if=/dev/urandom of=drive.img bs=1M count=128
+sudo dd if=/dev/urandom of=drive.img bs=1M count=512
 sudo chmod 777 drive.img
 sudo mkdir drivemnt
 echo attaching disk
 DEV=$(hdiutil attach -nomount drive.img | awk '{print $1}')
 echo partitioning disk
-sudo diskutil partitionDisk "$DEV" GPT FAT32 "ESP" 16MB
+sudo diskutil partitionDisk "$DEV" GPT FAT32 "ESP" 64MB
 sudo diskutil unmount ${DEV}s1
+sudo newfs_msdos -F 32 -c 8 -v EFI ${DEV}s1
 sudo mount -t msdos ${DEV}s1 drivemnt
 sudo mkdir -p drivemnt/EFI/BOOT
 sudo mkdir -p drivemnt/KERNEL
 sudo cp build/build/bootloader.efi drivemnt/EFI/BOOT/BOOTX64.EFI
 sudo cp build/build/kernel.exe drivemnt/KERNEL/kernel.exe
+sudo cp test.txt drivemnt/test.txt
 sudo cp -r fonts drivemnt/FONTS
 sudo umount drivemnt
 sudo hdiutil detach "$DEV"

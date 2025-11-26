@@ -186,6 +186,12 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			continue;
 		}
 		printf(L"valid FAT32\r\n");
+		uint64_t file_id = 0;
+		if (fat32_openfile(0, i, "KERNEL", &file_id)!=0){
+			printf(L"failed to open file\r\n");
+			continue;
+		}
+		printf(L"opened file successfully\r\n");
 	}
 	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};
