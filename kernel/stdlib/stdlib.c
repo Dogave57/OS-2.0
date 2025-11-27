@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <stdint.h>
 #include "drivers/graphics.h"
 #include "stdlib/stdlib.h"
 int atoi(long long num, CHAR16* buf, unsigned int bufmax){
@@ -205,6 +206,34 @@ int strcpy_ascii(unsigned char* dest, unsigned char* src){
 	if (!dest||!src)
 		return -1;
 	for (uint64_t i = 0;src[i];i++){
+		dest[i] = src[i];
+	}
+	return 0;
+}
+int memcpy_align64(uint64_t* dest, uint64_t* src, uint64_t qwords){
+	if (!dest||!src)
+		return -1;
+	for (uint64_t i = 0;i<qwords;i++){
+		dest[i] = src[i];
+	}
+	return 0;	
+}
+int memcpy_align32(uint32_t* dest, uint32_t* src, uint64_t dwords){
+	if (!dest||!src)
+		return -1;
+	for (uint64_t i = 0;i<dwords;i++){
+		dest[i] = src[i];
+	}
+	return 0;
+}
+int memcpy(unsigned char* dest, unsigned char* src, uint64_t len){
+	if (!dest||!src||!len)
+		return -1;
+	if (!(len%sizeof(uint64_t)))
+		return memcpy_align64((uint64_t*)dest, (uint64_t*)src, len/sizeof(uint64_t));
+	if (!(len%sizeof(uint32_t)))
+		return memcpy_align32((uint32_t*)dest, (uint32_t*)src, len/sizeof(uint32_t));
+	for (uint64_t i = 0;i<len;i++){
 		dest[i] = src[i];
 	}
 	return 0;
