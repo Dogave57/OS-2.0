@@ -60,6 +60,8 @@ sudo $LD -subsystem:native build/objects/kernel.o build/objects/drivers/graphics
 echo done
 case "$OS" in
 "Linux")
+sudo rm drive.img
+sudo rm -rf drivemnt
 sudo dd if=/dev/zero of=drive.img bs=1M count=128
 sudo parted drive.img --script -- mklabel gpt
 sudo parted drive.img --script -- mkpart ESP fat32 1MiB 64MiB
@@ -93,8 +95,10 @@ sudo mount -t msdos ${DEV}s1 drivemnt
 sudo mkdir -p drivemnt/EFI/BOOT
 sudo mkdir -p drivemnt/KERNEL
 sudo cp build/build/bootloader.efi drivemnt/EFI/BOOT/BOOTX64.EFI
+sudo touch drivemnt/EFI/BOOT/test.txt
 sudo cp build/build/kernel.exe drivemnt/KERNEL/kernel.exe
 sudo cp test.txt drivemnt/test.txt
+mkdir drivemnt/files
 sudo cp -r fonts drivemnt/FONTS
 sudo umount drivemnt
 sudo hdiutil detach "$DEV"

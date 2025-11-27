@@ -10,11 +10,12 @@
 #define FAT32_FILE_ATTRIBUTE_VOLUME_ID 0x08
 #define FAT32_FILE_ATTRIBUTE_DIRECTORY 0x10
 #define FAT32_FILE_ATTRIBUTE_ARCHIVE 0x20
-#define FAT32_FILE_ATTRIBUTE_LFN (FAT32_FILE_ATTRIBUTE_READONLY|FAT32_ATTRIBUTE_HIDDEN|FAT32_ATTRIBUTE_SYSETM|FAT32_ATTRIBUTE_VOLUME_ID)
+#define FAT32_FILE_ATTRIBUTE_LFN (FAT32_FILE_ATTRIBUTE_READONLY|FAT32_FILE_ATTRIBUTE_HIDDEN|FAT32_FILE_ATTRIBUTE_SYSTEM|FAT32_FILE_ATTRIBUTE_VOLUME_ID)
 #define FAT32_CLUSTER_FREE 0x0
 #define FAT32_CLUSTER_BAD 0x0FFFFFF7
 #define FAT32_CLUSTER_RESERVED 0x01
 #define FAT32_CLUSTER_END_OF_CHAIN(cluster_value)(cluster_value>=0xFFFFFF8&&cluster_value<=0x0FFFFFFF)
+#define FAT32_CONTINUE_CLUSTER(cluster_value)(cluster_value!=FAT32_CLUSTER_FREE&&cluster_value!=FAT32_CLUSTER_BAD&&cluster_value!=FAT32_CLUSTER_RESERVED&&!FAT32_CLUSTER_END_OF_CHAIN(cluster_value))
 struct fat32_fsinfo{
 	uint32_t signature0;
 	uint8_t reserved0[480];
@@ -50,7 +51,7 @@ struct fat32_bpb{
 	uint16_t reserved_sectors;
 	uint8_t fat_count;
 	uint16_t root_entry_count;
-	uint16_t total_sectors;
+	uint16_t total_sectors;	
 	uint8_t media_desc_type;
 	uint16_t sectors_per_fat;
 	uint16_t sectors_per_track;
@@ -87,6 +88,15 @@ struct fat32_file_entry{
 	uint16_t entry_first_cluster_low;
 	uint32_t file_size;
 }__attribute__((packed));
+struct fat32_file_entry_lfn{
+	uint16_t filename0[5];
+	uint8_t file_attribs;
+	uint8_t type;
+	uint8_t checksum;
+	uint16_t filename1[6];
+	uint16_t firstClusterLow;
+	uint16_t filename2[2];
+}__attribute__((packed));
 struct fat32_cache_info{
 	uint64_t cached_drive_id;
 	uint64_t cached_partition_id;
@@ -99,7 +109,9 @@ struct fat32_cache_info{
 	uint8_t last_sector_cached;
 };
 int fat32_openfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, uint64_t* pId);
-int fat32_find_file_in_root(uint64_t drive_id, uint64_t partition_id, unsigned char* filename);
+int fat32_file_entry_namecmp(struct fat32_file_entry fileEntry, unsigned char* filename);
+int fat32_find_file_in_dir(uint64_t drive_id, uint64_t partition_id, uint32_t dir_cluster, unsigned char* filename, uint32_t* pFileCluster, uint64_t* pFileIndex);
+int fat32_find_file_in_root(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, uint32_t* pFileCluster, uint64_t* pFileIndex);
 int fat32_get_free_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t* pFreeCluster, uint64_t start_cluster);
 int fat32_free_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t cluster_id);
 int fat32_allocate_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t* pClusterId);
@@ -111,6 +123,8 @@ int fat32_get_cluster_data_sector(uint64_t drive_id, uint64_t partition_id, uint
 int fat32_get_bytes_per_cluster(uint64_t drive_id, uint64_t partition_id, uint64_t* pBytesPerCluster);
 int fat32_get_fat(uint64_t drive_id, uint64_t partition_id, uint64_t* pFatSector);
 int fat32_get_backup_fat(uint64_t drive_id, uint64_t partition_id, uint64_t* pFatSector);
+int fat32_get_sectors_per_fat(uint64_t drive_id, uint64_t partition_id, uint64_t* pSectorsPerFat);
+int fat32_get_sector_count(uint64_t drive_id, uint64_t partition_id, uint64_t* pSectorCount);
 int fat32_verify(uint64_t drive_id, uint64_t partition_id);
 int fat32_get_bpb(uint64_t drive_id, uint64_t partition_id, struct fat32_bpb* pBpb);
 int fat32_get_ebr(uint64_t drive_id, uint64_t partition_id, struct fat32_ebr* pEbr);

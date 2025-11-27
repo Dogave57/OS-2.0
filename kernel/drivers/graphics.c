@@ -28,6 +28,8 @@ int clear(void){
 	return 0;
 }
 int writechar(unsigned int position, CHAR16 ch){
+	if (ch>255)
+		ch = L' ';
 	unsigned int font_offset = ((8*16)/8)*ch;
 	unsigned int position_x = position%pbootargs->graphicsInfo.width;
 	unsigned int position_y = position/pbootargs->graphicsInfo.width;
