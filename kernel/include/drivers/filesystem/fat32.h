@@ -113,11 +113,20 @@ struct fat32_file_location{
 	uint32_t fileIndex;
 	uint32_t fileDataCluster;
 };
-int fat32_openfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, uint64_t* pId);
+struct fat32_file_handle{
+	struct fat32_file_location fileLocation;
+	struct fat32_file_entry fileEntry;
+	uint64_t drive_id;
+	uint64_t partition_id;
+};
+int fat32_openfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_handle* pFileHandle);
+int fat32_get_file_size(struct fat32_file_handle fileHandle, uint32_t* pFileSize);
+int fat32_get_file_attributes(struct fat32_file_handle fileHandle, uint8_t* pFileAttributes);
+int fat32_readfile(struct fat32_file_handle fileHandle, unsigned char* pBuffer, uint32_t size);
 int fat32_file_entry_namecmp(struct fat32_file_entry fileEntry, unsigned char* filename);
-int fat32_find_file(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_location* pFileLocation, uint8_t file_attribs);
-int fat32_find_file_in_dir(uint64_t drive_id, uint64_t partition_id, uint32_t dir_cluster, unsigned char* filename, struct fat32_file_location* pFileLocation, uint8_t file_attirbs);
-int fat32_find_file_in_root(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_location* pFileLocation, uint8_t file_attribs);
+int fat32_find_file(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_entry* pFileEntry ,struct fat32_file_location* pFileLocation, uint8_t file_attribs);
+int fat32_find_file_in_dir(uint64_t drive_id, uint64_t partition_id, uint32_t dir_cluster, unsigned char* filename, struct fat32_file_entry* pFileEntry,struct fat32_file_location* pFileLocation, uint8_t file_attirbs);
+int fat32_find_file_in_root(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_entry* pFileEntry,struct fat32_file_location* pFileLocation, uint8_t file_attribs);
 int fat32_get_free_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t* pFreeCluster, uint64_t start_cluster);
 int fat32_free_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t cluster_id);
 int fat32_allocate_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t* pClusterId);

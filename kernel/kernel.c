@@ -186,12 +186,31 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			continue;
 		}
 		printf(L"valid FAT32\r\n");
-		uint64_t file_id = 0;
-		if (fat32_openfile(0, i, "EFI/BOOT/BOOTX64.EFI", &file_id)!=0){
+		uint64_t time_ms = get_time_ms();
+		struct fat32_file_handle fileHandle = {0};
+		if (fat32_openfile(0, i, "EFI/BOOT/BOOTX64.EFI", &fileHandle)!=0){
 			printf(L"failed to open file\r\n");
 			continue;
 		}
+		uint32_t fileSize = 0;
+		if (fat32_get_file_size(fileHandle, &fileSize)!=0){
+			printf(L"failed to get file size\r\n");
+			continue;
+		}
 		printf(L"opened file successfully\r\n");
+		printf(L"file size: %d\r\n", fileSize);
+		unsigned char* pFileData = (unsigned char*)kmalloc(fileSize);
+		if (!pFileData){
+			printf(L"failed to allocate file data\r\n");
+			continue;
+		}
+		memset((void*)pFileData, 0, fileSize);
+		if (fat32_readfile(fileHandle, pFileData, fileSize)!=0){
+			printf(L"failed to read file\r\n");
+			continue;
+		}
+		printf(L"first word: 0x%x\r\n", *(uint16_t*)pFileData);
+		printf(L"took %dms to read bootloader\r\n", get_time_ms()-time_ms);
 	}
 	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};

@@ -88,7 +88,7 @@ sudo mkdir drivemnt
 echo attaching disk
 DEV=$(hdiutil attach -nomount drive.img | awk '{print $1}')
 echo partitioning disk
-sudo diskutil partitionDisk "$DEV" GPT FAT32 "ESP" 64MB
+sudo diskutil partitionDisk "$DEV" GPT FAT32 "ESP" 256MB
 sudo diskutil unmount ${DEV}s1
 sudo newfs_msdos -F 32 -c 8 -v EFI ${DEV}s1
 sudo mount -t msdos ${DEV}s1 drivemnt
