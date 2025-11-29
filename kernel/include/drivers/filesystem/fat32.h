@@ -121,15 +121,37 @@ struct fat32_file_handle{
 	uint64_t drive_id;
 	uint64_t partition_id;
 };
+struct fat32_simple_file_entry{
+	unsigned char filename[12];
+	uint32_t fileSize;
+	uint8_t fileAttribs;
+};
+struct fat32_dir_desc{
+	uint32_t firstDirCluster;
+};
+struct fat32_dir_handle{
+	struct fat32_dir_desc desc;
+	struct fat32_cluster_entry currentDirCluster;
+	uint64_t currentDirIndex;
+	uint64_t drive_id;
+	uint64_t partition_id;
+};
+int fat32_opendir(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_dir_handle** ppDirHandle);
+int fat32_closedir(struct fat32_dir_handle* pDirHandle);
+int fat32_read_dir(struct fat32_dir_handle* pDirHandle, struct fat32_simple_file_entry* pFileEntry);
+int fat32_rewind_dir(struct fat32_dir_handle* pDirHandle);
 int fat32_openfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_handle** ppFileHandle);
 int fat32_closefile(struct fat32_file_handle* pFileHandle);
 int fat32_get_file_size(struct fat32_file_handle* pFileHandle, uint32_t* pFileSize);
 int fat32_get_file_attributes(struct fat32_file_handle* pFileHandle, uint8_t* pFileAttributes);
+int fat32_renamefile(struct fat32_file_handle* pFileHandle, unsigned char* filename);
 int fat32_readfile(struct fat32_file_handle* pFileHandle, unsigned char* pBuffer, uint32_t size);
 int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileBuffer, uint32_t size);
 int fat32_createfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, uint8_t file_attribs);
 int fat32_deletefile(struct fat32_file_handle* pFileHandle);
-int fat32_filename_convert(unsigned char* dest, unsigned char* src);
+int fat32_get_simple_file_entry(struct fat32_file_entry fileEntry, struct fat32_simple_file_entry* pSimpleFileEntry);
+int fat32_filename_to_string(unsigned char* dest, unsigned char* src);
+int fat32_string_to_filename(unsigned char* dest, unsigned char* src);
 int fat32_file_entry_namecmp(struct fat32_file_entry fileEntry, unsigned char* filename);
 int fat32_find_file(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_entry* pFileEntry, struct fat32_file_location* pFileLocation, uint8_t file_attribs);
 int fat32_find_file_in_dir(uint64_t drive_id, uint64_t partition_id, uint32_t dir_cluster, unsigned char* filename, struct fat32_file_entry* pFileEntry,struct fat32_file_location* pFileLocation, uint8_t file_attirbs);

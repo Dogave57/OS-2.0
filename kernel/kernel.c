@@ -180,53 +180,21 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			printf(L"invalid FAT32\r\n");
 			continue;
 		}
-		uint64_t time_ms = get_time_ms();
-		struct fat32_file_handle* pFileHandle = (struct fat32_file_handle*)0x0;
-		if (fat32_openfile(0, i, "TEST.TXT", &pFileHandle)!=0){
-			printf(L"failed to open TEST.TXT\r\n");
-			if (fat32_createfile(0, i, "TEST.TXT", 0x0)!=0){
-				printf(L"failed to create file\r\n");
+		struct fat32_dir_handle* pDirHandle = (struct fat32_dir_handle*)0x0;
+		if (fat32_opendir(0, i, "/", &pDirHandle)!=0){
+			printf(L"failed to open root\r\n");
+			continue;
+		}
+		struct fat32_simple_file_entry fileEntry = {0};
+		while (!fat32_read_dir(pDirHandle, &fileEntry)){
+			if (fileEntry.fileAttribs&FAT32_FILE_ATTRIBUTE_HIDDEN)
+				continue;
+			if (fileEntry.fileAttribs&FAT32_FILE_ATTRIBUTE_DIRECTORY){
+				printf_ascii("directory: %s\r\n", fileEntry.filename);
 				continue;
 			}
-			if (fat32_openfile(0, i, "TEST.TXT", &pFileHandle)!=0)
-				continue;
-			if (fat32_writefile(pFileHandle, "67 mango", 8)!=0){
-				fat32_closefile(pFileHandle);
-				printf(L"failed to write to file\r\n");
-				continue;
-			}
-			fat32_closefile(pFileHandle);
-			while (1){};
-			i--;
-			continue;
+			printf_ascii("file: %s | size: %d\r\n", fileEntry.filename, fileEntry.fileSize);	
 		}
-		uint32_t fileSize = 0;
-		if (fat32_get_file_size(pFileHandle, &fileSize)!=0){
-			printf(L"failed to get file size\r\n");
-			fat32_closefile(pFileHandle);
-			continue;
-		}
-		unsigned char* pBuffer = (unsigned char*)kmalloc(fileSize);
-		if (!pBuffer){
-			printf(L"failed to allocate memory for file buffer\r\n");
-			fat32_closefile(pFileHandle);
-			continue;
-		}
-		if (fat32_readfile(pFileHandle, pBuffer, fileSize)!=0){
-			printf(L"failed to read file\r\n");
-			fat32_closefile(pFileHandle);
-			continue;
-		}
-		uint64_t newFileSize = 4096;
-		for (uint64_t i = 0;i<newFileSize/8;i++){
-			*((uint64_t*)pBuffer+i) = random64();
-		}
-		if (fat32_writefile(pFileHandle, pBuffer, newFileSize)!=0){
-			printf(L"failed to write file\r\n");
-			fat32_closefile(pFileHandle);
-			continue;
-		}
-		kfree((void*)pBuffer);
 	}
 	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};

@@ -83,7 +83,7 @@ sudo rm -rf efimnt
 "Darwin")
 sudo rm drive.img
 sudo rm -rf drivemnt
-sudo dd if=/dev/urandom of=drive.img bs=1M count=512
+sudo dd if=/dev/zero of=drive.img bs=1M count=512
 sudo chmod 777 drive.img
 sudo mkdir drivemnt
 echo attaching disk
@@ -101,6 +101,7 @@ sudo cp build/build/kernel.exe drivemnt/KERNEL/kernel.exe
 sudo cp test.txt drivemnt/test.txt
 mkdir drivemnt/files
 sudo cp -r fonts drivemnt/FONTS
+sudo ls -R drivemnt
 sudo umount drivemnt
 sudo hdiutil detach "$DEV"
 ;;
