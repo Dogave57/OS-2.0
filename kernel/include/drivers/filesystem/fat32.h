@@ -14,8 +14,10 @@
 #define FAT32_CLUSTER_FREE 0x0
 #define FAT32_CLUSTER_BAD 0x0FFFFFF7
 #define FAT32_CLUSTER_RESERVED 0x01
+#define FAT32_CLUSTER_EOC 0xFFFFFF8
 #define FAT32_CLUSTER_END_OF_CHAIN(cluster_value)(cluster_value>=0xFFFFFF8&&cluster_value<=0x0FFFFFFF)
 #define FAT32_CONTINUE_CLUSTER(cluster_value)(cluster_value!=FAT32_CLUSTER_FREE&&cluster_value!=FAT32_CLUSTER_BAD&&cluster_value!=FAT32_CLUSTER_RESERVED&&!FAT32_CLUSTER_END_OF_CHAIN(cluster_value))
+#define FAT32_FILENAME_LEN_MAX 11
 struct fat32_fsinfo{
 	uint32_t signature0;
 	uint8_t reserved0[480];
@@ -119,12 +121,17 @@ struct fat32_file_handle{
 	uint64_t drive_id;
 	uint64_t partition_id;
 };
-int fat32_openfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_handle* pFileHandle);
-int fat32_get_file_size(struct fat32_file_handle fileHandle, uint32_t* pFileSize);
-int fat32_get_file_attributes(struct fat32_file_handle fileHandle, uint8_t* pFileAttributes);
-int fat32_readfile(struct fat32_file_handle fileHandle, unsigned char* pBuffer, uint32_t size);
+int fat32_openfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_handle** ppFileHandle);
+int fat32_closefile(struct fat32_file_handle* pFileHandle);
+int fat32_get_file_size(struct fat32_file_handle* pFileHandle, uint32_t* pFileSize);
+int fat32_get_file_attributes(struct fat32_file_handle* pFileHandle, uint8_t* pFileAttributes);
+int fat32_readfile(struct fat32_file_handle* pFileHandle, unsigned char* pBuffer, uint32_t size);
+int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileBuffer, uint32_t size);
+int fat32_createfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, uint8_t file_attribs);
+int fat32_deletefile(struct fat32_file_handle* pFileHandle);
+int fat32_filename_convert(unsigned char* dest, unsigned char* src);
 int fat32_file_entry_namecmp(struct fat32_file_entry fileEntry, unsigned char* filename);
-int fat32_find_file(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_entry* pFileEntry ,struct fat32_file_location* pFileLocation, uint8_t file_attribs);
+int fat32_find_file(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_entry* pFileEntry, struct fat32_file_location* pFileLocation, uint8_t file_attribs);
 int fat32_find_file_in_dir(uint64_t drive_id, uint64_t partition_id, uint32_t dir_cluster, unsigned char* filename, struct fat32_file_entry* pFileEntry,struct fat32_file_location* pFileLocation, uint8_t file_attirbs);
 int fat32_find_file_in_root(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_entry* pFileEntry,struct fat32_file_location* pFileLocation, uint8_t file_attribs);
 int fat32_get_free_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t* pFreeCluster, uint64_t start_cluster);

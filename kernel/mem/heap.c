@@ -1,6 +1,7 @@
 #include "mem/vmm.h"
 #include "mem/pmm.h"
 #include "align.h"
+#include "panic.h"
 #include "stdlib/stdlib.h"
 #include "drivers/graphics.h"
 #include "mem/heap.h"
@@ -75,9 +76,9 @@ int heap_init(void){
 }
 void* kmalloc(uint64_t size){
 	if (size<HEAP_MIN_BLOCK_SIZE)
-		return (void*)0x0;
+		size = HEAP_MIN_BLOCK_SIZE;
 	if (size>HEAP_MAX_BLOCK_SIZE){
-		uint64_t totalSize = sizeof(struct heap_block_hdr)+size;
+		uint64_t totalSize = size+sizeof(struct heap_block_hdr);
 		uint64_t pagesNeeded = align_up(totalSize, PAGE_SIZE)/PAGE_SIZE;
 		uint64_t pPages = 0;
 		if (virtualAllocPages(&pPages, pagesNeeded, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
@@ -125,8 +126,7 @@ int kfree(void* pBlock){
 		return virtualFreePages(pPages, pHdr->pageCnt);
 	}
 	if (pHdr->va!=((uint64_t)pHdr)){
-		printf(L"corrupted heap block at: %p\r\n", (void*)pBlock);
-		printf(L"va points to: %p\r\n", (void*)pHdr->va);
+		panic(L"heap corruptiond detected\r\n");
 		while (1){};
 		return -1;
 	}

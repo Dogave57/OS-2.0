@@ -122,7 +122,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	uint64_t elapsed_ms = get_time_ms()-before_ms;
-	printf(L"%dGB/s allocation\r\n", 250/elapsed_ms);
+	printf(L"%dGB/s allocation\r\n", (1000/((MEM_GB/PAGE_SIZE)/pagecnt))/elapsed_ms);
 	if (virtualFreePages(va, pagecnt)!=0){
 		printf(L"failed to free %d pages\r\n", pagecnt);
 		while (1){};
@@ -161,10 +161,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	struct gpt_partition esp_partition = {0};
 	uint64_t esp_partition_id = 0xFFFFFFFFFFFFFFFF;
 	unsigned char esp_partition_guid[16] = GPT_ESP_GUID;
-	for (uint64_t i = 0;i<16;i++){
-		printf(L"{%d}, ", esp_partition_guid[i]);
-	}
-	putchar('\n');
 	for (uint64_t i = 0;i<gptHeader.partition_count;i++){
 		struct gpt_partition partition = {0};
 		if (gpt_get_partition(0, i, &partition)!=0){
@@ -176,7 +172,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			continue;
 		uint64_t size = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
 		printf(L"partition %d size: %dMB\r\n",i, align_up(size, MEM_MB)/MEM_MB);
-		printf_ascii("partition %d name: %s\r\n", i, partition.name);
 		for (uint64_t x = 0;x<16;x++){
 			printf(L"{%d}, ", partition.partTypeGuid[x]);
 		}
@@ -185,32 +180,53 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			printf(L"invalid FAT32\r\n");
 			continue;
 		}
-		printf(L"valid FAT32\r\n");
 		uint64_t time_ms = get_time_ms();
-		struct fat32_file_handle fileHandle = {0};
-		if (fat32_openfile(0, i, "EFI/BOOT/BOOTX64.EFI", &fileHandle)!=0){
-			printf(L"failed to open file\r\n");
+		struct fat32_file_handle* pFileHandle = (struct fat32_file_handle*)0x0;
+		if (fat32_openfile(0, i, "TEST.TXT", &pFileHandle)!=0){
+			printf(L"failed to open TEST.TXT\r\n");
+			if (fat32_createfile(0, i, "TEST.TXT", 0x0)!=0){
+				printf(L"failed to create file\r\n");
+				continue;
+			}
+			if (fat32_openfile(0, i, "TEST.TXT", &pFileHandle)!=0)
+				continue;
+			if (fat32_writefile(pFileHandle, "67 mango", 8)!=0){
+				fat32_closefile(pFileHandle);
+				printf(L"failed to write to file\r\n");
+				continue;
+			}
+			fat32_closefile(pFileHandle);
+			while (1){};
+			i--;
 			continue;
 		}
 		uint32_t fileSize = 0;
-		if (fat32_get_file_size(fileHandle, &fileSize)!=0){
+		if (fat32_get_file_size(pFileHandle, &fileSize)!=0){
 			printf(L"failed to get file size\r\n");
+			fat32_closefile(pFileHandle);
 			continue;
 		}
-		printf(L"opened file successfully\r\n");
-		printf(L"file size: %d\r\n", fileSize);
-		unsigned char* pFileData = (unsigned char*)kmalloc(fileSize);
-		if (!pFileData){
-			printf(L"failed to allocate file data\r\n");
+		unsigned char* pBuffer = (unsigned char*)kmalloc(fileSize);
+		if (!pBuffer){
+			printf(L"failed to allocate memory for file buffer\r\n");
+			fat32_closefile(pFileHandle);
 			continue;
 		}
-		memset((void*)pFileData, 0, fileSize);
-		if (fat32_readfile(fileHandle, pFileData, fileSize)!=0){
+		if (fat32_readfile(pFileHandle, pBuffer, fileSize)!=0){
 			printf(L"failed to read file\r\n");
+			fat32_closefile(pFileHandle);
 			continue;
 		}
-		printf(L"first word: 0x%x\r\n", *(uint16_t*)pFileData);
-		printf(L"took %dms to read bootloader\r\n", get_time_ms()-time_ms);
+		uint64_t newFileSize = 4096;
+		for (uint64_t i = 0;i<newFileSize/8;i++){
+			*((uint64_t*)pBuffer+i) = random64();
+		}
+		if (fat32_writefile(pFileHandle, pBuffer, newFileSize)!=0){
+			printf(L"failed to write file\r\n");
+			fat32_closefile(pFileHandle);
+			continue;
+		}
+		kfree((void*)pBuffer);
 	}
 	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};

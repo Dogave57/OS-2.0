@@ -39,6 +39,7 @@ int32_t random32(void){
 }
 int64_t random64(void){
 	int64_t result = (int64_t)crypto_entropy;
+	crypto_entropy*=(12945845%result);
 	entropy_shuffle();
 	return result;
 }
@@ -92,10 +93,10 @@ int64_t randint64(int64_t min, int64_t max){
 }
 int entropy_shuffle(void){
 	crypto_entropy*=0xfac1ffffeee;
-	crypto_entropy^=31<<24;
+	crypto_entropy^=crypto_entropy<<24;
 	crypto_entropy+=get_time_ms();
 	crypto_entropy*=0xfffeead234;
-	crypto_entropy^=21>>31;
+	crypto_entropy^=crypto_entropy>>31;
 	crypto_entropy*=((uint64_t)entropy_shuffle)&0xFFFFFFFF;
 	return 0;
 }

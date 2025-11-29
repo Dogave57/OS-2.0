@@ -30,6 +30,8 @@ struct p_pt_info{
 	uint64_t pt_size;
 	uint64_t freeEntryCnt;
 	uint64_t usedEntryCnt;
+	uint64_t maxFreeEntries;
+	uint64_t maxUsedEntries;
 	struct p_page* pPageEntries;
 	struct p_page** pFreeEntries;
 	struct p_page** pUsedEntries;

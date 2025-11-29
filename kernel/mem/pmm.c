@@ -2,6 +2,7 @@
 #include "drivers/graphics.h"
 #include "align.h"
 #include "bootloader.h"
+#include "panic.h"
 #include "mem/pmm.h"
 uint64_t totalMemory = 0;
 uint64_t installedMemory = 0;
@@ -89,6 +90,8 @@ int allocatePageTable(void){
 	pt->pUsedEntries = (struct p_page**)(pt->pFreeEntries+max_pages);
 	pt->freeEntryCnt = 0;
 	pt->usedEntryCnt = 0;
+	pt->maxFreeEntries = max_pages;
+	pt->maxUsedEntries = max_pages;
 	return 0;
 }
 int initPageTable(void){
@@ -143,6 +146,8 @@ int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType){
 	return 0;
 }
 int physicalFreePage(uint64_t physicalAddress){
+	if (!pt->usedEntryCnt)
+		return -1;
 	uint64_t pageEntry = (physicalAddress/PAGE_SIZE);
 	struct p_page* pentry = pt->pPageEntries+pageEntry;
 	if (pentry->status==PAGE_FREE)
@@ -151,6 +156,9 @@ int physicalFreePage(uint64_t physicalAddress){
 	pt->pFreeEntries[pt->freeEntryCnt] = pentry;
 	pt->freeEntryCnt++;
 	pt->usedEntryCnt--;
+	if (pt->freeEntryCnt>pt->maxFreeEntries){
+		panic(L"too many free physical pages!\r\n");
+	}
 	return 0;
 }
 int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType){
