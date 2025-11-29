@@ -161,41 +161,32 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	struct gpt_partition esp_partition = {0};
 	uint64_t esp_partition_id = 0xFFFFFFFFFFFFFFFF;
 	unsigned char esp_partition_guid[16] = GPT_ESP_GUID;
-	for (uint64_t i = 0;i<gptHeader.partition_count;i++){
-		struct gpt_partition partition = {0};
-		if (gpt_get_partition(0, i, &partition)!=0){
-			printf(L"failed to get GPT partition %d\r\n", i);
-			while (1){};
-			return -1;
-		}
-		if (!partition.end_lba)
-			continue;
-		uint64_t size = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
-		printf(L"partition %d size: %dMB\r\n",i, align_up(size, MEM_MB)/MEM_MB);
-		for (uint64_t x = 0;x<16;x++){
-			printf(L"{%d}, ", partition.partTypeGuid[x]);
-		}
-		putchar('\n');
-		if (fat32_verify(0, i)!=0){
-			printf(L"invalid FAT32\r\n");
-			continue;
-		}
-		struct fat32_dir_handle* pDirHandle = (struct fat32_dir_handle*)0x0;
-		if (fat32_opendir(0, i, "/", &pDirHandle)!=0){
-			printf(L"failed to open root\r\n");
-			continue;
-		}
-		struct fat32_simple_file_entry fileEntry = {0};
-		while (!fat32_read_dir(pDirHandle, &fileEntry)){
-			if (fileEntry.fileAttribs&FAT32_FILE_ATTRIBUTE_HIDDEN)
-				continue;
-			if (fileEntry.fileAttribs&FAT32_FILE_ATTRIBUTE_DIRECTORY){
-				printf_ascii("directory: %s\r\n", fileEntry.filename);
-				continue;
-			}
-			printf_ascii("file: %s | size: %d\r\n", fileEntry.filename, fileEntry.fileSize);	
-		}
+	uint64_t espNumber = pbootargs->driveInfo.espNumber;
+	struct gpt_partition partition = {0};
+	if (gpt_get_partition(0, espNumber, &partition)!=0){
+		printf(L"failed to get ESP information\r\n");
+		while (1){};
+		return -1;
 	}
+	uint64_t size = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
+	printf(L"ESP size: %dMB\r\n", size/MEM_MB);
+	struct fat32_dir_handle* pDirHandle = (struct fat32_dir_handle*)0x0;
+	if (fat32_opendir(0, espNumber, "/", &pDirHandle)!=0){
+		printf(L"failed to open root\r\n");
+		while (1){};
+		return -1;
+	}
+	struct fat32_simple_file_entry fileEntry = {0};
+	while (fat32_read_dir(pDirHandle, &fileEntry)==0){
+		if (fileEntry.fileAttribs&FAT32_FILE_ATTRIBUTE_HIDDEN)
+			continue;
+		if (fileEntry.fileAttribs&FAT32_FILE_ATTRIBUTE_DIRECTORY){
+			printf_ascii("directory: %s\r\n", fileEntry.filename);
+			continue;
+		}	
+		printf_ascii("file: %s\r\n", fileEntry.filename);
+	}
+	fat32_closedir(pDirHandle);
 	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};
 	return 0;	

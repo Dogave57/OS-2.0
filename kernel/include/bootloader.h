@@ -40,6 +40,7 @@ struct bootloader_kernelInfo{
 struct bootloader_driveInfo{
 	CHAR16* devicePathStr;
 	uint64_t driveType;
+	uint64_t espNumber;
 	uint8_t port;
 };
 struct bootloader_args{

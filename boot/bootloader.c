@@ -54,6 +54,22 @@ UINTN memoryMapKey = 0;
 UINTN memoryMapDescSize = 0;
 uint32_t memoryMapDescVersion = 0;
 struct bootloader_args* blargs = (struct bootloader_args*)0x0;
+struct efi_sata_dev_path{
+	EFI_DEVICE_PATH_PROTOCOL hdr;
+	uint16_t port;
+	uint16_t portMulti;
+	uint64_t logicalUnitNumber;
+};
+struct efi_gpt_partition_path{
+	EFI_DEVICE_PATH_PROTOCOL hdr;
+	uint32_t partitionNumber;
+	uint64_t partitionlba;
+	uint64_t partitionSize;
+	EFI_GUID partitionTypeGuid;
+	uint8_t signature[16];
+	uint8_t mbrType;
+	uint8_t signatureType;
+};
 EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab){
 	EFI_STATUS status = {0};
 	ST = systab;
@@ -280,6 +296,33 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	uefi_memcpy((void*)devicePathStrCopy, (void*)devicePathStr, devicePathStrLen);
 	blargs->driveInfo.devicePathStr = devicePathStr;
 	conout->ClearScreen(conout);
+	EFI_DEVICE_PATH_PROTOCOL* pCurrentNode = devicePathProtocol;
+	blargs->driveInfo.espNumber = 0xFFFFFFFFFFFFFFFF;
+	while (pCurrentNode->Type!=0x7F){
+		uint64_t len = (uint64_t)((*(uint16_t*)pCurrentNode->Length));
+		if (pCurrentNode->Type==0x3&&pCurrentNode->SubType==0x12){
+			struct efi_sata_dev_path* pSataPath = (struct efi_sata_dev_path*)pCurrentNode;
+			blargs->driveInfo.driveType = DRIVE_TYPE_AHCI;
+			blargs->driveInfo.port = pSataPath->port;
+		}
+		if (pCurrentNode->Type==0x4&&pCurrentNode->SubType==0x1){
+			struct efi_gpt_partition_path* pGptPath = (struct efi_gpt_partition_path*)pCurrentNode;
+			blargs->driveInfo.espNumber = pGptPath->partitionNumber-1;
+		}
+		pCurrentNode = (EFI_DEVICE_PATH_PROTOCOL*)(((unsigned char*)pCurrentNode)+len);
+	}
+	if (blargs->driveInfo.driveType==DRIVE_TYPE_INVALID){
+		conout->OutputString(conout, L"unsupported boot device\r\n");
+		BS->FreePool((void*)pbuffer);
+		while (1){};
+		return EFI_ABORTED;
+	}
+	if (blargs->driveInfo.espNumber==0xFFFFFFFFFFFFFFFF){
+		conout->OutputString(conout, L"failed to get ESP partiton number\r\n");
+		BS->FreePool((void*)pbuffer);
+		while (1){};
+		return EFI_ABORTED;
+	}
 	if (uefi_execute_kernel((void*)pbuffer)!=0){
 		conout->OutputString(conout, L"failed to execute kernel!\r\n");
 		BS->FreePool((void*)pbuffer);

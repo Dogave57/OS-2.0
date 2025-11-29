@@ -2,6 +2,7 @@
 #include "stdlib/stdlib.h"
 #include "mem/vmm.h"
 #include "drivers/gpt.h"
+#include "panic.h"
 #include "subsystem/drive.h"
 struct subsystem_desc* pDriveSubsystem = (struct subsystem_desc*)0x0;
 int drive_subsystem_init(void){
@@ -14,8 +15,16 @@ int drive_subsystem_init(void){
 		return -1;
 	}
 	uint64_t id = 0;
-	if (drive_ahci_register(0, &id)!=0)
-		return -1;
+	if (pbootargs->driveInfo.driveType==DRIVE_TYPE_INVALID){
+		panic(L"unsupported boot device\r\n");
+		while (1){};
+	}
+	if (pbootargs->driveInfo.driveType==DRIVE_TYPE_AHCI){
+		if (drive_ahci_register(pbootargs->driveInfo.port, &id)!=0){
+			printf(L"failed to register boot device in drive subsystem\r\n");
+			return -1;
+		}
+	}
 	struct drive_info driveInfo = {0};
 	if (drive_get_info(id, &driveInfo)!=0){
 		printf(L"failed to get drive info\r\n");
