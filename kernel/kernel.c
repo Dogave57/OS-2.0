@@ -20,6 +20,7 @@
 #include "subsystem/subsystem.h"
 #include "drivers/gpt.h"
 #include "drivers/filesystem/fat32.h"
+#include "drivers/filesystem/exfat.h"
 #include "crypto/guid.h"
 #include "crypto/random.h"
 #include "align.h"
@@ -96,7 +97,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	printf(L"PCIE initialized\r\n");
 	if (ahci_init()!=0){
 		printf(L"no AHCI controller available\r\n");
 	}
@@ -169,9 +169,14 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	uint64_t size = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
-	printf(L"ESP size: %dMB\r\n", size/MEM_MB);
+	struct fat32_mount_handle* pEspHandle = (struct fat32_mount_handle*)0x0;
+	if (fat32_mount(0, espNumber, &pEspHandle)!=0){
+		printf(L"failed to mount ESP\r\n");
+		while (1){};
+		return -1;
+	}
 	struct fat32_dir_handle* pDirHandle = (struct fat32_dir_handle*)0x0;
-	if (fat32_opendir(0, espNumber, "/", &pDirHandle)!=0){
+	if (fat32_opendir(pEspHandle, "EFI/BOOT/", &pDirHandle)!=0){
 		printf(L"failed to open root\r\n");
 		while (1){};
 		return -1;
@@ -187,6 +192,30 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		printf_ascii("file: %s\r\n", fileEntry.filename);
 	}
 	fat32_closedir(pDirHandle);
+	fat32_unmount(pEspHandle);
+	for (uint64_t i = 0;i<gptHeader.partition_count;i++){
+		struct gpt_partition partition = {0};
+		if (gpt_get_partition(0, i, &partition)!=0)
+			return -1;
+		if (!partition.end_lba)
+			continue;
+		uint64_t partitionSize = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
+		struct exfat_mount_handle* pHandle = (struct exfat_mount_handle*)0x0;
+		if (exfat_mount(0, i, &pHandle)!=0){
+			printf(L"failed to mount partition %d\r\n", i);
+			continue;
+		}
+		printf(L"found exFat partition %d\r\n", i);
+		struct exfat_file_handle* pFileHandle = (struct exfat_file_handle*)0x0;
+		if (exfat_open_file(pHandle, L"test.txt", &pFileHandle)!=0){
+			printf(L"failed to open test.txt\r\n");
+			exfat_unmount(pHandle);
+			continue;
+		}
+
+		exfat_close_file(pFileHandle);
+		exfat_unmount(pHandle);
+	}
 	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};
 	return 0;	

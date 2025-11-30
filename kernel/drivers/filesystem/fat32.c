@@ -6,21 +6,37 @@
 #include "drivers/gpt.h"
 #include "drivers/timer.h"
 #include "drivers/filesystem/fat32.h"
-struct fat32_cache_info cache_info = {
-.cached_drive_id = 0xFFFFFFFFFFFFFFF,
-.cached_partition_id = 0xFFFFFFFFFF,0
-};
-int fat32_opendir(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_dir_handle** ppDirHandle){
-	if (!filename||!ppDirHandle)
+int fat32_mount(uint64_t drive_id, uint64_t partition_id, struct fat32_mount_handle** ppHandle){
+	if (!ppHandle)
+		return -1;
+	struct fat32_mount_handle* pHandle = (struct fat32_mount_handle*)kmalloc(sizeof(struct fat32_mount_handle));
+	if (!pHandle)
+		return -1;
+	memset((void*)pHandle, 0, sizeof(struct fat32_mount_handle));
+	pHandle->drive_id = drive_id;
+	pHandle->partition_id = partition_id;
+	if (fat32_verify(pHandle)!=0)
+		return -1;
+	*ppHandle = pHandle;
+	return 0;
+}
+int fat32_unmount(struct fat32_mount_handle* pHandle){
+	if (!pHandle)
+		return -1;
+	kfree((void*)pHandle);
+	return 0;
+}
+int fat32_opendir(struct fat32_mount_handle* pMountHandle, unsigned char* filename, struct fat32_dir_handle** ppDirHandle){
+	if (!pMountHandle||!filename||!ppDirHandle)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint32_t firstDirCluster = bpb.ebr.root_cluster_number;
 	if (filename[0]!='/'||filename[1]){
 		struct fat32_file_entry fileEntry = {0};
 		struct fat32_file_location fileLocation = {0};	
-		if (fat32_find_file(drive_id, partition_id, filename, &fileEntry, &fileLocation, 0)!=0)
+		if (fat32_find_file(pMountHandle, filename, &fileEntry, &fileLocation, 0)!=0)
 			return -1;
 		firstDirCluster = ((uint32_t)fileEntry.entry_first_cluster_high)|((uint32_t)fileEntry.entry_first_cluster_low);
 	}
@@ -30,6 +46,7 @@ int fat32_opendir(uint64_t drive_id, uint64_t partition_id, unsigned char* filen
 	memset((void*)pDirHandle, 0, sizeof(struct fat32_dir_handle));
 	pDirHandle->desc.firstDirCluster = firstDirCluster;
 	pDirHandle->currentDirCluster.cluster_value = firstDirCluster;
+	pDirHandle->pMountHandle = pMountHandle;
 	*ppDirHandle = pDirHandle;
 	return 0;
 }
@@ -43,11 +60,12 @@ int fat32_read_dir(struct fat32_dir_handle* pDirHandle, struct fat32_simple_file
 	if (!pDirHandle||!pFileEntry)
 		return -1;
 	uint64_t bytesPerCluster = 0;
-	if (fat32_get_bytes_per_cluster(pDirHandle->drive_id, pDirHandle->partition_id, &bytesPerCluster)!=0)
+	struct fat32_mount_handle* pMountHandle = pDirHandle->pMountHandle;
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytesPerCluster)!=0)
 		return -1;
 	uint64_t maxFileEntries = bytesPerCluster/sizeof(struct fat32_file_entry);
 	if (pDirHandle->currentDirIndex>=maxFileEntries){
-		if (fat32_readcluster(pDirHandle->drive_id, pDirHandle->partition_id, pDirHandle->currentDirCluster.cluster_value, &pDirHandle->currentDirCluster)!=0)
+		if (fat32_readcluster(pMountHandle, pDirHandle->currentDirCluster.cluster_value, &pDirHandle->currentDirCluster)!=0)
 			return -1;
 		if (FAT32_CLUSTER_END_OF_CHAIN(pDirHandle->currentDirCluster.cluster_value))
 			return -1;
@@ -56,7 +74,7 @@ int fat32_read_dir(struct fat32_dir_handle* pDirHandle, struct fat32_simple_file
 	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
 	if (!pClusterData)
 		return -1;
-	if (fat32_read_cluster_data(pDirHandle->drive_id, pDirHandle->partition_id, pDirHandle->currentDirCluster.cluster_value, pClusterData)!=0){
+	if (fat32_read_cluster_data(pMountHandle, pDirHandle->currentDirCluster.cluster_value, pClusterData)!=0){
 		kfree((void*)pClusterData);
 		return -1;
 	}
@@ -80,15 +98,15 @@ int fat32_dir_rewind(struct fat32_dir_handle* pDirHandle){
 	pDirHandle->currentDirIndex = 0;
 	return 0;
 }
-int fat32_openfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_handle** ppFileHandle){
-	if (!ppFileHandle)
+int fat32_openfile(struct fat32_mount_handle* pMountHandle, unsigned char* filename, struct fat32_file_handle** ppFileHandle){
+	if (!pMountHandle||!ppFileHandle)
 		return -1;
 	struct fat32_fsinfo fsinfo = {0};
-	if (fat32_get_fsinfo(drive_id, partition_id, &fsinfo)!=0)
+	if (fat32_get_fsinfo(pMountHandle, &fsinfo)!=0)
 		return -1;
 	struct fat32_file_location fileLocation = {0};
 	struct fat32_file_entry fileEntry = {0};
-	if (fat32_find_file(drive_id, partition_id, filename, &fileEntry, &fileLocation,0)!=0){
+	if (fat32_find_file(pMountHandle, filename, &fileEntry, &fileLocation,0)!=0){
 		printf(L"failed to find file\r\n");
 		return -1;
 	}
@@ -98,6 +116,7 @@ int fat32_openfile(uint64_t drive_id, uint64_t partition_id, unsigned char* file
 	memset((void*)pFileHandle, 0, sizeof(struct fat32_file_handle));
 	pFileHandle->fileLocation = fileLocation;
 	pFileHandle->fileEntry = fileEntry;
+	pFileHandle->pMountHandle = pMountHandle;
 	*ppFileHandle = pFileHandle;
 	return 0;
 }
@@ -123,14 +142,15 @@ int fat32_renamefile(struct fat32_file_handle* pFileHandle, unsigned char* filen
 	if (!pFileHandle||!filename)
 		return -1;
 	uint64_t bytesPerCluster = 0;
-	if (fat32_get_bytes_per_cluster(pFileHandle->drive_id, pFileHandle->partition_id, &bytesPerCluster)!=0)
+	struct fat32_mount_handle* pMountHandle = pFileHandle->pMountHandle;
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytesPerCluster)!=0)
 		return -1;
 	struct fat32_file_location* pFileLocation = &pFileHandle->fileLocation;
 	struct fat32_file_entry* pFileEntry = &pFileHandle->fileEntry;
 	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
 	if (!pClusterData)
 		return -1;
-	if (fat32_read_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, pFileLocation->fileCluster, pClusterData)!=0){
+	if (fat32_read_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
 		kfree((void*)pClusterData);
 		return -1;
 	}
@@ -139,7 +159,7 @@ int fat32_renamefile(struct fat32_file_handle* pFileHandle, unsigned char* filen
 		kfree((void*)pClusterData);
 		return -1;
 	}
-	if (fat32_write_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, pFileLocation->fileCluster, pClusterData)!=0){
+	if (fat32_write_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
 		kfree((void*)pClusterData);
 		return -1;
 	}
@@ -152,9 +172,10 @@ int fat32_readfile(struct fat32_file_handle* pFileHandle, unsigned char* pFileBu
 	uint64_t bytesPerCluster = 0;
 	struct fat32_file_entry fileEntry = pFileHandle->fileEntry;
 	struct fat32_file_location fileLocation = pFileHandle->fileLocation;
+	struct fat32_mount_handle* pMountHandle = pFileHandle->pMountHandle;
 	if (!fileEntry.file_size)
 		return -1;
-	if (fat32_get_bytes_per_cluster(pFileHandle->drive_id, pFileHandle->partition_id, &bytesPerCluster)!=0)
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytesPerCluster)!=0)
 		return -1;
 	if (size>fileEntry.file_size)
 		return -1;
@@ -173,20 +194,20 @@ int fat32_readfile(struct fat32_file_handle* pFileHandle, unsigned char* pFileBu
 			unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
 			if (!pClusterData)
 				return -1;
-			if (fat32_read_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, pClusterData)!=0){
+			if (fat32_read_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
 				kfree((void*)pClusterData);
 				return -1;
 			}
 			memcpy((unsigned char*)(pFileBuffer+(i*bytesPerCluster)), (unsigned char*)pClusterData, alignOffset);
 			kfree((void*)pClusterData);
-			if (fat32_readcluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, &currentCluster)!=0)
+			if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0)
 				return -1;
 			continue;
 		}
 		unsigned char* pClusterData = pFileBuffer+(i*bytesPerCluster);
-		if (fat32_read_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, pClusterData)!=0)
+		if (fat32_read_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0)
 			return -1;
-		if (fat32_readcluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, &currentCluster)!=0)
+		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0)
 			return -1;
 	}
 	return 0;
@@ -195,7 +216,8 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 	if (!pFileHandle||!pFileBuffer)
 		return -1;
 	uint64_t bytesPerCluster = 0;
-	if (fat32_get_bytes_per_cluster(pFileHandle->drive_id, pFileHandle->partition_id, &bytesPerCluster)!=0)
+	struct fat32_mount_handle* pMountHandle = pFileHandle->pMountHandle;
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytesPerCluster)!=0)
 		return -1;
 	struct fat32_file_entry* pFileEntry = &pFileHandle->fileEntry;
 	struct fat32_file_location* pFileLocation = &pFileHandle->fileLocation;
@@ -205,7 +227,7 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 		fileClusters = align_up(pFileEntry->file_size, bytesPerCluster)/bytesPerCluster;
 	if (!fileClusters){
 		uint32_t newCluster = 0;
-		if (fat32_allocate_cluster(pFileHandle->drive_id, pFileHandle->partition_id, &newCluster)!=0)
+		if (fat32_allocate_cluster(pMountHandle, &newCluster)!=0)
 			return -1;
 		fileClusters++;
 		pFileEntry->entry_first_cluster_low = (uint16_t)(newCluster&0xFFFF);
@@ -216,7 +238,7 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 	struct fat32_cluster_entry lastClusterEntry = {0};
 	lastClusterEntry = firstDataCluster;
 	while (FAT32_CONTINUE_CLUSTER(lastClusterEntry.cluster_value)){
-		if (fat32_readcluster(pFileHandle->drive_id, pFileHandle->partition_id, lastClusterEntry.cluster_value, &lastClusterEntry)!=0)
+		if (fat32_readcluster(pMountHandle, lastClusterEntry.cluster_value, &lastClusterEntry)!=0)
 			break;
 	}
 	uint64_t clustersToAlloc = 0;
@@ -226,9 +248,9 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 	currentCluster = lastClusterEntry;
 	for (uint64_t i = 0;i<clustersToAlloc;i++){
 		struct fat32_cluster_entry newCluster = {0};
-		if (fat32_allocate_cluster(pFileHandle->drive_id, pFileHandle->partition_id, (uint32_t*)&newCluster)!=0)
+		if (fat32_allocate_cluster(pMountHandle, (uint32_t*)&newCluster)!=0)
 			return -1;
-		if (fat32_writecluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, newCluster)!=0)
+		if (fat32_writecluster(pMountHandle, currentCluster.cluster_value, newCluster)!=0)
 			return -1;
 		currentCluster = newCluster;
 		lastClusterEntry = currentCluster;
@@ -240,18 +262,18 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 	currentCluster = firstDataCluster;
 	for (uint64_t i = 0;i<fileClusters&&clustersToFree;i++){
 		if (i<fileClusters-clustersToFree){
-			if (fat32_readcluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, &currentCluster)!=0){
+			if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0){
 				printf(L"failed to read next cluster\r\n");
 				return -1;
 			}
 			continue;
 		}
 		struct fat32_cluster_entry nextCluster = {0};
-		if (fat32_readcluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, &nextCluster)!=0){
+		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &nextCluster)!=0){
 			printf(L"failed to read next cluster\r\n");
 			return -1;
 		}
-		if (fat32_free_cluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value)!=0){
+		if (fat32_free_cluster(pMountHandle, currentCluster.cluster_value)!=0){
 			printf(L"failed to free cluster\r\n");
 			return -1;	
 		}
@@ -267,20 +289,20 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 			if (!pClusterData)
 				return -1;
 			memcpy((unsigned char*)pClusterData, (pFileBuffer+(i*bytesPerCluster)), alignOffset);
-			if (fat32_write_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, pClusterData)!=0){
+			if (fat32_write_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
 				printf(L"failed to write last misaligned cluster\r\n");
 				return -1;
 			}
 			kfree((void*)pClusterData);
-			fat32_readcluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, &currentCluster);
+			fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster);
 			continue;
 		}
 		unsigned char* pClusterData = pFileBuffer+(i*bytesPerCluster);
-		if (fat32_write_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, pClusterData)!=0){
+		if (fat32_write_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
 			printf(L"failed to write cluster %d with id %d\r\n", i, currentCluster.cluster_value);
 			return -1;
 		}
-		if (fat32_readcluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, &currentCluster)!=0&&i!=fileClusters-1){
+		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0&&i!=fileClusters-1){
 			printf(L"failed to read next cluster\r\n");
 			return -1;
 		}
@@ -289,28 +311,28 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
 	if (!pClusterData)
 		return -1;
-	if (fat32_read_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, pFileLocation->fileCluster, pClusterData)!=0){
+	if (fat32_read_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
 		kfree((void*)pClusterData);
 		return -1;
 	}
 	struct fat32_file_entry* pNewFileEntry = ((struct fat32_file_entry*)pClusterData)+pFileLocation->fileIndex;
 	*pNewFileEntry = pFileHandle->fileEntry;
 	uint32_t entry = ((uint32_t)pFileHandle->fileEntry.entry_first_cluster_high<<16)|((uint32_t)pFileHandle->fileEntry.entry_first_cluster_low);
-	if (fat32_write_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, pFileLocation->fileCluster, pClusterData)!=0){
+	if (fat32_write_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
 		kfree((void*)pClusterData);
 		return -1;
 	}
 	kfree((void*)pClusterData);	
 	return 0;
 }
-int fat32_createfile(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, uint8_t file_attribs){
-	if (!filename)
+int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* filename, uint8_t file_attribs){
+	if (!pMountHandle||!filename)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint64_t bytesPerCluster = 0;
-	if (fat32_get_bytes_per_cluster(drive_id, partition_id, &bytesPerCluster)!=0)
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytesPerCluster)!=0)
 		return -1;
 	struct fat32_file_location dirLocation = {0};
 	struct fat32_file_entry dirEntry = {0};
@@ -322,7 +344,7 @@ int fat32_createfile(uint64_t drive_id, uint64_t partition_id, unsigned char* fi
 		if (!filename[i+1])
 			continue;
 		filename[i] = 0;
-		if (fat32_find_file_in_dir(drive_id, partition_id, dirLocation.fileCluster, filename+pathstart, &dirEntry, &dirLocation, FAT32_FILE_ATTRIBUTE_DIRECTORY)!=0){
+		if (fat32_find_file_in_dir(pMountHandle, dirLocation.fileCluster, filename+pathstart, &dirEntry, &dirLocation, FAT32_FILE_ATTRIBUTE_DIRECTORY)!=0){
 			return -1;
 		}
 		filename[i] = '/';
@@ -335,7 +357,7 @@ int fat32_createfile(uint64_t drive_id, uint64_t partition_id, unsigned char* fi
 		unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
 		if (!pClusterData)
 			return -1;
-		if (fat32_read_cluster_data(drive_id, partition_id, dirLocation.fileCluster, pClusterData)!=0){
+		if (fat32_read_cluster_data(pMountHandle, dirLocation.fileCluster, pClusterData)!=0){
 			kfree((void*)pClusterData);
 			return -1;
 		}
@@ -349,7 +371,7 @@ int fat32_createfile(uint64_t drive_id, uint64_t partition_id, unsigned char* fi
 		return -1;
 	uint64_t max_file_entries = bytesPerCluster/sizeof(struct fat32_file_entry);
 	while (FAT32_CONTINUE_CLUSTER(currentCluster.cluster_value)){
-		if (fat32_read_cluster_data(drive_id, partition_id, currentCluster.cluster_value, pClusterData)!=0)
+		if (fat32_read_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0)
 			return -1;
 		for (uint64_t i = 0;i<max_file_entries;i++){
 			struct fat32_file_entry* pFileEntry = ((struct fat32_file_entry*)pClusterData)+i;
@@ -359,14 +381,14 @@ int fat32_createfile(uint64_t drive_id, uint64_t partition_id, unsigned char* fi
 				continue;
 			pFileEntry->file_size = 0;
 			pFileEntry->file_attribs = file_attribs;
-			if (fat32_write_cluster_data(drive_id, partition_id, currentCluster.cluster_value, pClusterData)!=0){
+			if (fat32_write_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
 				kfree((void*)pClusterData);
 				return -1;
 			}
 			kfree((void*)pClusterData);
 			return 0;
 		}
-		if (fat32_readcluster(drive_id, partition_id, currentCluster.cluster_value, &currentCluster)!=0)
+		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0)
 			return -1;
 	}
 	kfree((void*)pClusterData);
@@ -375,8 +397,9 @@ int fat32_createfile(uint64_t drive_id, uint64_t partition_id, unsigned char* fi
 int fat32_deletefile(struct fat32_file_handle* pFileHandle){
 	if (!pFileHandle)
 		return -1;
+	struct fat32_mount_handle* pMountHandle = pFileHandle->pMountHandle;
 	uint64_t bytesPerCluster = 0;
-	if (fat32_get_bytes_per_cluster(pFileHandle->drive_id, pFileHandle->partition_id, &bytesPerCluster)!=0)
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytesPerCluster)!=0)
 		return -1;
 	struct fat32_file_entry* pFileEntry = &pFileHandle->fileEntry;
 	struct fat32_file_location* pFileLocation = &pFileHandle->fileLocation;
@@ -391,22 +414,22 @@ int fat32_deletefile(struct fat32_file_handle* pFileHandle){
 			return -1;
 
 		struct fat32_cluster_entry nextCluster = {0};
-		if (fat32_readcluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value, &nextCluster)!=0)
+		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &nextCluster)!=0)
 			return -1;
-		if (fat32_free_cluster(pFileHandle->drive_id, pFileHandle->partition_id, currentCluster.cluster_value)!=0)
+		if (fat32_free_cluster(pMountHandle, currentCluster.cluster_value)!=0)
 			return -1;
 		currentCluster = nextCluster;
 	}
 	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
 	if (!pClusterData)
 		return -1;
-	if (fat32_read_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, pFileLocation->fileCluster, pClusterData)!=0){
+	if (fat32_read_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
 		kfree((void*)pClusterData);
 		return -1;
 	}
 	struct fat32_file_entry* pNewFileEntry = ((struct fat32_file_entry*)pClusterData)+pFileLocation->fileIndex;
 	memset((void*)pNewFileEntry, 0, sizeof(struct fat32_file_entry));
-	if (fat32_write_cluster_data(pFileHandle->drive_id, pFileHandle->partition_id, pFileLocation->fileCluster, pClusterData)!=0){
+	if (fat32_write_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
 		kfree((void*)pClusterData);
 		return -1;
 	}
@@ -494,11 +517,11 @@ int fat32_file_entry_namecmp(struct fat32_file_entry fileEntry, unsigned char* f
 	}
 	return 0;
 }
-int fat32_find_file(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_entry* pFileEntry, struct fat32_file_location* pFileLocation, uint8_t file_attribs){
-	if (!filename||!pFileLocation||!pFileEntry)
+int fat32_find_file(struct fat32_mount_handle* pMountHandle, unsigned char* filename, struct fat32_file_entry* pFileEntry, struct fat32_file_location* pFileLocation, uint8_t file_attribs){
+	if (!pMountHandle||!filename||!pFileLocation||!pFileEntry)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint32_t root_cluster = bpb.ebr.root_cluster_number;
 	uint64_t pathstart = 0;
@@ -517,7 +540,7 @@ int fat32_find_file(uint64_t drive_id, uint64_t partition_id, unsigned char* fil
 		if (!ch)
 			mask = 0;
 		lastFileLocation = fileLocation;
-		if (fat32_find_file_in_dir(drive_id, partition_id, fileLocation.fileDataCluster, filename+pathstart, &fileEntry, &fileLocation, mask)!=0){
+		if (fat32_find_file_in_dir(pMountHandle, fileLocation.fileDataCluster, filename+pathstart, &fileEntry, &fileLocation, mask)!=0){
 			printf_ascii("failed to find %s\r\n", filename+pathstart);
 			return -1;
 		}
@@ -531,14 +554,14 @@ int fat32_find_file(uint64_t drive_id, uint64_t partition_id, unsigned char* fil
 	*pFileEntry = fileEntry;
 	return 0;
 }
-int fat32_find_file_in_dir(uint64_t drive_id, uint64_t partition_id, uint32_t dirCluster, unsigned char* filename, struct fat32_file_entry* pFileEntry, struct fat32_file_location* pFileLocation, uint8_t file_attrib){
-	if (!filename||!pFileLocation||!pFileEntry)
+int fat32_find_file_in_dir(struct fat32_mount_handle* pMountHandle, uint32_t dirCluster, unsigned char* filename, struct fat32_file_entry* pFileEntry, struct fat32_file_location* pFileLocation, uint8_t file_attrib){
+	if (!pMountHandle||!filename||!pFileLocation||!pFileEntry)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint64_t bytes_per_cluster = 0;
-	if (fat32_get_bytes_per_cluster(drive_id, partition_id, &bytes_per_cluster)!=0)
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytes_per_cluster)!=0)
 		return -1;
 	uint64_t max_dir_entries = bytes_per_cluster/sizeof(struct fat32_file_entry);
 	struct fat32_cluster_entry currentCluster = {0};
@@ -548,7 +571,7 @@ int fat32_find_file_in_dir(uint64_t drive_id, uint64_t partition_id, uint32_t di
 	if (virtualAllocPages((uint64_t*)&pClusterData, clusterDataPages, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0)
 		return -1;
 	while (FAT32_CONTINUE_CLUSTER(currentCluster.cluster_value)){
-		if (fat32_read_cluster_data(drive_id, partition_id, currentCluster.cluster_value, (unsigned char*)pClusterData)!=0){
+		if (fat32_read_cluster_data(pMountHandle, currentCluster.cluster_value, (unsigned char*)pClusterData)!=0){
 			break;
 		}
 		for (uint64_t file_index = 0;file_index<max_dir_entries;file_index++){
@@ -569,36 +592,36 @@ int fat32_find_file_in_dir(uint64_t drive_id, uint64_t partition_id, uint32_t di
 			virtualFreePages((uint64_t)pClusterData, clusterDataPages);
 			return 0;
 		}
-		if (fat32_readcluster(drive_id, partition_id, currentCluster.cluster_value, &currentCluster)!=0){
+		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0){
 			break;
 		}
 	}
 	virtualFreePages((uint64_t)pClusterData, clusterDataPages);
 	return -1;
 }
-int fat32_find_file_in_root(uint64_t drive_id, uint64_t partition_id, unsigned char* filename, struct fat32_file_entry* pFileEntry,struct fat32_file_location* pFileLocation, uint8_t file_attribs){
-	if (!filename||!pFileLocation||!pFileEntry)
+int fat32_find_file_in_root(struct fat32_mount_handle* pMountHandle, unsigned char* filename, struct fat32_file_entry* pFileEntry,struct fat32_file_location* pFileLocation, uint8_t file_attribs){
+	if (!pMountHandle||!filename||!pFileLocation||!pFileEntry)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint32_t rootDirCluster = bpb.ebr.root_cluster_number;
-	if (fat32_find_file_in_dir(drive_id, partition_id, rootDirCluster, filename, pFileEntry, pFileLocation, file_attribs)!=0)
+	if (fat32_find_file_in_dir(pMountHandle, rootDirCluster, filename, pFileEntry, pFileLocation, file_attribs)!=0)
 		return -1;
 	return 0;
 }
-int fat32_get_free_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t* pFreeCluster, uint64_t start_cluster){
-	if (!pFreeCluster)
+int fat32_get_free_cluster(struct fat32_mount_handle* pMountHandle, uint32_t* pFreeCluster, uint64_t start_cluster){
+	if (!pMountHandle||!pFreeCluster)
 		return -1;
 	struct fat32_fsinfo fsinfo = {0};
-	if (fat32_get_fsinfo(drive_id, partition_id, &fsinfo)!=0)
+	if (fat32_get_fsinfo(pMountHandle, &fsinfo)!=0)
 		return -1;
 	if (!start_cluster){
 		start_cluster = fsinfo.start_lookup_cluster;
 	}
 	for (uint32_t i = start_cluster;;){
 		struct fat32_cluster_entry clusterEntry = {0};
-		if (fat32_readcluster(drive_id, partition_id, i, &clusterEntry)!=0)
+		if (fat32_readcluster(pMountHandle, i, &clusterEntry)!=0)
 			return -1;
 		if (clusterEntry.cluster_value==FAT32_CLUSTER_FREE){
 			*pFreeCluster = i;
@@ -615,76 +638,80 @@ int fat32_get_free_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t* p
 	}
 	return -1;
 }
-int fat32_free_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t freeCluster){
+int fat32_free_cluster(struct fat32_mount_handle* pMountHandle, uint32_t freeCluster){
+	if (!pMountHandle)
+		return -1;
 	struct fat32_fsinfo fsinfo = {0};
-	if (fat32_get_fsinfo(drive_id, partition_id, &fsinfo)!=0)
+	if (fat32_get_fsinfo(pMountHandle, &fsinfo)!=0)
 		return -1;
 	struct fat32_cluster_entry newClusterEntry = {0};
 	newClusterEntry.cluster_value = FAT32_CLUSTER_FREE;
-	if (fat32_writecluster(drive_id, partition_id, freeCluster, newClusterEntry)!=0)
+	if (fat32_writecluster(pMountHandle, freeCluster, newClusterEntry)!=0)
 		return -1;
 	return 0;
 }
-int fat32_allocate_cluster(uint64_t drive_id, uint64_t partition_id, uint32_t* pNewCluster){
-	if (!pNewCluster)
+int fat32_allocate_cluster(struct fat32_mount_handle* pMountHandle, uint32_t* pNewCluster){
+	if (!pMountHandle||!pNewCluster)
 		return -1;
 	struct fat32_fsinfo fsinfo = {0};
-	if (fat32_get_fsinfo(drive_id, partition_id, &fsinfo)!=0)
+	if (fat32_get_fsinfo(pMountHandle, &fsinfo)!=0)
 		return -1;
 	uint32_t newCluster = 0;
-	if (fat32_get_free_cluster(drive_id, partition_id, &newCluster, 0)!=0){
+	if (fat32_get_free_cluster(pMountHandle, &newCluster, 0)!=0){
 		printf(L"failed to get free cluster\r\n");
 		return -1;
 	}
 	struct fat32_cluster_entry newEntry = {0};
 	newEntry.cluster_value = newCluster+1;
-	if (fat32_writecluster(drive_id, partition_id, newCluster, newEntry)!=0){
+	if (fat32_writecluster(pMountHandle, newCluster, newEntry)!=0){
 		printf(L"failed to write to cluster\r\n");
 		return -1;
 	}
 	*pNewCluster = newCluster;
 	return 0;
 }
-int fat32_readcluster(uint64_t drive_id, uint64_t partition_id, uint32_t cluster_id, struct fat32_cluster_entry* pClusterEntry){
-	if (!pClusterEntry)
+int fat32_readcluster(struct fat32_mount_handle* pMountHandle, uint32_t cluster_id, struct fat32_cluster_entry* pClusterEntry){
+	if (!pMountHandle||!pClusterEntry)
 		return -1;
 	uint64_t fatSector = 0;
-	if (fat32_get_fat(drive_id, partition_id, &fatSector)!=0)
+	if (fat32_get_fat(pMountHandle, &fatSector)!=0)
 		return -1;
 	uint64_t bytes_per_cluster = 0;
-	if (fat32_get_bytes_per_cluster(drive_id, partition_id, &bytes_per_cluster)!=0)
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytes_per_cluster)!=0)
 		return -1;
 	uint64_t cluster_byte_offset = cluster_id*sizeof(uint32_t);
 	uint64_t cluster_sector_offset = cluster_byte_offset/DRIVE_SECTOR_SIZE;
 	uint64_t cluster_offset = cluster_byte_offset%DRIVE_SECTOR_SIZE;
 	uint64_t cluster_sector = fatSector+cluster_sector_offset;
-	unsigned char* pSectorData = (unsigned char*)cache_info.lastSectorCache;
+	unsigned char* pSectorData = (unsigned char*)pMountHandle->cacheInfo.lastSectorCache;
 	uint64_t cached_last_sector = 0;
-	fat32_get_cached_last_sector(drive_id, partition_id, &cached_last_sector);
+	fat32_get_cached_last_sector(pMountHandle, &cached_last_sector);
 	if (cached_last_sector==cluster_sector){
-		*(uint32_t*)pClusterEntry = *(uint32_t*)(cache_info.lastSectorCache+cluster_offset);
+		*(uint32_t*)pClusterEntry = *(uint32_t*)(pMountHandle->cacheInfo.lastSectorCache+cluster_offset);
 		return 0;
 	}
-	if (fat32_cache_last_sector(drive_id, partition_id, cluster_sector)!=0)
+	if (fat32_cache_last_sector(pMountHandle, cluster_sector)!=0)
 		return -1;
-	if (partition_read_sectors(drive_id, partition_id, cluster_sector, 1, (unsigned char*)pSectorData)!=0)
+	if (partition_read_sectors(pMountHandle->drive_id, pMountHandle->partition_id, cluster_sector, 1, (unsigned char*)pSectorData)!=0)
 		return -1;
-	uint32_t cluster_value = *(uint32_t*)(cache_info.lastSectorCache+cluster_offset);
+	uint32_t cluster_value = *(uint32_t*)(pMountHandle->cacheInfo.lastSectorCache+cluster_offset);
 	*(uint32_t*)pClusterEntry = cluster_value;
 	return 0;
 }
-int fat32_writecluster(uint64_t drive_id, uint64_t partition_id, uint32_t cluster_id, struct fat32_cluster_entry clusterEntry){
+int fat32_writecluster(struct fat32_mount_handle* pMountHandle, uint32_t cluster_id, struct fat32_cluster_entry clusterEntry){
+	if (!pMountHandle)
+		return -1;
 	uint64_t fatSector = 0;
 	uint64_t backupFatSector = 0;
 	struct fat32_fsinfo fsinfo = {0};
-	if (fat32_get_fsinfo(drive_id, partition_id, &fsinfo)!=0)
+	if (fat32_get_fsinfo(pMountHandle, &fsinfo)!=0)
 		return -1;
-	if (fat32_get_fat(drive_id, partition_id, &fatSector)!=0)
+	if (fat32_get_fat(pMountHandle, &fatSector)!=0)
 		return -1;
-	if (fat32_get_backup_fat(drive_id, partition_id, &backupFatSector)!=0)
+	if (fat32_get_backup_fat(pMountHandle, &backupFatSector)!=0)
 		return -1;
 	uint64_t bytes_per_cluster = 0;
-	if (fat32_get_bytes_per_cluster(drive_id, partition_id, &bytes_per_cluster)!=0)
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytes_per_cluster)!=0)
 		return -1;
 	uint64_t cluster_byte_offset = cluster_id*sizeof(uint32_t);
 	uint64_t cluster_sector_offset = cluster_byte_offset/DRIVE_SECTOR_SIZE;
@@ -692,110 +719,110 @@ int fat32_writecluster(uint64_t drive_id, uint64_t partition_id, uint32_t cluste
 	uint64_t cluster_sector = fatSector+cluster_sector_offset;
 	uint64_t cluster_backup_sector = backupFatSector+cluster_sector_offset;
 	unsigned char sectorData[512] = {0};
-	if (partition_read_sectors(drive_id, partition_id, cluster_sector, 1, (unsigned char*)sectorData)!=0)
+	if (partition_read_sectors(pMountHandle->drive_id, pMountHandle->partition_id, cluster_sector, 1, (unsigned char*)sectorData)!=0)
 		return -1;
 	*(uint32_t*)(sectorData+cluster_offset) = *(uint32_t*)(&clusterEntry);
-	if (partition_write_sectors(drive_id, partition_id, cluster_sector, 1, (unsigned char*)sectorData)!=0)
+	if (partition_write_sectors(pMountHandle->drive_id, pMountHandle->partition_id, cluster_sector, 1, (unsigned char*)sectorData)!=0)
 		return -1;
-	if (partition_write_sectors(drive_id, partition_id, cluster_backup_sector, 1, (unsigned char*)sectorData)!=0)
+	if (partition_write_sectors(pMountHandle->drive_id, pMountHandle->partition_id, cluster_backup_sector, 1, (unsigned char*)sectorData)!=0)
 		return -1;
 	uint64_t cached_last_sector = 0;
-	if (fat32_get_cached_last_sector(drive_id, partition_id, &cached_last_sector)!=0)
+	if (fat32_get_cached_last_sector(pMountHandle, &cached_last_sector)!=0)
 		return 0;
 	if (cluster_sector!=cached_last_sector)
 		return 0;
-	*(uint32_t*)(cache_info.lastSectorCache+cluster_offset) = *(uint32_t*)(&clusterEntry);
+	*(uint32_t*)(pMountHandle->cacheInfo.lastSectorCache+cluster_offset) = *(uint32_t*)(&clusterEntry);
 	return 0;
 }
-int fat32_read_cluster_data(uint64_t drive_id, uint64_t partition_id, uint32_t cluster_id, unsigned char* pClusterData){
-	if (!pClusterData)
+int fat32_read_cluster_data(struct fat32_mount_handle* pMountHandle, uint32_t cluster_id, unsigned char* pClusterData){
+	if (!pMountHandle||!pClusterData)
 		return -1;
 	struct fat32_fsinfo fsinfo = {0};
-	if (fat32_get_fsinfo(drive_id, partition_id, &fsinfo)!=0)
+	if (fat32_get_fsinfo(pMountHandle, &fsinfo)!=0)
 		return -1;
 	uint64_t bytes_per_cluster = 0;
-	if (fat32_get_bytes_per_cluster(drive_id, partition_id, &bytes_per_cluster)!=0)
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytes_per_cluster)!=0)
 		return -1;
 	uint64_t sectors_per_cluster = bytes_per_cluster/DRIVE_SECTOR_SIZE;
 	uint64_t cluster_data_start_sector = 0;
-	if (fat32_get_cluster_data_sector(drive_id, partition_id, &cluster_data_start_sector)!=0)
+	if (fat32_get_cluster_data_sector(pMountHandle, &cluster_data_start_sector)!=0)
 		return -1;
 	uint64_t cluster_sector_offset = ((cluster_id-2)*bytes_per_cluster)/DRIVE_SECTOR_SIZE;
 	uint64_t cluster_data_sector = cluster_data_start_sector+cluster_sector_offset;
-	if (partition_read_sectors(drive_id, partition_id, cluster_data_sector, sectors_per_cluster, pClusterData)!=0)
+	if (partition_read_sectors(pMountHandle->drive_id, pMountHandle->partition_id, cluster_data_sector, sectors_per_cluster, pClusterData)!=0)
 		return -1;
 	return 0;
 }
-int fat32_write_cluster_data(uint64_t drive_id, uint64_t partition_id, uint32_t cluster_id, unsigned char* pClusterData){
-	if (!pClusterData)
+int fat32_write_cluster_data(struct fat32_mount_handle* pMountHandle, uint32_t cluster_id, unsigned char* pClusterData){
+	if (!pMountHandle||!pClusterData)
 		return -1;
 	struct fat32_fsinfo fsinfo = {0};
-	if (fat32_get_fsinfo(drive_id, partition_id, &fsinfo)!=0)
+	if (fat32_get_fsinfo(pMountHandle, &fsinfo)!=0)
 		return -1;
 	uint64_t bytes_per_cluster = 0;
-	if (fat32_get_bytes_per_cluster(drive_id, partition_id, &bytes_per_cluster)!=0)
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytes_per_cluster)!=0)
 		return -1;
 	uint64_t sectors_per_cluster = bytes_per_cluster/DRIVE_SECTOR_SIZE;
 	uint64_t cluster_data_start_sector = 0;
-	if (fat32_get_cluster_data_sector(drive_id, partition_id, &cluster_data_start_sector)!=0)
+	if (fat32_get_cluster_data_sector(pMountHandle, &cluster_data_start_sector)!=0)
 		return -1;
 	uint64_t cluster_sector_offset = ((cluster_id-2)*bytes_per_cluster)/DRIVE_SECTOR_SIZE;
 	uint64_t cluster_data_sector = cluster_data_start_sector+cluster_sector_offset;
-	if (partition_write_sectors(drive_id, partition_id, cluster_data_sector, sectors_per_cluster, pClusterData)!=0)
+	if (partition_write_sectors(pMountHandle->drive_id, pMountHandle->partition_id, cluster_data_sector, sectors_per_cluster, pClusterData)!=0)
 		return -1;
 	return 0;
 }
-int fat32_get_cluster_data_sector(uint64_t drive_id, uint64_t partition_id, uint64_t* pClusterDataSector){
-	if (!pClusterDataSector)
+int fat32_get_cluster_data_sector(struct fat32_mount_handle* pMountHandle, uint64_t* pClusterDataSector){
+	if (!pMountHandle||!pClusterDataSector)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint64_t sectors_per_fat = 0;
-	if (fat32_get_sectors_per_fat(drive_id, partition_id, &sectors_per_fat)!=0)
+	if (fat32_get_sectors_per_fat(pMountHandle, &sectors_per_fat)!=0)
 		return -1;
 	uint64_t clusterDataSector = ((uint64_t)bpb.reserved_sectors)+sectors_per_fat*bpb.fat_count;
 	*pClusterDataSector = clusterDataSector;
 	return 0;
 }
-int fat32_get_bytes_per_cluster(uint64_t drive_id, uint64_t partition_id, uint64_t* pBytesPerCluster){
-	if (!pBytesPerCluster)
+int fat32_get_bytes_per_cluster(struct fat32_mount_handle* pMountHandle, uint64_t* pBytesPerCluster){
+	if (!pMountHandle||!pBytesPerCluster)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint64_t bytesPerCluster = ((uint64_t)bpb.sectors_per_cluster)*DRIVE_SECTOR_SIZE;
 	*pBytesPerCluster = bytesPerCluster;
 	return 0;
 }
-int fat32_get_fat(uint64_t drive_id, uint64_t partition_id, uint64_t* pFatSector){
-	if (!pFatSector)
+int fat32_get_fat(struct fat32_mount_handle* pMountHandle, uint64_t* pFatSector){
+	if (!pMountHandle||!pFatSector)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint64_t fat_sector = (uint64_t)bpb.reserved_sectors;
 	*pFatSector = fat_sector;
 	return 0;
 }
-int fat32_get_backup_fat(uint64_t drive_id, uint64_t partition_id, uint64_t* pFatSector){
-	if (!pFatSector)
+int fat32_get_backup_fat(struct fat32_mount_handle* pMountHandle, uint64_t* pFatSector){
+	if (!pMountHandle||!pFatSector)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint64_t sectors_per_fat = 0;
-	if (fat32_get_sectors_per_fat(drive_id, partition_id, &sectors_per_fat)!=0)
+	if (fat32_get_sectors_per_fat(pMountHandle, &sectors_per_fat)!=0)
 		return -1;
 	uint64_t fat_sector = (uint64_t)(bpb.reserved_sectors+sectors_per_fat);
 	*pFatSector = fat_sector;
 	return 0;
 }
-int fat32_get_sectors_per_fat(uint64_t drive_id, uint64_t partition_id, uint64_t* pSectorsPerFat){
-	if (!pSectorsPerFat)
+int fat32_get_sectors_per_fat(struct fat32_mount_handle* pMountHandle, uint64_t* pSectorsPerFat){
+	if (!pMountHandle||!pSectorsPerFat)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint64_t sectors_per_fat = bpb.ebr.sectors_per_fat;
 	if (!sectors_per_fat)
@@ -803,11 +830,11 @@ int fat32_get_sectors_per_fat(uint64_t drive_id, uint64_t partition_id, uint64_t
 	*pSectorsPerFat = sectors_per_fat;
 	return 0;
 }
-int fat32_get_sector_count(uint64_t drive_id, uint64_t partition_id, uint64_t* pSectorCount){
-	if (!pSectorCount)
+int fat32_get_sector_count(struct fat32_mount_handle* pMountHandle, uint64_t* pSectorCount){
+	if (!pMountHandle||!pSectorCount)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	uint64_t sectorCount = 0;
 	if (bpb.large_sector_count)
@@ -817,15 +844,17 @@ int fat32_get_sector_count(uint64_t drive_id, uint64_t partition_id, uint64_t* p
 	*pSectorCount = sectorCount;
 	return 0;
 }
-int fat32_verify(uint64_t drive_id, uint64_t partition_id){
+int fat32_verify(struct fat32_mount_handle* pMountHandle){
+	if (!pMountHandle)
+		return -1;
 	struct fat32_bpb bpb = {0};
 	struct fat32_ebr ebr = {0};
 	struct fat32_fsinfo fsinfo = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
-	if (fat32_get_ebr(drive_id, partition_id, &ebr)!=0)
+	if (fat32_get_ebr(pMountHandle, &ebr)!=0)
 		return -1;
-	if (fat32_get_fsinfo(drive_id, partition_id, &fsinfo)!=0)
+	if (fat32_get_fsinfo(pMountHandle, &fsinfo)!=0)
 		return -1;
 	if (ebr.signature!=0x28&&ebr.signature!=0x29){
 		printf(L"invalid EBR signature 0x%x\r\n", ebr.signature);
@@ -848,157 +877,115 @@ int fat32_verify(uint64_t drive_id, uint64_t partition_id){
 		return -1;
 	}
 	uint64_t fat_sectors = 0;
-	if (fat32_get_sectors_per_fat(drive_id, partition_id, &fat_sectors)!=0)
+	if (fat32_get_sectors_per_fat(pMountHandle, &fat_sectors)!=0)
 		return -1;
 	printf(L"size: %dMB\r\n", (bpb.large_sector_count*DRIVE_SECTOR_SIZE)/MEM_MB);
 	printf(L"sectors per fat: %d\r\n", fat_sectors);
 	return 0;
 }
-int fat32_get_bpb(uint64_t drive_id, uint64_t partition_id, struct fat32_bpb* pBpb){
-	if (!pBpb)
+int fat32_get_bpb(struct fat32_mount_handle* pMountHandle, struct fat32_bpb* pBpb){
+	if (!pMountHandle||!pBpb)
 		return -1;
-	if (fat32_get_bpb_cache(drive_id, partition_id, pBpb)==0)
+	if (fat32_get_bpb_cache(pMountHandle, pBpb)==0)
 		return 0;
-	if (partition_read_sectors(drive_id, partition_id, 0, 1, (unsigned char*)pBpb)!=0)
+	if (partition_read_sectors(pMountHandle->drive_id, pMountHandle->partition_id, 0, 1, (unsigned char*)pBpb)!=0)
 		return -1;
-	fat32_cache_bpb(drive_id, partition_id, *pBpb);
+	fat32_cache_bpb(pMountHandle, *pBpb);
 	return 0;
 }
-int fat32_get_ebr(uint64_t drive_id, uint64_t partition_id, struct fat32_ebr* pEbr){
-	if (!pEbr)
+int fat32_get_ebr(struct fat32_mount_handle* pMountHandle, struct fat32_ebr* pEbr){
+	if (!pMountHandle||!pEbr)
 		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	*pEbr = bpb.ebr;
 	return 0;
 }
-int fat32_get_fsinfo(uint64_t drive_id, uint64_t partition_id, struct fat32_fsinfo* pFsinfo){
-	if (!pFsinfo)
+int fat32_get_fsinfo(struct fat32_mount_handle* pMountHandle, struct fat32_fsinfo* pFsinfo){
+	if (!pMountHandle||!pFsinfo)
 		return -1;
-	if (fat32_get_fsinfo_cache(drive_id, partition_id, pFsinfo)==0)
+	if (fat32_get_fsinfo_cache(pMountHandle, pFsinfo)==0)
 		return 0;
 	struct fat32_ebr ebr = {0};
-	if (fat32_get_ebr(drive_id, partition_id, &ebr)!=0)
+	if (fat32_get_ebr(pMountHandle, &ebr)!=0)
 		return -1;
-	if (partition_read_sectors(drive_id, partition_id, ebr.fsinfo_sector, 1,(unsigned char*)pFsinfo)!=0)
+	if (partition_read_sectors(pMountHandle->drive_id, pMountHandle->partition_id, ebr.fsinfo_sector, 1,(unsigned char*)pFsinfo)!=0)
 		return -1;
-
 	return 0;
 }
-int fat32_set_bpb(uint64_t drive_id, uint64_t partition_id, struct fat32_bpb newBpb){
-	if (partition_write_sectors(drive_id, partition_id, 0, 1, (unsigned char*)&newBpb)!=0)
+int fat32_set_bpb(struct fat32_mount_handle* pMountHandle, struct fat32_bpb newBpb){
+	if (!pMountHandle)
 		return -1;
-	if (fat32_partition_cached(drive_id, partition_id)!=0)
-		return 0;
-	if (fat32_bpb_cached()!=0)
+	if (partition_write_sectors(pMountHandle->drive_id, pMountHandle->partition_id, 0, 1, (unsigned char*)&newBpb)!=0)
 		return -1;
-	cache_info.bpb_cache = newBpb;
+	pMountHandle->cacheInfo.bpb_cache = newBpb;
 	return 0;
 }
-int fat32_set_ebr(uint64_t drive_id, uint64_t partition_id, struct fat32_ebr newEbr){
+int fat32_set_ebr(struct fat32_mount_handle* pMountHandle, struct fat32_ebr newEbr){
+	if (!pMountHandle)
+		return -1;
 	struct fat32_bpb bpb = {0};
-	if (fat32_get_bpb(drive_id, partition_id, &bpb)!=0)
+	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
 	bpb.ebr = newEbr;
-	if (fat32_set_bpb(drive_id, partition_id, bpb)!=0)
+	if (fat32_set_bpb(pMountHandle, bpb)!=0)
 		return -1;
 	return 0;
 }
-int fat32_set_fsinfo(uint64_t drive_id, uint64_t partition_id, struct fat32_fsinfo newFsinfo){
+int fat32_set_fsinfo(struct fat32_mount_handle* pMountHandle, struct fat32_fsinfo newFsinfo){
+	if (!pMountHandle)
+		return -1;
 	struct fat32_ebr ebr = {0};
-	if (fat32_get_ebr(drive_id, partition_id, &ebr)!=0)
+	if (fat32_get_ebr(pMountHandle, &ebr)!=0)
 		return -1;
-	if (partition_write_sectors(drive_id, partition_id, ebr.fsinfo_sector, 1, (unsigned char*)&newFsinfo)!=0)
+	if (partition_write_sectors(pMountHandle->drive_id, pMountHandle->partition_id, ebr.fsinfo_sector, 1, (unsigned char*)&newFsinfo)!=0)
 		return -1;
-	if (fat32_partition_cached(drive_id, partition_id)!=0)
-		return 0;
-	if (fat32_fsinfo_cached()!=0)
-		return -1;
-	cache_info.fsinfo_cache = newFsinfo;
+	pMountHandle->cacheInfo.fsinfo_cache = newFsinfo;
 	return 0;
 }
-int fat32_get_bpb_cache(uint64_t drive_id, uint64_t partition_id, struct fat32_bpb* pBpb){
-	if (!pBpb)
+int fat32_get_bpb_cache(struct fat32_mount_handle* pMountHandle, struct fat32_bpb* pBpb){
+	if (!pMountHandle||!pBpb)
 		return -1;
-	if (fat32_partition_cached(drive_id, partition_id)!=0)
+	if (!pMountHandle->cacheInfo.bpb_cached)
 		return -1;
-	if (fat32_bpb_cached()!=0)
-		return -1;
-	*pBpb = cache_info.bpb_cache;
+	*pBpb = pMountHandle->cacheInfo.bpb_cache;
 	return 0;
 }
-int fat32_get_fsinfo_cache(uint64_t drive_id, uint64_t partition_id, struct fat32_fsinfo* pFsinfo){
-	if (!pFsinfo)
+int fat32_get_fsinfo_cache(struct fat32_mount_handle* pMountHandle, struct fat32_fsinfo* pFsinfo){
+	if (!pMountHandle||!pFsinfo)
 		return -1;
-	if (fat32_partition_cached(drive_id, partition_id)!=0)
+	if (!pMountHandle->cacheInfo.fsinfo_cached)
 		return -1;
-	if (fat32_fsinfo_cached()!=0)
-		return -1;
-	*pFsinfo = cache_info.fsinfo_cache;
+	*pFsinfo = pMountHandle->cacheInfo.fsinfo_cache;
 	return 0;
 }
-int fat32_get_cached_last_sector(uint64_t drive_id, uint64_t partition_id, uint64_t* pLastSector){
-	if (!pLastSector)
+int fat32_get_cached_last_sector(struct fat32_mount_handle* pMountHandle, uint64_t* pLastSector){
+	if (!pMountHandle||!pLastSector)
 		return -1;
-	if (fat32_partition_cached(drive_id, partition_id)!=0)
+	if (!pMountHandle->cacheInfo.last_sector_cached)
 		return -1;
-	if (fat32_partition_cached(drive_id, partition_id)!=0)
+	*pLastSector = pMountHandle->cacheInfo.last_sector;
+	return 0;
+}
+int fat32_cache_bpb(struct fat32_mount_handle* pMountHandle, struct fat32_bpb bpb){
+	if (!pMountHandle)
 		return -1;
-	*pLastSector = cache_info.last_sector;
+	pMountHandle->cacheInfo.bpb_cache = bpb;
+	pMountHandle->cacheInfo.bpb_cached = 1;
 	return 0;
 }
-int fat32_cache_bpb(uint64_t drive_id, uint64_t partition_id, struct fat32_bpb bpb){
-	if (fat32_partition_cached(drive_id, partition_id)!=0)
-		fat32_flush_cache();
-	cache_info.cached_drive_id = drive_id;
-	cache_info.cached_partition_id = partition_id;
-	cache_info.bpb_cache = bpb;
-	cache_info.bpb_cached = 1;
-	return 0;
-}
-int fat32_cache_fsinfo(uint64_t drive_id, uint64_t partition_id, struct fat32_fsinfo fsinfo){
-	if (fat32_partition_cached(drive_id, partition_id)!=0)
-		fat32_flush_cache();
-	cache_info.cached_drive_id = drive_id;
-	cache_info.cached_partition_id = partition_id;
-	cache_info.fsinfo_cache = fsinfo;
-	cache_info.fsinfo_cached = 1;
-	return 0;
-}
-int fat32_cache_last_sector(uint64_t drive_id, uint64_t partition_id, uint64_t last_sector){
-	if (fat32_partition_cached(drive_id, partition_id)!=0)
-		fat32_flush_cache();
-	cache_info.cached_drive_id = drive_id;
-	cache_info.cached_partition_id = partition_id;
-	cache_info.last_sector = last_sector;
-	cache_info.last_sector_cached = 1;
-	return 0;
-}
-int fat32_bpb_cached(void){
-	if (cache_info.bpb_cached!=0)
-		return 0;
-	return -1;
-}
-int fat32_fsinfo_cached(void){
-	if (cache_info.fsinfo_cached!=0)
-		return 0;
-	return -1;
-}
-int fat32_last_sector_cached(void){
-	if (cache_info.last_sector_cached!=0)
-		return 0;
-	return -1;
-}
-int fat32_flush_cache(void){
-	cache_info.cached_drive_id = 0xFFFFFFFFFFFFFFFF;
-	cache_info.cached_partition_id = 0xFFFFFFFFFFFFFFF;
-	cache_info.bpb_cached = 0;
-	cache_info.fsinfo_cached = 0;
-	return 0;
-}
-int fat32_partition_cached(uint64_t drive_id, uint64_t partition_id){
-	if (cache_info.cached_drive_id!=drive_id||cache_info.cached_partition_id!=partition_id)
+int fat32_cache_fsinfo(struct fat32_mount_handle* pMountHandle, struct fat32_fsinfo fsinfo){
+	if (!pMountHandle)
 		return -1;
+	pMountHandle->cacheInfo.fsinfo_cache = fsinfo;
+	pMountHandle->cacheInfo.fsinfo_cached = 1;
+	return 0;
+}
+int fat32_cache_last_sector(struct fat32_mount_handle* pMountHandle, uint64_t last_sector){
+	if (!pMountHandle)
+		return -1;
+	pMountHandle->cacheInfo.last_sector = last_sector;
+	pMountHandle->cacheInfo.last_sector_cached = 1;
 	return 0;
 }
