@@ -18,6 +18,7 @@
 #include "drivers/nvme.h"
 #include "subsystem/drive.h"
 #include "subsystem/subsystem.h"
+#include "subsystem/filesystem.h"
 #include "drivers/gpt.h"
 #include "drivers/filesystem/fat32.h"
 #include "drivers/filesystem/exfat.h"
@@ -105,6 +106,16 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	if (drive_subsystem_init()!=0){
 		printf(L"failed to initialize drive subsystem\r\n");
+		while (1){};
+		return -1;
+	}
+	if (fs_subsystem_init()!=0){
+		printf(L"failed to initialize filesystem subsystem\r\n");
+		while (1){};
+		return -1;
+	}
+	if (fat32_init()!=0){
+		printf(L"failed to initialize FAT32 drivers\r\n");
 		while (1){};
 		return -1;
 	}
@@ -199,22 +210,12 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			return -1;
 		if (!partition.end_lba)
 			continue;
-		uint64_t partitionSize = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
-		struct exfat_mount_handle* pHandle = (struct exfat_mount_handle*)0x0;
-		if (exfat_mount(0, i, &pHandle)!=0){
-			printf(L"failed to mount partition %d\r\n", i);
+		uint64_t id = 0;
+		if (fs_mount(0, i, &id)!=0){
+			printf(L"failed to mount partition %d of boot drive\r\n", i);
 			continue;
 		}
-		printf(L"found exFat partition %d\r\n", i);
-		struct exfat_file_handle* pFileHandle = (struct exfat_file_handle*)0x0;
-		if (exfat_open_file(pHandle, L"test.txt", &pFileHandle)!=0){
-			printf(L"failed to open test.txt\r\n");
-			exfat_unmount(pHandle);
-			continue;
-		}
-
-		exfat_close_file(pFileHandle);
-		exfat_unmount(pHandle);
+		printf(L"partition %d mounted with id %d\r\n", i, id);
 	}
 	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};

@@ -1,6 +1,7 @@
 #include "subsystem/subsystem.h"
 #include "stdlib/stdlib.h"
 #include "mem/vmm.h"
+#include "mem/heap.h"
 #include "drivers/gpt.h"
 #include "panic.h"
 #include "subsystem/drive.h"
@@ -35,16 +36,12 @@ int drive_subsystem_init(void){
 	return 0;
 }
 int drive_ahci_register(uint8_t port, uint64_t* pDriveId){
-	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)0x0;
 	uint64_t id = 0;
-	if (subsystem_alloc_entry(pDriveSubsystem, sizeof(struct drive_dev_ahci), &id)!=0)
+	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)kmalloc(sizeof(struct drive_dev_ahci));
+	if (!pDev)
 		return -1;
-	if (subsystem_get_entry(pDriveSubsystem, id, (uint64_t*)&pDev)!=0)
+	if (subsystem_alloc_entry(pDriveSubsystem, (unsigned char*)pDev, &id)!=0)
 		return -1;
-	if (!pDev){
-		printf(L"failed to allocate entry\r\n");
-		return -1;
-	}
 	pDev->hdr.type = DRIVE_TYPE_AHCI;
 	pDev->hdr.sectors_read = (uint64_t)ahci_subsystem_read;
 	pDev->hdr.sectors_write = (uint64_t)ahci_subsystem_write;
@@ -57,6 +54,10 @@ int drive_ahci_register(uint8_t port, uint64_t* pDriveId){
 	return 0;
 }
 int drive_unregister(uint64_t drive_id){
+	uint64_t pEntry = 0;
+	if (subsystem_get_entry(pDriveSubsystem, drive_id, &pEntry)!=0)
+		return -1;
+	kfree((void*)pEntry);
 	if (subsystem_free_entry(pDriveSubsystem, drive_id)!=0)
 		return -1;
 	return 0;

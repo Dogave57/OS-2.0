@@ -19,10 +19,10 @@ int subsystem_init(struct subsystem_desc** ppSubsystemDesc, uint64_t max_entries
 		return -1;
 	pSubsystemDesc->pEntries = pEntries;
 	pSubsystemDesc->pFreeEntries = pFreeEntries;
-	pSubsystemDesc->freeEntries = max_entries;
 	pSubsystemDesc->maxEntries = max_entries;
 	for (uint64_t i = 0;i<max_entries;i++){
-		subsystem_free_entry(pSubsystemDesc, max_entries-i);
+		if (subsystem_free_entry(pSubsystemDesc, max_entries-1-i)!=0)
+			return -1;
 	}
 	*ppSubsystemDesc = pSubsystemDesc;
 	return 0;
@@ -42,16 +42,15 @@ int subsystem_get_entry(struct subsystem_desc* pSubsystemDesc, uint64_t id, uint
 	*ppEntry = pEntry;
 	return 0;
 }
-int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, uint64_t size, uint64_t* pId){
-	if (!pId)
+int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, unsigned char* pEntry, uint64_t* pId){
+	if (!pId||!pEntry)
 		return -1;
 	if (!pSubsystemDesc->freeEntries)
 		return -1;
 	uint64_t id = pSubsystemDesc->pFreeEntries[pSubsystemDesc->freeEntries-1];
-	uint64_t pEntry = (uint64_t)kmalloc(size);
-	if (!pEntry)
+	if (id>=pSubsystemDesc->maxEntries)
 		return -1;
-	pSubsystemDesc->pEntries[id] = pEntry;
+	pSubsystemDesc->pEntries[id] = (uint64_t)pEntry;
 	pSubsystemDesc->freeEntries--;
 	*pId = id;
 	return 0;
@@ -61,9 +60,6 @@ int subsystem_free_entry(struct subsystem_desc* pSubsystemDesc, uint64_t id){
 		return -1;
 	if (pSubsystemDesc->freeEntries>=pSubsystemDesc->maxEntries)
 		return -1;
-	uint64_t pEntry = pSubsystemDesc->pEntries[id];
-	if (pEntry)
-		kfree((void*)pEntry);
 	pSubsystemDesc->pFreeEntries[pSubsystemDesc->freeEntries] = id;
 	pSubsystemDesc->freeEntries++;
 	return 0;

@@ -11,6 +11,6 @@ struct subsystem_desc{
 int subsystem_init(struct subsystem_desc** ppSubsystemDesc, uint64_t max_entries);
 int subsystem_deinit(struct subsystem_desc* pSubsystemDesc);
 int subsystem_get_entry(struct subsystem_desc* pSubsystemDesc, uint64_t id, uint64_t* ppEntry);
-int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, uint64_t size, uint64_t* pId);
+int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, unsigned char* pEntry, uint64_t* pId);
 int subsystem_free_entry(struct subsystem_desc* pSubsystemDesc, uint64_t id);
 #endif

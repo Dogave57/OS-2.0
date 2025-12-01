@@ -49,6 +49,7 @@ sudo $CC $CFLAGS -fpic -c kernel/crypto/guid.c -o build/objects/crypto/guid.o
 sudo $CC $CFLAGS -fpic -c kernel/crypto/random.c -o build/objects/crypto/random.o
 sudo $CC $CFLAGS -fpic -c kernel/panic.c -o build/objects/panic.o
 sudo $CC $CFLAGS -fpic -c kernel/drivers/filesystem/exfat.c -o build/objects/drivers/filesystem/exfat.o
+sudo $CC $CFLAGS -fpic -c kernel/subsystem/filesystem.c -o build/objects/subsystem/filesystem.o
 sudo $AS -f win64 kernel/stub.asm -o build/objects/kernel_stub.o
 sudo $AS -f win64 kernel/cpu/isrs.asm -o build/objects/cpu/isrs.o
 sudo $AS -f win64 kernel/cpu/gdt.asm -o build/objects/cpu/gdt_asm.o
@@ -58,7 +59,7 @@ sudo $AS -f win64 kernel/drivers/timer.asm -o build/objects/drivers/timer.o
 sudo $AS -f win64 kernel/drivers/thermal.asm -o build/objects/drivers/thermal.o
 sudo $AS -f win64 kernel/mem/vmm.asm -o build/objects/mem/vmm_asm.o
 echo linking kernel
-sudo $LD -subsystem:native build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o build/objects/drivers/filesystem/fat32.o build/objects/crypto/guid.o build/objects/crypto/random.o build/objects/panic.o build/objects/drivers/filesystem/exfat.o -entry:kernel_stub -out:build/build/kernel.exe
+sudo $LD -subsystem:native build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o build/objects/drivers/filesystem/fat32.o build/objects/crypto/guid.o build/objects/crypto/random.o build/objects/panic.o build/objects/drivers/filesystem/exfat.o build/objects/subsystem/filesystem.o -entry:kernel_stub -out:build/build/kernel.exe
 echo done
 case "$OS" in
 "Linux")
@@ -90,7 +91,7 @@ sudo mkdir rootfs_mnt
 echo attaching disk
 DEV=$(hdiutil attach -nomount drive.img | awk '{print $1}')
 echo partitioning disk
-sudo diskutil partitionDisk "$DEV" GPT FAT32 "ESP" 64MB ExFat "TEST" 256MB
+sudo diskutil partitionDisk "$DEV" GPT FAT32 "ESP" 64MB ExFat "TEST" 256MB FAT32 "SECONDARY" 128MB
 sudo diskutil unmount ${DEV}s1
 sudo diskutil unmount ${DEV}s2
 sudo newfs_msdos -F 32 -c 8 -v EFI ${DEV}s1

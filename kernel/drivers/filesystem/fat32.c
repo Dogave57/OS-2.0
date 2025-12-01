@@ -2,10 +2,23 @@
 #include "mem/vmm.h"
 #include "mem/heap.h"
 #include "subsystem/drive.h"
+#include "subsystem/filesystem.h"
 #include "align.h"
 #include "drivers/gpt.h"
 #include "drivers/timer.h"
 #include "drivers/filesystem/fat32.h"
+struct fs_driver_desc* pDriverDesc = (struct fs_driver_desc*)0x0;
+int fat32_init(void){
+	struct fs_driver_vtable vtable = {0};
+	vtable.verify = (fsVerifyFunc)fat32_subsystem_verify;
+	vtable.mount = (fsMountFunc)fat32_subsystem_mount;
+	vtable.unmount = (fsUnmountFunc)fat32_subsystem_unmount;
+	vtable.open = (fsOpenFunc)fat32_subsystem_open;
+	vtable.close = (fsCloseFunc)fat32_subsystem_close;
+	if (fs_driver_register(vtable, &pDriverDesc)!=0)
+		return -1;
+	return 0;
+}
 int fat32_mount(uint64_t drive_id, uint64_t partition_id, struct fat32_mount_handle** ppHandle){
 	if (!ppHandle)
 		return -1;
@@ -857,30 +870,23 @@ int fat32_verify(struct fat32_mount_handle* pMountHandle){
 	if (fat32_get_fsinfo(pMountHandle, &fsinfo)!=0)
 		return -1;
 	if (ebr.signature!=0x28&&ebr.signature!=0x29){
-		printf(L"invalid EBR signature 0x%x\r\n", ebr.signature);
 		return -1;
 	}
 	if (ebr.system_ident_string!=FAT32_SYSTEM_IDENT_STRING){
-		printf(L"invalid system identifier 0x%x\r\n", ebr.system_ident_string);
 		return -1;
 	}
 	if (fsinfo.signature0!=FAT32_SIGNATURE0){
-		printf(L"invalid signature 0 0x%x\r\n", fsinfo.signature0);
 		return -1;
 	}
 	if (fsinfo.signature1!=FAT32_SIGNATURE1){
-		printf(L"invalid signature 1 0x%x\r\n", fsinfo.signature1);
 		return -1;
 	}
 	if (fsinfo.signature2!=FAT32_SIGNATURE2){
-		printf(L"invalid signature 2 0x%x\r\n", fsinfo.signature2);
 		return -1;
 	}
 	uint64_t fat_sectors = 0;
 	if (fat32_get_sectors_per_fat(pMountHandle, &fat_sectors)!=0)
 		return -1;
-	printf(L"size: %dMB\r\n", (bpb.large_sector_count*DRIVE_SECTOR_SIZE)/MEM_MB);
-	printf(L"sectors per fat: %d\r\n", fat_sectors);
 	return 0;
 }
 int fat32_get_bpb(struct fat32_mount_handle* pMountHandle, struct fat32_bpb* pBpb){
@@ -987,5 +993,55 @@ int fat32_cache_last_sector(struct fat32_mount_handle* pMountHandle, uint64_t la
 		return -1;
 	pMountHandle->cacheInfo.last_sector = last_sector;
 	pMountHandle->cacheInfo.last_sector_cached = 1;
+	return 0;
+}
+int fat32_subsystem_verify(struct fs_mount* pMount){
+	if (!pMount)
+		return -1;
+	struct fat32_mount_handle* pMountHandle = (struct fat32_mount_handle*)pMount->pMountData;
+	if (!pMountHandle)
+		return -1;
+	if (fat32_verify(pMountHandle)!=0)
+		return -1;
+	return 0;
+}
+int fat32_subsystem_mount(uint64_t drive_id, uint64_t partition_id, struct fs_mount* pMount){
+	if (!pMount)
+		return -1;
+	struct fat32_mount_handle* pHandle = (struct fat32_mount_handle*)0x0;
+	if (fat32_mount(drive_id, partition_id, &pHandle)!=0)
+		return -1;
+	pMount->pMountData = (void*)pHandle;
+	return 0;
+}
+int fat32_subsystem_unmount(struct fs_mount* pMount){
+	if (!pMount)
+		return -1;
+	struct fat32_mount_handle* pHandle = (struct fat32_mount_handle*)pMount->pMountData;
+	if (!pHandle)
+		return -1;
+	if (fat32_unmount(pHandle)!=0)
+		return -1;
+	return 0;
+}
+int fat32_subsystem_open(struct fs_mount* pMount, uint16_t* filename, void* pFileHandle){
+	if (!pMount||!pFileHandle)
+		return -1;
+	struct fat32_mount_handle* pHandle = (struct fat32_mount_handle*)pMount->pMountData;
+	if (!pHandle)
+		return -1;
+	unsigned char filename_ascii[FAT32_FILENAME_LEN_MAX] = {0};
+	for (uint64_t i = 0;filename[i]&&i<FAT32_FILENAME_LEN_MAX;i++){
+		filename_ascii[i] = (unsigned char)(filename[i]);
+	}
+	if (fat32_openfile(pHandle, filename_ascii, (struct fat32_file_handle**)pFileHandle)!=0)
+		return -1;
+	return 0;
+}
+int fat32_subsystem_close(void* pFileHandle){
+	if (!pFileHandle)
+		return -1;
+	if (fat32_closefile((struct fat32_file_handle*)pFileHandle)!=0)
+		return -1;
 	return 0;
 }
