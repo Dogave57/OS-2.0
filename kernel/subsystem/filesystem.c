@@ -56,6 +56,132 @@ int fs_unmount(uint64_t id){
 		return -1;
 	return 0;
 }
+int fs_verify(uint64_t id){
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.verify)
+		return -1;
+	if (pMount->pDriver->vtable.verify(pMount)!=0)
+		return -1;
+	return 0;
+}
+int fs_open(uint64_t id, uint16_t* filename, uint64_t flags, uint64_t* pFileId){
+	if (!pFileId)
+		return -1;
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.open)
+		return -1;
+	void* pHandle = (void*)0x0;
+	if (pMount->pDriver->vtable.open(pMount, filename, &pHandle)!=0)
+		return -1;
+	uint64_t fileId = 0;
+	if (fs_handle_register(pHandle, &fileId)!=0)
+		return -1;
+	*pFileId = fileId;
+	return 0;
+}
+int fs_close(uint64_t mount_id, uint64_t file_id){
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	void* pFileHandle = (void*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.close)
+		return -1;
+	if (pMount->pDriver->vtable.close((void*)pFileHandle)!=0)
+		return -1;
+	return 0;
+}
+int fs_read(uint64_t mount_id, uint64_t file_id, unsigned char* pBuffer, uint64_t size){
+	if (!pBuffer)
+		return -1;
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	void* pFileHandle = (void*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.read)
+		return -1;
+	if (pMount->pDriver->vtable.read(pMount, pFileHandle, pBuffer, size)!=0)
+		return -1;
+	return 0;
+}
+int fs_write(uint64_t mount_id, uint64_t file_id, unsigned char* pBuffer, uint64_t size){
+	if (!pBuffer)
+		return -1;
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	void* pFileHandle = (void*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.write)
+		return -1;
+	if (pMount->pDriver->vtable.write(pMount, pFileHandle, pBuffer, size)!=0)
+		return -1;
+	return 0;
+}
+int fs_getFileInfo(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo){
+	if (!pFileInfo)
+		return -1;
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	void* pFileHandle = (void*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.getFileInfo)
+		return -1;
+	struct fs_file_info fileInfo = {0};
+	if (pMount->pDriver->vtable.getFileInfo(pMount, pFileHandle, &fileInfo)!=0)
+		return -1;
+	*pFileInfo = fileInfo;
+	return 0;
+}
+int fs_create(uint64_t mount_id, unsigned char* filename, uint64_t fileAttribs){
+	if (!filename)
+		return -1;
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.create)
+		return -1;
+	if (pMount->pDriver->vtable.create(pMount, (uint16_t*)filename, fileAttribs)!=0)
+		return -1;
+	return 0;
+}
+int fs_delete(uint64_t mount_id, uint64_t file_id){
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	void* pFileHandle = (void*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.delete)
+		return -1;
+	if (pMount->pDriver->vtable.delete(pMount, pFileHandle)!=0)
+		return -1;
+	return 0;
+}
+int fs_handle_register(void* pHandle, uint64_t* pHandleId){
+	if (!pHandle||!pHandleId)
+		return -1;
+	uint64_t handleId = 0;
+	if (subsystem_alloc_entry(pFileHandleSubsystem, (unsigned char*)pHandle, &handleId)!=0)
+		return -1;
+	*pHandleId = handleId;
+	return 0;
+}
+int fs_handle_unregister(uint64_t handleId){
+	if (subsystem_free_entry(pFileHandleSubsystem, handleId)!=0)
+		return -1;
+	return 0;
+}
 int fs_driver_register(struct fs_driver_vtable vtable, struct fs_driver_desc** ppDriverDesc){
 	if (!ppDriverDesc)
 		return -1;

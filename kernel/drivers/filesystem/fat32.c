@@ -15,6 +15,11 @@ int fat32_init(void){
 	vtable.unmount = (fsUnmountFunc)fat32_subsystem_unmount;
 	vtable.open = (fsOpenFunc)fat32_subsystem_open;
 	vtable.close = (fsCloseFunc)fat32_subsystem_close;
+	vtable.read = (fsReadFunc)fat32_subsystem_read;
+	vtable.write = (fsWriteFunc)fat32_subsystem_write;
+	vtable.getFileInfo = (fsGetFileInfoFunc)fat32_subsystem_getFileInfo;
+	vtable.create = (fsCreateFunc)fat32_subsystem_create_file;
+	vtable.delete = (fsDeleteFunc)fat32_subsystem_delete_file;
 	if (fs_driver_register(vtable, &pDriverDesc)!=0)
 		return -1;
 	return 0;
@@ -227,6 +232,8 @@ int fat32_readfile(struct fat32_file_handle* pFileHandle, unsigned char* pFileBu
 }
 int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileBuffer, uint32_t size){
 	if (!pFileHandle||!pFileBuffer)
+		return -1;
+	if (pFileHandle->fileEntry.file_attribs&FAT32_FILE_ATTRIBUTE_READONLY)
 		return -1;
 	uint64_t bytesPerCluster = 0;
 	struct fat32_mount_handle* pMountHandle = pFileHandle->pMountHandle;
@@ -554,7 +561,7 @@ int fat32_find_file(struct fat32_mount_handle* pMountHandle, unsigned char* file
 			mask = 0;
 		lastFileLocation = fileLocation;
 		if (fat32_find_file_in_dir(pMountHandle, fileLocation.fileDataCluster, filename+pathstart, &fileEntry, &fileLocation, mask)!=0){
-			printf_ascii("failed to find %s\r\n", filename+pathstart);
+			printf_ascii("failed to find %s in cluster %d\r\n", filename+pathstart, fileLocation.fileDataCluster);
 			return -1;
 		}
 		if (ch)
@@ -1024,24 +1031,91 @@ int fat32_subsystem_unmount(struct fs_mount* pMount){
 		return -1;
 	return 0;
 }
-int fat32_subsystem_open(struct fs_mount* pMount, uint16_t* filename, void* pFileHandle){
-	if (!pMount||!pFileHandle)
+int fat32_subsystem_open(struct fs_mount* pMount, uint16_t* filename, void** ppFileHandle){
+	if (!pMount||!ppFileHandle){
 		return -1;
-	struct fat32_mount_handle* pHandle = (struct fat32_mount_handle*)pMount->pMountData;
-	if (!pHandle)
-		return -1;
-	unsigned char filename_ascii[FAT32_FILENAME_LEN_MAX] = {0};
-	for (uint64_t i = 0;filename[i]&&i<FAT32_FILENAME_LEN_MAX;i++){
-		filename_ascii[i] = (unsigned char)(filename[i]);
 	}
-	if (fat32_openfile(pHandle, filename_ascii, (struct fat32_file_handle**)pFileHandle)!=0)
+	struct fat32_mount_handle* pHandle = (struct fat32_mount_handle*)pMount->pMountData;
+	if (!pHandle){
 		return -1;
+	}
+	unsigned char filename_ascii[FAT32_FILENAME_LEN_MAX] = {0};
+	for (uint64_t i = 0;i<FAT32_FILENAME_LEN_MAX;i++){
+		filename_ascii[i] = (unsigned char)(filename[i]);
+		if (!filename[i])
+			break;
+	}
+	filename_ascii[FAT32_FILENAME_LEN_MAX-1] = 0;
+	struct fat32_file_handle* pFileHandle = (struct fat32_file_handle*)0x0;
+	if (fat32_openfile(pHandle, filename_ascii, &pFileHandle)!=0){
+		return -1;
+	}
+	*ppFileHandle = (void*)pFileHandle;
 	return 0;
 }
 int fat32_subsystem_close(void* pFileHandle){
 	if (!pFileHandle)
 		return -1;
 	if (fat32_closefile((struct fat32_file_handle*)pFileHandle)!=0)
+		return -1;
+	return 0;
+}
+int fat32_subsystem_read(struct fs_mount* pMount, void* pFileHandle, unsigned char* pBuffer, uint64_t size){
+	if (!pMount||!pFileHandle||!pBuffer||!size)
+		return -1;
+	if (fat32_readfile((struct fat32_file_handle*)pFileHandle, pBuffer, size)!=0)
+		return -1;
+	return 0;
+}
+int fat32_subsystem_write(struct fs_mount* pMount, void* pFileHandle, unsigned char* pBuffer, uint64_t size){
+	if (!pMount||!pFileHandle||!pBuffer||!size)
+		return -1;
+	if (fat32_writefile((struct fat32_file_handle*)pFileHandle, pBuffer, size)!=0)
+		return -1;
+	return 0;
+}
+int fat32_subsystem_getFileInfo(struct fs_mount* pMount, void* pFileHandle, struct fs_file_info* pFileInfo){
+	if (!pMount||!pFileHandle||!pFileInfo)
+		return -1;
+	struct fs_file_info fileInfo = {0};
+	struct fat32_mount_handle* pMountHandle = (struct fat32_mount_handle*)pMount->pMountData;
+	if (!pMountHandle)
+		return -1;
+	uint64_t fileSize = 0;
+	uint64_t fatFileAttribs = 0;
+	if (fat32_get_file_size((struct fat32_file_handle*)pFileHandle, (uint32_t*)&fileSize)!=0)
+		return -1;
+	if (fat32_get_file_attributes((struct fat32_file_handle*)pFileHandle, (uint8_t*)&fatFileAttribs)!=0)
+		return -1;
+	uint64_t fileAttribs = 0;
+	fileAttribs|=fatFileAttribs&FAT32_FILE_ATTRIBUTE_HIDDEN ? FILE_ATTRIBUTE_HIDDEN : 0;
+	fileAttribs|=fatFileAttribs&FAT32_FILE_ATTRIBUTE_SYSTEM ? FILE_ATTRIBUTE_SYSTEM : 0;
+	fileAttribs|=fatFileAttribs&FAT32_FILE_ATTRIBUTE_READONLY ? FILE_ATTRIBUTE_READONLY : 0;
+	fileAttribs|=fatFileAttribs&FAT32_FILE_ATTRIBUTE_DIRECTORY ? FILE_ATTRIBUTE_DIRECTORY : 0;
+	fileInfo.fileSize = fileSize;
+	fileInfo.fileAttributes = fileAttribs;
+	*pFileInfo = fileInfo;
+	return 0;
+}
+int fat32_subsystem_create_file(struct fs_mount* pMount, unsigned char* filename, uint64_t fileAttribs){
+	if (!pMount||!filename)
+		return -1;
+	struct fat32_mount_handle* pMountHandle = (struct fat32_mount_handle*)pMount->pMountData;
+	if (!pMountHandle)
+		return -1;
+	uint8_t fatAttribs = 0;
+	fatAttribs|=fileAttribs&FILE_ATTRIBUTE_HIDDEN ? FAT32_FILE_ATTRIBUTE_HIDDEN : 0;
+	fatAttribs|=fileAttribs&FILE_ATTRIBUTE_SYSTEM ? FAT32_FILE_ATTRIBUTE_SYSTEM : 0;
+	fatAttribs|=fileAttribs&FILE_ATTRIBUTE_DIRECTORY ? FAT32_FILE_ATTRIBUTE_DIRECTORY : 0;
+	fatAttribs|=fileAttribs&FILE_ATTRIBUTE_READONLY ? FAT32_FILE_ATTRIBUTE_READONLY : 0;
+	if (fat32_createfile(pMountHandle, filename, (uint8_t)fatAttribs)!=0)
+		return -1;
+	return 0;
+}
+int fat32_subsystem_delete_file(struct fs_mount* pMount, void* pFileHandle){
+	if (!pMount||!pFileHandle)
+		return -1;
+	if (fat32_deletefile((struct fat32_file_handle*)pFileHandle)!=0)
 		return -1;
 	return 0;
 }

@@ -91,7 +91,7 @@ sudo mkdir rootfs_mnt
 echo attaching disk
 DEV=$(hdiutil attach -nomount drive.img | awk '{print $1}')
 echo partitioning disk
-sudo diskutil partitionDisk "$DEV" GPT FAT32 "ESP" 64MB ExFat "TEST" 256MB FAT32 "SECONDARY" 128MB
+sudo diskutil partitionDisk "$DEV" GPT FAT32 "ESP" 256MB FAT32 "SECONDARY" 128MB
 sudo diskutil unmount ${DEV}s1
 sudo diskutil unmount ${DEV}s2
 sudo newfs_msdos -F 32 -c 8 -v EFI ${DEV}s1
@@ -106,7 +106,7 @@ mkdir esp_mnt/files
 sudo cp -r fonts esp_mnt/FONTS
 sudo ls -R esp_mnt
 sudo umount esp_mnt
-sudo mount -t exfat ${DEV}s2 rootfs_mnt
+sudo mount -t msdos ${DEV}s2 rootfs_mnt
 sudo cp -r rootfs/ rootfs_mnt/
 sudo umount rootfs_mnt
 sudo hdiutil detach "$DEV"
