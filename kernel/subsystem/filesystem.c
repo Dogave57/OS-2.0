@@ -143,7 +143,7 @@ int fs_getFileInfo(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFi
 	*pFileInfo = fileInfo;
 	return 0;
 }
-int fs_create(uint64_t mount_id, unsigned char* filename, uint64_t fileAttribs){
+int fs_create(uint64_t mount_id, uint16_t* filename, uint64_t fileAttribs){
 	if (!filename)
 		return -1;
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
@@ -165,6 +165,69 @@ int fs_delete(uint64_t mount_id, uint64_t file_id){
 	if (!pMount->pDriver->vtable.delete)
 		return -1;
 	if (pMount->pDriver->vtable.delete(pMount, pFileHandle)!=0)
+		return -1;
+	return 0;
+}
+int fs_opendir(uint64_t mount_id, uint16_t* filename, uint64_t* pFileId){
+	if (!filename||!pFileId)
+		return -1;
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.opendir)
+		return -1;
+	void* pFileHandle = (void*)0x0;
+	uint64_t fileId = 0;
+	if (pMount->pDriver->vtable.opendir(pMount, filename, &pFileHandle)!=0)
+		return -1;
+	if (fs_handle_register(pFileHandle, &fileId)!=0){
+		if (pMount->pDriver->vtable.closedir)
+			pMount->pDriver->vtable.closedir(pFileHandle);
+		return -1;
+	}
+	*pFileId = fileId;
+	return 0;
+}
+int fs_read_dir(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo){
+	if (!pFileInfo)
+		return -1;
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	void* pFileHandle = (void*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.readDir)
+		return -1;
+	struct fs_file_info fileInfo = {0};
+	if (pMount->pDriver->vtable.readDir(pMount, pFileHandle, &fileInfo)!=0)
+		return -1;
+	*pFileInfo = fileInfo;
+	return 0;
+}
+int fs_rewind_dir(uint64_t mount_id, uint64_t file_id){
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	void* pFileHandle = (void*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.rewindDir)
+		return -1;
+	if (pMount->pDriver->vtable.rewindDir(pMount, pFileHandle)!=0)
+		return -1;
+	return 0;
+}
+int fs_closedir(uint64_t mount_id, uint64_t file_id){
+	struct fs_mount* pMount = (struct fs_mount*)0x0;
+	void* pFileHandle = (void*)0x0;
+	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0)
+		return -1;
+	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0)
+		return -1;
+	if (!pMount->pDriver->vtable.closedir)
+		return -1;
+	if (pMount->pDriver->vtable.closedir(pFileHandle)!=0)
 		return -1;
 	return 0;
 }

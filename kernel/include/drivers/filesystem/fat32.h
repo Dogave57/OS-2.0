@@ -143,11 +143,12 @@ int fat32_unmount(struct fat32_mount_handle* pMountHandle);
 int fat32_opendir(struct fat32_mount_handle* pMountHandle, unsigned char* filename, struct fat32_dir_handle** ppDirHandle);
 int fat32_closedir(struct fat32_dir_handle* pDirHandle);
 int fat32_read_dir(struct fat32_dir_handle* pDirHandle, struct fat32_simple_file_entry* pFileEntry);
-int fat32_rewind_dir(struct fat32_dir_handle* pDirHandle);
+int fat32_dir_rewind(struct fat32_dir_handle* pDirHandle);
 int fat32_openfile(struct fat32_mount_handle* pMountHandle, unsigned char* filename, struct fat32_file_handle** ppFileHandle);
 int fat32_closefile(struct fat32_file_handle* pFileHandle);
 int fat32_get_file_size(struct fat32_file_handle* pFileHandle, uint32_t* pFileSize);
 int fat32_get_file_attributes(struct fat32_file_handle* pFileHandle, uint8_t* pFileAttributes);
+int fat32_get_filename(struct fat32_file_handle* pFileHandle, unsigned char* filename);
 int fat32_renamefile(struct fat32_file_handle* pFileHandle, unsigned char* filename);
 int fat32_readfile(struct fat32_file_handle* pFileHandle, unsigned char* pBuffer, uint32_t size);
 int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileBuffer, uint32_t size);
@@ -197,4 +198,8 @@ int fat32_subsystem_write(struct fs_mount* pMount, void* pFileHandle, unsigned c
 int fat32_subsystem_getFileInfo(struct fs_mount* pMount, void* pFileHandle, struct fs_file_info* pFileInfo);
 int fat32_subsystem_create_file(struct fs_mount* pMount, unsigned char* filename, uint64_t fileAttribs);
 int fat32_subsystem_delete_file(struct fs_mount* pMount, void* pFileHandle);
+int fat32_subsystem_open_dir(struct fs_mount* pMount, unsigned char* filename, void** ppFileHandle);
+int fat32_subsystem_read_dir(struct fs_mount* pMount, void* pFileHandle, struct fs_file_info* pFileInfo);
+int fat32_subsystem_rewind_dir(struct fs_mount* pMount, void* pFileHandle);
+int fat32_subsystem_close_dir(void* pFileHandle);
 #endif

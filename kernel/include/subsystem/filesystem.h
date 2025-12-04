@@ -15,7 +15,9 @@ typedef int(*fsDeleteFunc)(struct fs_mount* pMount, void* pHandle);
 typedef int(*fsVerifyFunc)(struct fs_mount* pMount);
 typedef int(*fsMountFunc)(uint64_t drive_id, uint64_t partition_id, struct fs_mount* pMount);
 typedef int(*fsUnmountFunc)(struct fs_mount* pMount);
-typedef int(*fsOpenDirFunc)(struct fs_mount* pMount, uint16_t* filename, void** pDirHandle);
+typedef int(*fsOpenDirFunc)(struct fs_mount* pMount, uint16_t* filename, void** ppDirHandle);
+typedef int(*fsReadDirFunc)(struct fs_mount* pMount, void* pHandle, struct fs_file_info* pFileInfo);
+typedef int(*fsRewindDirFunc)(struct fs_mount* pMount, void* pHandle);
 typedef int(*fsCloseDirFunc)(void* pDirHandle);
 typedef int(*fsGetFileInfoFunc)(struct fs_mount* pMount, void* pHandle, struct fs_file_info* pFileInfo);
 struct fs_driver_vtable{
@@ -29,6 +31,8 @@ struct fs_driver_vtable{
 	fsMountFunc mount;
 	fsUnmountFunc unmount;
 	fsOpenDirFunc opendir;
+	fsReadDirFunc readDir;
+	fsRewindDirFunc rewindDir;
 	fsCloseDirFunc closedir;
 	fsGetFileInfoFunc getFileInfo;
 };
@@ -63,6 +67,7 @@ struct fs_driver_desc{
 struct fs_file_info{
 	uint64_t fileSize;
 	uint64_t fileAttributes;
+	unsigned char filename[256];
 };
 int fs_subsystem_init(void);
 int fs_mount(uint64_t drive_id, uint64_t partition_id, uint64_t* pId);
@@ -73,8 +78,12 @@ int fs_close(uint64_t mount_id, uint64_t file_id);
 int fs_read(uint64_t mount_id, uint64_t file_id, unsigned char* pFileBuffer, uint64_t fileSize);
 int fs_write(uint64_t mount_id, uint64_t file_id, unsigned char* pFileBuffer, uint64_t fileSize);
 int fs_getFileInfo(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo);
-int fs_create(uint64_t mount_id, unsigned char* filename, uint64_t fileAttribs);
+int fs_create(uint64_t mount_id, uint16_t* filename, uint64_t fileAttribs);
 int fs_delete(uint64_t mount_id, uint64_t file_id);
+int fs_opendir(uint64_t mount_id, uint16_t* filename, uint64_t* pFileId);
+int fs_read_dir(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo);
+int fs_rewind_dir(uint64_t mount_id, uint64_t file_id);
+int fs_closedir(uint64_t mount_id, uint64_t file_id);
 int fs_handle_register(void* pHandle, uint64_t* pHandleId);
 int fs_handle_unregister(uint64_t handleId);
 int fs_driver_detect(struct fs_mount* pMount, struct fs_driver_desc** ppDriverDesc);

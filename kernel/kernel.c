@@ -216,34 +216,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			continue;
 		}
 		printf(L"partition %d mounted with id %d\r\n", i, id);
-		uint64_t file_id = 0;
-		if (fs_open(id, L"TEST.TXT", 0, &file_id)!=0){
-			printf(L"failed to open file with fs subsystem\r\n");
-			continue;
-		}
-		struct fs_file_info fileInfo = {0};
-		if (fs_getFileInfo(id, file_id, &fileInfo)!=0){
-			printf(L"failed to get file info\r\n");
-			fs_close(id, file_id);
-			continue;
-		}
-		printf(L"file size: %d\r\n", fileInfo.fileSize);
-		unsigned char* pFileBuffer = (unsigned char*)kmalloc(fileInfo.fileSize);
-		if (!pFileBuffer){
-			printf(L"failed to allocate file buffer\r\n");
-			fs_close(id, file_id);
-			continue;
-		}
-		if (fs_read(id, file_id, pFileBuffer, fileInfo.fileSize)!=0){
-			printf(L"failed to read file\r\n");
-			fs_close(id, file_id);
-			kfree((void*)pFileBuffer);
-			continue;
-		}
-		if (fs_close(id, file_id)!=0){
-			printf(L"failed to close file with fs subsystem\r\n");
-			continue;
-		}
 	}
 	printf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};
