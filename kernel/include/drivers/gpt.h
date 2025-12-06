@@ -47,4 +47,5 @@ int gpt_get_partition_table_checksum(uint64_t id, uint32_t* pChecksum);
 int gpt_get_backup_partition_table_checksum(uint64_t id, uint32_t* pChecksum);
 int gpt_get_header_checksum(uint64_t id, uint32_t* pChecksum);
 int gpt_verify(uint64_t id);
+int gpt_get_partition_data_space(uint64_t drive_id, uint64_t* pSpace);
 #endif

@@ -66,7 +66,7 @@ int fs_verify(uint64_t id){
 		return -1;
 	return 0;
 }
-int fs_open(uint64_t id, uint16_t* filename, uint64_t flags, uint64_t* pFileId){
+int fs_open(uint64_t id, unsigned char* filename, uint64_t flags, uint64_t* pFileId){
 	if (!pFileId)
 		return -1;
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
@@ -143,7 +143,7 @@ int fs_getFileInfo(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFi
 	*pFileInfo = fileInfo;
 	return 0;
 }
-int fs_create(uint64_t mount_id, uint16_t* filename, uint64_t fileAttribs){
+int fs_create(uint64_t mount_id, unsigned char* filename, uint64_t fileAttribs){
 	if (!filename)
 		return -1;
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
@@ -151,7 +151,7 @@ int fs_create(uint64_t mount_id, uint16_t* filename, uint64_t fileAttribs){
 		return -1;
 	if (!pMount->pDriver->vtable.create)
 		return -1;
-	if (pMount->pDriver->vtable.create(pMount, (uint16_t*)filename, fileAttribs)!=0)
+	if (pMount->pDriver->vtable.create(pMount, filename, fileAttribs)!=0)
 		return -1;
 	return 0;
 }
@@ -168,7 +168,7 @@ int fs_delete(uint64_t mount_id, uint64_t file_id){
 		return -1;
 	return 0;
 }
-int fs_opendir(uint64_t mount_id, uint16_t* filename, uint64_t* pFileId){
+int fs_opendir(uint64_t mount_id, unsigned char* filename, uint64_t* pFileId){
 	if (!filename||!pFileId)
 		return -1;
 	struct fs_mount* pMount = (struct fs_mount*)0x0;

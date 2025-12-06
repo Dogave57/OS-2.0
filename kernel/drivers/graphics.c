@@ -27,7 +27,7 @@ int clear(void){
 	}
 	return 0;
 }
-int writechar(unsigned int position, CHAR16 ch){
+int writechar(unsigned int position, unsigned char ch){
 	if (ch>255)
 		ch = L' ';
 	unsigned int font_offset = ((8*16)/8)*ch;
@@ -49,7 +49,7 @@ int writechar(unsigned int position, CHAR16 ch){
 	serial_putchar(SERIAL_DEBUG_PORT, (unsigned char)ch);
 	return 0;
 }
-int putchar(CHAR16 ch){
+int putchar(unsigned char ch){
 	if (!pbootargs->graphicsInfo.font_initialized){
 		CHAR16 str[2] = {0};
 		str[0] = ch;
@@ -82,8 +82,9 @@ int putchar(CHAR16 ch){
 	char_position+=8;
 	return 0;
 }
-int putchar_ascii(unsigned char ch){
-	putchar((CHAR16)ch);
+int putlchar(uint16_t ch){
+	if (putchar((unsigned char)ch)!=0)
+		return -1;
 	return 0;
 }
 int puthex(unsigned char hex, unsigned char isUpper){
@@ -99,7 +100,7 @@ int puthex(unsigned char hex, unsigned char isUpper){
 		putchar(L'a'+hex-10);
 	return 0;
 }
-int print(CHAR16* string){
+int print(unsigned char* string){
 	if (!string)
 		return -1;
 	for (unsigned int i = 0;string[i];i++){
@@ -107,11 +108,11 @@ int print(CHAR16* string){
 	}
 	return 0;
 }
-int print_ascii(unsigned char* string){
-	if (!string)
+int lprint(uint16_t* lstring){
+	if (!lstring)
 		return -1;
-	for (unsigned int i = 0;string[i];i++){
-		putchar_ascii(string[i]);
+	for (unsigned int i = 0;lstring[i];i++){
+		putlchar(lstring[i]);
 	}
 	return 0;
 }

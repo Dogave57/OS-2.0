@@ -11,25 +11,25 @@ struct acpi_madtEntry_ioapic* pIoApicInfo = (struct acpi_madtEntry_ioapic*)0x0;
 struct aml_execution_context* pAmlContext = (struct aml_execution_context*)0x0;
 int acpi_init(void){
 	if (virtualMapPage((uint64_t)pbootargs->acpiInfo.pXsdp, (uint64_t)pbootargs->acpiInfo.pXsdp, PTE_RW, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
-		printf(L"failed to map XSDP\r\n");
+		printf("failed to map XSDP\r\n");
 		return -1;
 	}
 	pXsdp = (struct acpi_xsdp*)0x0;
 	pXsdt = (struct acpi_sdt_hdr*)0x0;
 	if (acpi_find_xsdp(&pXsdp)!=0){
-		printf(L"failed to find xsdp\r\n");
+		printf("failed to find xsdp\r\n");
 		return -1;
 	}
 	if (acpi_find_xsdt(&pXsdt)!=0){
-		printf(L"failed to find XSDT\r\n");
+		printf("failed to find XSDT\r\n");
 		return -1;
 	}
 	if (virtualMapPage((uint64_t)pXsdt, (uint64_t)pXsdt, PTE_RW, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
-		printf(L"failed to map XSDT\r\n");
+		printf("failed to map XSDT\r\n");
 		return -1;
 	}
 	if (pXsdt->signature!=XSDT_SIGNATURE){
-		printf(L"invalid XSDT\r\n");
+		printf("invalid XSDT\r\n");
 		return -1;
 	}
 	struct acpi_sdt_hdr** ptables = (struct acpi_sdt_hdr**)(pXsdt+1);
@@ -37,20 +37,20 @@ int acpi_init(void){
 	for (unsigned int i = 0;i<tablecnt;i++){
 		uint64_t ptable = (uint64_t)ptables[i];
 		if (virtualMapPage((uint64_t)ptable, (uint64_t)ptable, PTE_RW, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
-			printf(L"failed to map ACPI table\r\n");
+			printf("failed to map ACPI table\r\n");
 			return -1;
 		}
 	}
 	struct acpi_madt* madt = (struct acpi_madt*)0x0;
 	if (acpi_find_table('CIPA', (struct acpi_sdt_hdr**)&madt)!=0){
-		printf(L"failed to find MADT\r\n");
+		printf("failed to find MADT\r\n");
 		return -1;
 	}
 	if (madt->hdr.signature!='CIPA'){
-		printf(L"invalid MADT signature\r\n");
+		printf("invalid MADT signature\r\n");
 		return -1;
 	}
-	printf(L"LAPIC base: %p\r\n", madt->lapic_base);
+	printf("LAPIC base: %p\r\n", madt->lapic_base);
 	struct acpi_madtEntry_hdr* pMadtEntry = (struct acpi_madtEntry_hdr*)((unsigned char*)madt+0x2C);
 	unsigned int madtEntries = (madt->hdr.len-sizeof(struct acpi_sdt_hdr))/sizeof(struct acpi_madtEntry_hdr);
 	for (unsigned int i = 0;i<madtEntries;i++,pMadtEntry = (struct acpi_madtEntry_hdr*)((unsigned char*)pMadtEntry+pMadtEntry->len)){
@@ -59,11 +59,11 @@ int acpi_init(void){
 		pIoApicInfo = (struct acpi_madtEntry_ioapic*)(pMadtEntry+1);
 	}
 	if (!pIoApicInfo){
-		printf(L"failed to get IOAPIC info\r\n");
+		printf("failed to get IOAPIC info\r\n");
 		return -1;
 	}
 	if (aml_init_execution_context(&pAmlContext)!=0){
-		printf(L"failed to initialize AML execution context\r\n");
+		printf("failed to initialize AML execution context\r\n");
 		return -1;
 	}
 	return 0;
@@ -137,12 +137,12 @@ int aml_init_execution_context(struct aml_execution_context** ppExecutionContext
 		return -1;
 	uint64_t amlSize = pSdt->len-sizeof(struct acpi_sdt_hdr);
 	uint64_t amlPages = align_up(amlSize, PAGE_SIZE)/PAGE_SIZE;
-	printf(L"aml size: %dkb\r\n", amlSize/MEM_KB);
+	printf("aml size: %dkb\r\n", amlSize/MEM_KB);
 	unsigned char* pAml = (unsigned char*)(pSdt+1);
 	uint64_t stackSize = 8192;
 	unsigned char* pStackBase = (unsigned char*)kmalloc(stackSize);
 	if (!pStackBase){
-		printf(L"failed to allocate memory for stack\r\n");
+		printf("failed to allocate memory for stack\r\n");
 		return -1;
 	}
 	unsigned char* pStack = pStackBase+stackSize-8;
@@ -185,7 +185,7 @@ int aml_run_instruction(struct aml_execution_context* pExecutionContext){
 	return 0;	
 }
 int shutdown(void){
-	printf(L"shutting down...\r\n");
+	printf("shutting down...\r\n");
 	unsigned char* pAml = (unsigned char*)0x0;
 	uint64_t amlSize = 0;
 	return 0;

@@ -41,7 +41,7 @@ int exfat_open_file(struct exfat_mount_handle* pHandle, uint16_t* filename, stru
 	if (exfat_get_bytes_per_cluster(pHandle, &bytesPerCluster)!=0){
 		return -1;
 	}
-	printf(L"bytes per cluster: %d\r\n", bytesPerCluster);
+	printf("bytes per cluster: %d\r\n", bytesPerCluster);
 	return 0;
 }
 int exfat_close_file(struct exfat_file_handle* pFileHandle){
@@ -238,8 +238,8 @@ int exfat_verify(struct exfat_mount_handle* pHandle){
 	if (exfat_boot_region_validate(pHandle)!=0)
 		return -1;
 	uint64_t volumeSize = pBootSector->volumeSectors*DRIVE_SECTOR_SIZE;
-	printf(L"volume size: %dMB\r\n", volumeSize/MEM_MB);
-	printf(L"root cluster number: %d\r\n", pBootSector->rootDirCluster);
+	printf("volume size: %dMB\r\n", volumeSize/MEM_MB);
+	printf("root cluster number: %d\r\n", pBootSector->rootDirCluster);
 	return 0;
 }
 int exfat_boot_region_validate(struct exfat_mount_handle* pHandle){
@@ -277,13 +277,13 @@ int exfat_boot_region_validate(struct exfat_mount_handle* pHandle){
 		return -1;
 	}
 	if (validChecksum!=bootRegionChecksum){
-		printf(L"valid checksum: 0x%x\r\n", validChecksum);
-		printf(L"current checksum: 0x%x\r\n", bootRegionChecksum);
+		printf("valid checksum: 0x%x\r\n", validChecksum);
+		printf("current checksum: 0x%x\r\n", bootRegionChecksum);
 		return -1;
 	}
 	if (validBackupChecksum!=backupBootRegionChecksum){
-		printf(L"valid backup checksum: 0x%x\r\n", validBackupChecksum);
-		printf(L"current backup checksum: 0x%x\r\n", backupBootRegionChecksum);
+		printf("valid backup checksum: 0x%x\r\n", validBackupChecksum);
+		printf("current backup checksum: 0x%x\r\n", backupBootRegionChecksum);
 		return -1;
 	}
 	if (bootRegionChecksum!=backupBootRegionChecksum)

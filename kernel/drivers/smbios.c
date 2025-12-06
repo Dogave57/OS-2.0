@@ -8,7 +8,7 @@ struct smbios_hdr* pSmbiosData = (struct smbios_hdr*)0x0;
 int smbios_init(void){
 	struct smbios_hdr* pentry = (struct smbios_hdr*)0x0;
 	if (virtualMapPage((uint64_t)pbootargs->smbiosInfo.pSmbios, (uint64_t)pbootargs->smbiosInfo.pSmbios, PTE_RW, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
-		printf(L"failed to map SMBIOS entry point structure\r\n");
+		printf("failed to map SMBIOS entry point structure\r\n");
 		return -1;
 	}
 	uint64_t smbios_pages = pbootargs->smbiosInfo.pSmbios->tableLen/PAGE_SIZE;
@@ -16,7 +16,7 @@ int smbios_init(void){
 		smbios_pages++;
 	pSmbiosData = (struct smbios_hdr*)((uint64_t)pbootargs->smbiosInfo.pSmbios->tableAddr);
 	if (virtualMapPages((uint64_t)pSmbiosData, (uint64_t)pSmbiosData, PTE_RW, smbios_pages, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
-		printf(L"failed to map smbios tables\r\n");
+		printf("failed to map smbios tables\r\n");
 		return -1;
 	}
 	smbios_get_entry(SMBIOS_FIRMARE_INFO, &pentry);

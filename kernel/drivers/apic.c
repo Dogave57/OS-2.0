@@ -19,7 +19,7 @@ unsigned int x2lapic_supported = 0;
 int apic_init(void){
 	x2lapic_is_supported(&x2lapic_supported);
 	if (!x2lapic_supported){
-		printf(L"x2lapic is unsupported!\r\n");
+		printf("x2lapic is unsupported!\r\n");
 		return -1;
 	}
 	lapic_base = read_msr(LAPIC_BASE_MSR);
@@ -33,9 +33,9 @@ int apic_init(void){
 	uint64_t value = 0;
 	uint64_t div_conf = 3;
 	lapic_get_version(&lapic_version);
-	printf(L"LAPIC version: %x\r\n", lapic_version);
+	printf("LAPIC version: %x\r\n", lapic_version);
 	lapic_get_id(&main_lapic_id);
-	printf(L"LAPIC id: 0x%x\r\n", main_lapic_id);
+	printf("LAPIC id: 0x%x\r\n", main_lapic_id);
 	lapic_write_reg(LAPIC_REG_TPR, 0);
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
 	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
@@ -69,20 +69,20 @@ int apic_init(void){
 	value|=0x100;
 	lapic_write_reg(LAPIC_REG_SPI, value);
 	if (ioapic_get_base(&ioapic_base)){
-		printf(L"failed to get IOAPIC base\r\n");
+		printf("failed to get IOAPIC base\r\n");
 		return -1;
 	}
 	if (virtualMapPages(ioapic_base, ioapic_base, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 1, 1, 0, PAGE_TYPE_MMIO)!=0){
-		printf(L"failed to map IOAPIC\r\n");
+		printf("failed to map IOAPIC\r\n");
 		return -1;
 	}
 	ioapic_get_version(&ioapic_version);
 	ioapic_get_id(&ioapic_id);
 	ioapic_get_max_redirs(&ioapic_max_redirs);
-	printf(L"IOAPIC base: %p\r\n", (void*)ioapic_base);
-	printf(L"IOAPIC version: 0x%x\r\n", ioapic_version);
-	printf(L"IOAPIC id: 0x%x\r\n", ioapic_id);
-	printf(L"IOAPIC max redirection entries: %d\r\n", ioapic_max_redirs);
+	printf("IOAPIC base: %p\r\n", (void*)ioapic_base);
+	printf("IOAPIC version: 0x%x\r\n", ioapic_version);
+	printf("IOAPIC id: 0x%x\r\n", ioapic_id);
+	printf("IOAPIC max redirection entries: %d\r\n", ioapic_max_redirs);
 	ioapic_enable_irq(1, 0x40, (uint8_t)main_lapic_id);
 	inb(0x60);
 	lapic_send_eoi();

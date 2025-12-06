@@ -129,7 +129,6 @@ int fat32_openfile(struct fat32_mount_handle* pMountHandle, unsigned char* filen
 	struct fat32_file_location fileLocation = {0};
 	struct fat32_file_entry fileEntry = {0};
 	if (fat32_find_file(pMountHandle, filename, &fileEntry, &fileLocation,0)!=0){
-		printf(L"failed to find file\r\n");
 		return -1;
 	}
 	struct fat32_file_handle* pFileHandle = (struct fat32_file_handle*)kmalloc(sizeof(struct fat32_file_handle));
@@ -163,7 +162,7 @@ int fat32_get_file_attributes(struct fat32_file_handle* pFileHandle, uint8_t* pF
 int fat32_get_filename(struct fat32_file_handle* pFileHandle, unsigned char* filename){
 	if (!pFileHandle||!filename)
 		return -1;
-	strcpy_ascii(filename, pFileHandle->fileEntry.filename);
+	strcpy(filename, pFileHandle->fileEntry.filename);
 	return 0;
 }
 int fat32_renamefile(struct fat32_file_handle* pFileHandle, unsigned char* filename){
@@ -293,18 +292,15 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 	for (uint64_t i = 0;i<fileClusters&&clustersToFree;i++){
 		if (i<fileClusters-clustersToFree){
 			if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0){
-				printf(L"failed to read next cluster\r\n");
 				return -1;
 			}
 			continue;
 		}
 		struct fat32_cluster_entry nextCluster = {0};
 		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &nextCluster)!=0){
-			printf(L"failed to read next cluster\r\n");
 			return -1;
 		}
 		if (fat32_free_cluster(pMountHandle, currentCluster.cluster_value)!=0){
-			printf(L"failed to free cluster\r\n");
 			return -1;	
 		}
 		currentCluster = nextCluster;
@@ -320,7 +316,6 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 				return -1;
 			memcpy((unsigned char*)pClusterData, (pFileBuffer+(i*bytesPerCluster)), alignOffset);
 			if (fat32_write_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
-				printf(L"failed to write last misaligned cluster\r\n");
 				return -1;
 			}
 			kfree((void*)pClusterData);
@@ -329,11 +324,9 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 		}
 		unsigned char* pClusterData = pFileBuffer+(i*bytesPerCluster);
 		if (fat32_write_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
-			printf(L"failed to write cluster %d with id %d\r\n", i, currentCluster.cluster_value);
 			return -1;
 		}
 		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0&&i!=fileClusters-1){
-			printf(L"failed to read next cluster\r\n");
 			return -1;
 		}
 	}
@@ -380,22 +373,8 @@ int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* fil
 		filename[i] = '/';
 		pathstart = i+1;
 	}
-	struct fat32_cluster_entry firstDataCluster = {0};
 	struct fat32_cluster_entry currentCluster = {0};
-	firstDataCluster.cluster_value = bpb.ebr.root_cluster_number;
-	if (dirLocation.fileCluster!=bpb.ebr.root_cluster_number){
-		unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
-		if (!pClusterData)
-			return -1;
-		if (fat32_read_cluster_data(pMountHandle, dirLocation.fileCluster, pClusterData)!=0){
-			kfree((void*)pClusterData);
-			return -1;
-		}
-		struct fat32_file_entry* pFileEntry = ((struct fat32_file_entry*)pClusterData)+dirLocation.fileIndex;
-		firstDataCluster.cluster_value = ((uint32_t)pFileEntry->entry_first_cluster_high)|((uint32_t)pFileEntry->entry_first_cluster_low);
-		kfree((void*)pClusterData);
-	}
-	currentCluster = firstDataCluster;
+	currentCluster.cluster_value = ((uint32_t)(dirEntry.entry_first_cluster_high)<<16)|((uint32_t)dirEntry.entry_first_cluster_low);
 	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
 	if (!pClusterData)
 		return -1;
@@ -506,6 +485,8 @@ int fat32_string_to_filename(unsigned char* dest, unsigned char* src){
 	}
 	for (uint64_t i = 0;src[i]&&i<FAT32_FILENAME_LEN_MAX;i++){
 		unsigned char ch = src[i];
+		if (ch>='a'&&ch<='z')
+			ch = 'A'+(ch-'a');
 		if (ch=='.'){
 			if (src[i+1])
 				dest[8] = src[i+1];
@@ -534,6 +515,8 @@ int fat32_file_entry_namecmp(struct fat32_file_entry fileEntry, unsigned char* f
 		unsigned char ch = filename[i];
 		if (!ch)
 			break;
+		if (ch>='a'&&ch<='z')
+			ch = 'A'+(ch-'a');
 		if (ch=='.'){
 			if (fileEntry.filename[8]!=filename[i+1]||fileEntry.filename[9]!=filename[i+2]||fileEntry.filename[10]!=filename[i+3])
 				return -1;
@@ -571,7 +554,6 @@ int fat32_find_file(struct fat32_mount_handle* pMountHandle, unsigned char* file
 			mask = 0;
 		lastFileLocation = fileLocation;
 		if (fat32_find_file_in_dir(pMountHandle, fileLocation.fileDataCluster, filename+pathstart, &fileEntry, &fileLocation, mask)!=0){
-			printf_ascii("failed to find %s in cluster %d\r\n", filename+pathstart, fileLocation.fileDataCluster);
 			return -1;
 		}
 		if (ch)
@@ -688,13 +670,11 @@ int fat32_allocate_cluster(struct fat32_mount_handle* pMountHandle, uint32_t* pN
 		return -1;
 	uint32_t newCluster = 0;
 	if (fat32_get_free_cluster(pMountHandle, &newCluster, 0)!=0){
-		printf(L"failed to get free cluster\r\n");
 		return -1;
 	}
 	struct fat32_cluster_entry newEntry = {0};
 	newEntry.cluster_value = newCluster+1;
 	if (fat32_writecluster(pMountHandle, newCluster, newEntry)!=0){
-		printf(L"failed to write to cluster\r\n");
 		return -1;
 	}
 	*pNewCluster = newCluster;
@@ -1041,7 +1021,7 @@ int fat32_subsystem_unmount(struct fs_mount* pMount){
 		return -1;
 	return 0;
 }
-int fat32_subsystem_open(struct fs_mount* pMount, uint16_t* filename, void** ppFileHandle){
+int fat32_subsystem_open(struct fs_mount* pMount, unsigned char* filename, void** ppFileHandle){
 	if (!pMount||!ppFileHandle){
 		return -1;
 	}
@@ -1049,15 +1029,8 @@ int fat32_subsystem_open(struct fs_mount* pMount, uint16_t* filename, void** ppF
 	if (!pHandle){
 		return -1;
 	}
-	unsigned char filename_ascii[FAT32_FILENAME_LEN_MAX] = {0};
-	for (uint64_t i = 0;i<FAT32_FILENAME_LEN_MAX;i++){
-		filename_ascii[i] = (unsigned char)(filename[i]);
-		if (!filename[i])
-			break;
-	}
-	filename_ascii[FAT32_FILENAME_LEN_MAX-1] = 0;
 	struct fat32_file_handle* pFileHandle = (struct fat32_file_handle*)0x0;
-	if (fat32_openfile(pHandle, filename_ascii, &pFileHandle)!=0){
+	if (fat32_openfile(pHandle, filename, &pFileHandle)!=0){
 		return -1;
 	}
 	*ppFileHandle = (void*)pFileHandle;
@@ -1166,9 +1139,7 @@ int fat32_subsystem_read_dir(struct fs_mount* pMount, void* pFileHandle, struct 
 	fileAttribs|=fatAttribs&FAT32_FILE_ATTRIBUTE_READONLY ? FILE_ATTRIBUTE_READONLY : 0;
 	fileInfo.fileSize = fatFileEntry.fileSize;
 	fileInfo.fileAttributes = fileAttribs;
-	for (uint64_t i = 0;i<FAT32_FILENAME_LEN_MAX;i++){
-		fileInfo.filename[i] = (uint16_t)fatFileEntry.filename[i];
-	}
+	memcpy((void*)fileInfo.filename, (void*)fatFileEntry.filename, FAT32_FILENAME_LEN_MAX);
 	*pFileInfo = fileInfo;
 	return 0;
 }

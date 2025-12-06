@@ -191,7 +191,7 @@ int fat32_flush_cache(struct fat32_mount_handle* pMountHandle);
 int fat32_subsystem_verify(struct fs_mount* pMount);
 int fat32_subsystem_mount(uint64_t drive_id, uint64_t partition_id, struct fs_mount* pMount);
 int fat32_subsystem_unmount(struct fs_mount* pMount);
-int fat32_subsystem_open(struct fs_mount* pMount, uint16_t* filename, void** pFileHandle);
+int fat32_subsystem_open(struct fs_mount* pMount, unsigned char* filename, void** pFileHandle);
 int fat32_subsystem_close(void* pFileHandle);
 int fat32_subsystem_read(struct fs_mount* pMount, void* pFileHandle, unsigned char* pBuffer, uint64_t size);
 int fat32_subsystem_write(struct fs_mount* pMount, void* pFileHandle, unsigned char* pBuffer, uint64_t size);

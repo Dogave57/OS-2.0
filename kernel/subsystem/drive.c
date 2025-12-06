@@ -8,31 +8,31 @@
 struct subsystem_desc* pDriveSubsystem = (struct subsystem_desc*)0x0;
 int drive_subsystem_init(void){
 	if (subsystem_init(&pDriveSubsystem, 512)!=0){
-		printf(L"failed to initialize drive subsystem\r\n");
+		printf("failed to initialize drive subsystem\r\n");
 		return -1;
 	}
 	if (!pDriveSubsystem){
-		printf(L"failed to get subsystem\r\n");
+		printf("failed to get subsystem\r\n");
 		return -1;
 	}
 	uint64_t id = 0;
 	if (pbootargs->driveInfo.driveType==DRIVE_TYPE_INVALID){
-		panic(L"unsupported boot device\r\n");
+		panic("unsupported boot device\r\n");
 		while (1){};
 	}
 	if (pbootargs->driveInfo.driveType==DRIVE_TYPE_AHCI){
 		if (drive_ahci_register(pbootargs->driveInfo.port, &id)!=0){
-			printf(L"failed to register boot device in drive subsystem\r\n");
+			printf("failed to register boot device in drive subsystem\r\n");
 			return -1;
 		}
 	}
 	struct drive_info driveInfo = {0};
 	if (drive_get_info(id, &driveInfo)!=0){
-		printf(L"failed to get drive info\r\n");
+		printf("failed to get drive info\r\n");
 		return -1;
 	}
-	printf(L"drive size: %dMB\r\n", (driveInfo.sector_count*512)/MEM_MB);
-	printf(L"boot drive id: %d\r\n", id);
+	printf("drive size: %dMB\r\n", (driveInfo.sector_count*512)/MEM_MB);
+	printf("boot drive id: %d\r\n", id);
 	return 0;
 }
 int drive_ahci_register(uint8_t port, uint64_t* pDriveId){
@@ -47,7 +47,7 @@ int drive_ahci_register(uint8_t port, uint64_t* pDriveId){
 	pDev->hdr.sectors_write = (uint64_t)ahci_subsystem_write;
 	pDev->hdr.getDriveInfo = (uint64_t)ahci_subsystem_get_drive_info;
 	if (ahci_get_drive_info(port, &pDev->driveInfo)!=0){
-		printf(L"failed to get drive info\r\n");
+		printf("failed to get drive info\r\n");
 		return -1;
 	}
 	*pDriveId = id;	

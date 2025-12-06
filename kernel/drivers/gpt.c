@@ -145,17 +145,17 @@ int gpt_set_header(uint64_t id, struct gpt_header newGptHeader){
 		return -1;
 	unsigned char sectorData[512] = {0};
 	if (drive_read_sectors(id, 1, 1, (unsigned char*)sectorData)!=0){
-		printf(L"failed to read GPT header sector\r\n");
+		printf("failed to read GPT header sector\r\n");
 		return -1;
 	}
 	struct gpt_header* pGptHeader = (struct gpt_header*)sectorData;
 	*pGptHeader = newGptHeader;
 	if (drive_write_sectors(id, 1, 1, (unsigned char*)sectorData)!=0){
-		printf(L"failed to write to GPT header\r\n");
+		printf("failed to write to GPT header\r\n");
 		return -1;
 	}
 	if (drive_write_sectors(id, newGptHeader.backup_header_lba, 1, (unsigned char*)sectorData)!=0){
-		printf(L"failed to write to backup header\r\n");
+		printf("failed to write to backup header\r\n");
 		return -1;
 	}
 	if (last_drive_id==id){
@@ -257,16 +257,31 @@ int gpt_verify(uint64_t id){
 	if (gpt_get_header_checksum(id, &header_checksum)!=0)
 		return -1;
 	if (gptHeader.checksum!=header_checksum){
-		printf(L"header checksum no match\r\n");
+		printf("header checksum no match\r\n");
 		return -1;
 	}
 	if (gptHeader.partition_checksum!=partition_table_checksum){
-		printf(L"normal partition table checksum no match\r\n");
+		printf("normal partition table checksum no match\r\n");
 		return -1;
 	}
 	if (gptHeader.partition_checksum!=backup_partition_table_checksum){
-		printf(L"backup partition table checksum no match\r\n");
+		printf("backup partition table checksum no match\r\n");
 		return -1;
 	}
+	return 0;
+}
+int gpt_get_partition_data_space(uint64_t drive_id, uint64_t* pSpace){
+	if (!pSpace)
+		return -1;
+	struct gpt_header gptHeader = {0};
+	if (gpt_get_header(drive_id, &gptHeader)!=0)
+		return -1;
+	struct drive_info driveInfo = {0};
+	if (drive_get_info(drive_id, &driveInfo)!=0)
+		return -1;
+	uint64_t gptMetadataSize = (gptHeader.headerSize+(gptHeader.partition_entry_size*gptHeader.partition_count))*2;
+	uint64_t driveSize = driveInfo.sector_count*DRIVE_SECTOR_SIZE;
+	uint64_t dataSpace = driveSize-gptMetadataSize;
+	*pSpace = dataSpace;
 	return 0;
 }

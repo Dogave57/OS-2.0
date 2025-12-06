@@ -7,11 +7,11 @@
 struct pcie_info pcie_info = {0};
 int pcie_init(void){
 	if (pcie_get_info(&pcie_info)!=0){
-		printf(L"failed to get PCIE controller info\r\n");
+		printf("failed to get PCIE controller info\r\n");
 		return -1;
 	}
 	if (virtualMapPages(pcie_info.pBase, pcie_info.pBase, PTE_RW, 16, 1, 0, PAGE_TYPE_MMIO)!=0){
-		printf(L"failed to map PCIE controller registers\r\n");
+		printf("failed to map PCIE controller registers\r\n");
 		return -1;
 	}
 	for (uint8_t bus = 0;bus<255;bus++){
@@ -22,24 +22,24 @@ int pcie_init(void){
 				uint8_t class = 0;
 				uint8_t subclass = 0;
 				if (pcie_get_vendor_id(bus, dev, func, &vendor_id)!=0){
-					printf(L"failed to get vendor id of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
+					printf("failed to get vendor id of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
 					return -1;		
 				}
 				if (vendor_id==0xffff)
 					continue;
 				if (pcie_get_device_id(bus, dev, func, &dev_id)!=0){
-					printf(L"failed to get device id of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
+					printf("failed to get device id of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
 					return -1;
 				}
 				if (pcie_get_class(bus, dev, func, &class)!=0){
-					printf(L"failed to get class of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
+					printf("failed to get class of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
 					return -1;
 				}
 				if (pcie_get_subclass(bus, dev, func, &subclass)!=0){
-					printf(L"failed to get subclass of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
+					printf("failed to get subclass of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
 					return -1;
 				}
-				printf(L"vendor id: 0x%x | device id: 0x%x | class: 0x%x | subclass: 0x%x\r\n", vendor_id, dev_id, class, subclass);
+				printf("vendor id: 0x%x | device id: 0x%x | class: 0x%x | subclass: 0x%x\r\n", vendor_id, dev_id, class, subclass);
 			}
 		}
 	}
@@ -50,13 +50,13 @@ int pcie_get_info(struct pcie_info* pInfo){
 		return -1;
 	struct acpi_mcfgHdr* pHdr = (struct acpi_mcfgHdr*)0x0;
 	if (acpi_find_table((unsigned int)'GFCM', (struct acpi_sdt_hdr**)&pHdr)!=0){
-		printf(L"failed to get MCFG table\r\n");
+		printf("failed to get MCFG table\r\n");
 		return -1;
 	}
 	struct acpi_mcfgEntry* pFirstEntry = (struct acpi_mcfgEntry*)(((unsigned char*)pHdr)+0x2C);
 	uint64_t entryCnt = (pHdr->hdr.len-sizeof(struct acpi_sdt_hdr))/sizeof(struct acpi_mcfgEntry);
 	if (!entryCnt){
-		printf(L"no PCIE controller!\r\n");
+		printf("no PCIE controller!\r\n");
 		return -1;
 	}
 	pInfo->pBase = pFirstEntry->pBase;

@@ -14,16 +14,16 @@ int pmm_init(void){
 	getInstalledMemory(&installedMemory); 
 	getFreeMemory(&freeMemory);
 	if (allocatePageTable()!=0){
-		printf(L"failed to allocate memory for physical page table\r\n");
+		printf("failed to allocate memory for physical page table\r\n");
 		return -1;
 	}
 	if (initPageTable()!=0){
-		printf(L"failed to intialize physical page table\r\n");
+		printf("failed to intialize physical page table\r\n");
 		return -1;
 	}
-	printf(L"installed memory + hardware memory: %dmb\r\n", totalMemory/MEM_MB);
-	printf(L"installed memory: %dmb\r\n", installedMemory/MEM_MB);
-	printf(L"free memory: %dmb\r\n", freeMemory/MEM_MB);
+	printf("installed memory + hardware memory: %dmb\r\n", totalMemory/MEM_MB);
+	printf("installed memory: %dmb\r\n", installedMemory/MEM_MB);
+	printf("free memory: %dmb\r\n", freeMemory/MEM_MB);
 	return 0;
 }
 int getTotalMemory(uint64_t* pTotalMemory){
@@ -81,7 +81,7 @@ int allocatePageTable(void){
 	uint64_t max_pages = totalMemory/PAGE_SIZE;
 	uint64_t pt_size = (max_pages*(sizeof(struct p_page)+sizeof(struct p_page*)+sizeof(struct p_page*))+sizeof(struct p_pt_info));
 	if (physicalAllocRaw((uint64_t*)&pt, pt_size)!=0){
-		printf(L"failed to allocate page tables\r\n");
+		printf("failed to allocate page tables\r\n");
 		return -1;
 	}
 	pt->pt_size = pt_size;
@@ -127,12 +127,12 @@ int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType){
 	if (!pPhysicalAddress)
 		return -1;
 	if (!pt->freeEntryCnt){
-		printf(L"out of memory\r\n");
+		printf("out of memory\r\n");
 		return -1;	
 	}
 	struct p_page* pNewPage = pt->pFreeEntries[pt->freeEntryCnt-1];
 	if (!pNewPage){
-		printf(L"invalid free entry\r\n");
+		printf("invalid free entry\r\n");
 		return -1;
 	}
 	pNewPage->status = PAGE_INUSE;
@@ -157,7 +157,7 @@ int physicalFreePage(uint64_t physicalAddress){
 	pt->freeEntryCnt++;
 	pt->usedEntryCnt--;
 	if (pt->freeEntryCnt>pt->maxFreeEntries){
-		panic(L"too many free physical pages!\r\n");
+		panic("too many free physical pages!\r\n");
 	}
 	return 0;
 }
@@ -193,7 +193,7 @@ int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size){
 		}
 		*pPhysicalAddress = (uint64_t)pMemDesc->PhysicalStart;
 	}
-	printf(L"failed to find %d page entries to fit block of size: %d\r\n", requestedPages, size);
+	printf("failed to find %d page entries to fit block of size: %d\r\n", requestedPages, size);
 	return -1;
 }
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size){
