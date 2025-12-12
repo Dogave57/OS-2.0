@@ -7,7 +7,7 @@
 #include "drivers/gpt.h"
 #include "drivers/timer.h"
 #include "drivers/filesystem/fat32.h"
-struct fs_driver_desc* pDriverDesc = (struct fs_driver_desc*)0x0;
+static struct fs_driver_desc* pDriverDesc = (struct fs_driver_desc*)0x0;
 int fat32_init(void){
 	struct fs_driver_vtable vtable = {0};
 	vtable.verify = (fsVerifyFunc)fat32_subsystem_verify;

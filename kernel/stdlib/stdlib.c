@@ -31,7 +31,7 @@ int atoi(long long num, unsigned char* buf, unsigned int bufmax){
 int printf(unsigned char* fmt, ...){
 	if (!fmt)
 		return -1;
-	va_list args = 0;
+	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
 		CHAR16 ch = fmt[i];
@@ -96,7 +96,7 @@ int printf(unsigned char* fmt, ...){
 int lprintf(uint16_t* fmt, ...){
 	if (!fmt)
 		return -1;
-	va_list args = 0;
+	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
 		CHAR16 ch = fmt[i];

@@ -1,5 +1,6 @@
 #ifndef _GRAPHICS
 #define _GRAPHICS
+#include "kernel_include.h"
 #include "bootloader.h"
 struct vec2{
 	unsigned char x, y;
@@ -10,18 +11,18 @@ struct vec3{
 struct vec4{
 	unsigned char x, y, z, w;
 };
-int write_pixel_coord(struct vec2 coord, struct vec3 color);
-int write_pixel(unsigned int pixel, struct vec3 color);
-int clear(void);
-int writechar(unsigned int position, unsigned char ch);
-int putchar(unsigned char ch);
-int putlchar(uint16_t ch);
-int puthex(unsigned char hex, unsigned char isUpper);
-int print(unsigned char* string);
-int lprint(uint16_t* lstring);
+KAPI int write_pixel_coord(struct vec2 coord, struct vec3 color);
+KAPI int write_pixel(unsigned int pixel, struct vec3 color);
+KAPI int clear(void);
+KAPI int writechar(unsigned int position, unsigned char ch);
+KAPI int putchar(unsigned char ch);
+KAPI int putlchar(uint16_t ch);
+KAPI int puthex(unsigned char hex, unsigned char isUpper);
+KAPI int print(unsigned char* string);
+KAPI int lprint(uint16_t* lstring);
 int init_fonts(void);
-int set_text_color(struct vec3 fg, struct vec3 bg);
-int get_text_color(struct vec3* pFg, struct vec3* pBg);
+KAPI int set_text_color(struct vec3 fg, struct vec3 bg);
+KAPI int get_text_color(struct vec3* pFg, struct vec3* pBg);
 static unsigned char mainfont_data[][16]={
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  },       //0x00, 
         { 0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD, 0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00,  },       //0x01, 

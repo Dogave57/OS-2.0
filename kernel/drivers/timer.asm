@@ -21,7 +21,7 @@ xor rax, rax
 ret
 set_time_ms:
 cli
-mov qword [rel time_ms], rcx
+mov qword [rel time_ms], rdi
 sti
 xor rax, rax
 ret
@@ -37,7 +37,7 @@ sti
 ret
 timer_set_tpms:
 cli
-mov qword [rel tick_per_ms], rcx
+mov qword [rel tick_per_ms], rdi
 sti
 xor rax, rax
 ret
@@ -47,7 +47,7 @@ mov rdx, rax
 sleep_loop:
 call get_time_ms
 sub rax, rdx
-cmp rax, rcx
+cmp rax, rdi
 jb sleep_loop
 xor rax, rax
 ret

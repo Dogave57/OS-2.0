@@ -58,16 +58,16 @@ struct IMAGE_SECTION_HEADER{
 	uint16_t numberOfRelocations;
 	uint16_t numberOfLineNumbers;
 	uint32_t characteristics;
-};
+}__attribute__((packed));
 struct IMAGE_DATA_DIRECTORY{
 	uint32_t virtualAddress;
 	uint32_t size;
-};
+}__attribute__((packed));
 struct IMAGE_BASE_RELOCATION{
 	uint32_t virtualAddress;
 	uint32_t sizeOfBlock;
 	uint16_t relocData[];
-};
+}__attribute__((packed));
 struct PE_HDR{
 	uint32_t magic;
 	uint16_t machine;
@@ -77,7 +77,7 @@ struct PE_HDR{
 	uint32_t symbol_cnt;
 	uint16_t optheader_size;
 	uint16_t characteristics;
-};
+}__attribute__((packed));
 struct PE32_OPTHDR{
 	uint16_t magic;
 	uint8_t majorLinkerVersion;
@@ -108,7 +108,7 @@ struct PE32_OPTHDR{
 	uint32_t sizeOfHeapCommit;
 	uint32_t loaderFlags;
 	uint32_t numberOfRvaAndSizes;
-};
+}__attribute__((packed));
 struct PE64_OPTHDR{
 	uint16_t magic;
 	uint8_t majorLinkerVersion;
@@ -140,5 +140,31 @@ struct PE64_OPTHDR{
 	uint32_t loaderFlags;
 	uint32_t numberOfRvaAndSizes;
 	struct IMAGE_DATA_DIRECTORY dataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
-};
+}__attribute__((packed));
+struct EXPORT_TABLE_HEADER{
+	uint32_t exportFlags;
+	uint32_t timeDateStamp;
+	uint16_t majorVersion;
+	uint16_t minorVersion;
+	uint32_t nameRva;
+	uint32_t ordinalBase;
+	uint32_t addressTableEntryCount;
+	uint32_t namePointerEntryCount;
+	uint32_t addressTableRva;
+	uint32_t namePointerRva;
+	uint32_t nameOrdinalTableRva;
+}__attribute__((packed));
+struct IMAGE_IMPORT_DESC{
+	uint32_t originalFirstThunk;
+	uint32_t timeDateStamp;
+	uint32_t fowarderChain;
+	uint32_t nameRva;
+	uint32_t firstThunk;
+}__attribute__((packed));
+struct IMAGE_THUNK_DATA64{
+	uint64_t fowarderStringRva;
+	uint64_t function;
+	uint64_t ordinal;
+	uint64_t addressOfData;
+}__attribute__((packed));
 #endif

@@ -53,7 +53,7 @@ int virtualFreePage(uint64_t va, uint64_t map_flags);
 int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType);
 int virtualFreePages(uint64_t va, uint64_t pagecnt);
 int virtualAlloc(uint64_t* pva, uint64_t size, uint64_t flags, uint64_t map_flags, uint32_t pageType);
-int virtualFree(uint64_t va, uint64_t pagecnt);
+int virtualFree(uint64_t va, uint64_t size);
 uint64_t get_pt(void);
 int load_pt(uint64_t pml4);
 int flush_tlb(uint64_t va);

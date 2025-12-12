@@ -25,8 +25,10 @@
 #include "drivers/filesystem/fluxfs.h"
 #include "crypto/guid.h"
 #include "crypto/random.h"
+#include "kexts/loader.h"
 #include "panic.h"
 #include "align.h"
+#include "partition_conf.h"
 #include "cpu/gdt.h"
 EFI_SYSTEM_TABLE* systab = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
@@ -75,6 +77,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	printf("VMM initialized\r\n");
 	if (heap_init()!=0){
 		printf("failed to initialize heap\r\n");
 		while (01){};
@@ -140,7 +143,8 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	uint64_t elapsed_ms = get_time_ms()-before_ms;
-	printf("%dGB/s allocation\r\n", (1000/((MEM_GB/PAGE_SIZE)/pagecnt))/elapsed_ms);
+	if (elapsed_ms)
+		printf("%dGB/s allocation\r\n", (1000/((MEM_GB/PAGE_SIZE)/pagecnt))/elapsed_ms);
 	if (virtualFreePages(va, pagecnt)!=0){
 		printf("failed to free %d pages\r\n", pagecnt);
 		while (1){};
@@ -194,7 +198,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	struct fat32_dir_handle* pDirHandle = (struct fat32_dir_handle*)0x0;
-	if (fat32_opendir(pEspHandle, "CONFIG", &pDirHandle)!=0){
+	if (fat32_opendir(pEspHandle, "EFI/BOOT", &pDirHandle)!=0){
 		printf("failed to open root\r\n");
 		while (1){};
 		return -1;
@@ -261,6 +265,14 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			while (1){};
 			return -1;
 		}
+		uint64_t time_ms = get_time_ms();
+		printf("formatting...\r\n");
+		if (fluxfs_format(0, rootPartition)!=0){
+			printf("failed to format to fluxFs\r\n");
+			while (1){};
+			return -1;
+		}
+		printf("took %dms to format %dMB fluxFs partition\r\n", get_time_ms()-time_ms, rootPartitionSize/MEM_MB);
 		if (fs_create(mountId, "CONFIG/PART.CFG", 0)!=0){
 			printf("failed to create partition config\r\n");
 			while (1){};
@@ -271,7 +283,10 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			while (1){};
 			return -1;
 		}
-		if (fs_write(mountId, fileId, (unsigned char*)&rootPartitionData, sizeof(struct gpt_partition))!=0){
+		struct partition_conf partitionConf = {0};
+		partitionConf.rootPartitionId = rootPartition;
+		partitionConf.rootPartition = rootPartitionData;
+		if (fs_write(mountId, fileId, (unsigned char*)&partitionConf, sizeof(struct partition_conf))!=0){
 			printf("failed to write to partition config\r\n");
 			while (1){};	
 			return -1;
@@ -293,7 +308,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	struct gpt_partition* pRootPartitionData = (struct gpt_partition*)pFileBuffer;
+	struct partition_conf* pPartitionConf = (struct partition_conf*)pFileBuffer;
 	if (fs_read(mountId, fileId, pFileBuffer, confFileInfo.fileSize)!=0){
 		printf("failed to read config\r\n");
 		fs_close(mountId, fileId);
@@ -301,9 +316,19 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	printf("root partition size: %dMB\r\n", ((pRootPartitionData->end_lba-pRootPartitionData->start_lba)*DRIVE_SECTOR_SIZE)/MEM_MB);
+	struct gpt_partition rootPartitionData = pPartitionConf->rootPartition;
+	uint64_t rootPartitionId = pPartitionConf->rootPartitionId;
+	printf("root partition size: %dMB\r\n", ((rootPartitionData.end_lba-rootPartitionData.start_lba)*DRIVE_SECTOR_SIZE)/MEM_MB);
 	kfree((void*)pFileBuffer);
 	fs_close(mountId, fileId);
+	uint64_t pid = 0;
+	if (kext_load(mountId, "KEXTS/TEST.ELF", &pid)!=0){
+		printf("failed to load kext\r\n");
+		fs_unmount(mountId);
+		while (1){};
+		return -1;
+	}
+	printf("PID: %d\r\n", pid);
 	fs_unmount(mountId);
 	lprintf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};

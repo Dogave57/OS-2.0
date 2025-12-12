@@ -6,7 +6,7 @@
 #define FILE_ATTRIBUTE_READONLY (1<<3)
 struct fs_mount;
 struct fs_file_info;
-typedef int(*fsOpenFunc)(struct fs_mount* pMount, unsigned char* filename, void** pHandle);
+typedef int(*fsOpenFunc)(struct fs_mount* pMount, unsigned char* filename, void** ppHandle);
 typedef int(*fsCloseFunc)(void* pHandle);
 typedef int(*fsReadFunc)(struct fs_mount* pMount, void* pHandle, unsigned char* pBuffer, uint64_t bufferSize);
 typedef int(*fsWriteFunc)(struct fs_mount* pMount, void* pHandle, unsigned char* pBuffer, uint64_t bufferSize);

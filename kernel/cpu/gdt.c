@@ -21,6 +21,6 @@ int gdt_init(void){
 	gdt_add_entry(gdt+2, 0, 0x0, 0x92, 0xC);
 	pgdt.limit = (sizeof(struct gdt_entry_t)*GDT_ENTRIES)-1;
 	pgdt.base = (uint64_t)gdt;
-	load_gdt(pgdt);
+	load_gdt(&pgdt);
 	return 0;
 }

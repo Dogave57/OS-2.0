@@ -64,7 +64,8 @@ int ahci_init(void){
 			return -1;
 		}
 		uint64_t elapsed_ms = get_time_ms()-time_ms;
-		printf("%dMB/s\r\n", ((1000/elapsed_ms)*sectorBufferSize)/MEM_MB);
+		if (elapsed_ms)
+			printf("%dMB/s\r\n", ((1000/elapsed_ms)*sectorBufferSize)/MEM_MB);
 		virtualFreePages((uint64_t)pSectorBuffer, sectorBufferPages);
 	}
 	return 0;

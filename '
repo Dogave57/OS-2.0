@@ -147,34 +147,30 @@ extern ps2_keyboard_handler
 extern crypto_entropy
 extern entropy_shuffle
 exception_fg:
-db 255, 255, 255, 0
+db 255, 255, 255
 exception_bg:
-db 0, 0, 0, 0
+db 0, 0, 0
 deadly_exception:
-and rsp, -16
 pushaq
-mov qword rdi, [rel exception_fg]
-mov qword rsi, [rel exception_bg]
-sub rsp, 8
-call set_text_color
 call clear
-add rsp, 8
 mov rdx, [rbp-8]
 lea rdi, [rel exception_name_map]
 imul rdx, rdx, 8
 add rdi, rdx
 mov rdi, [rdi]
-sub rsp, 8
 call lprint
-add rsp, 8
 popaq
 pushaq
 mov rdi, exceptionmsg
 mov rsi, [rbp-8]
-sub rsp, 8
 call lprintf
-add rsp, 8
 popaq
+mov rdi, regmsg
+mov rsi, [rel saved_reg_rip]
+mov rdx, [rel saved_reg_rsp]
+mov rcx, [rel saved_reg_rbp]
+mov r8, [rel saved_reg_rsp]
+mov r9, [rel saved_reg_rbp]
 sub rsp, 16
 mov qword [rsp], 0
 mov qword [rsp+8], 0
@@ -184,12 +180,6 @@ push rdx
 push rcx
 push rbx
 push rax
-mov rdi, regmsg
-mov rsi, [rel saved_reg_rip]
-mov rdx, [rel saved_reg_rsp]
-mov rcx, [rel saved_reg_rbp]
-mov r8, [rel saved_reg_rsp]
-mov r9, [rel saved_reg_rbp]
 sub rsp, 8
 call lprintf
 add rsp, 8
@@ -220,36 +210,30 @@ iretq
 timer_isr:
 cli
 pushaq
-add qword [rel time_ms], 1
-sub rsp, 8
+mov rdi, msg
+sub rsp, 32
+;call print
+add rsp, 32
 call entropy_shuffle
+add qword [rel time_ms], 1
 call lapic_send_eoi
-add rsp, 8
 popaq
 sti
 iretq
 thermal_isr:
 cli
 pushaq
-sub rsp, 8
 call lapic_send_eoi
-add rsp, 8
 popaq
 sti
 iretq
 ps2_kbd_isr:
 cli
-mov rbp, rsp
-push rax
-and rsp, -16
 pushaq
-sub rsp, 8
 call entropy_shuffle
 call ps2_keyboard_handler
 call lapic_send_eoi
-add rsp, 8
 popaq
-mov rsp, rbp
 sti
 iretq
 isr0:

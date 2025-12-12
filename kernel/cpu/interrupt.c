@@ -55,6 +55,6 @@ int idt_init(void){
 	idtr.base = (uint64_t)idt;
 	outb(0x21, 0xFF);
 	outb(0xA1, 0xFF);
-	load_idt(idtr);
+	load_idt(&idtr);
 	return 0;
 }

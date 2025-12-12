@@ -16,5 +16,5 @@ struct gdt_ptr{
 }__attribute__((packed));
 int gdt_add_entry(struct gdt_entry_t* ptarget, uint32_t base, uint32_t limit, uint8_t access, uint16_t flags);
 int gdt_init(void);
-__attribute__((ms_abi))int load_gdt(struct gdt_ptr pgdt);
+int load_gdt(struct gdt_ptr* pgdt);
 #endif

@@ -82,7 +82,6 @@ int vmm_init(void){
 		printf("failed to map drive device path string\r\n");
 		return -1;
 	}
-	printf("loading pt\r\n");
 	load_pt((uint64_t)pml4);
 	virtualUnmapPage(0x0, 0);
 	physicalMapPage(0x0, 0x0, PAGE_TYPE_RESERVED);

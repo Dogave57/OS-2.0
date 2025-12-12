@@ -6,11 +6,11 @@ section .text
 extern reload_cs
 load_pt:
 cli
-mov cr3, rcx
+mov cr3, rdi
 sti
 xor rax, rax
 ret
-mov dword cr3, rcx
+mov dword cr3, rdi
 cli
 call reload_cs
 sti
@@ -21,7 +21,7 @@ xor rax, rax
 mov rax, cr3
 ret
 flush_tlb:
-invlpg [rcx]
+invlpg [rdi]
 xor rax, rax
 ret
 flush_full_tlb:
