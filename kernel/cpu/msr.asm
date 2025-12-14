@@ -2,8 +2,6 @@ section .text
 global read_msr
 global write_msr
 read_msr:
-xor rdx, rdx
-xor rax, rax
 rdmsr
 shl rdx, 32
 or rax, rdx

@@ -80,7 +80,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	printf("VMM initialized\r\n");
 	if (heap_init()!=0){
 		printf("failed to initialize heap\r\n");
-		while (01){};
+		while (1){};
 		return -1;
 	}
 	if (acpi_init()!=0){
@@ -106,6 +106,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (ahci_init()!=0){
 		printf("no AHCI controller available\r\n");
 	}
+	printf("initialized AHCI controller\r\n");
 	if (nvme_init()!=0){
 		printf("failed to initialize NVME driver\r\n");
 	}
@@ -250,7 +251,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	if (fs_open(mountId, "CONFIG/PART.CFG", 0, &fileId)!=0){
+	if (fs_open(mountId, "CONFIG\\PART.CFG", 0, &fileId)!=0){
 		uint64_t rootPartitionStart = partition.end_lba*DRIVE_SECTOR_SIZE;
 		uint64_t rootPartitionSize = bootDriveSize-rootPartitionStart;
 		struct gpt_partition rootPartitionData = {0};
@@ -266,19 +267,13 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			return -1;
 		}
 		uint64_t time_ms = get_time_ms();
-		printf("formatting...\r\n");
-		if (fluxfs_format(0, rootPartition)!=0){
-			printf("failed to format to fluxFs\r\n");
-			while (1){};
-			return -1;
-		}
-		printf("took %dms to format %dMB fluxFs partition\r\n", get_time_ms()-time_ms, rootPartitionSize/MEM_MB);
-		if (fs_create(mountId, "CONFIG/PART.CFG", 0)!=0){
+		printf("creating partition config\r\n");
+		if (fs_create(mountId, "CONFIG\\PART.CFG", 0)!=0){
 			printf("failed to create partition config\r\n");
 			while (1){};
 			return -1;
 		}
-		if (fs_open(mountId, "CONFIG/PART.CFG", 0, &fileId)!=0){
+		if (fs_open(mountId, "CONFIG\\PART.CFG", 0, &fileId)!=0){
 			printf("failed to open newly created partition config\r\n");
 			while (1){};
 			return -1;

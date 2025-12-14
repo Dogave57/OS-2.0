@@ -1,4 +1,5 @@
 %macro pushaq 0
+push rbp
 push rax
 push rbx
 push rcx
@@ -29,6 +30,13 @@ pop rdx
 pop rcx
 pop rbx
 pop rax
+pop rbp
+%endmacro
+%macro pushar 0
+pushaq
+%endmacro
+%macro popar 0
+popaq
 %endmacro
 exception_names:
 de_name dw __?utf16?__('divide by zero'), 10, 0
@@ -151,26 +159,33 @@ db 255, 255, 255, 0
 exception_bg:
 db 0, 0, 0, 0
 deadly_exception:
-and rsp, -16
 pushaq
-mov qword rdi, [rel exception_fg]
-mov qword rsi, [rel exception_bg]
+mov qword rcx, exception_fg
+mov qword rdx, exception_bg
+sub rsp, 32
 sub rsp, 8
 call set_text_color
+add rsp, 8
+add rsp, 32
+sub rsp, 32
+sub rsp, 8
 call clear
 add rsp, 8
-mov rdx, [rbp-8]
-lea rdi, [rel exception_name_map]
-imul rdx, rdx, 8
-add rdi, rdx
-mov rdi, [rdi]
-sub rsp, 8
-call lprint
-add rsp, 8
+add rsp, 32
 popaq
 pushaq
-mov rdi, exceptionmsg
-mov rsi, [rbp-8]
+mov rdx, [rbp-8]
+lea rcx, [rel exception_name_map]
+imul rdx, rdx, 8
+add rcx, rdx
+mov rcx, [rcx]
+sub rsp, 32
+call lprint
+add rsp, 32
+popaq
+pushaq
+mov rcx, exceptionmsg
+mov rdx, [rbp-8]
 sub rsp, 8
 call lprintf
 add rsp, 8
@@ -184,28 +199,27 @@ push rdx
 push rcx
 push rbx
 push rax
-mov rdi, regmsg
-mov rsi, [rel saved_reg_rip]
-mov rdx, [rel saved_reg_rsp]
-mov rcx, [rel saved_reg_rbp]
+mov rax, [rel saved_reg_rsp]
+push rax
+mov rax, [rel saved_reg_rbp]
+push rax
+mov rcx, regmsg
+mov rdx, [rel saved_reg_rip]
 mov r8, [rel saved_reg_rsp]
 mov r9, [rel saved_reg_rbp]
-sub rsp, 8
+sub rsp, 32
 call lprintf
-add rsp, 8
+add rsp, 32
 pop rax
 pop rbx
 pop rcx
 pop rdx
-add rsp, 16
 b:
 jmp b
 hlt
 ret
 default_isr:
-sti
 iretq
-msg dw __?utf16?__('keyboard'), 13, 10, 0
 pic_timer_isr:
 cli
 pushaq
@@ -213,7 +227,6 @@ add qword [rel time_ms], 1
 mov al, 20h
 mov dx, 20h
 out dx, al
-call entropy_shuffle
 popaq
 sti
 iretq
@@ -221,35 +234,29 @@ timer_isr:
 cli
 pushaq
 add qword [rel time_ms], 1
-sub rsp, 8
+sub rsp, 32
 call entropy_shuffle
 call lapic_send_eoi
-add rsp, 8
+add rsp, 32
 popaq
 sti
 iretq
 thermal_isr:
 cli
-pushaq
-sub rsp, 8
+sub rsp, 32
 call lapic_send_eoi
-add rsp, 8
-popaq
+add rsp, 32
 sti
 iretq
 ps2_kbd_isr:
 cli
-mov rbp, rsp
-push rax
-and rsp, -16
 pushaq
-sub rsp, 8
-call entropy_shuffle
+sub rsp, 32
 call ps2_keyboard_handler
+call entropy_shuffle
 call lapic_send_eoi
-add rsp, 8
+add rsp, 32
 popaq
-mov rsp, rbp
 sti
 iretq
 isr0:

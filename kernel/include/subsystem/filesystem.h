@@ -59,11 +59,6 @@ struct fs_mount{
 struct fs_handle{
 	void* pHandleData;
 };
-struct fs_driver_desc{
-	struct fs_driver_vtable vtable;
-	struct fs_driver_desc* pFlink;
-	struct fs_driver_desc* pBlink;
-};
 struct fs_file_info{
 	uint64_t fileSize;
 	uint64_t fileAttributes;

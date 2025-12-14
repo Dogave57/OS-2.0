@@ -1,3 +1,14 @@
 SERIAL_PATH="/dev/null"
+MACOS_FLAGS="-cpu max,+x2apic,+apic"
+LINUX_FLAGS="-cpu max,+x2apic,+apic -enable-kvm"
+OS=$(uname -s)
 bash restore_firmware.sh
-sudo qemu-system-x86_64 -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive format=raw,file=drive.img,id=disk,if=none -m 4G -cpu max,+x2apic,+apic -serial $SERIAL_PATH -smp cores=4 -machine q35 -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
+case "$OS" in
+"Linux")
+sudo qemu-system-x86_64 $LINUX_FLAGS -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive format=raw,file=drive.img,id=disk,if=none -m 4G -serial $SERIAL_PATH -smp cores=4 -machine q35 -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
+;;
+"Darwin")
+sudo qemu-system-x86_64 $MACOS_FLAGS -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive format=raw,file=drive.img,id=disk,if=none -m 4G -serial $SERIAL_PATH -smp cores=4 -machine q35 -device ahci,id=ahci -device ide-hd, drive=disk,bus=ahci.0
+;;
+*)
+esac

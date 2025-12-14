@@ -82,7 +82,9 @@ int vmm_init(void){
 		printf("failed to map drive device path string\r\n");
 		return -1;
 	}
+	printf("loading page tables\r\n");
 	load_pt((uint64_t)pml4);
+	printf("page tables loaded\r\n");
 	virtualUnmapPage(0x0, 0);
 	physicalMapPage(0x0, 0x0, PAGE_TYPE_RESERVED);
 	return 0;
@@ -126,7 +128,7 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 	return 0;
 }
 int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint32_t pageType){
-	if (va%4096)
+	if (va%PAGE_SIZE)
 		va = align_down(va, PAGE_SIZE);
 	uint64_t* pentry = (uint64_t*)0x0;
 	if (vmm_getPageTableEntry(va, &pentry)!=0)

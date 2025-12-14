@@ -48,7 +48,7 @@ int ahci_init(void){
 			continue;
 		}
 		printf("drive size: %dMB\r\n", (driveInfo.sector_count*DRIVE_SECTOR_SIZE)/MEM_MB);
-		uint64_t sector_count = (MEM_MB*48)/DRIVE_SECTOR_SIZE;
+		uint64_t sector_count = (MEM_MB*16)/DRIVE_SECTOR_SIZE;
 		uint64_t sectorBufferSize = sector_count*DRIVE_SECTOR_SIZE;
 		uint64_t sectorBufferPages = align_up(sectorBufferSize, PAGE_SIZE)/PAGE_SIZE;
 		unsigned char* pSectorBuffer = (unsigned char*)0x0;
@@ -57,7 +57,7 @@ int ahci_init(void){
 			printf("failed to allocate pages for sectors\r\n");	
 			return -1;
 		}
-		memset((void*)pSectorBuffer, 0, sectorBufferSize);
+		printf("took %dms to allocate all pages\r\n", get_time_ms()-time_ms);
 		if (ahci_read(driveInfo, 0, sector_count, (unsigned char*)pSectorBuffer)!=0){
 			printf("failed to read %d sectors\r\n", sector_count);
 			virtualFreePages((uint64_t)pSectorBuffer, sectorBufferPages);
@@ -421,6 +421,7 @@ int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_co
 			uint64_t read_count = 8;
 			if (i==reads_max-1&&sector_count%8)
 				read_count = sector_count%8;
+			uint64_t time_ms = get_time_ms();
 			if (ahci_read(driveInfo, read_lba, read_count, read_buffer)!=0){
 				printf("failed to read sector\r\n");
 				return -1;
@@ -457,6 +458,7 @@ int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_co
 	pFis->device = 1<<6;
 	ahci_write_prdt(pCmdTable, 0, (uint64_t)pBuffer, bufferSize);
 	pPort->cmdlist_base = cmdListDesc.pCmdList_pa;
+	uint64_t time_ms = get_time_ms();
 	ahci_run_port(driveInfo.port);
 	if (ahci_poll_port_finish(driveInfo.port, 1)!=0){
 		printf("failed to poll port\r\n");

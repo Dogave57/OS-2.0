@@ -2,6 +2,6 @@ global load_idt
 section .text
 load_idt:
 cli
-lidt [rdi]
+lidt [rcx]
 sti
 ret

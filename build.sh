@@ -6,8 +6,8 @@ PROGRAMCC='x86_64-elf-gcc'
 PROGRAMLD='x86_64-elf-ld'
 AS='nasm'
 BOOT_CFLAGS='-O0 -ffreestanding -fno-stack-protector -fshort-wchar -Wno-multichar -Wno-address-of-packed-member -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
-KERNEL_CFLAGS='-O0 -mabi=sysv -ffreestanding -fno-stack-protector -fshort-wchar -Wno-multichar -Wno-address-of-packed-member -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
-PROGRAM_CFLAGS='-O0 -mabi=sysv -ffreestanding -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64 -Wno-builtin-declaration-mismatch'
+KERNEL_CFLAGS='-O0 -mabi=ms -ffreestanding -fno-stack-protector -Wno-multichar -Wno-address-of-packed-member -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
+PROGRAM_CFLAGS='-O0 -mabi=ms -ffreestanding -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64 -Wno-builtin-declaration-mismatch'
 OS=$(uname -s)
 bash clean.sh
 echo compiling bootloader
@@ -70,17 +70,17 @@ sudo $AS -f win64 kernel/mem/vmm.asm -o build/objects/mem/vmm_asm.o
 sudo $AS -f win64 kernel/kexts/loader.asm -o build/objects/kexts/loader_asm.o
 sudo x86_64-w64-mingw32-dlltool --def baseKernel.def --output-lib baseKernel.lib --machine i386:x86-64
 echo linking kernel
-sudo $KERNELLD -subsystem:native build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o build/objects/drivers/filesystem/fat32.o build/objects/crypto/guid.o build/objects/crypto/random.o build/objects/panic.o build/objects/drivers/filesystem/exfat.o build/objects/subsystem/filesystem.o build/objects/drivers/filesystem/fluxfs.o build/objects/kexts/loader.o build/objects/kexts/loader_asm.o -entry:kernel_stub -out:build/build/kernel.exe
+sudo $KERNELLD /debug -subsystem:native build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o build/objects/drivers/filesystem/fat32.o build/objects/crypto/guid.o build/objects/crypto/random.o build/objects/panic.o build/objects/drivers/filesystem/exfat.o build/objects/subsystem/filesystem.o build/objects/drivers/filesystem/fluxfs.o build/objects/kexts/loader.o build/objects/kexts/loader_asm.o -entry:kernel_stub -out:build/build/kernel.exe
 sudo $PROGRAMLD -e kext_entry build/objects/kexts/test.o -o build/build/kexts/test.elf
 echo done
 case "$OS" in
 "Linux")
 sudo rm drive.img
 sudo rm -rf drivemnt
-sudo dd if=/dev/zero of=drive.img bs=1M count=128
+sudo dd if=/dev/zero of=drive.img bs=1M count=512
 sudo parted drive.img --script -- mklabel gpt
-sudo parted drive.img --script -- mkpart ESP fat32 1MiB 64MiB
-sudo parted drive.img --script -- mkpart primary 64MiB 100%
+sudo parted drive.img --script -- mkpart ESP fat32 1MiB 256MiB
+sudo parted drive.img --script -- mkpart primary 256MiB 100%
 sudo parted drive.img set 1 boot on
 sudo losetup -Pf drive.img
 sudo mkfs.fat -F32 /dev/loop0p1
@@ -89,14 +89,18 @@ sudo mount /dev/loop0p1 efimnt
 sudo mkdir -p efimnt/EFI/BOOT
 sudo cp build/build/bootloader.efi efimnt/EFI/BOOT/BOOTX64.EFI
 sudo mkdir efimnt/KERNEL
+sudo mkdir efimnt/CONFIG
+sudo mkdir efimnt/KEXTS
 sudo cp build/build/kernel.exe efimnt/KERNEL/kernel.exe
+sudo cp build/build/kexts/test.elf efimnt/KEXTS/TEST.ELF
+sudo ls -R efimnt
 sudo losetup -d /dev/loop0
 sudo umount -r efimnt
 sudo rm -rf efimnt
 ;;
 "Darwin")
 sudo rm drive.img
-sudo dd if=/dev/zero of=drive.img bs=1M count=1024
+sudo dd if=/dev/zero of=drive.img bs=1M count=2048
 sudo chmod 777 drive.img
 sudo mkdir esp_mnt
 sudo mkdir rootfs_mnt
@@ -114,7 +118,7 @@ sudo cp build/build/bootloader.efi esp_mnt/EFI/BOOT/BOOTX64.EFI
 sudo touch esp_mnt/EFI/BOOT/test.txt
 sudo cp build/build/kernel.exe esp_mnt/KERNEL/KERNEL.EXE
 sudo cp build/build/kexts/test.elf esp_mnt/KEXTS/TEST.ELF
-sudo mkdir -p esp_mnt/config
+sudo mkdir -p esp_mnt/CONFIG
 mkdir esp_mnt/files
 sudo cp -r fonts esp_mnt/FONTS
 sudo ls -R esp_mnt

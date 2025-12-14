@@ -47,7 +47,7 @@ mov rdx, rax
 sleep_loop:
 call get_time_ms
 sub rax, rdx
-cmp rax, rdi
+cmp rax, rcx
 jb sleep_loop
 xor rax, rax
 ret

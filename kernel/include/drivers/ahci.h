@@ -137,10 +137,6 @@ struct ahci_cmd_list_desc{
 	uint64_t pCmdList_pa;
 	uint64_t pCmdTableList_pa;
 };
-struct ahci_drive_info{
-	uint8_t port;
-	uint64_t sector_count;
-};
 int ahci_init(void);
 int ahci_get_info(struct ahci_info* pInfo);
 int ahci_write_byte(uint64_t offset, uint8_t value);

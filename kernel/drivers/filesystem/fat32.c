@@ -362,30 +362,37 @@ int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* fil
 	uint64_t pathstart = 0;
 	dirLocation.fileCluster = bpb.ebr.root_cluster_number;
 	for (uint64_t i = 0;filename[i];i++){
-		if (filename[i]!='/')
+		if (filename[i]!='/'&&filename[i]!='\\')
 			continue;
-		if (!filename[i+1])
-			continue;
+		unsigned char lastCharacter = filename[i];
 		filename[i] = 0;
 		if (fat32_find_file_in_dir(pMountHandle, dirLocation.fileCluster, filename+pathstart, &dirEntry, &dirLocation, FAT32_FILE_ATTRIBUTE_DIRECTORY)!=0){
+			printf("failed to find %s in cluster %d\r\n", filename+pathstart, dirLocation.fileCluster);
 			return -1;
 		}
-		filename[i] = '/';
+		printf("found %s in cluster %d\r\n", filename+pathstart, dirLocation.fileCluster);
+		filename[i] = lastCharacter;
 		pathstart = i+1;
 	}
 	struct fat32_cluster_entry currentCluster = {0};
 	currentCluster.cluster_value = ((uint32_t)(dirEntry.entry_first_cluster_high)<<16)|((uint32_t)dirEntry.entry_first_cluster_low);
 	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
-	if (!pClusterData)
+	if (!pClusterData){
+		printf("failed to allocate cluster data\r\n");
 		return -1;
+	}
 	uint64_t max_file_entries = bytesPerCluster/sizeof(struct fat32_file_entry);
+	struct fat32_cluster_entry lastCluster = {0};
 	while (FAT32_CONTINUE_CLUSTER(currentCluster.cluster_value)){
-		if (fat32_read_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0)
+		if (fat32_read_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
+			printf("failed to read cluster data of cluster %d\r\n", currentCluster.cluster_value);
 			return -1;
+		}
 		for (uint64_t i = 0;i<max_file_entries;i++){
 			struct fat32_file_entry* pFileEntry = ((struct fat32_file_entry*)pClusterData)+i;
-			if (pFileEntry->filename[0])
+			if (pFileEntry->filename[0]!=' '&&pFileEntry->filename[0])
 				continue;
+			memset((void*)pFileEntry, 0, sizeof(struct fat32_file_entry));
 			if (fat32_string_to_filename(pFileEntry->filename, filename+pathstart)!=0)
 				continue;
 			pFileEntry->file_size = 0;
@@ -397,11 +404,37 @@ int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* fil
 			kfree((void*)pClusterData);
 			return 0;
 		}
+		lastCluster = currentCluster;
 		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0)
 			return -1;
 	}
+	struct fat32_cluster_entry newCluster = {0};
+	if (fat32_allocate_cluster(pMountHandle, (uint32_t*)&newCluster)!=0){
+		printf("failed to allocate cluster\r\n");
+		kfree((void*)pClusterData);
+		return -1;
+	}
+	if (fat32_writecluster(pMountHandle, lastCluster.cluster_value, newCluster)!=0){
+		printf("failed to write to new cluster\r\n");
+		kfree((void*)pClusterData);
+		return -1;
+	}
+	struct fat32_file_entry* pNewFileEntry = (struct fat32_file_entry*)pClusterData;
+	memset((void*)pNewFileEntry, 0, sizeof(struct fat32_file_entry));
+	pNewFileEntry->file_size = 0;
+	pNewFileEntry->file_attribs = file_attribs;
+	if (fat32_string_to_filename(pNewFileEntry->filename, filename+pathstart)!=0){
+		printf("failed to convert filename to 8.3\r\n");
+		kfree((void*)pClusterData);
+		return -1;
+	}
+	if (fat32_write_cluster_data(pMountHandle, newCluster.cluster_value, pClusterData)!=0){
+		printf("failed to write cluster data\r\n");
+		kfree((void*)pClusterData);
+		return -1;
+	}
 	kfree((void*)pClusterData);
-	return -1;
+	return 0;
 }
 int fat32_deletefile(struct fat32_file_handle* pFileHandle){
 	if (!pFileHandle)
@@ -546,7 +579,7 @@ int fat32_find_file(struct fat32_mount_handle* pMountHandle, unsigned char* file
 		if (!fileLocation.fileDataCluster)
 			fileLocation.fileDataCluster = root_cluster;
 		unsigned char ch = filename[i];
-		if (ch!='/'&&ch)
+		if (ch!='/'&&ch!='\\'&&ch)
 			continue;
 		filename[i] = 0;
 		uint8_t mask = FAT32_FILE_ATTRIBUTE_DIRECTORY;
@@ -557,7 +590,7 @@ int fat32_find_file(struct fat32_mount_handle* pMountHandle, unsigned char* file
 			return -1;
 		}
 		if (ch)
-			filename[i] = '/';
+			filename[i] = ch;
 		pathstart = i+1;
 		if (!ch)
 			break;

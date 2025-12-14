@@ -17,6 +17,7 @@ struct drive_dev_hdr{
 struct drive_dev_ahci{
 	struct drive_dev_hdr hdr;
 	struct ahci_drive_info driveInfo;
+
 };
 struct drive_info{
 	uint8_t driveType;

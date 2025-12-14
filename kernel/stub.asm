@@ -2,9 +2,7 @@ extern kmain
 section .text
 global kernel_stub
 kernel_stub:
-mov rdi, rcx
-mov rsi, rdx
-mov rsp, rdi
+mov rsp, rcx
 sub rsp, 32
 jmp kmain
 add rsp, 32

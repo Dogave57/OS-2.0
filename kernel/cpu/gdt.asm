@@ -14,7 +14,7 @@ push qword rax
 retfq
 load_gdt:
 cli
-lgdt [rdi]
+lgdt [rcx]
 call reload_cs
 sti
 xor rax, rax
