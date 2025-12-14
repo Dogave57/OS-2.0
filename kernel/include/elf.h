@@ -31,7 +31,6 @@
 #define ELF_PT_RESERVED0 0x05
 #define ELF_PT_PHDR 0x06
 #define ELF_RELOC_NONE 0x0
-#define ELF_RELOC_
 #define ELF_VALID_SIGNATURE(pIdent)(*(unsigned int*)pIdent==ELF_SIGNATURE)
 #define ELF64_R_INDEX(i)((i>>32)&0xFFFFFFFF)
 #define ELF64_R_TYPE(i)(i&0xFFFFFFFF)
