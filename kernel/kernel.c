@@ -325,7 +325,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	printf("PID: %d\r\n", pid);
 	fs_unmount(mountId);
-	lprintf(L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
+	lprintf((uint16_t*)L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};
 	return 0;	
 }

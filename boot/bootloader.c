@@ -10,10 +10,9 @@
 #include <Guid/Acpi.h>
 #include <Guid/SmBios.h>
 #include <Guid/GlobalVariable.h>
-#include "bootloader.h"
 #include "align.h"
-#include "pe.h"
-#include "mz.h"
+#include "elf.h"
+#include "bootloader.h"
 int uefi_execute_kernel(void* pfiledata);
 int uefi_memset(void* mem, unsigned long long value, unsigned long long size);
 int uefi_memcmp(void* mem1, void* mem2, uint64_t size);
@@ -138,7 +137,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	}
 	char* pbuffer = (char*)0x0;
 	UINTN size = 0;
-	if (uefi_readfile(kernelDir, L"kernel.exe", (void**)&pbuffer, &size)!=0){
+	if (uefi_readfile(kernelDir, L"kernel.elf", (void**)&pbuffer, &size)!=0){
 		conout->OutputString(conout, L"failed to read test file\n");
 		kernelDir->Close(kernelDir);
 		rootfsProtocol->Close(rootfsProtocol);
@@ -336,84 +335,111 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	};
 	return EFI_SUCCESS;
 }
-int uefi_execute_kernel(void* pfiledata){
-	if (!pfiledata)
+int uefi_execute_kernel(void* pFileData){
+	if (!pFileData)
 		return -1;
-	struct IMAGE_DOS_HEADER* pDosHeader = (struct IMAGE_DOS_HEADER*)pfiledata;
-	if (pDosHeader->magic!=MZ_MAGIC){
-		uefi_printf(L"unknown MZ magic %x\r\n", pDosHeader->magic);
+	struct elf64_header* pHeader = (struct elf64_header*)pFileData;
+	if (!ELF_VALID_SIGNATURE(pHeader))
 		return -1;
-	}
-	struct PE_HDR* pPeHeader = (struct PE_HDR*)(pfiledata+pDosHeader->exeOffset);
-	if (pPeHeader->magic!=PE_MAGIC){
-		uefi_printf(L"unknown PE magic %x\r\n", pPeHeader->magic);
+	if (pHeader->e_machine!=ELF_MACHINE_X64)
 		return -1;
-	}
-	struct PE64_OPTHDR* pOptHeader = (struct PE64_OPTHDR*)(pPeHeader+1);
-	if (pOptHeader->magic!=PE_OPT64_MAGIC){
-		uefi_printf(L"unknown PE opt header x64 magic %x\r\n", pOptHeader->magic);
+	if (pHeader->e_type!=ELF_TYPE_DYNAMIC)
 		return -1;
-	}
-	unsigned char* pimage = (unsigned char*)0x0;
-	EFI_STATUS status = BS->AllocatePool(EfiRuntimeServicesData, pOptHeader->sizeOfImage, (void**)&pimage);
-	if (status!=EFI_SUCCESS){
-		uefi_printf(L"failed to allocate memory for portable executable binary image %x\r\n", status);
-		return -1;
-	}
-	uefi_memset((void*)pimage, 0, pOptHeader->sizeOfImage);
-	struct IMAGE_SECTION_HEADER* pFirstSection = (struct IMAGE_SECTION_HEADER*)(pOptHeader+1);
-	struct IMAGE_SECTION_HEADER* pSectionHeader = pFirstSection;
-	for (unsigned int i = 0;i<pPeHeader->section_cnt;i++,pSectionHeader++){
-		uefi_memcpy((void*)(pimage+pSectionHeader->virtualAddress), (void*)(pfiledata+pSectionHeader->pointerToRawData), pSectionHeader->sizeOfRawData);
-		if (pSectionHeader->virtualSize<=pSectionHeader->sizeOfRawData)
+	uefi_printf(L"version: 0x%x\r\n", pHeader->e_version);
+	uefi_printf(L"program header offset: 0x%x\r\n", pHeader->e_phoff);
+	uefi_printf(L"section header offset: 0x%x\r\n", pHeader->e_shoff);
+	uefi_printf(L"section header count: %d\r\n", pHeader->e_shnum);
+	struct elf64_pheader* pFirstPh = (struct elf64_pheader*)(pFileData+pHeader->e_phoff);
+	struct elf64_sheader* pFirstSh = (struct elf64_sheader*)(pFileData+pHeader->e_shoff);
+	struct elf64_pheader* pCurrentPh = pFirstPh;
+	struct elf64_sheader* pCurrentSh = pFirstSh;
+	uint64_t imageSize = 0;
+	uint64_t virtualBase = 0xFFFFFFFFFFFFFFFF;
+	unsigned char* pImage = (unsigned char*)0x0;	
+	for (uint16_t i = 0;i<pHeader->e_phnum;i++,pCurrentPh++){
+		if (pCurrentPh->p_type!=ELF_PT_LOAD)
 			continue;
-		unsigned long long extra_bytes = pSectionHeader->virtualSize-pSectionHeader->sizeOfRawData;
-		uefi_memset((void*)(pimage+pSectionHeader->virtualAddress+pSectionHeader->sizeOfRawData), 0, extra_bytes);
+		if (pCurrentPh->p_va<virtualBase)
+			virtualBase = pCurrentPh->p_va;
+		imageSize+=pCurrentPh->p_memorySize;
 	}
-	unsigned long long imagedt = (unsigned long long)pimage - pOptHeader->imageBase;
-	struct IMAGE_DATA_DIRECTORY* pRelocDir = pOptHeader->dataDirectory+DATA_DIRECTORY_BASE_RELOC_TABLE;
-	if (imagedt&&pRelocDir&&pRelocDir->size){
-		unsigned char* pRelocData = (unsigned char*)(pimage+pRelocDir->virtualAddress);
-		unsigned int relocOffset = 0;
-		while (relocOffset<pRelocDir->size){
-			struct IMAGE_BASE_RELOCATION* pBaseReloc = (struct IMAGE_BASE_RELOCATION*)(pRelocData+relocOffset);
-			if (!pBaseReloc->sizeOfBlock)
-				break;
-			unsigned int relocCnt = (pBaseReloc->sizeOfBlock-sizeof(struct IMAGE_BASE_RELOCATION))/sizeof(uint16_t);
-			uint16_t* pRelocData = pBaseReloc->relocData;
-			unsigned char* patchTable = pimage+pBaseReloc->virtualAddress;
-			for (unsigned int i = 0;i<relocCnt;i++){
-				uint16_t* pReloc = pRelocData+i;
-				unsigned int offset = (*pReloc)&0x0FFF;
-				unsigned int relocType = (*pReloc)>>12;
-				switch (relocType){
-					case IMAGE_REL_BASED_DIR64:
-					*(unsigned long long*)(patchTable+offset)+=imagedt;
-					break;
-				
-				}
-			}
-			relocOffset+=pBaseReloc->sizeOfBlock;
+	EFI_STATUS status = BS->AllocatePool(EfiReservedMemoryType, imageSize, (void**)&pImage);
+	if (status!=EFI_SUCCESS){
+		uefi_printf(L"failed to allocate main image buffer 0x%x\r\n", status);
+		return -1;
+	}
+	pCurrentPh = pFirstPh;
+	for (uint16_t i = 0;i<pHeader->e_phnum;i++,pCurrentPh++){
+		if (pCurrentPh->p_type!=ELF_PT_LOAD)
+			continue;
+		if (pCurrentPh->p_fileSize>pCurrentPh->p_memorySize){
+			BS->FreePool((void*)pImage);
+			return -1;
+		}
+		uint64_t virtualOffset = pCurrentPh->p_va;
+		uefi_memcpy((void*)(pImage+virtualOffset), (void*)(pFileData+pCurrentPh->p_offset), pCurrentPh->p_fileSize);
+		uint64_t extraBytes = pCurrentPh->p_memorySize-pCurrentPh->p_fileSize;
+		for (uint64_t byte = 0;byte<extraBytes;byte++){
+			uint64_t offset = virtualOffset+pCurrentPh->p_fileSize+byte;
+			*(pImage+offset)=  0;
 		}
 	}
-	unsigned char* pbase_stack = (unsigned char*)0x0;
-	uint64_t stack_size = 8192*4;
-	status = BS->AllocatePool(EfiRuntimeServicesData, stack_size, (void**)&pbase_stack);
+	int64_t imageDelta = ((int64_t)pImage)-virtualBase;
+	uefi_printf(L"section header count: %d\r\n", pHeader->e_shnum);
+	struct elf64_sym* pSymtab = (struct elf64_sym*)0x0;
+	for (uint64_t i = 0;i<pHeader->e_shnum;i++,pCurrentSh++){
+		uint64_t sectionData = (uint64_t)(pFileData+pCurrentSh->sh_offset);
+		switch (pCurrentSh->sh_type){
+			case ELF_SHT_SYMTAB:
+			pSymtab = (struct elf64_sym*)sectionData;
+			break;
+		}
+	
+	}
+	pCurrentSh = pFirstSh;
+	for (uint16_t i = 0;i<pHeader->e_shnum;i++,pCurrentSh++){
+		if (pCurrentSh->sh_type!=ELF_SHT_REL&&pCurrentSh->sh_type!=ELF_SHT_RELA)
+			continue;
+		uint64_t entrySize = pCurrentSh->sh_entrySize;
+		uint64_t entryCount = pCurrentSh->sh_size/entrySize;
+		unsigned char* pFirstEntry = pFileData+pCurrentSh->sh_offset;
+		unsigned char* pCurrentEntry = pFirstEntry;
+		uefi_printf(L"reloc section at va: %p\r\n", (uint64_t)pFirstEntry);
+		for (uint64_t i = 0;i<entryCount;i++,pCurrentEntry+=entrySize){
+			if (!pSymtab){
+				conout->OutputString(conout, L"kernel has no symbol table!\r\n");
+				return -1;
+			}
+			struct elf64_rela* pEntry = (struct elf64_rela*)pCurrentEntry;
+			uint64_t patchOffset = pEntry->r_offset;
+			uint64_t type = ELF64_R_TYPE(pEntry->r_info);
+			struct elf64_sym* pSymbol = pSymtab+ELF64_R_INDEX(pEntry->r_info);
+			uint64_t symbolAddress = (uint64_t)(pImage+pSymbol->st_value);
+			int64_t addend = pCurrentSh->sh_type==ELF_SHT_RELA ? pEntry->r_addend : *(uint64_t*)(pImage+pEntry->r_offset);
+			uefi_printf(L"relocation %d patch offset: %p\r\n", i, patchOffset);
+			uefi_printf(L"to patch: %d\r\n", addend);
+			uefi_printf(L"symbol address: %d\r\n", symbolAddress);
+			uefi_printf(L"symbol offset: %d\r\n", pSymbol->st_value);
+			*(uint64_t*)(pImage+pEntry->r_offset) = symbolAddress+addend;
+		}
+	}
+	unsigned char* pStack = (unsigned char*)0x0;
+	uint64_t stackSize = 16384;
+	status = BS->AllocatePool(EfiReservedMemoryType, stackSize, (void**)&pStack);
 	if (status!=EFI_SUCCESS){
-		uefi_printf(L"failed to allocate memory for stack %x\r\n", status);
-		BS->FreePool((void*)pimage);
+		uefi_printf(L"failed to allocate kernel stack\r\n");
+		BS->FreePool((void*)pImage);
 		return -1;
 	}
-	unsigned char* pstack = pbase_stack+stack_size;
-	unsigned char* pentry = (unsigned char*)(pimage+pOptHeader->addressOfEntryPoint);
-	blargs->kernelInfo.pKernel = (uint64_t)pimage;
-	blargs->kernelInfo.pKernelStack = (uint64_t)pbase_stack;
-	blargs->kernelInfo.kernelSize = (uint64_t)pOptHeader->sizeOfImage;
-	blargs->kernelInfo.kernelStackSize = (uint64_t)stack_size;
-	kernelEntryType entry = (kernelEntryType)pentry;
-	int kstatus = entry(pstack, blargs);
-	uefi_printf(L"kernel returned with status 0x%x\r\n", kstatus);
-	BS->FreePool((void*)pimage);
+	uint64_t entryOffset = pHeader->e_entry;
+	kernelEntryType entry = (kernelEntryType)(pImage+entryOffset);
+	blargs->kernelInfo.pKernel = (uint64_t)pImage;
+	blargs->kernelInfo.pKernelStack = (uint64_t)pStack;
+	blargs->kernelInfo.kernelSize = imageSize;
+	blargs->kernelInfo.kernelStackSize = stackSize;
+	if (entry(pStack+stackSize, blargs)!=0)
+		return -1;
+	while (1){};
 	return 0;
 }
 int uefi_memset(void* mem, unsigned long long value, unsigned long long size){
@@ -481,7 +507,7 @@ int uefi_readfile(EFI_FILE_PROTOCOL* pdir, CHAR16* filename, void** ppbuffer, UI
 	fileSize = (UINTN)pFileInfo->FileSize;
 	BS->FreePool((void*)pFileInfo);
 	void* pbuffer = (void*)0x0;
-	status = BS->AllocatePool(EfiLoaderData, fileSize, (void**)&pbuffer);
+	status = BS->AllocatePool(EfiReservedMemoryType, fileSize, (void**)&pbuffer);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate memory for file buffer %x\r\n", status);
 		pFileProtocol->Close(pFileProtocol);

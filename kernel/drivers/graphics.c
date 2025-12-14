@@ -100,7 +100,7 @@ int puthex(unsigned char hex, unsigned char isUpper){
 		putchar(L'a'+hex-10);
 	return 0;
 }
-__declspec(dllexport) int print(unsigned char* string){
+KAPI int print(unsigned char* string){
 	if (!string)
 		return -1;
 	for (unsigned int i = 0;string[i];i++){
@@ -108,7 +108,7 @@ __declspec(dllexport) int print(unsigned char* string){
 	}
 	return 0;
 }
-__declspec(dllexport) int lprint(uint16_t* lstring){
+KAPI int lprint(uint16_t* lstring){
 	if (!lstring)
 		return -1;
 	for (unsigned int i = 0;lstring[i];i++){
