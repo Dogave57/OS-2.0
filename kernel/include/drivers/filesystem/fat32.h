@@ -18,6 +18,8 @@
 #define FAT32_CLUSTER_END_OF_CHAIN(cluster_value)(cluster_value>=0xFFFFFF8&&cluster_value<=0x0FFFFFFF)
 #define FAT32_CONTINUE_CLUSTER(cluster_value)(cluster_value!=FAT32_CLUSTER_FREE&&cluster_value!=FAT32_CLUSTER_BAD&&cluster_value!=FAT32_CLUSTER_RESERVED&&!FAT32_CLUSTER_END_OF_CHAIN(cluster_value))
 #define FAT32_FILENAME_LEN_MAX 11
+#define FAT32_FILE_ENTRY_UNUSED(pEntry)(*(unsigned char*)(pEntry)==0xE5)
+#define FAT32_FILE_ENTRY_END(pEntry)(*(unsigned char*)(pEntry)==0)
 struct fat32_fsinfo{
 	uint32_t signature0;
 	uint8_t reserved0[480];

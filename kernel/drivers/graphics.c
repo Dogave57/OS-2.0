@@ -20,7 +20,7 @@ int write_pixel(unsigned int pixel, struct vec3 color){
 	*pPixel = flip_color;
 	return 0;	
 }
-int clear(void){
+KAPI int clear(void){
 	char_position = 0;
 	for (unsigned int i = 0;i<pbootargs->graphicsInfo.width*pbootargs->graphicsInfo.height;i++){
 		write_pixel(i, text_bg);
@@ -49,7 +49,7 @@ int writechar(unsigned int position, unsigned char ch){
 	serial_putchar(SERIAL_DEBUG_PORT, (unsigned char)ch);
 	return 0;
 }
-int putchar(unsigned char ch){
+KAPI int putchar(unsigned char ch){
 	if (!pbootargs->graphicsInfo.font_initialized){
 		CHAR16 str[2] = {0};
 		str[0] = ch;
@@ -82,7 +82,7 @@ int putchar(unsigned char ch){
 	char_position+=8;
 	return 0;
 }
-int putlchar(uint16_t ch){
+KAPI int putlchar(uint16_t ch){
 	if (putchar((unsigned char)ch)!=0)
 		return -1;
 	return 0;
@@ -122,12 +122,12 @@ int init_fonts(void){
 	pbootargs->graphicsInfo.font_initialized = 1;
 	return 0;
 }
-int set_text_color(struct vec3 fg, struct vec3 bg){
+KAPI int set_text_color(struct vec3 fg, struct vec3 bg){
 	text_fg = fg;
 	text_bg = bg;
 	return 0;
 }
-int get_text_color(struct vec3* pFg, struct vec3* pBg){
+KAPI int get_text_color(struct vec3* pFg, struct vec3* pBg){
 	if (pFg)
 		*pFg = text_fg;
 	if (pBg)

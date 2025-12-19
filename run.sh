@@ -8,7 +8,7 @@ case "$OS" in
 sudo qemu-system-x86_64 $LINUX_FLAGS -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive format=raw,file=drive.img,id=disk,if=none -m 4G -serial $SERIAL_PATH -smp cores=4 -machine q35 -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 ;;
 "Darwin")
-sudo qemu-system-x86_64 $MACOS_FLAGS -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive format=raw,file=drive.img,id=disk,if=none -m 4G -serial $SERIAL_PATH -smp cores=4 -machine q35 -device ahci,id=ahci -device ide-hd, drive=disk,bus=ahci.0
+sudo qemu-system-x86_64 $MACOS_FLAGS -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive format=raw,file=drive.img,id=disk,if=none -m 4G -serial $SERIAL_PATH -smp cores=4 -machine q35 -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 ;;
 *)
 esac

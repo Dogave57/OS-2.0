@@ -3,6 +3,6 @@
 #ifdef _BUILDING_KERNEL
 #define KAPI __attribute__((visibility("default")))
 #else
-#define KAPI 
+#define KAPI __attribute__((visibility("default"))) 
 #endif
 #endif

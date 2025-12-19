@@ -1,7 +1,7 @@
 #ifndef _GRAPHICS
 #define _GRAPHICS
-#include "kernel_include.h"
 #include "bootloader.h"
+#include "kernel_include.h"
 struct vec2{
 	unsigned char x, y;
 };

@@ -363,6 +363,7 @@ int uefi_execute_kernel(void* pFileData){
 			virtualBase = pCurrentPh->p_va;
 		imageSize+=pCurrentPh->p_memorySize;
 	}
+	imageSize = align_up(imageSize, 0x1000);
 	EFI_STATUS status = BS->AllocatePool(EfiReservedMemoryType, imageSize, (void**)&pImage);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate main image buffer 0x%x\r\n", status);
@@ -398,14 +399,15 @@ int uefi_execute_kernel(void* pFileData){
 	}
 	pCurrentSh = pFirstSh;
 	for (uint16_t i = 0;i<pHeader->e_shnum;i++,pCurrentSh++){
-		if (pCurrentSh->sh_type!=ELF_SHT_REL&&pCurrentSh->sh_type!=ELF_SHT_RELA)
-			continue;
+		switch (pCurrentSh->sh_type){
+		case ELF_SHT_REL:
+		case ELF_SHT_RELA:
 		uint64_t entrySize = pCurrentSh->sh_entrySize;
 		uint64_t entryCount = pCurrentSh->sh_size/entrySize;
 		unsigned char* pFirstEntry = pFileData+pCurrentSh->sh_offset;
 		unsigned char* pCurrentEntry = pFirstEntry;
 		uefi_printf(L"reloc section at va: %p\r\n", (uint64_t)pFirstEntry);
-		for (uint64_t i = 0;i<entryCount;i++,pCurrentEntry+=entrySize){
+		for (uint64_t reloc = 0;reloc<entryCount;reloc++,pCurrentEntry+=entrySize){
 			if (!pSymtab){
 				conout->OutputString(conout, L"kernel has no symbol table!\r\n");
 				return -1;
@@ -413,14 +415,29 @@ int uefi_execute_kernel(void* pFileData){
 			struct elf64_rela* pEntry = (struct elf64_rela*)pCurrentEntry;
 			uint64_t patchOffset = pEntry->r_offset;
 			uint64_t type = ELF64_R_TYPE(pEntry->r_info);
-			struct elf64_sym* pSymbol = pSymtab+ELF64_R_INDEX(pEntry->r_info);
-			uint64_t symbolAddress = (uint64_t)(pImage+pSymbol->st_value);
-			int64_t addend = pCurrentSh->sh_type==ELF_SHT_RELA ? pEntry->r_addend : *(uint64_t*)(pImage+pEntry->r_offset);
-			uefi_printf(L"relocation %d patch offset: %p\r\n", i, patchOffset);
-			uefi_printf(L"to patch: %d\r\n", addend);
-			uefi_printf(L"symbol address: %d\r\n", symbolAddress);
-			uefi_printf(L"symbol offset: %d\r\n", pSymbol->st_value);
-			*(uint64_t*)(pImage+pEntry->r_offset) = symbolAddress+addend;
+			uefi_printf(L"type: %d\r\n", type);
+			uefi_printf(L"relocation: %d\r\n", reloc);
+			switch (type){
+			case ELF_RELOC_GLOB_DAT_X64:{	
+			case ELF_RELOC_ABS_X64:
+				struct elf64_sym* pSymbol = pSymtab+ELF64_R_INDEX(pEntry->r_info);
+				uint64_t symbolAddress = (uint64_t)(pImage+pSymbol->st_value);
+				int64_t addend = pCurrentSh->sh_type==ELF_SHT_RELA ? pEntry->r_addend : *(uint64_t*)(pImage+pEntry->r_offset);
+				uefi_printf(L"symbol address: %d\r\n", symbolAddress);
+				uint64_t patch = (type==ELF_RELOC_ABS_X64) ? symbolAddress+addend : symbolAddress;
+				*(uint64_t*)(pImage+pEntry->r_offset) = patch;
+				break;
+			}
+			case ELF_RELOC_RELATIVE_X64:{
+				uint64_t* pPatch = (uint64_t*)(pImage+patchOffset);
+				uint64_t addend = pCurrentSh->sh_type==ELF_SHT_RELA ? pEntry->r_addend : 0;
+				*pPatch = (uint64_t)pImage+addend;
+				uefi_printf(L"applied x64 relocation relocation with patch %d\r\n", *pPatch);
+				break;
+			}	    
+			}
+		}
+		break;
 		}
 	}
 	unsigned char* pStack = (unsigned char*)0x0;
@@ -437,6 +454,7 @@ int uefi_execute_kernel(void* pFileData){
 	blargs->kernelInfo.pKernelStack = (uint64_t)pStack;
 	blargs->kernelInfo.kernelSize = imageSize;
 	blargs->kernelInfo.kernelStackSize = stackSize;
+	uefi_printf(L"kernel entry offset: %d\r\n", entryOffset);
 	if (entry(pStack+stackSize, blargs)!=0)
 		return -1;
 	while (1){};
