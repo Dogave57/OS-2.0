@@ -1,6 +1,7 @@
 #ifndef _ELF
 #define _ELF
 #include <stdint.h>
+#include "subsystem/filesystem.h"
 #define ELF64_MIN_SIZE 64
 #define ELF_SIGNATURE 0x464C457F
 #define ELF_MACHINE_NONE 0x0
@@ -75,6 +76,12 @@
 #define ELF64_SYMBOL_STV(i)(i&0x03)
 #define ELF64_R_INDEX(i)((i>>32)&0xFFFFFFFF)
 #define ELF64_R_TYPE(i)(i&0xFFFFFFFF)
+struct elf_handle{
+	struct fs_file_info fileInfo;
+	unsigned char* pFileBuffer;
+	unsigned char* pImage;
+	uint64_t imageSize;
+};
 struct elf64_header{
 	unsigned char ident[16];
 	uint16_t e_type;
@@ -137,4 +144,6 @@ struct elf64_dyn{
 		uint64_t d_ptr;
 	};
 }__attribute__((packed));
+int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppHandle);
+int elf_unload(struct elf_handle* pHandle);
 #endif
