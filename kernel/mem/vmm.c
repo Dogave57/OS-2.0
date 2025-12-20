@@ -126,8 +126,9 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 	return 0;
 }
 int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint32_t pageType){
-	if (va%PAGE_SIZE){
+	if (va%PAGE_SIZE||pa%PAGE_SIZE){
 		va = align_down(va, PAGE_SIZE);
+		pa = align_down(pa, PAGE_SIZE);
 		if (virtualMapPage(pa+PAGE_SIZE, va+PAGE_SIZE, flags, shared, map_flags, pageType)!=0)
 			return -1;
 	}

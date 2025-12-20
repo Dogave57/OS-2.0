@@ -164,7 +164,7 @@ mov qword rcx, exception_fg
 mov qword rdx, exception_bg
 sub rsp, 32
 sub rsp, 8
-call set_text_color
+;call set_text_color
 add rsp, 8
 add rsp, 32
 sub rsp, 32

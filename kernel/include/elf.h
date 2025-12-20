@@ -48,6 +48,7 @@
 #define ELF_DT_REL_ENTRY_SIZE 19
 #define ELF_RELOC_NONE 0x0
 #define ELF_RELOC_ABS_X64 1
+#define ELF_RELOC_PC32 2
 #define ELF_RELOC_ABS_32U 10
 #define ELF_RELOC_ABS_32S 11
 #define ELF_RELOC_ABS_16 12
@@ -145,5 +146,6 @@ struct elf64_dyn{
 	};
 }__attribute__((packed));
 int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppHandle);
+int elf_execute(struct elf_handle* pHandle, int* pStatus);
 int elf_unload(struct elf_handle* pHandle);
 #endif
