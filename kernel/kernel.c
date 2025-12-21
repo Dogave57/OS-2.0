@@ -267,7 +267,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			return -1;
 		}
 		uint64_t time_ms = get_time_ms();
-		printf("creating partition config\r\n");
 		if (fs_create(mountId, "CONFIG\\PART.CFG", 0)!=0){
 			printf("failed to create partition config\r\n");
 			while (1){};
@@ -313,7 +312,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	struct gpt_partition rootPartitionData = pPartitionConf->rootPartition;
 	uint64_t rootPartitionId = pPartitionConf->rootPartitionId;
-	printf("root partition size: %dMB\r\n", ((rootPartitionData.end_lba-rootPartitionData.start_lba)*DRIVE_SECTOR_SIZE)/MEM_MB);
 	kfree((void*)pFileBuffer);
 	fs_close(mountId, fileId);
 	uint64_t pid = 0;
@@ -323,7 +321,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	printf("PID: %d\r\n", pid);
 	fs_unmount(mountId);
 	lprintf((uint16_t*)L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};

@@ -376,7 +376,6 @@ int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* fil
 			printf("failed to find %s in cluster %d\r\n", filename+pathstart, dirLocation.fileCluster);
 			return -1;
 		}
-		printf("found %s in cluster %d\r\n", filename+pathstart, dirLocation.fileCluster);
 		filename[i] = lastCharacter;
 		pathstart = i+1;
 	}
@@ -1119,6 +1118,7 @@ int fat32_subsystem_getFileInfo(struct fs_mount* pMount, void* pFileHandle, stru
 	fileAttribs|=fatFileAttribs&FAT32_FILE_ATTRIBUTE_DIRECTORY ? FILE_ATTRIBUTE_DIRECTORY : 0;
 	fileInfo.fileSize = fileSize;
 	fileInfo.fileAttributes = fileAttribs;
+	fileInfo.mount_id = pMount->mount_id;
 	for (uint64_t i = 0;i<FAT32_FILENAME_LEN_MAX;i++){
 		fileInfo.filename[i] = (uint16_t)fatFileName[i];
 	}

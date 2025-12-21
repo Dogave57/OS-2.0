@@ -70,6 +70,15 @@
 #define ELF_STV_INTERNAL 0x1
 #define ELF_STV_HIDDEN 0x2
 #define ELF_STV_PROTECTED 0x3
+#define ELF_STB_LOCAL 0x0
+#define ELF_STB_GLOBAL 0x1
+#define ELF_STB_WEAK 0x2
+#define ELF_STB_NUM 0x3
+#define ELF_STB_LOOS 10
+#define ELF_STB_GNU_UNIQUE 10
+#define ELF_STB_HIOS 12
+#define ELF_STB_LOPROC 13
+#define ELF_STB_HIPROC 15
 #define ELF_VALID_SIGNATURE(pIdent)(*(unsigned int*)pIdent==ELF_SIGNATURE)
 #define ELF64_SYMBOL_BIND(i)(((unsigned char))i>>4)
 #define ELF64_SYMBOL_INFO(bind, type)((bind<<4)+(type&0xF))
@@ -77,12 +86,6 @@
 #define ELF64_SYMBOL_STV(i)(i&0x03)
 #define ELF64_R_INDEX(i)((i>>32)&0xFFFFFFFF)
 #define ELF64_R_TYPE(i)(i&0xFFFFFFFF)
-struct elf_handle{
-	struct fs_file_info fileInfo;
-	unsigned char* pFileBuffer;
-	unsigned char* pImage;
-	uint64_t imageSize;
-};
 struct elf64_header{
 	unsigned char ident[16];
 	uint16_t e_type;
@@ -145,7 +148,31 @@ struct elf64_dyn{
 		uint64_t d_ptr;
 	};
 }__attribute__((packed));
+struct elf64_hash{
+	uint32_t nBuckets;
+	uint32_t nChains;
+	uint32_t buckets[];
+}__attribute__((packed));
+struct elf_handle{
+	struct fs_file_info fileInfo;
+	unsigned char* pFileBuffer;
+	unsigned char* pImage;
+	uint64_t imageSize;
+	uint64_t dl_cnt;
+	struct elf_handle* pDynamicLibs;
+	struct elf64_dyn dynEntries[32];
+	struct elf_handle* pBlink;
+	struct elf_handle* pFlink;
+};
 int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppHandle);
 int elf_execute(struct elf_handle* pHandle, int* pStatus);
+int elf_load_dl(struct elf_handle* pHandle, unsigned char* dlname, struct elf_handle** ppDlHandle);
+int elf_unload_dl(struct elf_handle* pHandle, struct elf_handle* pDlHandle);
 int elf_unload(struct elf_handle* pHandle);
+int elf_cache_dt(struct elf_handle* pHandle);
+int elf_find_symbol(struct elf_handle* pHandle, unsigned char* pSymbolName, uint64_t* pSymbolIndex);
+int elf_find_symbol_by_hash(struct elf_handle* pHandle, unsigned char* pSymbolName, uint64_t* pSymbolIndex);
+int elf_get_dt_value(struct elf_handle* pHandle, uint64_t type, uint64_t* pValue);
+int elf_get_dt_ptr(struct elf_handle* pHandle, uint64_t type, uint64_t* pPtr);
+int elf_hash(unsigned char* data, uint32_t* pHash);
 #endif

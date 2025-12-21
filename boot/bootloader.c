@@ -13,7 +13,7 @@
 #include "align.h"
 #include "elf.h"
 #include "bootloader.h"
-int uefi_execute_kernel(void* pfiledata);
+int uefi_execute_kernel(void* pfiledata, uint64_t fileDataSize);
 int uefi_memset(void* mem, unsigned long long value, unsigned long long size);
 int uefi_memcmp(void* mem1, void* mem2, uint64_t size);
 int uefi_memcpy(void* dst, void* src, uint64_t size);
@@ -165,7 +165,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		while (1){};
 		return EFI_ABORTED;
 	}
-	status = BS->AllocatePool(EfiRuntimeServicesData, sizeof(struct bootloader_args), (void**)&blargs);
+	status = BS->AllocatePool(EfiReservedMemoryType, sizeof(struct bootloader_args), (void**)&blargs);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocatea memory for bootloader args %x\r\n", status);
 		BS->FreePool((void*)pbuffer);
@@ -322,7 +322,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		while (1){};
 		return EFI_ABORTED;
 	}
-	if (uefi_execute_kernel((void*)pbuffer)!=0){
+	if (uefi_execute_kernel((void*)pbuffer, (uint64_t)size)!=0){
 		conout->OutputString(conout, L"failed to execute kernel!\r\n");
 		BS->FreePool((void*)pbuffer);
 		while (1){};
@@ -335,8 +335,8 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	};
 	return EFI_SUCCESS;
 }
-int uefi_execute_kernel(void* pFileData){
-	if (!pFileData)
+int uefi_execute_kernel(void* pFileData, uint64_t fileDataSize){
+	if (!pFileData||!fileDataSize)
 		return -1;
 	struct elf64_header* pHeader = (struct elf64_header*)pFileData;
 	if (!ELF_VALID_SIGNATURE(pHeader))
@@ -454,6 +454,8 @@ int uefi_execute_kernel(void* pFileData){
 	blargs->kernelInfo.pKernelStack = (uint64_t)pStack;
 	blargs->kernelInfo.kernelSize = imageSize;
 	blargs->kernelInfo.kernelStackSize = stackSize;
+	blargs->kernelInfo.pKernelFileData = (uint64_t)pFileData;
+	blargs->kernelInfo.kernelFileDataSize = fileDataSize;	
 	uefi_printf(L"kernel entry offset: %d\r\n", entryOffset);
 	if (entry(pStack+stackSize, blargs)!=0)
 		return -1;

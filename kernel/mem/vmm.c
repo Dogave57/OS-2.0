@@ -40,6 +40,11 @@ int vmm_init(void){
 		printf("failed to map kernel\r\n");
 		return -1;
 	}
+	uint64_t kernelFileBuffer_pages = align_up(pbootargs->kernelInfo.kernelFileDataSize, PAGE_SIZE)/PAGE_SIZE;
+	if (virtualMapPages(pbootargs->kernelInfo.pKernelFileData, pbootargs->kernelInfo.pKernelFileData, PTE_RW|PTE_NX, kernelFileBuffer_pages, 1, 0, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to map kernel file buffer\r\n");
+		return -1;
+	}
 	uint64_t kernelStackPages = pbootargs->kernelInfo.kernelStackSize/PAGE_SIZE;
 	if (pbootargs->kernelInfo.kernelStackSize%PAGE_SIZE)
 		kernelStackPages++;

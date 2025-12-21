@@ -72,7 +72,7 @@ sudo $AS -f elf64 kernel/mem/vmm.asm -o build/objects/mem/vmm_asm.o
 sudo $AS -f elf64 kernel/kexts/loader.asm -o build/objects/kexts/loader_asm.o
 echo linking kernel
 echo linking base kernel
-sudo $KERNELLD -shared -fPIC -Bsymbolic -fno-plt -z now $KERNEL_LINKFLAGS -e kernel_stub -o build/build/kernel.elf
+sudo $KERNELLD -shared -fPIC -Bsymbolic -hash-style=both -fno-plt -z now $KERNEL_LINKFLAGS -e kernel_stub -o build/build/kernel.elf
 sudo $PROGRAMLD -pic -z now -Lbuild/build -l:kernel.elf -e kext_entry build/objects/kexts/test.o -o build/build/kexts/test.elf
 echo done
 case "$OS" in

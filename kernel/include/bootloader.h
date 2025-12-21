@@ -36,6 +36,8 @@ struct bootloader_kernelInfo{
 	uint64_t pKernelStack;
 	uint64_t kernelSize;
 	uint64_t kernelStackSize;
+	uint64_t pKernelFileData;
+	uint64_t kernelFileDataSize;
 };
 struct bootloader_driveInfo{
 	CHAR16* devicePathStr;

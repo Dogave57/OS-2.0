@@ -24,6 +24,7 @@ int fs_mount(uint64_t drive_id, uint64_t partition_id, uint64_t* pId){
 	}
 	pMount->drive_id = drive_id;
 	pMount->partition_id = partition_id;
+	pMount->mount_id = id;
 	struct fs_driver_desc* pCurrentDriver = driverListDesc.pFirstDriver;
 	while (pCurrentDriver){
 		struct fs_driver_vtable vtable = pCurrentDriver->vtable;		

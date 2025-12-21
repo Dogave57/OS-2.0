@@ -53,6 +53,7 @@ struct fs_mount{
 	struct fs_location fsLocation;
 	uint64_t drive_id;
 	uint64_t partition_id;
+	uint64_t mount_id;
 	struct fs_driver_desc* pDriver;
 	void* pMountData;
 };
@@ -60,6 +61,7 @@ struct fs_handle{
 	void* pHandleData;
 };
 struct fs_file_info{
+	uint64_t mount_id;
 	uint64_t fileSize;
 	uint64_t fileAttributes;
 	unsigned char filename[256];

@@ -202,6 +202,17 @@ int strcpy(unsigned char* dest, unsigned char* src){
 	}
 	return 0;
 }
+int strcmp(unsigned char* str1, unsigned char* str2){
+	if (!str1||!str2)
+		return -1;
+	for (uint64_t i = 0;;i++){
+		if (str1[i]!=str2[i])
+			return -1;
+		if (!str1[i]&&!str2[i])
+			return 0;
+	}
+	return -1;
+}
 int memcpy_align64(uint64_t* dest, uint64_t* src, uint64_t qwords){
 	if (!dest||!src)
 		return -1;
