@@ -43,7 +43,7 @@ int subsystem_get_entry(struct subsystem_desc* pSubsystemDesc, uint64_t id, uint
 	return 0;
 }
 int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, unsigned char* pEntry, uint64_t* pId){
-	if (!pId||!pEntry)
+	if (!pSubsystemDesc||!pId||!pEntry)
 		return -1;
 	if (!pSubsystemDesc->freeEntries)
 		return -1;

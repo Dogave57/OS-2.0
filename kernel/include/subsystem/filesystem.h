@@ -1,5 +1,6 @@
 #ifndef _FILESYSTEM_SUBSYSTEM
 #define _FILESYSTEM_SUBSYSTEM
+#include "kernel_api.h"
 #define FILE_ATTRIBUTE_HIDDEN (1<<0)
 #define FILE_ATTRIBUTE_SYSTEM (1<<1)
 #define FILE_ATTRIBUTE_DIRECTORY (1<<2)
@@ -67,23 +68,23 @@ struct fs_file_info{
 	unsigned char filename[256];
 };
 int fs_subsystem_init(void);
-int fs_mount(uint64_t drive_id, uint64_t partition_id, uint64_t* pId);
-int fs_unmount(uint64_t id);
-int fs_verify(uint64_t id);
-int fs_open(uint64_t mount_id, unsigned char* filename, uint64_t flags, uint64_t* pFileId);
-int fs_close(uint64_t mount_id, uint64_t file_id);
-int fs_read(uint64_t mount_id, uint64_t file_id, unsigned char* pFileBuffer, uint64_t fileSize);
-int fs_write(uint64_t mount_id, uint64_t file_id, unsigned char* pFileBuffer, uint64_t fileSize);
-int fs_getFileInfo(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo);
-int fs_create(uint64_t mount_id, unsigned char* filename, uint64_t fileAttribs);
-int fs_delete(uint64_t mount_id, uint64_t file_id);
-int fs_opendir(uint64_t mount_id, unsigned char* filename, uint64_t* pFileId);
-int fs_read_dir(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo);
-int fs_rewind_dir(uint64_t mount_id, uint64_t file_id);
-int fs_closedir(uint64_t mount_id, uint64_t file_id);
-int fs_handle_register(void* pHandle, uint64_t* pHandleId);
-int fs_handle_unregister(uint64_t handleId);
-int fs_driver_detect(struct fs_mount* pMount, struct fs_driver_desc** ppDriverDesc);
-int fs_driver_register(struct fs_driver_vtable vtable, struct fs_driver_desc** ppDriverDesc);
-int fs_driver_unregister(struct fs_driver_desc* pDriverDesc);
+KAPI int fs_mount(uint64_t drive_id, uint64_t partition_id, uint64_t* pId);
+KAPI int fs_unmount(uint64_t id);
+KAPI int fs_verify(uint64_t id);
+KAPI int fs_open(uint64_t mount_id, unsigned char* filename, uint64_t flags, uint64_t* pFileId);
+KAPI int fs_close(uint64_t mount_id, uint64_t file_id);
+KAPI int fs_read(uint64_t mount_id, uint64_t file_id, unsigned char* pFileBuffer, uint64_t fileSize);
+KAPI int fs_write(uint64_t mount_id, uint64_t file_id, unsigned char* pFileBuffer, uint64_t fileSize);
+KAPI int fs_getFileInfo(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo);
+KAPI int fs_create(uint64_t mount_id, unsigned char* filename, uint64_t fileAttribs);
+KAPI int fs_delete(uint64_t mount_id, uint64_t file_id);
+KAPI int fs_opendir(uint64_t mount_id, unsigned char* filename, uint64_t* pFileId);
+KAPI int fs_read_dir(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo);
+KAPI int fs_rewind_dir(uint64_t mount_id, uint64_t file_id);
+KAPI int fs_closedir(uint64_t mount_id, uint64_t file_id);
+KAPI int fs_handle_register(void* pHandle, uint64_t* pHandleId);
+KAPI int fs_handle_unregister(uint64_t handleId);
+KAPI int fs_driver_detect(struct fs_mount* pMount, struct fs_driver_desc** ppDriverDesc);
+KAPI int fs_driver_register(struct fs_driver_vtable vtable, struct fs_driver_desc** ppDriverDesc);
+KAPI int fs_driver_unregister(struct fs_driver_desc* pDriverDesc);
 #endif

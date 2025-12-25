@@ -2,6 +2,7 @@
 #include "mem/vmm.h"
 #include "mem/heap.h"
 #include "drivers/graphics.h"
+#include "drivers/timer.h"
 #include "stdlib/stdlib.h"
 #include "align.h"
 #include "kexts/loader.h"
@@ -28,6 +29,7 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 		return -1;
 	}
 	fs_close(mount_id, fileId);
+	uint64_t time_ms = get_time_ms();
 	struct elf64_header* pHeader = (struct elf64_header*)pFileBuffer;
 	if (!ELF_VALID_SIGNATURE(pFileBuffer)){
 		printf("invalid ELF signature\r\n");
@@ -173,7 +175,6 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 			struct elf64_sym* pSymbol = pSymbolTable+relocSymIndex;
 			unsigned char* pSymbolName = pStringTable+pSymbol->st_name;
 			uint64_t* pPatch = (uint64_t*)(pImage+pCurrentEntry->r_offset);
-			printf("symbol name: %s\r\n", pSymbolName);
 			*pPatch = (uint64_t)print;
 			break;
 		        }
@@ -240,17 +241,15 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 	*ppHandle = pHandle;
 	return 0;
 }
-int elf_execute(struct elf_handle* pHandle, int* pStatus){
-	if (!pHandle)
+int elf_get_entry(struct elf_handle* pHandle, uint64_t* ppEntry){
+	if (!pHandle||!ppEntry)
 		return -1;
 	if (!pHandle->pFileBuffer||!pHandle->pImage)
 		return -1;
 	struct elf64_header* pHeader = (struct elf64_header*)pHandle->pFileBuffer;
 	uint64_t entryOffset = pHeader->e_entry;
-	kextEntry entry = (kextEntry)(pHandle->pImage+entryOffset);
-	int status = entry();
-	if (pStatus)
-		*pStatus = status;
+	uint64_t pEntry = ((uint64_t)pHandle->pImage)+entryOffset;
+	*ppEntry = pEntry;
 	return 0;
 }
 int elf_load_dl(struct elf_handle* pHandle, unsigned char* dlname, struct elf_handle** ppDlHandle){
@@ -352,7 +351,6 @@ int elf_find_symbol_by_hash(struct elf_handle* pHandle, unsigned char* symbolNam
 	struct elf64_sym* pSymbolTable = (struct elf64_sym*)0x0;
 	unsigned char* pStringTable = (unsigned char*)0x0;
 	if (elf_get_dt_ptr(pHandle, ELF_DT_HASH, (uint64_t*)&pHashData)!=0){
-		printf("failed to get HASH table\r\n");
 		return -1;
 	}
 	if (elf_get_dt_ptr(pHandle, ELF_DT_SYMTAB, (uint64_t*)&pSymbolTable)!=0)
@@ -360,17 +358,15 @@ int elf_find_symbol_by_hash(struct elf_handle* pHandle, unsigned char* symbolNam
 	if (elf_get_dt_ptr(pHandle, ELF_DT_STRTAB, (uint64_t*)&pStringTable)!=0)
 		return -1;
 	if (!pHashData||!pSymbolTable||!pStringTable){
-		printf("invalid tables\r\n");
 		return -1;
 	}
 	uint32_t* pChainData = pHashData->buckets+pHashData->nBuckets;
 	uint64_t hashBucket = hash%pHashData->nBuckets;
 	uint64_t chainStart = (uint64_t)pHashData->buckets[hashBucket];
 	if (!chainStart){
-		printf("empty hash bucket\r\n");
 		return -1;
 	}
-	for (uint64_t i = chainStart;i;i = pChainData[i]){
+	for (uint64_t i = chainStart;i!=0;i = pChainData[i]){
 		uint64_t symbolIndex = (uint64_t)pChainData[i];
 		struct elf64_sym* pSymbol = pSymbolTable+i;
 		unsigned char* pName = pStringTable+pSymbol->st_name;
@@ -407,7 +403,7 @@ int elf_hash(unsigned char* data, uint32_t* pHash){
 	uint32_t entropy = 0;
 	while (*data){
 		hash = (hash<<4) + *data++;
-		entropy = hash&0xF000000;
+		entropy = hash&0xF0000000;
 		if (!entropy)
 			continue;
 		hash^=entropy>>24;

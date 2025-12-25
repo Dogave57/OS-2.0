@@ -1,8 +1,0 @@
-LIBRARY KERNEL.DLL
-EXPORTS
-	print @ 1
-	putchar @ 2
-	writechar @ 3
-	clear @ 4
-	lprint @ 5
-	putlchar @ 6

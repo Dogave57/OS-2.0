@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "drivers/graphics.h"
 #include "stdlib/stdlib.h"
-int atoi(long long num, unsigned char* buf, unsigned int bufmax){
+KAPI int atoi(long long num, unsigned char* buf, unsigned int bufmax){
 	if (!buf)
 		return -1;
 	if (num<0){
@@ -28,7 +28,7 @@ int atoi(long long num, unsigned char* buf, unsigned int bufmax){
 	buf[digitcnt+1] = 0;
 	return 0;
 }
-int printf(unsigned char* fmt, ...){
+KAPI int printf(unsigned char* fmt, ...){
 	if (!fmt)
 		return -1;
 	va_list args = {0};
@@ -93,24 +93,24 @@ int printf(unsigned char* fmt, ...){
 	va_end(args);
 	return 0;
 }
-int lprintf(uint16_t* fmt, ...){
+KAPI int lprintf(uint16_t* fmt, ...){
 	if (!fmt)
 		return -1;
 	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
-		CHAR16 ch = fmt[i];
-		if (ch!='%'){
+		uint16_t ch = fmt[i];
+		if (ch!=L'%'){
 			putchar(ch);
 			continue;
 		}
 		switch (fmt[i+1]){
-			case 'd':{
-			case 'l':
-			if (fmt[i+1]=='l'&&fmt[i+2]!='l'&&fmt[i+3]!='d')
+			case L'd':{
+			case L'l':
+			if (fmt[i+1]==L'l'&&fmt[i+2]!=L'l'&&fmt[i+3]!=L'd')
 				break;
 			long long value = (long long)0;
-			if (fmt[i+1]=='d'){
+			if (fmt[i+1]==L'd'){
 				value = (long long)va_arg(args, int);
 				i++;
 			}
@@ -128,9 +128,9 @@ int lprintf(uint16_t* fmt, ...){
 			case 'x':
 			unsigned long long value = (unsigned long long)va_arg(args, unsigned long long);
 			unsigned char isUpper = 0;
-			if (fmt[i+1]=='X')
+			if (fmt[i+1]==L'X')
 				isUpper = 1;
-			if (fmt[i+1]=='p'){
+			if (fmt[i+1]==L'p'){
 				putchar('0');
 				putchar('x');
 			}
@@ -158,7 +158,7 @@ int lprintf(uint16_t* fmt, ...){
 	va_end(args);
 	return 0;
 }
-int memset(uint64_t* mem, uint64_t value, uint64_t size){
+KAPI int memset(uint64_t* mem, uint64_t value, uint64_t size){
 	if (!mem)
 		return -1;
 	for (uint64_t i = 0;i<size/8;i++){
@@ -166,7 +166,7 @@ int memset(uint64_t* mem, uint64_t value, uint64_t size){
 	}
 	return 0;
 }
-unsigned char toUpper(unsigned char ch){
+KAPI unsigned char toUpper(unsigned char ch){
 	unsigned char upper = ch;
 	static const unsigned char mapping[255]={
 		['`'] = '~',
@@ -194,7 +194,7 @@ unsigned char toUpper(unsigned char ch){
 		return 'A'+(upper-'a');
 	return mapping[upper];
 }
-int strcpy(unsigned char* dest, unsigned char* src){
+KAPI int strcpy(unsigned char* dest, unsigned char* src){
 	if (!dest||!src)
 		return -1;
 	for (uint64_t i = 0;src[i];i++){
@@ -202,7 +202,7 @@ int strcpy(unsigned char* dest, unsigned char* src){
 	}
 	return 0;
 }
-int strcmp(unsigned char* str1, unsigned char* str2){
+KAPI int strcmp(unsigned char* str1, unsigned char* str2){
 	if (!str1||!str2)
 		return -1;
 	for (uint64_t i = 0;;i++){
@@ -213,7 +213,7 @@ int strcmp(unsigned char* str1, unsigned char* str2){
 	}
 	return -1;
 }
-int memcpy_align64(uint64_t* dest, uint64_t* src, uint64_t qwords){
+KAPI int memcpy_align64(uint64_t* dest, uint64_t* src, uint64_t qwords){
 	if (!dest||!src)
 		return -1;
 	for (uint64_t i = 0;i<qwords;i++){
@@ -221,7 +221,7 @@ int memcpy_align64(uint64_t* dest, uint64_t* src, uint64_t qwords){
 	}
 	return 0;	
 }
-int memcpy_align32(uint32_t* dest, uint32_t* src, uint64_t dwords){
+KAPI int memcpy_align32(uint32_t* dest, uint32_t* src, uint64_t dwords){
 	if (!dest||!src)
 		return -1;
 	for (uint64_t i = 0;i<dwords;i++){
@@ -229,7 +229,7 @@ int memcpy_align32(uint32_t* dest, uint32_t* src, uint64_t dwords){
 	}
 	return 0;
 }
-int memcpy(unsigned char* dest, unsigned char* src, uint64_t len){
+KAPI int memcpy(unsigned char* dest, unsigned char* src, uint64_t len){
 	if (!dest||!src||!len)
 		return -1;
 	if (!(len%sizeof(uint64_t)))

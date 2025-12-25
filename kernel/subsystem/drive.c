@@ -62,7 +62,7 @@ int drive_unregister(uint64_t drive_id){
 		return -1;
 	return 0;
 }
-int drive_get_info(uint64_t drive_id, struct drive_info* pDriveInfo){
+KAPI int drive_get_info(uint64_t drive_id, struct drive_info* pDriveInfo){
 	if (!pDriveInfo)
 		return -1;
 	struct drive_dev_hdr* pHdr = (struct drive_dev_hdr*)0x0;
@@ -72,14 +72,14 @@ int drive_get_info(uint64_t drive_id, struct drive_info* pDriveInfo){
 	driveGetInfoFunc getDriveInfo = (driveGetInfoFunc)pHdr->getDriveInfo;
 	return getDriveInfo(pHdr, pDriveInfo);
 }
-int drive_read_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
+KAPI int drive_read_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
 	struct drive_dev_hdr* pHdr = (struct drive_dev_hdr*)0x0;
 	if (subsystem_get_entry(pDriveSubsystem, drive_id, (uint64_t*)&pHdr)!=0)
 		return -1;
 	driveSectorReadFunc sectors_read = (driveSectorReadFunc)pHdr->sectors_read;
 	return sectors_read(pHdr, lba, sector_count, pBuffer);
 }
-int drive_write_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
+KAPI int drive_write_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
 	struct drive_dev_hdr* pHdr = (struct drive_dev_hdr*)0x0;
 	if (subsystem_get_entry(pDriveSubsystem, drive_id, (uint64_t*)&pHdr)!=0){
 		return -1;
@@ -90,7 +90,7 @@ int drive_write_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, 
 	driveSectorWriteFunc sectors_write = (driveSectorWriteFunc)pHdr->sectors_write;
 	return sectors_write(pHdr, lba, sector_count, pBuffer);
 }
-int partition_read_sectors(uint64_t drive_id, uint64_t partition_id, uint64_t lba_offset, uint16_t sector_count, unsigned char* pBuffer){
+KAPI int partition_read_sectors(uint64_t drive_id, uint64_t partition_id, uint64_t lba_offset, uint16_t sector_count, unsigned char* pBuffer){
 	if (!pBuffer)
 		return -1;
 	struct gpt_partition partition = {0};
@@ -103,7 +103,7 @@ int partition_read_sectors(uint64_t drive_id, uint64_t partition_id, uint64_t lb
 		return -1;
 	return 0;
 }
-int partition_write_sectors(uint64_t drive_id, uint64_t partition_id, uint64_t lba_offset, uint16_t sector_count, unsigned char* pBuffer){
+KAPI int partition_write_sectors(uint64_t drive_id, uint64_t partition_id, uint64_t lba_offset, uint16_t sector_count, unsigned char* pBuffer){
 	if (!pBuffer)
 		return -1;
 	struct gpt_partition partition = {0};

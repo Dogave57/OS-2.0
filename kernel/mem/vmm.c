@@ -28,7 +28,7 @@ int vmm_init(void){
 		EFI_MEMORY_DESCRIPTOR* pMemDesc = (EFI_MEMORY_DESCRIPTOR*)(((unsigned char*)pbootargs->memoryInfo.pMemoryMap)+(i*pbootargs->memoryInfo.memoryDescSize));
 		if (pMemDesc->Type!=EfiConventionalMemory)
 			continue;
-		if (virtualMapPages((uint64_t)pMemDesc->PhysicalStart, (uint64_t)pMemDesc->PhysicalStart, PTE_RW, (uint64_t)pMemDesc->NumberOfPages, 1, 0, PAGE_TYPE_NORMAL)!=0){
+		if (virtualMapPages((uint64_t)pMemDesc->PhysicalStart, (uint64_t)pMemDesc->PhysicalStart, PTE_RW|PTE_NX, (uint64_t)pMemDesc->NumberOfPages, 1, 0, PAGE_TYPE_NORMAL)!=0){
 			printf("failed to identity map %d pages at %p\r\n", pMemDesc->NumberOfPages, (void*)pMemDesc->PhysicalStart);
 			return -1;
 		}
@@ -48,7 +48,7 @@ int vmm_init(void){
 	uint64_t kernelStackPages = pbootargs->kernelInfo.kernelStackSize/PAGE_SIZE;
 	if (pbootargs->kernelInfo.kernelStackSize%PAGE_SIZE)
 		kernelStackPages++;
-	if (virtualMapPages(pbootargs->kernelInfo.pKernelStack, pbootargs->kernelInfo.pKernelStack, PTE_RW, kernelStackPages, 1, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualMapPages(pbootargs->kernelInfo.pKernelStack, pbootargs->kernelInfo.pKernelStack, PTE_RW|PTE_NX, kernelStackPages, 1, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to map kernel stack\r\n");
 		return -1;
 	}
@@ -130,7 +130,7 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 	*ppNextLevel = (uint64_t*)pNextLevel;
 	return 0;
 }
-int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint32_t pageType){
+KAPI int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint32_t pageType){
 	if (va%PAGE_SIZE||pa%PAGE_SIZE){
 		va = align_down(va, PAGE_SIZE);
 		pa = align_down(pa, PAGE_SIZE);
@@ -154,7 +154,7 @@ int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared
 	flush_tlb(va);
 	return 0;
 }
-int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared, uint64_t map_flags, uint32_t pageType){
+KAPI int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared, uint64_t map_flags, uint32_t pageType){
 	for (uint64_t i = 0;i<page_cnt;i++){
 		uint64_t page_pa = pa+(i*PAGE_SIZE);
 		uint64_t page_va = va+(i*PAGE_SIZE);
@@ -163,7 +163,7 @@ int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt,
 	}
 	return 0;
 }
-int virtualUnmapPage(uint64_t va, uint64_t map_flags){
+KAPI int virtualUnmapPage(uint64_t va, uint64_t map_flags){
 	if (va%4096)
 		va = align_down(va, PAGE_SIZE);
 	uint64_t* pentry = (uint64_t*)0x0;
@@ -183,7 +183,7 @@ int virtualUnmapPage(uint64_t va, uint64_t map_flags){
 	flush_tlb(va);
 	return 0;
 }
-int virtualUnmapPages(uint64_t va, uint64_t page_cnt, uint64_t map_flags){
+KAPI int virtualUnmapPages(uint64_t va, uint64_t page_cnt, uint64_t map_flags){
 	for (uint64_t i = 0;i<page_cnt;i++){
 		uint64_t page_va = va+(i*PAGE_SIZE);
 		if (virtualUnmapPage(page_va, map_flags)!=0)
@@ -191,7 +191,7 @@ int virtualUnmapPages(uint64_t va, uint64_t page_cnt, uint64_t map_flags){
 	}
 	return 0;	
 }
-int virtualToPhysical(uint64_t va, uint64_t* pPa){
+KAPI int virtualToPhysical(uint64_t va, uint64_t* pPa){
 	if (!pPa)
 		return -1;
 	uint64_t* pentry = (uint64_t*)0x0;
@@ -202,7 +202,7 @@ int virtualToPhysical(uint64_t va, uint64_t* pPa){
 	*pPa = page_pa+page_offset;
 	return 0;
 }
-int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t pageType){
+KAPI int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t pageType){
 	if (!pVa)
 		return -1;
 	uint64_t pa = 0;
@@ -216,7 +216,7 @@ int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t
 	*pVa = pa;
 	return 0;
 }
-int virtualFreePage(uint64_t va, uint64_t map_flags){
+KAPI int virtualFreePage(uint64_t va, uint64_t map_flags){
 	uint64_t* pentry = (uint64_t*)0x0;
 	if (vmm_getPageTableEntry(va, &pentry)!=0){
 		printf("failed to get PTE\r\n");
@@ -233,7 +233,7 @@ int virtualFreePage(uint64_t va, uint64_t map_flags){
 	}
 	return 0;
 }
-int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType){
+KAPI int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType){
 	if (!pVa)
 		return -1;
 	uint64_t va = last_page_va+PAGE_SIZE;
@@ -247,7 +247,7 @@ int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t
 	*pVa = va;
 	return 0;
 }
-int virtualFreePages(uint64_t va, uint64_t pagecnt){
+KAPI int virtualFreePages(uint64_t va, uint64_t pagecnt){
 	for (uint64_t i = 0;i<pagecnt;i++){
 		uint64_t page_va = va+(i*PAGE_SIZE);
 		if (virtualFreePage(page_va, 0)!=0){
@@ -257,9 +257,30 @@ int virtualFreePages(uint64_t va, uint64_t pagecnt){
 	}
 	return 0;
 }
-int virtualAlloc(uint64_t* pVa, uint64_t size, uint64_t flags, uint64_t map_flags, uint32_t pageType){
+KAPI int virtualAlloc(uint64_t* pVa, uint64_t size, uint64_t flags, uint64_t map_flags, uint32_t pageType){
 	return virtualAllocPages(pVa, align_up(size, PAGE_SIZE)/PAGE_SIZE, flags, map_flags, pageType);
 }
-int virtualFree(uint64_t va, uint64_t size){
+KAPI int virtualFree(uint64_t va, uint64_t size){
 	return virtualFreePages(va, align_up(size, PAGE_SIZE)/PAGE_SIZE);
+}
+KAPI int virtualProtectPage(uint64_t va, uint64_t prot){
+	uint64_t* pEntry = (uint64_t*)0x0;
+	if (vmm_getPageTableEntry(va, &pEntry)!=0)
+		return -1;
+	if (!pEntry)
+		return -1;
+	if (!prot||prot==~PTE_PRESENT){
+		*pEntry|=~PTE_PRESENT;
+		return 0;
+	}
+	*pEntry|=prot|PTE_PRESENT;
+	return 0;
+}
+KAPI int virtualProtectPages(uint64_t va, uint64_t pageCount, uint64_t prot){
+	uint64_t page_va = va;
+	for (uint64_t i = 0;i<pageCount;i++,page_va+=PAGE_SIZE){
+		if (virtualProtectPage(page_va, prot)!=0)
+			return -1;
+	}
+	return 0;
 }

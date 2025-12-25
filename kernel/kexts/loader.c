@@ -2,22 +2,133 @@
 #include "mem/vmm.h"
 #include "mem/heap.h"
 #include "subsystem/filesystem.h"
+#include "subsystem/subsystem.h"
+#include "drivers/timer.h"
+#include "cpu/thread.h"
 #include "align.h"
 #include "elf.h"
 #include "kexts/loader.h"
+static struct subsystem_desc* pSubsystemDesc = (struct subsystem_desc*)0x0;
+int kext_subsystem_init(void){
+	if (subsystem_init(&pSubsystemDesc, 66536)!=0)
+		return -1;
+	return 0;
+}
 int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 	if (!filename||!pPid)
 		return -1;
+	uint64_t time_ms = get_time_ms();
 	struct elf_handle* pHandle = (struct elf_handle*)0x0;
 	if (elf_load(mount_id, filename, &pHandle)!=0)
 		return -1;
-	int status = 0;
-	if (elf_execute(pHandle, &status)!=0){
-		printf("failed to execute ELF binaryr\r\n");
+	printf("took %dms to load ELF\r\n", get_time_ms()-time_ms);
+	uint64_t pid = 0;
+	if (kext_register(pHandle, &pid)!=0){
+		printf("failed to register kext\r\n");
 		elf_unload(pHandle);
 		return -1;
 	}
-	printf("program exited with status 0x0x%x\r\n", status);
+	struct kext_desc_t* pKextDesc = (struct kext_desc_t*)0x0;
+	struct kext_bootstrap_args_t* pArgs = (struct kext_bootstrap_args_t*)kmalloc(sizeof(struct kext_bootstrap_args_t));
+	if (!pArgs){
+		elf_unload(pHandle);
+		return -1;
+	}
+	memset((void*)pArgs, 0, sizeof(struct kext_bootstrap_args_t));
+	pArgs->pKextDesc = pKextDesc;
+	uint64_t tid = 0;
+	if (thread_create((uint64_t)kext_bootstrap, 8192, &tid, (uint64_t)pArgs)!=0){
+		printf("failed to create thread\r\n");
+		kfree((void*)pArgs);
+		elf_unload(pHandle);
+		return -1;
+	}
+	while (1){};
+	kfree((void*)pArgs);
+	if (kext_unregister(pid)!=0){
+		printf("failed to unregister kext\r\n");
+		elf_unload(pHandle);
+		return -1;
+	}
 	elf_unload(pHandle);
+	return 0;
+}
+int kext_unload(uint64_t pid){
+	struct kext_desc_t* pKextDesc = (struct kext_desc_t*)0x0;
+	if (subsystem_get_entry(pSubsystemDesc, pid, (uint64_t*)&pKextDesc)!=0)
+		return -1;
+	if (elf_unload(pKextDesc->pElfHandle)!=0)
+		return -1;
+	if (kext_unregister(pid)!=0)
+		return -1;
+	return 0;
+}
+int kext_register(struct elf_handle* pElfHandle, uint64_t* pPid){
+	if (!pElfHandle||!pPid)
+		return -1;
+	uint64_t pid = 0;
+	struct kext_desc_t* pKextDesc = (struct kext_desc_t*)kmalloc(sizeof(struct kext_desc_t));
+	if (!pKextDesc)
+		return -1;
+	memset((void*)pKextDesc, 0, sizeof(struct kext_desc_t));
+	if (subsystem_alloc_entry(pSubsystemDesc, (unsigned char*)pKextDesc, &pid)!=0){
+		kfree((void*)pKextDesc);
+		return -1;
+	}
+	pKextDesc->pElfHandle = pElfHandle;
+	pKextDesc->pid = pid;
+	*pPid = pid;
+	return 0;
+}
+int kext_unregister(uint64_t pid){
+	struct kext_desc_t* pKextDesc = (struct kext_desc_t*)0x0;
+	if (subsystem_get_entry(pSubsystemDesc, pid, (uint64_t*)&pKextDesc)!=0)
+		return -1;
+	if (subsystem_free_entry(pSubsystemDesc, pid)!=0)
+		return -1;
+	return 0;
+}
+int kext_get_entry(uint64_t pid, struct kext_desc_t** ppEntry){
+	if (!ppEntry)
+		return -1;
+	struct kext_desc_t* pEntry = (struct kext_desc_t*)0x0;
+	if (subsystem_get_entry(pSubsystemDesc, pid, (uint64_t*)&pEntry)!=0)
+		return -1;
+	*ppEntry = pEntry;
+	return 0;
+}
+int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
+	printf("thread started\r\n");
+	if (!pArgs){
+		printf("invalid arguments\r\n");
+		while (1){};
+		return -1;
+	}
+	struct kext_desc_t* pKextDesc = pArgs->pKextDesc;
+	struct elf_handle* pElfHandle = pKextDesc->pElfHandle;
+	if (!pElfHandle){
+		printf("invalid ELF handle\r\n");
+		while (1){};
+		return -1;
+	}
+	while (1){};
+	printf("getting entry\r\n");
+	while (1){};
+	kextEntry entry = (kextEntry)0x0;
+	if (elf_get_entry(pElfHandle, (uint64_t*)&entry)!=0){
+		printf("failed to get entry\r\n");
+		while (1){};
+		return -1;
+	}
+	printf("running...\r\n");
+	while (1){};
+	int status = entry(pKextDesc->pid);
+	printf("status: 0x%x\r\n", status);
+	while (1){};
+	return 0;
+}
+int thread2(uint64_t tid, uint64_t argument){
+
+	
 	return 0;
 }

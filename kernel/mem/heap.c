@@ -74,7 +74,7 @@ int heap_init(void){
 	}
 	return 0;
 }
-void* kmalloc(uint64_t size){
+KAPI void* kmalloc(uint64_t size){
 	if (size<HEAP_MIN_BLOCK_SIZE)
 		size = HEAP_MIN_BLOCK_SIZE;
 	if (size>HEAP_MAX_BLOCK_SIZE){
@@ -112,7 +112,7 @@ void* kmalloc(uint64_t size){
 	pHdr->heapTracked = 1;
 	return (void*)(pHdr+1);
 }
-int kfree(void* pBlock){
+KAPI int kfree(void* pBlock){
 	if (!pBlockLists){
 		if (heap_init()!=0)
 			return -1;

@@ -1,6 +1,7 @@
 #ifndef _PMM
 #define _PMM
 #include <stdint.h>
+#include "kernel_include.h"
 #include "vmm.h"
 #define MEM_GB 1073741824
 #define MEM_MB 1048576
@@ -40,19 +41,19 @@ extern uint64_t installedMemory;
 extern uint64_t freeMemory;
 extern uint64_t totalMemory;
 int pmm_init(void);
-int getTotalMemory(uint64_t* pTotalMemory);
-int getInstalledMemory(uint64_t* pInstalledMemory);
-int getFreeMemory(uint64_t* pFreeMemory);
+KAPI int getTotalMemory(uint64_t* pTotalMemory);
+KAPI int getInstalledMemory(uint64_t* pInstalledMemory);
+KAPI int getFreeMemory(uint64_t* pFreeMemory);
 int allocatePageTable(void);
 int initPageTable(void);
-int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType);
-int physicalFreePage(uint64_t physicalAddress);
-int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType);
-int physicalUnmapPage(uint64_t physicalAddress);
+KAPI int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType);
+KAPI int physicalFreePage(uint64_t physicalAddress);
+KAPI int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType);
+KAPI int physicalUnmapPage(uint64_t physicalAddress);
 int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
 int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);
 int getPhysicalPageTable(uint64_t* pPa, uint64_t* pSize);
-int getUsedPhysicalPages(uint64_t* pUsedPages);
-int getFreePhysicalPages(uint64_t* pFreePages);
-int physicalToVirtual(uint64_t pa, uint64_t* pVa);
+KAPI int getUsedPhysicalPages(uint64_t* pUsedPages);
+KAPI int getFreePhysicalPages(uint64_t* pFreePages);
+KAPI int physicalToVirtual(uint64_t pa, uint64_t* pVa);
 #endif

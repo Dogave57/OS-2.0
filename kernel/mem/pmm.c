@@ -26,7 +26,7 @@ int pmm_init(void){
 	printf("free memory: %dmb\r\n", freeMemory/MEM_MB);
 	return 0;
 }
-int getTotalMemory(uint64_t* pTotalMemory){
+KAPI int getTotalMemory(uint64_t* pTotalMemory){
 	if (!pTotalMemory)
 		return -1;
 	if (totalMemory){
@@ -41,7 +41,7 @@ int getTotalMemory(uint64_t* pTotalMemory){
 	*pTotalMemory = totalMemory;
 	return 0;
 }
-int getInstalledMemory(uint64_t* pInstalledMemory){
+KAPI int getInstalledMemory(uint64_t* pInstalledMemory){
 	if (!pInstalledMemory)
 		return -1;
 	if (installedMemory){
@@ -58,7 +58,7 @@ int getInstalledMemory(uint64_t* pInstalledMemory){
 	*pInstalledMemory = installedMemory;
 	return 0;
 }
-int getFreeMemory(uint64_t* pFreeMemory){
+KAPI int getFreeMemory(uint64_t* pFreeMemory){
 	if (!pFreeMemory)
 		return -1;
 	if (freeMemory){
@@ -123,7 +123,7 @@ int initPageTable(void){
 	}
 	return 0;
 }
-int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType){
+KAPI int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType){
 	if (!pPhysicalAddress)
 		return -1;
 	if (!pt->freeEntryCnt){
@@ -145,7 +145,7 @@ int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType){
 	*pPhysicalAddress = pa;
 	return 0;
 }
-int physicalFreePage(uint64_t physicalAddress){
+KAPI int physicalFreePage(uint64_t physicalAddress){
 	if (!pt->usedEntryCnt)
 		return -1;
 	uint64_t pageEntry = (physicalAddress/PAGE_SIZE);
@@ -161,14 +161,14 @@ int physicalFreePage(uint64_t physicalAddress){
 	}
 	return 0;
 }
-int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType){
+KAPI int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType){
 	struct p_page* pNewPage = pt->pPageEntries+(physicalAddress/PAGE_SIZE);
 	pNewPage->status = PAGE_INUSE;
 	pNewPage->pageType = pageType;
 	pNewPage->virtualAddress = align_down(virtualAddress, PAGE_SIZE);
 	return 0;
 }
-int physicalUnmapPage(uint64_t physicalAddress){
+KAPI int physicalUnmapPage(uint64_t physicalAddress){
 	struct p_page* pPage = pt->pPageEntries+(physicalAddress/PAGE_SIZE);
 	pPage->status = PAGE_FREE;
 	return 0;
@@ -214,19 +214,19 @@ int getPhysicalPageTable(uint64_t* pPa, uint64_t* pSize){
 	*pSize = pt->pt_size;
 	return 0;
 }
-int getUsedPhysicalPages(uint64_t* pUsedPages){
+KAPI int getUsedPhysicalPages(uint64_t* pUsedPages){
 	if (!pUsedPages)
 		return -1;
 	*pUsedPages = pt->usedEntryCnt;
 	return 0;
 }
-int getFreePhysicalPages(uint64_t* pFreePages){
+KAPI int getFreePhysicalPages(uint64_t* pFreePages){
 	if (!pFreePages)
 		return -1;
 	*pFreePages = pt->freeEntryCnt;
 	return 0;
 }
-int physicalToVirtual(uint64_t pa, uint64_t* pVa){
+KAPI int physicalToVirtual(uint64_t pa, uint64_t* pVa){
 	if (!pVa)
 		return -1;
 	uint64_t pageEntry = pa/PAGE_SIZE;

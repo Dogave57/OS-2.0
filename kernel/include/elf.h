@@ -165,7 +165,7 @@ struct elf_handle{
 	struct elf_handle* pFlink;
 };
 int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppHandle);
-int elf_execute(struct elf_handle* pHandle, int* pStatus);
+int elf_get_entry(struct elf_handle* pHandle, uint64_t* ppEntry);
 int elf_load_dl(struct elf_handle* pHandle, unsigned char* dlname, struct elf_handle** ppDlHandle);
 int elf_unload_dl(struct elf_handle* pHandle, struct elf_handle* pDlHandle);
 int elf_unload(struct elf_handle* pHandle);

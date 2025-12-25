@@ -15,7 +15,7 @@ struct idt_ptr_t{
 	uint16_t limit;
 	uint64_t base;
 }__attribute__((packed));
-int idt_add_descriptor(uint8_t vector, uint64_t isr, uint8_t flags);
+int idt_add_descriptor(uint8_t vector, uint64_t isr, uint8_t flags, uint8_t ist_entry);
 int idt_init(void);
 int load_idt(struct idt_ptr_t* pidt);
 #endif

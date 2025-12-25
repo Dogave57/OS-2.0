@@ -30,6 +30,7 @@
 #include "align.h"
 #include "partition_conf.h"
 #include "cpu/gdt.h"
+#include "cpu/thread.h"
 EFI_SYSTEM_TABLE* systab = (EFI_SYSTEM_TABLE*)0x0;
 EFI_BOOT_SERVICES* BS = (EFI_BOOT_SERVICES*)0x0;
 EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL* conout = (EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL*)0x0;
@@ -107,10 +108,10 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		printf("no AHCI controller available\r\n");
 	}
 	printf("initialized AHCI controller\r\n");
-	if (nvme_init()!=0){
+/*	if (nvme_init()!=0){
 		printf("failed to initialize NVME driver\r\n");
 	}
-	if (drive_subsystem_init()!=0){
+*/	if (drive_subsystem_init()!=0){
 		printf("failed to initialize drive subsystem\r\n");
 		while (1){};
 		return -1;
@@ -135,8 +136,13 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	if (kext_subsystem_init()!=0){
+		printf("failed to initialize kext subsystem\r\n");
+		while (1){};
+		return -1;
+	}
 	uint64_t va = 0;
-	uint64_t pagecnt = (MEM_MB*64)/PAGE_SIZE;
+	uint64_t pagecnt = (MEM_MB*8)/PAGE_SIZE;
 	uint64_t before_ms = get_time_ms();
 	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate %d pages\r\n", pagecnt);	
@@ -314,7 +320,15 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	uint64_t rootPartitionId = pPartitionConf->rootPartitionId;
 	kfree((void*)pFileBuffer);
 	fs_close(mountId, fileId);
-	uint64_t pid = 0;
+	if (threads_init()!=0){
+		printf("failed to initialize threads\r\n");
+		fs_close(mountId, fileId);
+		fs_unmount(mountId);
+		while (1){};
+		return -1;
+	}
+	uint64_t pid = 0;	
+	while (1){};
 	if (kext_load(mountId, "KEXTS/TEST.ELF", &pid)!=0){
 		printf("failed to load kext\r\n");
 		fs_unmount(mountId);
@@ -322,7 +336,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	fs_unmount(mountId);
-	lprintf((uint16_t*)L"dev path: %s\r\n", pbootargs->driveInfo.devicePathStr);
 	while (1){};
 	return 0;	
 }

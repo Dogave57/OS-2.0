@@ -1,6 +1,8 @@
 #ifndef _INTERRUPT
 #define _INTERRUPT
 #include "idt.h"
+extern uint64_t safe_stack_bottom;
+extern uint64_t safe_stack_top;
 void default_isr(void);
 void pic_timer_isr(void);
 void timer_isr(void);

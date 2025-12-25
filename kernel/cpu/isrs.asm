@@ -14,8 +14,10 @@ push r12
 push r13
 push r14
 push r15
+pushfq
 %endmacro
 %macro popaq 0
+popfq
 pop r15
 pop r14
 pop r13
@@ -39,30 +41,30 @@ pushaq
 popaq
 %endmacro
 exception_names:
-de_name dw __?utf16?__('divide by zero'), 10, 0
-db_name dw __?utf16?__('debug'), 10, 0
-nmi_name dw __?utf16?__('non-maskable interrupt'), 10, 0
-bp_name dw __?utf16?__('breakpoint'), 10, 0
-of_name dw __?utf16?__('overflow'), 10, 0
-br_name dw __?utf16?__('bound range exceeded'), 10, 0
-ud_name dw __?utf16?__('invalid opcode'), 10, 0
-nm_name dw __?utf16?__('device not available'), 10, 0
-df_name dw __?utf16?__('double fault'), 10, 0
-csor_name dw __?utf16?__('coprocessor segment overrun'), 10, 0
-ts_name dw __?utf16?__('invalid tss'), 10, 0
-np_name dw __?utf16?__('segment not present'), 10, 0
-ss_name dw __?utf16?__('stack segment fault'), 10, 0
-gp_name dw __?utf16?__('general protection fault'), 10, 0
-pf_name dw __?utf16?__('page fault'), 10, 0
-mf_name dw __?utf16?__('x87 floating point exception'), 10, 0
-ac_name dw __?utf16?__('alignment check'), 10, 0
-mc_name dw __?utf16?__('machine check'), 10, 0
-xm_name dw __?utf16?__('simd floating point exception'), 10, 0
-ve_name dw __?utf16?__('virtualization exception'), 10, 0
-cp_name dw __?utf16?__('control protection exception'), 10, 0
-hv_name dw __?utf16?__('hypervisor injection exception'), 10, 0
-vc_name dw __?utf16?__('vmm communication exception'), 10, 0
-sx_name dw __?utf16?__('security exception'), 10, 0
+de_name db "divide by zero", 10, 0
+db_name db "debug", 10, 0
+nmi_name db "non-maskable interrupt", 10, 0
+bp_name db "breakpoint", 10, 0
+of_name db "overflow", 10, 0
+ud_name db "invalid opcode", 10, 0
+br_name db "bound range exceeded", 10, 0
+nm_name db "device not available", 10, 0
+df_name db "double fault", 10, 0
+csor_name db "coprocessor segment overrun", 10, 0
+ts_name db "invalid TSS", 10, 0
+np_name db "segment not present", 10, 0
+ss_name db "stack segmentation fault", 10, 0
+gp_name db "general protection fault", 10, 0
+pf_name db "page fault", 10, 0
+mf_name db "x87 floating point exception", 10, 0
+ac_name db "alignment check", 10, 0
+mc_name db "machine check", 10, 0
+xm_name db "simd floating point", 10, 0
+ve_name db "virtualization", 10, 0
+cp_name db "control protection", 10, 0
+hv_name db "hypervisor injection", 10, 0
+vc_name db "vmm communication", 10, 0
+sx_name db "security", 10, 0
 exception_name_map:
 dq de_name;0
 dq db_name;1
@@ -96,6 +98,34 @@ dq hv_name;28
 dq vc_name;29
 dq sx_name;30
 dq 0;reserved 31
+exception_args:
+dq 0 ; code - 0
+dq 0 ; rip - 8
+dq 0 ; rax - 16
+dq 0 ; rbx - 24
+dq 0 ; rcx - 32
+dq 0 ; rdx - 40
+dq 0 ; rdi - 48
+dq 0 ; rsi - 56
+dq 0 ; r8 - 64
+dq 0 ; r9 - 72 
+dq 0 ; r10 - 80
+dq 0 ; r11 - 88 
+dq 0 ; r12 - 96
+dq 0 ; r13 - 104 
+dq 0 ; r14 - 112
+dq 0 ; r15 - 120
+dq 0 ; rbp - 128 
+dq 0 ; rsp - 136
+dq 0 ; cr0 - 144 
+dq 0 ; cr2 - 152
+dq 0 ; cr3 - 160
+dq 0 ; cs - 168
+dq 0 ; ds - 176
+dq 0 ; gs - 184
+dq 0 ; ss - 192
+dq 0 ; error code - 200
+dq 0 ; contains error code - 208
 saved_registers:
 saved_reg_rip:
 dq 0
@@ -110,9 +140,29 @@ safe_stack_top:
 resb 8
 section .data
 exceptionmsg:
-dw __?utf16?__('exception 0x%x'), 13, 10, 0
+db "exception: %d", 10, 0
 regmsg:
-dw __?utf16?__('rip: %p  '), __?utf16?__('rsp: %p  '), __?utf16?__('rbp: %p'), 13, 10, __?utf16?__('rax: 0x%x  '), __?utf16?__('rbx: 0x%x  '),__?utf16?__('rcx: 0x%x  '), 13, 10, __?utf16?__('rdx: 0x%x  '), __?utf16?__('cs: 0x%x  '), __?utf16?__('ds: 0x%x'), 13, 10, 0
+db "rax: %p rbx: %p rcx: %p rdx: %p", 10, "rdi: %p rsi: %p r8: %p r9: %p", 10, "r10: %p r11: %p r12: %p r13: %p", 10, "r14: %p r15: %p rbp: %p rsp: %p", 10, "cr0: %p cr2: %p cr3: %p", 10, "cs: %p ds: %p gs: %p ss: %p", 10, 0 
+pf_dump_msg:
+db "page fault virtual address: %p (cr2)", 10, 0
+pf_np_msg:
+db "non present violation", 10, 0
+pf_pv_msg:
+db "protected violation", 10, 0
+pf_rf_msg:
+db "read violation", 10, 0
+pf_wf_msg:
+db "write violation", 10, 0
+pf_if_msg:
+db "instruction fetch violation", 10, 0
+pf_kv_msg:
+db "kernel page violation", 10, 0
+pf_uv_msg:
+db "user page violation", 10, 0
+pf_rs_msg:
+db "reserved bit violation", 10, 0
+error_code_dump_msg:
+db "error code: 0x%x", 10, 0
 section .text
 global reset_timer
 global get_time_ms
@@ -141,6 +191,8 @@ global isr17
 global isr18
 global isr19
 global isr20
+global safe_stack_top
+global safe_stack_bottom
 extern print
 extern lprint
 extern printf
@@ -154,66 +206,168 @@ extern putchar
 extern ps2_keyboard_handler
 extern crypto_entropy
 extern entropy_shuffle
+extern pFirstThread
+extern pLastThread
+extern pCurrentThread
 exception_fg:
 db 255, 255, 255, 0
 exception_bg:
 db 0, 0, 0, 0
 deadly_exception:
-pushaq
+sub rsp, 32
 mov qword rcx, exception_fg
 mov qword rdx, exception_bg
-sub rsp, 32
-sub rsp, 8
-;call set_text_color
-add rsp, 8
-add rsp, 32
-sub rsp, 32
-sub rsp, 8
+call set_text_color
 call clear
-add rsp, 8
 add rsp, 32
-popaq
-pushaq
-mov rdx, [rbp-8]
-lea rcx, [rel exception_name_map]
-imul rdx, rdx, 8
-add rcx, rdx
-mov rcx, [rcx]
+mov qword rax, [rel exception_args]
+push rax
+mov qword rcx, exceptionmsg
+mov qword rdx, rax
 sub rsp, 32
-call lprint
-add rsp, 32
-popaq
-pushaq
-mov rcx, exceptionmsg
-mov rdx, [rbp-8]
-sub rsp, 8
-call lprintf
-add rsp, 8
-popaq
-sub rsp, 16
-mov qword [rsp], 0
-mov qword [rsp+8], 0
-mov word [rsp], cs
-mov word [rsp+8], ds
-push rdx
-push rcx
-push rbx
-push rax
-mov rax, [rel saved_reg_rsp]
-push rax
-mov rax, [rel saved_reg_rbp]
-push rax
-mov rcx, regmsg
-mov rdx, [rel saved_reg_rip]
-mov r8, [rel saved_reg_rsp]
-mov r9, [rel saved_reg_rbp]
-sub rsp, 32
-call lprintf
+call printf
 add rsp, 32
 pop rax
-pop rbx
-pop rcx
-pop rdx
+mov qword rbx, exception_name_map
+imul rax, 8
+add qword rbx, rax
+mov qword rbx, [rbx]
+cmp rbx, 0
+je b
+sub rsp, 32
+mov qword rcx, rbx
+call print
+add rsp, 32
+mov qword rcx, regmsg
+mov qword rdx, [rel exception_args+16] ; rax
+mov qword r8, [rel exception_args+24] ; rbx
+mov qword r9, [rel exception_args+32] ; rcx
+push qword [rel exception_args+192] ; ss
+push qword [rel exception_args+184] ; gs
+push qword [rel exception_args+176] ; ds
+push qword [rel exception_args+168] ; cs
+push qword [rel exception_args+160] ; cr3
+push qword [rel exception_args+152] ; cr2
+push qword [rel exception_args+144] ; cr0
+push qword [rel exception_args+136] ; rsp
+push qword [rel exception_args+128] ; rbp
+push qword [rel exception_args+120] ; r15
+push qword [rel exception_args+112] ; r14
+push qword [rel exception_args+104] ; r13
+push qword [rel exception_args+96] ; r12
+push qword [rel exception_args+88] ; r11
+push qword [rel exception_args+80] ; r10
+push qword [rel exception_args+72] ; r9
+push qword [rel exception_args+64] ; r8
+push qword [rel exception_args+56] ; rsi
+push qword [rel exception_args+48] ; rdi
+push qword [rel exception_args+40] ; rdx
+sub rsp, 32
+call printf
+add rsp, 32
+mov qword rax, [rel exception_args]
+cmp rax, 14
+jne pf_special_handler_end
+pf_special_handler:
+dump_pf_addr:
+mov qword rcx, pf_dump_msg
+mov qword rdx, cr2
+sub rsp, 32
+call printf
+add rsp, 32
+dump_pf_addr_end:
+dump_pf_error_code:
+mov qword rax, [rel exception_args+200]
+test rax, (1<<0)
+jnz dump_pf_pv
+dump_pf_np:
+mov qword rcx, pf_np_msg
+push rax
+sub rsp, 32
+call print
+add rsp, 32
+pop rax
+jmp dump_pf_pv_end
+dump_pf_np_end:
+dump_pf_pv:
+mov qword rcx, pf_pv_msg
+push rax
+sub rsp, 32
+call print
+add rsp, 32
+pop rax
+dump_pf_pv_end:
+test rax, (1<<1)
+jnz dump_pf_wf
+dump_pf_rf:
+push rax
+mov qword rcx, pf_rf_msg
+sub rsp, 32
+call print
+add rsp, 32
+pop rax
+jmp dump_pf_wf_end
+dump_pf_rf_end:
+dump_pf_wf:
+push rax
+mov qword rcx, pf_wf_msg
+sub rsp, 32
+call print
+add rsp, 32
+pop rax
+dump_pf_wf_end:
+test rax, (1<<4)
+jz dump_pf_if_end
+dump_pf_if:
+push rax
+mov qword rcx, pf_if_msg
+sub rsp, 32
+call print
+add rsp, 32
+pop rax
+dump_pf_if_end:
+test rax, (1<<2)
+jnz dump_pf_uv
+dump_pf_kv:
+push rax
+mov qword rcx, pf_kv_msg
+sub rsp, 32
+call printf
+add rsp, 32
+pop rax
+jmp dump_pf_uv_end
+dump_pf_kv_end:
+dump_pf_uv:
+push rax
+mov qword rcx, pf_uv_msg
+sub rsp, 32
+call print
+add rsp, 32
+pop rax
+dump_pf_uv_end:
+test rax, (1<<3)
+jnz dump_pf_rs
+jmp dump_pf_rs_end
+dump_pf_rs:
+push rax
+mov qword rcx, pf_rs_msg
+sub rsp, 32
+call print
+add rsp, 32
+pop rax
+dump_pf_rs_end:
+dump_pf_error_code_end:
+pf_special_handler_end:
+mov qword rax, [rel exception_args+208]
+cmp rax, 0
+je dump_error_code_end
+dump_error_code:
+mov qword rcx, error_code_dump_msg
+mov qword rdx, [rel exception_args+200]
+sub rsp, 32
+call printf
+add rsp, 32
+dump_error_code_end:
 b:
 jmp b
 hlt
@@ -230,10 +384,83 @@ out dx, al
 popaq
 sti
 iretq
+ctx_switch:
+mov qword rax, [rel pFirstThread]
+cmp rax, 0
+je ctx_switch_end
+popaq
+push rax
+mov qword rax, [rel pCurrentThread]
+cmp rax, 0
+jne ctx_switch_next_thread
+ctx_switch_first_thread:
+mov qword rax, [rel pFirstThread]
+jmp ctx_switch_next_thread_end
+ctx_switch_next_thread:
+ctx_switch_save_regs:
+mov qword [rax+8], rbx
+mov qword [rax+16], rcx
+mov qword [rax+24], rdx
+mov qword [rax+32], rsi
+mov qword [rax+40], rdi
+mov qword [rax+48], r8
+mov qword [rax+56], r9
+mov qword [rax+64], r10
+mov qword [rax+72], r11
+mov qword [rax+80], r12
+mov qword [rax+88], r13
+mov qword [rax+96], r14
+mov qword [rax+104], r15
+mov qword [rax+112], rsp
+add qword [rax+112], 24+8
+mov qword [rax+120], rbp
+mov qword rbx, [rsp+8]
+mov qword [rax+128], rbx
+mov qword rbx, rax
+pop rax
+mov qword [rbx], rax
+sub rsp, 8
+mov qword rax, rbx
+ctx_switch_save_regs_end:
+mov qword rax, [rax+152]
+cmp rax, 0
+je ctx_switch_first_thread
+ctx_switch_next_thread_end:
+ctx_switch_change_regs:
+add rsp, 8
+mov qword [rel pCurrentThread], rax
+mov qword rbx, [rax+128]
+mov qword [rsp], rbx
+mov qword rbx, [rax+8]
+mov qword rcx, [rax+16]
+mov qword rdx, [rax+24]
+mov qword rsi, [rax+32]
+mov qword rdi, [rax+40]
+mov qword r8, [rax+48]
+mov qword r9, [rax+56]
+mov qword r10, [rax+64]
+mov qword r11, [rax+72]
+mov qword r12, [rax+80]
+mov qword r13, [rax+88]
+mov qword r14, [rax+96]
+mov qword r15, [rax+104]
+mov qword rbp, [rax+120]
+mov qword rax, [rax]
+pushaq
+ctx_switch_end:
+jmp timer_isr_end
 timer_isr:
 cli
 pushaq
 add qword [rel time_ms], 1
+mov qword rax, [rel time_ms]
+xor rdx, rdx
+mov rbx, 10
+div rbx
+cmp rdx, 0
+jne timer_isr_end
+jmp ctx_switch
+timer_isr_end:
 sub rsp, 32
 call entropy_shuffle
 call lapic_send_eoi
@@ -259,269 +486,195 @@ add rsp, 32
 popaq
 sti
 iretq
+isr0_msg db "divide by zero ISR triggered", 10, 0
+exception_handler_entry:
+mov qword [rel exception_args+16], rax
+mov qword [rel exception_args+24], rbx
+mov qword [rel exception_args+32], rcx
+mov qword [rel exception_args+40], rdx
+mov qword [rel exception_args+48], rdi
+mov qword [rel exception_args+56], rsi
+mov qword [rel exception_args+64], r8
+mov qword [rel exception_args+72], r9
+mov qword [rel exception_args+80], r10
+mov qword [rel exception_args+88], r11
+mov qword [rel exception_args+96], r12
+mov qword [rel exception_args+104], r13
+mov qword [rel exception_args+112], r14
+mov qword [rel exception_args+120], r15
+mov qword [rel exception_args+128], rbp
+mov qword [rel exception_args+136], rsp
+mov qword rax, cr0
+mov qword [rel exception_args+144], rax
+mov qword rax, cr2
+mov qword [rel exception_args+152], rax
+mov qword rax, cr3
+mov qword [rel exception_args+160], rax
+mov qword rax, [rsp+16]
+mov qword [rel exception_args+168], rax
+mov qword rax, ds
+mov qword [rel exception_args+176], rax
+mov qword rax, gs
+mov qword [rel exception_args+184], rax
+mov qword rax, ss
+mov qword [rel exception_args+192], rax
+mov qword rax, [rsp+8]
+mov qword [rel exception_args+8], rax
+mov qword rax, [rsp]
+mov qword [rel exception_args], rax
+mov qword [rel exception_args+208], 0
+jmp deadly_exception
+exception_handler_entry_error_code:
+mov qword [rel exception_args+16], rax
+mov qword [rel exception_args+24], rbx
+mov qword [rel exception_args+32], rcx
+mov qword [rel exception_args+40], rdx
+mov qword [rel exception_args+48], rdi
+mov qword [rel exception_args+56], rsi
+mov qword [rel exception_args+64], r8
+mov qword [rel exception_args+72], r9
+mov qword [rel exception_args+80], r10
+mov qword [rel exception_args+88], r11
+mov qword [rel exception_args+96], r12
+mov qword [rel exception_args+104], r13
+mov qword [rel exception_args+112], r14
+mov qword [rel exception_args+120], r15
+mov qword [rel exception_args+128], rbp
+mov qword [rel exception_args+136], rsp
+mov qword rax, cr0
+mov qword [rel exception_args+144], rax
+mov qword rax, cr2
+mov qword [rel exception_args+152], rax
+mov qword rax, cr3
+mov qword [rel exception_args+160], rax
+mov qword rax, [rsp+24]
+mov qword [rel exception_args+168], rax
+mov qword rax, ds
+mov qword [rel exception_args+176], rax
+mov qword rax, gs
+mov qword [rel exception_args+184], rax
+mov qword rax, ss
+mov qword [rel exception_args+192], rax
+mov qword rax, [rsp+16]
+mov qword [rel exception_args+8], rax
+mov qword rax, [rsp]
+mov qword [rel exception_args], rax
+mov qword rax, [rsp+8]
+mov qword [rel exception_args+200], rax
+mov qword [rel exception_args+208], 1
+mov qword rsp, safe_stack_top
+jmp deadly_exception
 isr0:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 0
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 0
+jmp exception_handler_entry
 hlt
 isr1:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 1
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 1
+jmp exception_handler_entry
 hlt
 isr2:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 2
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 2
+jmp exception_handler_entry
 hlt
 isr3:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 3
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 3
+jmp exception_handler_entry
 hlt
 isr4:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 4
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 4
+jmp exception_handler_entry
 hlt
 isr5:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 5
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 5
+jmp exception_handler_entry
 hlt
 isr6:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 6
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 6
+jmp exception_handler_entry
 hlt
 isr7:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 7
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 7
+jmp exception_handler_entry
 hlt
 isr8:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 32
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 8
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 8
+jmp exception_handler_entry_error_code
 hlt
 isr10:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 32
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 10
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 10
+jmp exception_handler_entry_error_code
 hlt
 isr11:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 32
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 11
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 11
+jmp exception_handler_entry_error_code
 hlt
 isr12:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 32
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 12
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 12
+jmp exception_handler_entry_error_code
 hlt
 isr13:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 32
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 13
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 13
+jmp exception_handler_entry_error_code
 hlt
 isr14:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 32
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 14
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 14
+jmp exception_handler_entry_error_code
 hlt
 isr16:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 16
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 16
+jmp exception_handler_entry
 hlt
 isr17:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 32
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 17
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 17
+jmp exception_handler_entry_error_code
 hlt
 isr18:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 18
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 18
+jmp exception_handler_entry
 hlt
 isr19:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 19
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 19
+jmp exception_handler_entry
 hlt
 isr20:
 cli
-push rax
-mov qword rax, [rsp+8]
-mov qword [rel saved_reg_rip], rax
-pop rax
-mov qword [rel saved_reg_rsp], rsp
-add qword [rel saved_reg_rsp], 24
-mov qword [rel saved_reg_rbp], rbp
-lea rsp, [rel safe_stack_top]
-mov rbp, rsp
-push qword 20
-call deadly_exception
+sub rsp, 8
+mov qword [rsp], 20
+jmp exception_handler_entry
 hlt

@@ -1,5 +1,6 @@
 #ifndef _HEAP
 #define _HEAP
+#include "kernel_include.h"
 #include "vmm.h"
 #include "pmm.h"
 #define HEAP_MAX_BLOCK_SIZE (1024)
@@ -26,8 +27,8 @@ struct heap_block_hdr{
 	uint64_t va;
 };
 int heap_init(void);
-void* kmalloc(uint64_t size);
-int kfree(void* pBlock);
+KAPI void* kmalloc(uint64_t size);
+KAPI int kfree(void* pBlock);
 int heap_get_block_list(struct heap_block_list** ppBlockList, uint64_t size);
 int heap_fill_block_list(struct heap_block_list* pBlockList);
 int heap_push_block(struct heap_block_list* pBlockList, uint64_t va);

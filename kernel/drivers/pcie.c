@@ -14,7 +14,7 @@ int pcie_init(void){
 		printf("failed to map PCIE controller registers\r\n");
 		return -1;
 	}
-	for (uint8_t bus = 0;bus<255;bus++){
+	for (uint8_t bus = pcie_info.startBus;bus<pcie_info.endBus;bus++){
 		for (uint8_t dev = 0;dev<32;dev++){
 			for (uint8_t func = 0;func<8;func++){
 				uint16_t vendor_id = 0;
