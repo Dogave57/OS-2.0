@@ -133,16 +133,11 @@ saved_reg_rsp:
 dq 0
 saved_reg_rbp:
 dq 0
-section .bss
-safe_stack_bottom:
-resb 1024 
-safe_stack_top:
-resb 8
 section .data
 exceptionmsg:
 db "exception: %d", 10, 0
 regmsg:
-db "rax: %p rbx: %p rcx: %p rdx: %p", 10, "rdi: %p rsi: %p r8: %p r9: %p", 10, "r10: %p r11: %p r12: %p r13: %p", 10, "r14: %p r15: %p rbp: %p rsp: %p", 10, "cr0: %p cr2: %p cr3: %p", 10, "cs: %p ds: %p gs: %p ss: %p", 10, 0 
+db "rax: %p rbx: %p rcx: %p rdx: %p", 10, "rdi: %p rsi: %p r8: %p r9: %p", 10, "r10: %p r11: %p r12: %p r13: %p", 10, "r14: %p r15: %p rbp: %p rsp: %p", 10, "cr0: %p cr2: %p cr3: %p", 10, "cs: %p ds: %p gs: %p ss: %p", 10, "rip: %p", 10, 0 
 pf_dump_msg:
 db "page fault virtual address: %p (cr2)", 10, 0
 pf_np_msg:
@@ -191,8 +186,6 @@ global isr17
 global isr18
 global isr19
 global isr20
-global safe_stack_top
-global safe_stack_bottom
 extern print
 extern lprint
 extern printf
@@ -242,6 +235,7 @@ mov qword rcx, regmsg
 mov qword rdx, [rel exception_args+16] ; rax
 mov qword r8, [rel exception_args+24] ; rbx
 mov qword r9, [rel exception_args+32] ; rcx
+push qword [rel exception_args+8] ; rip
 push qword [rel exception_args+192] ; ss
 push qword [rel exception_args+184] ; gs
 push qword [rel exception_args+176] ; ds
@@ -562,8 +556,10 @@ mov qword [rel exception_args], rax
 mov qword rax, [rsp+8]
 mov qword [rel exception_args+200], rax
 mov qword [rel exception_args+208], 1
-mov qword rsp, safe_stack_top
 jmp deadly_exception
+exception_isr_error_code:
+
+
 isr0:
 cli
 sub rsp, 8

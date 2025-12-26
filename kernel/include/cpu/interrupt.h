@@ -1,8 +1,13 @@
 #ifndef _INTERRUPT
 #define _INTERRUPT
 #include "idt.h"
-extern uint64_t safe_stack_bottom;
-extern uint64_t safe_stack_top;
+#define SAFE_STACK_SIZE 8192
+extern unsigned char safe_stack[SAFE_STACK_SIZE];
+struct cpu_exception_entry{
+	uint64_t pIsr;
+	uint64_t istVector;
+	uint64_t idtVector;
+};
 void default_isr(void);
 void pic_timer_isr(void);
 void timer_isr(void);

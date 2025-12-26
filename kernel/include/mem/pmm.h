@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include "kernel_include.h"
 #include "vmm.h"
-#define MEM_GB 1073741824
-#define MEM_MB 1048576
-#define MEM_KB 1024
+#define MEM_GB ((uint64_t)1073741824)
+#define MEM_MB ((uint64_t)1048576)
+#define MEM_KB ((uint64_t)1024)
 #define PAGE_SIZE 4096
 #define MAX_ORDER 2048
 #define PAGE_TYPE_RESERVED 0
