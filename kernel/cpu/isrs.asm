@@ -126,6 +126,24 @@ dq 0 ; gs - 184
 dq 0 ; ss - 192
 dq 0 ; error code - 200
 dq 0 ; contains error code - 208
+ctx_switch_args:
+dq 0 ; rax - 0
+dq 0 ; rbx - 8
+dq 0 ; rcx - 16
+dq 0 ; rdx - 24
+dq 0 ; rdi - 32
+dq 0 ; rsi - 40
+dq 0 ; r8 - 48
+dq 0 ; r9 - 56
+dq 0 ; r10 - 64
+dq 0 ; r11 - 72
+dq 0 ; r12 - 80
+dq 0 ; r13 - 88
+dq 0 ; r14 - 96
+dq 0 ; r15 - 104
+dq 0 ; rbp - 112
+dq 0 ; rsp - 120
+dq 0 ; rip - 128
 saved_registers:
 saved_reg_rip:
 dq 0
@@ -141,9 +159,9 @@ db "rax: %p rbx: %p rcx: %p rdx: %p", 10, "rdi: %p rsi: %p r8: %p r9: %p", 10, "
 pf_dump_msg:
 db "page fault virtual address: %p (cr2)", 10, 0
 pf_np_msg:
-db "non present violation", 10, 0
+db "unmapped page violation", 10, 0
 pf_pv_msg:
-db "protected violation", 10, 0
+db "protection violation", 10, 0
 pf_rf_msg:
 db "read violation", 10, 0
 pf_wf_msg:
@@ -378,12 +396,41 @@ out dx, al
 popaq
 sti
 iretq
+msg db "swapped registers out", 10, 0
+save_msg db "saving registers", 10, 0
+switch_msg db "switching tasks", 10, 0
+rip_msg db "RIP: %p", 10, 0
+rsp_msg db "RSP: %p", 10, 0
 ctx_switch:
 mov qword rax, [rel pFirstThread]
 cmp rax, 0
 je ctx_switch_end
 popaq
-push rax
+pushaq
+mov qword rcx, switch_msg
+sub rsp, 32
+call print
+add rsp, 32
+popaq
+mov qword [rel ctx_switch_args], rax
+mov qword [rel ctx_switch_args+8], rbx
+mov qword [rel ctx_switch_args+16], rcx
+mov qword [rel ctx_switch_args+24], rdx
+mov qword [rel ctx_switch_args+32], rdi
+mov qword [rel ctx_switch_args+40], rsi
+mov qword [rel ctx_switch_args+48], r8
+mov qword [rel ctx_switch_args+56], r9
+mov qword [rel ctx_switch_args+64], r10
+mov qword [rel ctx_switch_args+72], r11
+mov qword [rel ctx_switch_args+80], r12
+mov qword [rel ctx_switch_args+88], r13
+mov qword [rel ctx_switch_args+96], r14
+mov qword [rel ctx_switch_args+104], r15
+mov qword [rel ctx_switch_args+112], rbp
+mov qword [rel ctx_switch_args+120], rsp
+add qword [rel ctx_switch_args+120], 24
+mov qword rax, [rsp]
+mov qword [rel ctx_switch_args+128], rax
 mov qword rax, [rel pCurrentThread]
 cmp rax, 0
 jne ctx_switch_next_thread
@@ -391,7 +438,6 @@ ctx_switch_first_thread:
 mov qword rax, [rel pFirstThread]
 jmp ctx_switch_next_thread_end
 ctx_switch_next_thread:
-ctx_switch_save_regs:
 mov qword [rax+8], rbx
 mov qword [rax+16], rcx
 mov qword [rax+24], rdx
@@ -406,25 +452,47 @@ mov qword [rax+88], r13
 mov qword [rax+96], r14
 mov qword [rax+104], r15
 mov qword [rax+112], rsp
-add qword [rax+112], 24+8
+add qword [rax+112], 24
 mov qword [rax+120], rbp
-mov qword rbx, [rsp+8]
+mov qword rbx, [rsp]
 mov qword [rax+128], rbx
-mov qword rbx, rax
-pop rax
-mov qword [rbx], rax
-sub rsp, 8
-mov qword rax, rbx
-ctx_switch_save_regs_end:
+mov qword rbx, [rel ctx_switch_args]
+mov qword [rax], rbx
+jmp ctx_switch_first_thread
 mov qword rax, [rax+152]
 cmp rax, 0
 je ctx_switch_first_thread
 ctx_switch_next_thread_end:
-ctx_switch_change_regs:
-add rsp, 8
-mov qword [rel pCurrentThread], rax
+ctx_switch_registers:
 mov qword rbx, [rax+128]
 mov qword [rsp], rbx
+ctx_switch_registers_end:
+ctx_swap_registers:
+mov qword [rel pCurrentThread], rax
+mov qword rcx, rip_msg
+mov qword rdx, [rsp]
+pushaq
+sub rsp, 32
+call printf
+add rsp, 32
+popaq
+mov qword rbx, [rax+112]
+sub qword rbx, 24
+mov qword rcx, [rax+128]
+mov qword [rsp], rcx
+mov qword [rbx], rcx
+mov qword rcx, [rsp+8]
+mov qword [rbx+8], rcx
+mov qword rcx, [rsp+16]
+mov qword [rbx+16], rcx
+pushaq
+mov qword rcx, rsp_msg
+mov qword rdx, rbx
+sub qword rsp, 32
+call printf
+add qword rsp, 32
+popaq
+mov qword rsp, rbx
 mov qword rbx, [rax+8]
 mov qword rcx, [rax+16]
 mov qword rdx, [rax+24]
@@ -441,8 +509,16 @@ mov qword r15, [rax+104]
 mov qword rbp, [rax+120]
 mov qword rax, [rax]
 pushaq
+mov qword rcx, msg
+sub rsp, 32
+call print
+add rsp, 32
+popaq
+ctx_swap_registers_end:
+pushaq
 ctx_switch_end:
 jmp timer_isr_end
+ret
 timer_isr:
 cli
 pushaq
@@ -558,8 +634,6 @@ mov qword [rel exception_args+200], rax
 mov qword [rel exception_args+208], 1
 jmp deadly_exception
 exception_isr_error_code:
-
-
 isr0:
 cli
 sub rsp, 8

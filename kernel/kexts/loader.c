@@ -37,6 +37,7 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 	memset((void*)pArgs, 0, sizeof(struct kext_bootstrap_args_t));
 	pArgs->pKextDesc = pKextDesc;
 	uint64_t tid = 0;
+	while (1){};
 	if (thread_create((uint64_t)kext_bootstrap, 8192, &tid, (uint64_t)pArgs)!=0){
 		printf("failed to create thread\r\n");
 		kfree((void*)pArgs);
@@ -99,32 +100,17 @@ int kext_get_entry(uint64_t pid, struct kext_desc_t** ppEntry){
 }
 int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
 	printf("thread started\r\n");
+	printf("tid: %d\r\n", tid);
+	while (1){
+		uint64_t time_ms = get_time_ms();
+		printf("%dms\r\n", time_ms);
+		sleep(1);
+	}
 	if (!pArgs){
 		printf("invalid arguments\r\n");
 		while (1){};
 		return -1;
 	}
-	struct kext_desc_t* pKextDesc = pArgs->pKextDesc;
-	struct elf_handle* pElfHandle = pKextDesc->pElfHandle;
-	if (!pElfHandle){
-		printf("invalid ELF handle\r\n");
-		while (1){};
-		return -1;
-	}
-	while (1){};
-	printf("getting entry\r\n");
-	while (1){};
-	kextEntry entry = (kextEntry)0x0;
-	if (elf_get_entry(pElfHandle, (uint64_t*)&entry)!=0){
-		printf("failed to get entry\r\n");
-		while (1){};
-		return -1;
-	}
-	printf("running...\r\n");
-	while (1){};
-	int status = entry(pKextDesc->pid);
-	printf("status: 0x%x\r\n", status);
-	while (1){};
 	return 0;
 }
 int thread2(uint64_t tid, uint64_t argument){

@@ -41,8 +41,14 @@ void ps2_keyboard_handler(void){
 	}
 	if (!mapping)
 		return;
-	if (keysPressed[KEY_LSHIFT]&&keysPressed[KEY_ESC]&&mapping=='d'){
+	if (keysPressed[KEY_LCTRL]&&mapping=='c'){
+		printf("\r\nSYSTEM HAULT!\r\n");
 		__asm__ volatile("cli");
+		__asm__ volatile("hlt");
+		while (1){};
+		return;
+	}
+	if (keysPressed[KEY_LSHIFT]&&keysPressed[KEY_ESC]&&mapping=='d'){
 		__asm__ volatile("int $1");
 		__asm__ volatile("hlt");
 		while (1){};

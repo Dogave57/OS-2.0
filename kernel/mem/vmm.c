@@ -209,11 +209,10 @@ KAPI int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uin
 	if (physicalAllocPage(&pa, PAGE_TYPE_NORMAL)!=0){
 		return -1;
 	}
-	if (virtualMapPage(pa, pa, flags, 1, map_flags, pageType)!=0){
-		physicalFreePage(pa);
+	uint64_t va = pa;
+	if (virtualMapPage(pa, va, flags, 1, map_flags, pageType)!=0)
 		return -1;
-	}
-	*pVa = pa;
+	*pVa = va;
 	return 0;
 }
 KAPI int virtualFreePage(uint64_t va, uint64_t map_flags){
@@ -241,7 +240,7 @@ KAPI int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uin
 		uint64_t new_ppage = (uint64_t)0;
 		if (physicalAllocPage(&new_ppage, PAGE_TYPE_NORMAL)!=0)
 			return -1;
-		if (virtualMapPage(new_ppage, va+(PAGE_SIZE*i), flags, 0, map_flags, pageType)!=0)
+		if (virtualMapPage(new_ppage, va+(PAGE_SIZE*i), flags, 1, map_flags, pageType)!=0)
 			return -1;
 	}
 	*pVa = va;
