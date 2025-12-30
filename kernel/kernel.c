@@ -142,7 +142,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	uint64_t va = 0;
-	uint64_t pagecnt = (MEM_MB*8)/PAGE_SIZE;
+	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
 	uint64_t before_ms = get_time_ms();
 	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate %d pages\r\n", pagecnt);	

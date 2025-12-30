@@ -43,7 +43,6 @@ int idt_init(void){
 	unsigned int cpu_exception_entries = sizeof(cpu_exception_table)/sizeof(cpu_exception_table[0]);
 	for (unsigned int i = 0;i<cpu_exception_entries;i++){
 		struct cpu_exception_entry exceptionEntry = cpu_exception_table[i];
-		exceptionEntry.istVector = 1;
 		idt_add_entry(exceptionEntry.idtVector, exceptionEntry.pIsr, 0x8E, exceptionEntry.istVector);
 	}
 	idt_add_entry(0x20, (uint64_t)pic_timer_isr, 0x8E, 0x0);

@@ -1,5 +1,6 @@
 #ifndef _THREAD
 #define _THREAD
+#include "kernel_include.h"
 #define THREAD_STATUS_INVALID ((uint64_t)0)
 #define THREAD_STATUS_HALTED ((uint64_t)1)
 #define THREAD_STATUS_RUNNING ((uint64_t)2)
@@ -33,7 +34,7 @@ struct thread_t{
 int threads_init(void);
 int thread_register(struct thread_t* pThread, uint64_t* pTid);
 int thread_unregister(uint64_t tid);
-int thread_create(uint64_t rip, uint64_t stackSize, uint64_t* pTid, uint64_t argument);
-int thread_destroy(uint64_t tid);
-int thread_get_status(uint64_t tid, uint64_t* pStatus);
+KAPI int thread_create(uint64_t rip, uint64_t stackSize, uint64_t* pTid, uint64_t argument);
+KAPI int thread_destroy(uint64_t tid);
+KAPI int thread_get_status(uint64_t tid, uint64_t* pStatus);
 #endif

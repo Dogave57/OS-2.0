@@ -401,36 +401,15 @@ save_msg db "saving registers", 10, 0
 switch_msg db "switching tasks", 10, 0
 rip_msg db "RIP: %p", 10, 0
 rsp_msg db "RSP: %p", 10, 0
+ctx_no_rsp_msg db "invalid RSP", 10, 0
+ctx_no_rip_msg db "invalid RIP", 10, 0
+next_thread_msg db "next thread", 10, 0
 ctx_switch:
 mov qword rax, [rel pFirstThread]
 cmp rax, 0
 je ctx_switch_end
 popaq
-pushaq
-mov qword rcx, switch_msg
-sub rsp, 32
-call print
-add rsp, 32
-popaq
 mov qword [rel ctx_switch_args], rax
-mov qword [rel ctx_switch_args+8], rbx
-mov qword [rel ctx_switch_args+16], rcx
-mov qword [rel ctx_switch_args+24], rdx
-mov qword [rel ctx_switch_args+32], rdi
-mov qword [rel ctx_switch_args+40], rsi
-mov qword [rel ctx_switch_args+48], r8
-mov qword [rel ctx_switch_args+56], r9
-mov qword [rel ctx_switch_args+64], r10
-mov qword [rel ctx_switch_args+72], r11
-mov qword [rel ctx_switch_args+80], r12
-mov qword [rel ctx_switch_args+88], r13
-mov qword [rel ctx_switch_args+96], r14
-mov qword [rel ctx_switch_args+104], r15
-mov qword [rel ctx_switch_args+112], rbp
-mov qword [rel ctx_switch_args+120], rsp
-add qword [rel ctx_switch_args+120], 24
-mov qword rax, [rsp]
-mov qword [rel ctx_switch_args+128], rax
 mov qword rax, [rel pCurrentThread]
 cmp rax, 0
 jne ctx_switch_next_thread
@@ -451,48 +430,21 @@ mov qword [rax+80], r12
 mov qword [rax+88], r13
 mov qword [rax+96], r14
 mov qword [rax+104], r15
-mov qword [rax+112], rsp
-add qword [rax+112], 24
+mov qword rbx, [rsp+24]
+mov qword [rax+112], rbx
 mov qword [rax+120], rbp
 mov qword rbx, [rsp]
 mov qword [rax+128], rbx
 mov qword rbx, [rel ctx_switch_args]
 mov qword [rax], rbx
-jmp ctx_switch_first_thread
 mov qword rax, [rax+152]
 cmp rax, 0
 je ctx_switch_first_thread
 ctx_switch_next_thread_end:
 ctx_switch_registers:
-mov qword rbx, [rax+128]
-mov qword [rsp], rbx
-ctx_switch_registers_end:
-ctx_swap_registers:
 mov qword [rel pCurrentThread], rax
-mov qword rcx, rip_msg
-mov qword rdx, [rsp]
-pushaq
-sub rsp, 32
-call printf
-add rsp, 32
-popaq
-mov qword rbx, [rax+112]
-sub qword rbx, 24
-mov qword rcx, [rax+128]
-mov qword [rsp], rcx
-mov qword [rbx], rcx
-mov qword rcx, [rsp+8]
-mov qword [rbx+8], rcx
-mov qword rcx, [rsp+16]
-mov qword [rbx+16], rcx
-pushaq
-mov qword rcx, rsp_msg
-mov qword rdx, rbx
-sub qword rsp, 32
-call printf
-add qword rsp, 32
-popaq
-mov qword rsp, rbx
+mov qword rbx, ctx_switch_hook
+mov qword [rsp], rbx
 mov qword rbx, [rax+8]
 mov qword rcx, [rax+16]
 mov qword rdx, [rax+24]
@@ -508,16 +460,24 @@ mov qword r14, [rax+96]
 mov qword r15, [rax+104]
 mov qword rbp, [rax+120]
 mov qword rax, [rax]
-pushaq
-mov qword rcx, msg
-sub rsp, 32
-call print
-add rsp, 32
-popaq
-ctx_swap_registers_end:
+ctx_switch_registers_end:
 pushaq
 ctx_switch_end:
 jmp timer_isr_end
+ret
+hookmsg db "context switch hook", 10, 0
+ctx_switch_hook:
+cli
+mov qword [rel ctx_switch_args], rax
+mov qword [rel ctx_switch_args+8], rbx
+mov qword rax, [rel pCurrentThread]
+mov qword rbx, [rax+128]
+mov qword rsp, [rax+112]
+sub qword rsp, 8
+mov qword [rsp], rbx
+mov qword rax, [rel ctx_switch_args]
+mov qword rbx, [rel ctx_switch_args+8]
+sti
 ret
 timer_isr:
 cli

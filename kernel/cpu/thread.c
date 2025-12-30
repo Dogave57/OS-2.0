@@ -20,8 +20,9 @@ int thread_register(struct thread_t* pThread, uint64_t* pTid){
 	uint64_t tid = 0;
 	if (subsystem_alloc_entry(pSubsystemDesc, (unsigned char*)pThread, &tid)!=0)
 		return -1;
-	if (!pFirstThread)
+	if (!pFirstThread){
 		pFirstThread = pThread;
+	}
 	if (pLastThread){
 		pLastThread->pFlink = pThread;
 		pThread->pBlink = pLastThread;
@@ -48,7 +49,7 @@ int thread_unregister(uint64_t tid){
 		pThread->pBlink->pFlink = pThread->pFlink;
 	return 0;
 }
-int thread_create(uint64_t rip, uint64_t stackSize, uint64_t* pTid, uint64_t argument){
+KAPI int thread_create(uint64_t rip, uint64_t stackSize, uint64_t* pTid, uint64_t argument){
 	if (!pTid||!rip)
 		return -1;
 	__asm__ volatile("cli");
@@ -92,7 +93,7 @@ int thread_create(uint64_t rip, uint64_t stackSize, uint64_t* pTid, uint64_t arg
 	}
 	pContext->rip = rip;
 	pContext->rsp = rsp;
-	pContext->rbp = pContext->rsp;
+	pContext->rbp = 0x0;
 	pContext->rcx = tid;
 	pContext->rdx = argument;
 	*pTid = tid;
@@ -100,7 +101,7 @@ int thread_create(uint64_t rip, uint64_t stackSize, uint64_t* pTid, uint64_t arg
 	__asm__ volatile("sti");
 	return 0;
 }
-int thread_destroy(uint64_t tid){
+KAPI int thread_destroy(uint64_t tid){
 	__asm__ volatile("cli");
 	struct thread_t* pThread = (struct thread_t*)0x0;
 	if (subsystem_get_entry(pSubsystemDesc, tid, (uint64_t*)&pThread)!=0){
@@ -115,7 +116,7 @@ int thread_destroy(uint64_t tid){
 	__asm__ volatile("sti");
 	return 0;
 }
-int thread_get_status(uint64_t tid, uint64_t* pStatus){
+KAPI int thread_get_status(uint64_t tid, uint64_t* pStatus){
 	if (!pStatus)
 		return -1;
 	struct thread_t* pThread = (struct thread_t*)0x0;
