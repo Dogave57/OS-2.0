@@ -126,6 +126,7 @@ dq 0 ; gs - 184
 dq 0 ; ss - 192
 dq 0 ; error code - 200
 dq 0 ; contains error code - 208
+dq 0 ; rflags - 216
 ctx_switch_args:
 dq 0 ; rax - 0
 dq 0 ; rbx - 8
@@ -155,7 +156,7 @@ section .data
 exceptionmsg:
 db "exception: %d", 10, 0
 regmsg:
-db "rax: %p rbx: %p rcx: %p rdx: %p", 10, "rdi: %p rsi: %p r8: %p r9: %p", 10, "r10: %p r11: %p r12: %p r13: %p", 10, "r14: %p r15: %p rbp: %p rsp: %p", 10, "cr0: %p cr2: %p cr3: %p", 10, "cs: %p ds: %p gs: %p ss: %p", 10, "rip: %p", 10, 0 
+db "rax: %p rbx: %p rcx: %p rdx: %p", 10, "rdi: %p rsi: %p r8: %p r9: %p", 10, "r10: %p r11: %p r12: %p r13: %p", 10, "r14: %p r15: %p rbp: %p rsp: %p", 10, "cr0: %p cr2: %p cr3: %p", 10, "cs: %p ds: %p gs: %p ss: %p", 10, "rip: %p", 10, "rflags: 0x%x", 10, 0 
 pf_dump_msg:
 db "page fault virtual address: %p (cr2)", 10, 0
 pf_np_msg:
@@ -176,6 +177,14 @@ pf_rs_msg:
 db "reserved bit violation", 10, 0
 error_code_dump_msg:
 db "error code: 0x%x", 10, 0
+thread_dump_msg:
+db "thread status dump", 10, 0
+tid_dump_msg:
+db "tid: %d", 10, 0
+thread_rip_dump_msg:
+db "starting RIP: %p", 10, 0
+thread_rsp_dump_msg:
+db "starting RSP: %p", 10, 0
 section .text
 global reset_timer
 global get_time_ms
@@ -204,6 +213,7 @@ global isr17
 global isr18
 global isr19
 global isr20
+global ctx_switch_time
 extern print
 extern lprint
 extern printf
@@ -211,7 +221,6 @@ extern lprintf
 extern clear
 extern set_text_color
 extern lapic_send_eoi
-extern time_ms
 extern thermal_state
 extern putchar
 extern ps2_keyboard_handler
@@ -220,6 +229,8 @@ extern entropy_shuffle
 extern pFirstThread
 extern pLastThread
 extern pCurrentThread
+extern lapic_tick_count
+extern lapic_set_tick_ms
 exception_fg:
 db 255, 255, 255, 0
 exception_bg:
@@ -253,6 +264,7 @@ mov qword rcx, regmsg
 mov qword rdx, [rel exception_args+16] ; rax
 mov qword r8, [rel exception_args+24] ; rbx
 mov qword r9, [rel exception_args+32] ; rcx
+push qword [rel exception_args+216] ; rflags
 push qword [rel exception_args+8] ; rip
 push qword [rel exception_args+192] ; ss
 push qword [rel exception_args+184] ; gs
@@ -380,6 +392,32 @@ sub rsp, 32
 call printf
 add rsp, 32
 dump_error_code_end:
+dump_thread_info:
+mov qword rax, [rel pCurrentThread]
+cmp rax, 0
+je dump_thread_info_end
+mov qword rcx, tid_dump_msg
+mov qword rdx, [rax+160]
+push rax
+sub qword rsp, 32
+call printf
+add qword rsp, 32
+pop rax
+mov qword rcx, thread_rip_dump_msg
+mov qword rdx, [rax+168]
+push rax
+sub qword rsp, 32
+call printf
+add qword rsp, 32
+pop rax
+mov qword rcx, thread_rsp_dump_msg
+mov qword rdx, [rax+176]
+push rax
+sub qword rsp, 32
+call printf
+add qword rsp, 32
+pop rax
+dump_thread_info_end:
 b:
 jmp b
 hlt
@@ -389,7 +427,6 @@ iretq
 pic_timer_isr:
 cli
 pushaq
-add qword [rel time_ms], 1
 mov al, 20h
 mov dx, 20h
 out dx, al
@@ -403,7 +440,8 @@ rip_msg db "RIP: %p", 10, 0
 rsp_msg db "RSP: %p", 10, 0
 ctx_no_rsp_msg db "invalid RSP", 10, 0
 ctx_no_rip_msg db "invalid RIP", 10, 0
-next_thread_msg db "next thread", 10, 0
+current_thread_msg db "current thread ID: %d", 10, 0
+rflags_msg db "RFLAGS: %p", 10, 0
 ctx_switch:
 mov qword rax, [rel pFirstThread]
 cmp rax, 0
@@ -437,14 +475,52 @@ mov qword rbx, [rsp]
 mov qword [rax+128], rbx
 mov qword rbx, [rel ctx_switch_args]
 mov qword [rax], rbx
-mov qword rax, [rax+152]
+mov qword rbx, [rsp+16]
+mov qword [rax+136], rbx
+mov qword rax, [rax+184]
 cmp rax, 0
 je ctx_switch_first_thread
 ctx_switch_next_thread_end:
-ctx_switch_registers:
 mov qword [rel pCurrentThread], rax
-mov qword rbx, ctx_switch_hook
+priority_check:
+mov qword rbx, [rax+152]
+cmp rbx, 0
+je priority_case_low
+cmp rbx, 2
+je priority_case_high
+priority_case_normal:
+push rax
+mov qword rcx, 10
+sub qword rsp, 32
+call lapic_set_tick_ms
+add qword rsp, 32
+pop rax
+jmp priority_check_end
+priority_case_high:
+push rax
+mov qword rcx, 20
+sub qword rsp, 32
+call lapic_set_tick_ms
+add qword rsp, 32
+pop rax
+jmp priority_check_end
+priority_case_low:
+push rax
+mov qword rcx, 5
+sub qword rsp, 32
+call lapic_set_tick_ms
+add qword rsp, 32 
+pop rax
+priority_check_end:
+mov qword rbx, [rax+112]
+mov qword [rsp+24], rbx
+mov qword rbx, [rax+128]
 mov qword [rsp], rbx
+switch_rflags:
+mov qword rbx, [rax+136]
+;or rbx, (1<<9)
+;mov qword [rsp+16], rbx
+switch_rflags_end:
 mov qword rbx, [rax+8]
 mov qword rcx, [rax+16]
 mov qword rdx, [rax+24]
@@ -460,35 +536,14 @@ mov qword r14, [rax+96]
 mov qword r15, [rax+104]
 mov qword rbp, [rax+120]
 mov qword rax, [rax]
-ctx_switch_registers_end:
 pushaq
 ctx_switch_end:
 jmp timer_isr_end
-ret
-hookmsg db "context switch hook", 10, 0
-ctx_switch_hook:
-cli
-mov qword [rel ctx_switch_args], rax
-mov qword [rel ctx_switch_args+8], rbx
-mov qword rax, [rel pCurrentThread]
-mov qword rbx, [rax+128]
-mov qword rsp, [rax+112]
-sub qword rsp, 8
-mov qword [rsp], rbx
-mov qword rax, [rel ctx_switch_args]
-mov qword rbx, [rel ctx_switch_args+8]
-sti
-ret
+ctx_switch_time dq 10
 timer_isr:
 cli
 pushaq
-add qword [rel time_ms], 1
-mov qword rax, [rel time_ms]
-xor rdx, rdx
-mov rbx, 10
-div rbx
-cmp rdx, 0
-jne timer_isr_end
+add qword [rel lapic_tick_count], 1
 jmp ctx_switch
 timer_isr_end:
 sub rsp, 32
@@ -553,6 +608,8 @@ mov qword [rel exception_args+8], rax
 mov qword rax, [rsp]
 mov qword [rel exception_args], rax
 mov qword [rel exception_args+208], 0
+mov qword rax, [rsp+24]
+mov qword [rel exception_args+216], rax
 jmp deadly_exception
 exception_handler_entry_error_code:
 mov qword [rel exception_args+16], rax
@@ -592,6 +649,8 @@ mov qword [rel exception_args], rax
 mov qword rax, [rsp+8]
 mov qword [rel exception_args+200], rax
 mov qword [rel exception_args+208], 1
+mov qword rax, [rsp+32]
+mov qword [rel exception_args+216], rax
 jmp deadly_exception
 exception_isr_error_code:
 isr0:

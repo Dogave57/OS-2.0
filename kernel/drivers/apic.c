@@ -7,6 +7,7 @@
 #include "mem/vmm.h"
 #include "drivers/acpi.h"
 #include "drivers/timer.h"
+#include "drivers/hpet.h"
 #include "drivers/apic.h"
 uint64_t lapic_base = 0;
 uint64_t lapic_version = 0;
@@ -31,39 +32,39 @@ int apic_init(void){
 	write_msr(LAPIC_BASE_MSR, lapic_base);
 	uint64_t base = 0;
 	uint64_t value = 0;
-	uint64_t div_conf = 3;
+	uint64_t div_conf = 0x3;
 	lapic_get_version(&lapic_version);
 	printf("LAPIC version: %x\r\n", lapic_version);
 	lapic_get_id(&main_lapic_id);
 	printf("LAPIC id: 0x%x\r\n", main_lapic_id);
-	lapic_write_reg(LAPIC_REG_TPR, 0);
-	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
-	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
-	pic_init();
-	pit_set_freq(0, 1000);
-	uint64_t start_time = get_time_ms();
+	if (hpet_init()!=0){
+		printf("failed to initialize HPET\r\n");
+		return -1;
+	}
+	uint64_t start_time = hpet_get_ms();
 	uint64_t elapsed_ms = 0;
 	uint64_t time_ms = 0;
 	uint64_t start_ticks = 0xFFFFFFFF;
-	uint64_t time_precision_ms = 10;
+	uint64_t time_precision_ms = 500;
 	lapic_write_reg(LAPIC_REG_INIT_COUNT, start_ticks);
+	lapic_write_reg(LAPIC_REG_TPR, 0);
+	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
+	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
 	while (elapsed_ms<time_precision_ms){
-		time_ms = get_time_ms();
+		time_ms = hpet_get_ms();
 		elapsed_ms = time_ms-start_time;
 	}
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<16));
 	uint64_t elapsed_ticks = 0;
 	lapic_read_reg(LAPIC_REG_CURRENT_COUNT, &elapsed_ticks);
-	elapsed_ticks = (start_ticks-elapsed_ticks);
+	elapsed_ticks = start_ticks-elapsed_ticks;
 	uint64_t tpms = elapsed_ticks/time_precision_ms;
-	outb(0x21, 0xFF);
-	outb(0x00, 0x00);
-	outb(0xA1, 0xFF);
-	outb(0x00, 0x00);
 	timer_reset();
 	timer_set_tpms(tpms);
-	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
-	lapic_write_reg(LAPIC_REG_INIT_COUNT, tpms);
+	if (lapic_set_tick_ms(10)!=0){
+		printf("failed to set tick ms\r\n");
+		return -1;
+	}
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, 0x30|(1<<17));
 	lapic_read_reg(LAPIC_REG_SPI, &value);
 	value|=0x100;
@@ -136,6 +137,12 @@ int x2lapic_is_supported(unsigned int* psupported){
 	unsigned int ecx = 0;
 	cpuid(0x1, 0x0, (unsigned int*)0x0, (unsigned int*)0x0, &ecx, (unsigned int*)0x0);
 	*psupported = (ecx>>21)&1;
+	return 0;
+}
+int lapic_set_tick_ms(uint64_t tick_ms){
+	uint64_t tpms = timer_get_tpms();
+	lapic_write_reg(LAPIC_REG_INIT_COUNT, tpms*tick_ms);
+	lapic_write_reg(LAPIC_REG_DIV_CONFIG, 1);
 	return 0;
 }
 int ioapic_get_base(uint64_t* pbase){

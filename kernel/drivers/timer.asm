@@ -7,47 +7,44 @@ global get_time_ms
 global timer_get_tpms
 global timer_set_tpms
 global sleep
+global lapic_tick_count
+extern hpet_get_ms
+extern hpet_set_ms
 section .data
-time_ms dq 0
-tick_cnt dq 0
+lapic_tick_count dq 0
 tick_per_ms dq 0
 section .text
 timer_reset:
-cli
-mov qword [rel time_ms], 0
-mov qword [rel tick_cnt], 0
-sti
+xor rcx, rcx
+;call hpet_set_ms
 xor rax, rax
 ret
 set_time_ms:
-cli
-mov qword [rel time_ms], rdi
-sti
-xor rax, rax
+;call hpet_set_ms
 ret
 get_time_ms:
-cli
-mov qword rax, [rel time_ms]
-sti
+call hpet_get_ms
 ret
 timer_get_tpms:
-cli
 mov qword rax, [rel tick_per_ms]
-sti
 ret
 timer_set_tpms:
-cli
-mov qword [rel tick_per_ms], rdi
-sti
+mov qword [rel tick_per_ms], rcx
 xor rax, rax
 ret
 sleep:
+push rcx
 call get_time_ms
-mov rdx, rax
+pop rcx
+mov qword rbx, rax
 sleep_loop:
+push rcx
 call get_time_ms
-sub rax, rdx
+pop rcx
+sub rax, rbx
 cmp rax, rcx
 jb sleep_loop
+sleep_loop_end:
 xor rax, rax
 ret
+

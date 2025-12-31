@@ -7,7 +7,7 @@ PROGRAMLD='x86_64-elf-ld'
 AS='nasm'
 BOOT_CFLAGS='-O0 -ffreestanding -fno-stack-protector -fshort-wchar -Wno-multichar -Wno-address-of-packed-member -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
 KERNEL_CFLAGS='-O0 -mabi=ms -ffreestanding -fno-stack-protector -fno-plt -Wno-multichar -Wno-address-of-packed-member -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64 -fmax-errors=1 -fno-plt'
-KERNEL_LINKFLAGS='build/objects/drivers/elf.o build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o build/objects/drivers/filesystem/fat32.o build/objects/crypto/guid.o build/objects/crypto/random.o build/objects/panic.o build/objects/drivers/filesystem/exfat.o build/objects/subsystem/filesystem.o build/objects/drivers/filesystem/fluxfs.o build/objects/kexts/loader.o build/objects/cpu/thread.o'
+KERNEL_LINKFLAGS='build/objects/drivers/elf.o build/objects/kernel.o build/objects/drivers/graphics.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o build/objects/drivers/filesystem/fat32.o build/objects/crypto/guid.o build/objects/crypto/random.o build/objects/panic.o build/objects/drivers/filesystem/exfat.o build/objects/subsystem/filesystem.o build/objects/drivers/filesystem/fluxfs.o build/objects/kexts/loader.o build/objects/cpu/thread.o build/objects/cpu/thread_asm.o build/objects/drivers/hpet.o'
 PROGRAM_CFLAGS='-O0 -mabi=ms -ffreestanding -fno-plt -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64 -Wno-builtin-declaration-mismatch'
 OS=$(uname -s)
 bash clean.sh
@@ -61,6 +61,8 @@ sudo $KERNELCC $KERNEL_CFLAGS -fPIC -c kernel/drivers/filesystem/fluxfs.c -o bui
 sudo $KERNELCC $KERNEL_CFLAGS -fPIC -c kernel/kexts/loader.c -o build/objects/kexts/loader.o
 sudo $KERNELCC $KERNEL_CFLAGS -fPIC -c kernel/drivers/elf.c -o build/objects/drivers/elf.o
 sudo $KERNELCC $KERNEL_CFLAGS -fPIC -c kernel/cpu/thread.c -o build/objects/cpu/thread.o
+sudo $KERNELCC $KERNEL_CFLAGS -fPIC -c kernel/drivers/hpet.c -o build/objects/drivers/hpet.o
+echo compiling kernel extensions
 sudo $PROGRAMCC -fPIC $PROGRAM_CFLAGS -c kernel/kexts/test.c -o build/objects/kexts/test.o
 sudo $AS -f elf64 kernel/stub.asm -o build/objects/kernel_stub.o
 sudo $AS -f elf64 kernel/cpu/isrs.asm -o build/objects/cpu/isrs.o
@@ -70,6 +72,7 @@ sudo $AS -f elf64 kernel/cpu/msr.asm -o build/objects/cpu/msr.o
 sudo $AS -f elf64 kernel/drivers/timer.asm -o build/objects/drivers/timer.o
 sudo $AS -f elf64 kernel/drivers/thermal.asm -o build/objects/drivers/thermal.o
 sudo $AS -f elf64 kernel/mem/vmm.asm -o build/objects/mem/vmm_asm.o
+sudo $AS -f elf64 kernel/cpu/thread.asm -o build/objects/cpu/thread_asm.o
 echo linking kernel
 echo linking base kernel
 sudo $KERNELLD -shared -fPIC -Bsymbolic -hash-style=both -fno-plt -z now $KERNEL_LINKFLAGS -e kernel_stub -o build/build/kernel.elf

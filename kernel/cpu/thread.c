@@ -91,13 +91,18 @@ KAPI int thread_create(uint64_t rip, uint64_t stackSize, uint64_t* pTid, uint64_
 		__asm__ volatile("sti");
 		return -1;
 	}
+	uint64_t rflags = get_rflags();
 	pContext->rip = rip;
 	pContext->rsp = rsp;
 	pContext->rbp = 0x0;
 	pContext->rcx = tid;
 	pContext->rdx = argument;
+	pContext->rflags = rflags;
+	pThread->priority = THREAD_PRIORITY_NORMAL;
+	pThread->tid = tid;
+	pThread->start_rip = pContext->rip;
+	pThread->start_rsp = pContext->rsp;
 	*pTid = tid;
-	printf("created thread with RIP: %p RSP: %p TID: %d\r\n", (void*)rip, (void*)rsp, tid);
 	__asm__ volatile("sti");
 	return 0;
 }
@@ -126,5 +131,34 @@ KAPI int thread_get_status(uint64_t tid, uint64_t* pStatus){
 		return -1;
 	}
 	*pStatus = pThread->status;
+	return 0;
+}
+KAPI int thread_set_status(uint64_t tid, uint64_t status){
+	struct thread_t* pThread = (struct thread_t*)0x0;
+	if (subsystem_get_entry(pSubsystemDesc, tid, (uint64_t*)&pThread)!=0)
+		return -1;
+	if (!pThread)
+		return -1;
+	pThread->status = status;
+	return 0;
+}
+KAPI int thread_get_priority(uint64_t tid, uint64_t* pPriority){
+	if (!pPriority)
+		return -1;
+	struct thread_t* pThread = (struct thread_t*)0x0;
+	if (subsystem_get_entry(pSubsystemDesc, tid, (uint64_t*)&pThread)!=0)
+		return -1;
+	if (!pThread)
+		return -1;
+	*pPriority = pThread->priority;
+	return 0;
+}
+KAPI int thread_set_priority(uint64_t tid, uint64_t priority){
+	struct thread_t* pThread = (struct thread_t*)0x0;
+	if (subsystem_get_entry(pSubsystemDesc, tid, (uint64_t*)&pThread)!=0)
+		return -1;
+	if (!pThread)
+		return -1;
+	pThread->priority = priority;
 	return 0;
 }

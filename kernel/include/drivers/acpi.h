@@ -17,6 +17,13 @@ struct acpi_sdt_hdr{
 	uint32_t creator_id;
 	uint32_t creator_revision;
 }__attribute__((packed));
+struct acpi_address{
+	uint8_t address_space_id;
+	uint8_t register_bit_width;
+	uint8_t register_bit_offset;
+	uint8_t reserved;
+	uint64_t address;
+}__attribute__((packed));
 struct acpi_rsdp{
 	uint64_t signature;
 	uint8_t checksum;
@@ -126,6 +133,15 @@ struct acpi_fadt{
 	struct acpi_fadt_address x_pmTimerBlock;
 	struct acpi_fadt_address x_GPE0Block;
 	struct acpi_fadt_address x_GPE1Block;
+}__attribute__((packed));
+struct acpi_hpet{
+	struct acpi_sdt_hdr sdtHeader;	
+	uint8_t ident;
+	uint16_t vendor_id;
+	uint8_t hpet_number;
+	struct acpi_address base;
+	uint16_t minimum_tick;
+	uint8_t page_protection;
 }__attribute__((packed));
 struct aml_buffer{
 	unsigned char* pBuffer;

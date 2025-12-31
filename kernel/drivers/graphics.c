@@ -6,15 +6,18 @@
 unsigned int char_position = 0;
 struct vec3 text_fg = {255,255,255};
 struct vec3 text_bg = {0,0,0};
+unsigned char printLock = 0;
 int write_pixel_coord(struct vec2 coord, struct vec3 color){
 	unsigned int pixel = (coord.y*pbootargs->graphicsInfo.height)+coord.x;
 	return write_pixel(pixel, color);
 }
 int write_pixel(unsigned int pixel, struct vec3 color){
-	if (!pbootargs)
+	if (!pbootargs){
 		return -1;
-	if (!pbootargs->graphicsInfo.physicalFrameBuffer)
+	}
+	if (!pbootargs->graphicsInfo.physicalFrameBuffer){
 		return -1;
+	}
 	struct vec4 flip_color = {color.z, color.y, color.x, 0};
 	struct vec4* pPixel = pbootargs->graphicsInfo.physicalFrameBuffer+pixel;
 	*pPixel = flip_color;
@@ -28,6 +31,8 @@ KAPI int clear(void){
 	return 0;
 }
 int writechar(unsigned int position, unsigned char ch){
+	while (printLock){};
+	printLock = 1;
 	if (ch>255)
 		ch = L' ';
 	unsigned int font_offset = ((8*16)/8)*ch;
@@ -47,6 +52,7 @@ int writechar(unsigned int position, unsigned char ch){
 		}
 	}	
 	serial_putchar(SERIAL_DEBUG_PORT, (unsigned char)ch);
+	printLock = 0;
 	return 0;
 }
 KAPI int putchar(unsigned char ch){
