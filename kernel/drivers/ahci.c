@@ -402,7 +402,6 @@ int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_co
 			uint64_t read_count = 8;
 			if (i==reads_max-1&&sector_count%8)
 				read_count = sector_count%8;
-			uint64_t time_ms = get_time_ms();
 			if (ahci_read(driveInfo, read_lba, read_count, read_buffer)!=0){
 				printf("failed to read sector\r\n");
 				return -1;
@@ -439,7 +438,6 @@ int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_co
 	pFis->device = 1<<6;
 	ahci_write_prdt(pCmdTable, 0, (uint64_t)pBuffer, bufferSize);
 	pPort->cmdlist_base = cmdListDesc.pCmdList_pa;
-	uint64_t time_ms = get_time_ms();
 	ahci_run_port(driveInfo.port);
 	if (ahci_poll_port_finish(driveInfo.port, 1)!=0){
 		printf("failed to poll port\r\n");
@@ -504,7 +502,6 @@ int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_c
 	pFis->device = 1<<6;
 	ahci_write_prdt(pCmdTable, 0, (uint64_t)pBuffer, bufferSize);
 	pPort->cmdlist_base = cmdListDesc.pCmdList_pa;
-	uint64_t time_ms = get_time_ms();
 	ahci_run_port(driveInfo.port);
 	if (ahci_poll_port_finish(driveInfo.port, 1)!=0){
 		printf("failed to poll port\r\n");

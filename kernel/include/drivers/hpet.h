@@ -28,8 +28,8 @@ int hpet_init(void);
 KAPI int hpet_get_counter(uint64_t* pCounter);
 KAPI int hpet_set_counter(uint64_t counter);
 KAPI int hpet_get_tick_period(uint32_t* pTickPeriod);
-KAPI int hpet_get_ticks_per_ms(uint64_t* pTicks);
-KAPI uint64_t hpet_get_ms(void);
-KAPI int hpet_set_ms(uint64_t time_ms);
+KAPI int hpet_get_ticks_per_us(uint64_t* pTicks);
+KAPI uint64_t hpet_get_us(void);
+KAPI int hpet_set_us(uint64_t time_us);
 int hpet_get_info(struct hpet_info_t* pHpetInfo);
 #endif

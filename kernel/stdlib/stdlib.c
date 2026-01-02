@@ -1,7 +1,9 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include "drivers/graphics.h"
+#include "cpu/thread.h"
 #include "stdlib/stdlib.h"
+unsigned char printfLock = 0;
 KAPI int atoi(long long num, unsigned char* buf, unsigned int bufmax){
 	if (!buf)
 		return -1;
@@ -31,6 +33,10 @@ KAPI int atoi(long long num, unsigned char* buf, unsigned int bufmax){
 KAPI int printf(unsigned char* fmt, ...){
 	if (!fmt)
 		return -1;
+	while (printfLock){
+		thread_yield();
+	}
+	printfLock = 1;
 	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
@@ -91,11 +97,16 @@ KAPI int printf(unsigned char* fmt, ...){
 		}
 	}
 	va_end(args);
+	printfLock = 0;
 	return 0;
 }
 KAPI int lprintf(uint16_t* fmt, ...){
 	if (!fmt)
 		return -1;
+	while (printfLock){
+		thread_yield();
+	}
+	printfLock = 1;
 	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
@@ -156,6 +167,7 @@ KAPI int lprintf(uint16_t* fmt, ...){
 		}
 	}
 	va_end(args);
+	printfLock = 0;
 	return 0;
 }
 KAPI int memset(uint64_t* mem, uint64_t value, uint64_t size){

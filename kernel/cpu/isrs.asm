@@ -229,7 +229,7 @@ extern entropy_shuffle
 extern pFirstThread
 extern pLastThread
 extern pCurrentThread
-extern lapic_set_tick_ms
+extern lapic_set_tick_us
 extern virtualMapPage
 extern vmm_getPageTableEntry
 extern physicalAllocPage
@@ -491,17 +491,17 @@ je priority_case_low
 cmp rbx, 2
 je priority_case_high
 priority_case_normal:
-mov qword rcx, 10
+mov qword rcx, 100
 jmp priority_check_end
 priority_case_high:
-mov qword rcx, 20
+mov qword rcx, 20000
 jmp priority_check_end
 priority_case_low:
-mov qword rcx, 5
+mov qword rcx, 5000
 priority_check_end:
 push rax
 sub qword rsp, 32
-call lapic_set_tick_ms
+call lapic_set_tick_us
 add qword rsp, 32
 pop rax
 mov qword rbx, [rax+112]

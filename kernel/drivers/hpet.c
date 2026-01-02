@@ -50,30 +50,32 @@ KAPI int hpet_get_tick_period(uint32_t* pTickPeriod){
 	*pTickPeriod = tickPeriod;
 	return 0;
 }
-KAPI int hpet_get_ticks_per_ms(uint64_t* pMiliSeconds){
-	if (!pMiliSeconds)
+KAPI int hpet_get_ticks_per_us(uint64_t* pMicroSeconds){
+	if (!pMicroSeconds)
 		return -1;
 	uint64_t tickPeriod = 0;
 	if (hpet_get_tick_period((uint32_t*)&tickPeriod)!=0)
 		return -1;
-	*pMiliSeconds = 1000000000000/tickPeriod;
+	*pMicroSeconds = 1000000000/tickPeriod;
 	return 0;
 }
-KAPI uint64_t hpet_get_ms(void){
+KAPI uint64_t hpet_get_us(void){
 	uint64_t tickCount = 0;
 	if (hpet_get_counter(&tickCount)!=0)
 		return -1;
-	uint64_t tpms = 0;
-	if (hpet_get_ticks_per_ms(&tpms)!=0)
+	if (!tickCount)
+		return 0;
+	uint64_t tpus = 0;
+	if (hpet_get_ticks_per_us(&tpus)!=0)
 		return -1;
-	uint64_t time_ms = tickCount/tpms;
-	return time_ms;
+	uint64_t time_us = tickCount/tpus;
+	return time_us;
 }
-KAPI int hpet_set_ms(uint64_t time_ms){
-	uint64_t tpms = 0;
-	if (hpet_get_ticks_per_ms(&tpms)!=0)
+KAPI int hpet_set_us(uint64_t time_us){
+	uint64_t tpus = 0;
+	if (hpet_get_ticks_per_us(&tpus)!=0)
 		return -1;
-	uint64_t tickCount = tpms*time_ms;
+	uint64_t tickCount = tpus*time_us;
 	if (hpet_set_counter(tickCount)!=0)
 		return -1;
 	return 0;

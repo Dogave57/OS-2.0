@@ -143,15 +143,15 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	uint64_t va = 0;
 	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
-	uint64_t before_ms = get_time_ms();
+	uint64_t before_us = get_time_us();
 	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate %d pages\r\n", pagecnt);	
 		while (1){};
 		return -1;
 	}
-	uint64_t elapsed_ms = get_time_ms()-before_ms;
-	if (elapsed_ms)
-		printf("%dGB/s allocation\r\n", (1000/((MEM_GB/PAGE_SIZE)/pagecnt))/elapsed_ms);
+	uint64_t elapsed_us = get_time_us()-before_us;
+	if (elapsed_us)
+		printf("%dGB/s allocation\r\n", (1000000/((MEM_GB/PAGE_SIZE)/pagecnt))/elapsed_us);
 	if (virtualFreePages(va, pagecnt)!=0){
 		printf("failed to free %d pages\r\n", pagecnt);
 		while (1){};
@@ -272,7 +272,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 			while (1){};
 			return -1;
 		}
-		uint64_t time_ms = get_time_ms();
 		if (fs_create(mountId, "CONFIG\\PART.CFG", 0)!=0){
 			printf("failed to create partition config\r\n");
 			while (1){};

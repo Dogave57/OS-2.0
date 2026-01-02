@@ -41,27 +41,26 @@ int apic_init(void){
 		printf("failed to initialize HPET\r\n");
 		return -1;
 	}
-	uint64_t start_time = get_time_ms();
-	uint64_t elapsed_ms = 0;
-	uint64_t time_ms = 0;
+	uint64_t start_time = get_time_us();
+	uint64_t elapsed_us = 0;
+	uint64_t time_us = 0;
 	uint64_t start_ticks = 0xFFFFFFFF;
-	uint64_t time_precision_ms = 500;
+	uint64_t time_precision_us = 500*1000;
 	lapic_write_reg(LAPIC_REG_INIT_COUNT, start_ticks);
 	lapic_write_reg(LAPIC_REG_TPR, 0);
 	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
-	while (elapsed_ms<time_precision_ms){
-		time_ms = get_time_ms();
-		elapsed_ms = time_ms-start_time;
+	while (elapsed_us<time_precision_us){
+		elapsed_us = get_time_us()-start_time;
 	}
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<16));
 	uint64_t elapsed_ticks = 0;
 	lapic_read_reg(LAPIC_REG_CURRENT_COUNT, &elapsed_ticks);
 	elapsed_ticks = start_ticks-elapsed_ticks;
-	uint64_t tpms = elapsed_ticks/time_precision_ms;
+	uint64_t tpus = elapsed_ticks/time_precision_us;
 	timer_reset();
-	timer_set_tpms(tpms);
-	if (lapic_set_tick_ms(10)!=0){
+	timer_set_tpus(tpus);
+	if (lapic_set_tick_us(10000)!=0){
 		printf("failed to set tick ms\r\n");
 		return -1;
 	}
@@ -139,9 +138,9 @@ int x2lapic_is_supported(unsigned int* psupported){
 	*psupported = (ecx>>21)&1;
 	return 0;
 }
-int lapic_set_tick_ms(uint64_t tick_ms){
-	uint64_t tpms = timer_get_tpms();
-	lapic_write_reg(LAPIC_REG_INIT_COUNT, tpms*tick_ms);
+int lapic_set_tick_us(uint64_t tick_us){
+	uint64_t tpus = timer_get_tpus();
+	lapic_write_reg(LAPIC_REG_INIT_COUNT, tpus*tick_us);
 	lapic_write_reg(LAPIC_REG_DIV_CONFIG, 1);
 	return 0;
 }

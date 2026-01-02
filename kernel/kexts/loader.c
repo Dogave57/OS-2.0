@@ -17,11 +17,11 @@ int kext_subsystem_init(void){
 int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 	if (!filename||!pPid)
 		return -1;
-	uint64_t time_ms = get_time_ms();
+	uint64_t time_us = get_time_us();
 	struct elf_handle* pHandle = (struct elf_handle*)0x0;
 	if (elf_load(mount_id, filename, &pHandle)!=0)
 		return -1;
-	printf("took %dms to load ELF\r\n", get_time_ms()-time_ms);
+	printf("took %dus to load elf\r\n", get_time_us()-time_us);
 	uint64_t pid = 0;
 	if (kext_register(pHandle, &pid)!=0){
 		printf("failed to register kext\r\n");

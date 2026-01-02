@@ -7,7 +7,6 @@
 unsigned int char_position = 0;
 struct vec3 text_fg = {255,255,255};
 struct vec3 text_bg = {0,0,0};
-unsigned char printLock = 0;
 int write_pixel_coord(struct vec2 coord, struct vec3 color){
 	unsigned int pixel = (coord.y*pbootargs->graphicsInfo.height)+coord.x;
 	return write_pixel(pixel, color);
@@ -32,10 +31,11 @@ KAPI int clear(void){
 	return 0;
 }
 int writechar(unsigned int position, unsigned char ch){
-	while (printLock){
+	static unsigned char writeCharLock = 0;
+	while (writeCharLock){
 		thread_yield();
 	}
-	printLock = 1;
+	writeCharLock = 1;
 	if (ch>255)
 		ch = L' ';
 	unsigned int font_offset = ((8*16)/8)*ch;
@@ -55,27 +55,37 @@ int writechar(unsigned int position, unsigned char ch){
 		}
 	}	
 	serial_putchar(SERIAL_DEBUG_PORT, (unsigned char)ch);
-	printLock = 0;
+	writeCharLock = 0;
 	return 0;
 }
 KAPI int putchar(unsigned char ch){
+	static unsigned char putCharLock = 0;
+	while (putCharLock){
+		thread_yield();
+	}	
+	putCharLock = 1;
 	if (!pbootargs->graphicsInfo.font_initialized){
 		CHAR16 str[2] = {0};
 		str[0] = ch;
 		conout->OutputString(conout, str);
+		__asm__ volatile("sti");
+		putCharLock = 0;
 		return 0;
 	}
-	if (char_position>=pbootargs->graphicsInfo.width*(pbootargs->graphicsInfo.height/16))
+	if (char_position>=pbootargs->graphicsInfo.width*(pbootargs->graphicsInfo.height/16)){
 		clear();
+	}
 	switch (ch){
 		case '\n':
 		char_position+=pbootargs->graphicsInfo.width;
 		char_position-=(char_position%pbootargs->graphicsInfo.width);
 		serial_putchar(SERIAL_DEBUG_PORT, '\n');
+		putCharLock = 0;
 		return 0;
 		case '\r':
 		char_position-=(char_position%pbootargs->graphicsInfo.width);
 		serial_putchar(SERIAL_DEBUG_PORT, '\r');
+		putCharLock = 0;
 		return 0;
 		default:
 		break;
@@ -85,10 +95,12 @@ KAPI int putchar(unsigned char ch){
 		char_position-=8;
 		writechar(char_position, L' ');
 		serial_putchar(SERIAL_DEBUG_PORT, '\b');
+		putCharLock = 0;
 		return 0;
 	}
 	writechar(char_position, ch);	
 	char_position+=8;
+	putCharLock = 0;
 	return 0;
 }
 KAPI int putlchar(uint16_t ch){
@@ -112,17 +124,29 @@ int puthex(unsigned char hex, unsigned char isUpper){
 KAPI int print(unsigned char* string){
 	if (!string)
 		return -1;
+	static unsigned char printLock = 0;
+	while (printLock){
+		thread_yield();
+	}
+	printLock = 1;
 	for (unsigned int i = 0;string[i];i++){
 		putchar(string[i]);
 	}
+	printLock = 0;
 	return 0;
 }
 KAPI int lprint(uint16_t* lstring){
 	if (!lstring)
 		return -1;
+	static unsigned char lprintLock = 0;
+	while (lprintLock){
+		thread_yield();
+	}
+	lprintLock = 1;
 	for (unsigned int i = 0;lstring[i];i++){
 		putlchar(lstring[i]);
 	}
+	lprintLock = 0;
 	return 0;
 }
 int init_fonts(void){

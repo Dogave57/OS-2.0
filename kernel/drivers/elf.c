@@ -29,7 +29,7 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 		return -1;
 	}
 	fs_close(mount_id, fileId);
-	uint64_t time_ms = get_time_ms();
+	uint64_t time_us = get_time_us();
 	struct elf64_header* pHeader = (struct elf64_header*)pFileBuffer;
 	if (!ELF_VALID_SIGNATURE(pFileBuffer)){
 		printf("invalid ELF signature\r\n");

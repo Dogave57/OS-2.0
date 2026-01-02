@@ -1,38 +1,54 @@
-global time_ms
-global tick_cnt
-global tick_per_ms
+global ticks_per_us
 global timer_reset
-global set_time_ms
-global get_time_ms
-global set_time_ms
-global get_time_ms
-global timer_get_tpms
-global timer_set_tpms
+global set_time_us
+global get_time_us
+global timer_get_tpus
+global timer_set_tpus
 global sleep
-extern hpet_get_ms
-extern hpet_set_ms
+global sleep_us
+extern hpet_get_us
+extern hpet_set_us
 extern thread_yield
 section .data
-ticks_per_ms dq 0
+ticks_per_us dq 0
 section .text
 timer_reset:
 xor rcx, rcx
-;call hpet_set_ms
+sub qword rsp, 32
+;call hpet_set_us
+add qword rsp, 32 
 xor rax, rax
 ret
-set_time_ms:
-;call hpet_set_ms
+set_time_us:
+sub qword rsp, 32
+;call hpet_set_us
+add qword rsp, 32
+ret
+get_time_us:
+sub qword rsp, 32
+call hpet_get_us
+add qword rsp, 32
 ret
 get_time_ms:
 sub qword rsp, 32
-call hpet_get_ms
+call get_time_us
 add qword rsp, 32
+mov qword rbx, 1000
+xor rdx, rdx
+div rbx
 ret
-timer_get_tpms:
-mov qword rax, [rel ticks_per_ms]
+set_time_ms:
+imul rcx, 1000
+sub qword rsp, 32
+call get_time_us
+add qword rsp, 32
+xor rax, rax
 ret
-timer_set_tpms:
-mov qword [rel ticks_per_ms], rcx
+timer_get_tpus:
+mov qword rax, [rel ticks_per_us]
+ret
+timer_set_tpus:
+mov qword [rel ticks_per_us], rcx
 xor rax, rax
 ret
 sleep:
@@ -64,3 +80,32 @@ jmp sleep_loop
 sleep_loop_end:
 xor rax, rax
 ret
+sleep_us:
+push rcx
+sub qword rsp, 32
+call get_time_us
+add qword rsp, 32
+pop rcx
+mov qword rbx, rax
+sleep_us_loop:
+push rbx
+push rcx
+sub qword rsp, 32
+call get_time_us
+add qword rsp, 32
+pop rcx
+pop rbx
+sub qword rax, rbx
+cmp rax, rcx
+jae sleep_us_loop_end
+push rbx
+push rcx
+sub qword rsp, 32
+call thread_yield
+add qword rsp, 32
+pop rcx
+pop rbx
+jmp sleep_us_loop
+sleep_us_loop_end:
+ret
+
