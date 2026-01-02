@@ -129,7 +129,7 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 		__asm__ volatile("sti");
 		return -1;
 	}
-	uint64_t rflags = get_rflags();
+	uint64_t rflags = get_rflags()|(1<<9);
 	pContext->rip = rip;
 	pContext->rsp = rsp;
 	pContext->rbp = 0x0;
@@ -201,7 +201,6 @@ KAPI int thread_set_priority(uint64_t tid, uint64_t priority){
 	return 0;
 }
 KAPI int thread_yield(void){
-	return 0;
 	if (!pFirstThread||!pCurrentThread)
 		return -1;
 	__asm__ volatile("sti");

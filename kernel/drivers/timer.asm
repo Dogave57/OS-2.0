@@ -4,6 +4,8 @@ global tick_per_ms
 global timer_reset
 global set_time_ms
 global get_time_ms
+global set_time_ms
+global get_time_ms
 global timer_get_tpms
 global timer_set_tpms
 global sleep
@@ -11,7 +13,7 @@ extern hpet_get_ms
 extern hpet_set_ms
 extern thread_yield
 section .data
-tick_per_ms dq 0
+ticks_per_ms dq 0
 section .text
 timer_reset:
 xor rcx, rcx
@@ -22,31 +24,43 @@ set_time_ms:
 ;call hpet_set_ms
 ret
 get_time_ms:
+sub qword rsp, 32
 call hpet_get_ms
+add qword rsp, 32
 ret
 timer_get_tpms:
-mov qword rax, [rel tick_per_ms]
+mov qword rax, [rel ticks_per_ms]
 ret
 timer_set_tpms:
-mov qword [rel tick_per_ms], rcx
+mov qword [rel ticks_per_ms], rcx
 xor rax, rax
 ret
 sleep:
 push rcx
+sub qword rsp, 32
 call get_time_ms
+add qword rsp, 32
 pop rcx
 mov qword rbx, rax
 sleep_loop:
 push rcx
+push rbx
+sub qword rsp, 32
 call get_time_ms
+add qword rsp, 32
+pop rbx
 pop rcx
 sub rax, rbx
 cmp rax, rcx
 jae sleep_loop_end
+push rbx
+push rcx
 sub qword rsp, 32
 call thread_yield
 add qword rsp, 32
+pop rcx
+pop rbx
+jmp sleep_loop
 sleep_loop_end:
 xor rax, rax
 ret
-

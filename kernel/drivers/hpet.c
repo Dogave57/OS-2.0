@@ -50,38 +50,32 @@ KAPI int hpet_get_tick_period(uint32_t* pTickPeriod){
 	*pTickPeriod = tickPeriod;
 	return 0;
 }
-KAPI int hpet_get_ticks_per_ms(uint64_t* pTicks){
-	if (!pTicks)
+KAPI int hpet_get_ticks_per_ms(uint64_t* pMiliSeconds){
+	if (!pMiliSeconds)
 		return -1;
 	uint64_t tickPeriod = 0;
 	if (hpet_get_tick_period((uint32_t*)&tickPeriod)!=0)
 		return -1;
-	*pTicks = 1000000000000/tickPeriod;
+	*pMiliSeconds = 1000000000000/tickPeriod;
 	return 0;
 }
 KAPI uint64_t hpet_get_ms(void){
-	uint64_t ticksPerMilisecond = 0;
-	if (hpet_get_ticks_per_ms(&ticksPerMilisecond)!=0)
+	uint64_t tickCount = 0;
+	if (hpet_get_counter(&tickCount)!=0)
 		return -1;
-	if (!ticksPerMilisecond)
+	uint64_t tpms = 0;
+	if (hpet_get_ticks_per_ms(&tpms)!=0)
 		return -1;
-	uint64_t tick = 0;
-	if (hpet_get_counter(&tick)!=0)
-		return -1;
-	if (!tick)
-		return -1;
-	uint64_t time = tick/ticksPerMilisecond;
-	return time;
+	uint64_t time_ms = tickCount/tpms;
+	return time_ms;
 }
-KAPI int hpet_set_ms(uint64_t time){
-	uint64_t ticksPerMilisecond = 0;
-	if (hpet_get_ticks_per_ms(&ticksPerMilisecond)!=0)
+KAPI int hpet_set_ms(uint64_t time_ms){
+	uint64_t tpms = 0;
+	if (hpet_get_ticks_per_ms(&tpms)!=0)
 		return -1;
-	if (!ticksPerMilisecond)
+	uint64_t tickCount = tpms*time_ms;
+	if (hpet_set_counter(tickCount)!=0)
 		return -1;
-	uint64_t ticks = time*ticksPerMilisecond;
-	if (hpet_set_counter(ticks)!=0)
-		return -1;	
 	return 0;
 }
 int hpet_get_info(struct hpet_info_t* pHpetInfo){

@@ -7,7 +7,10 @@ int thread_entry(uint64_t tid, uint64_t arg);
 int kext_entry(uint64_t pid){
 	uint64_t time_ms = get_time_ms();
 	printf("pid: %d\r\n", pid);
-	for (uint64_t i = 0;i<8;i++){
+	printf("start\r\n");
+	sleep(15000);
+	printf("end\r\n");
+	for (uint64_t i = 0;i<16;i++){
 		uint64_t tid = 0;
 		if (thread_create((uint64_t)thread_entry, 0, 0, &tid, 0)!=0){
 			printf("failed to create thread\r\n");

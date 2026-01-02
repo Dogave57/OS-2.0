@@ -41,7 +41,7 @@ int apic_init(void){
 		printf("failed to initialize HPET\r\n");
 		return -1;
 	}
-	uint64_t start_time = hpet_get_ms();
+	uint64_t start_time = get_time_ms();
 	uint64_t elapsed_ms = 0;
 	uint64_t time_ms = 0;
 	uint64_t start_ticks = 0xFFFFFFFF;
@@ -51,7 +51,7 @@ int apic_init(void){
 	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
 	while (elapsed_ms<time_precision_ms){
-		time_ms = hpet_get_ms();
+		time_ms = get_time_ms();
 		elapsed_ms = time_ms-start_time;
 	}
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<16));

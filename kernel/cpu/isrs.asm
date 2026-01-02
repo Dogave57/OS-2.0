@@ -434,7 +434,6 @@ mov al, 20h
 mov dx, 20h
 out dx, al
 popaq
-sti
 iretq
 msg db "swapped registers out", 10, 0
 save_msg db "saving registers", 10, 0
@@ -511,7 +510,6 @@ mov qword rbx, [rax+128]
 mov qword [rsp], rbx
 switch_rflags:
 mov qword rbx, [rax+136]
-or rbx, (1<<9)
 mov qword [rsp+16], rbx
 switch_rflags_end:
 mov qword rbx, [rax+8]
@@ -539,11 +537,9 @@ pushaq
 jmp ctx_switch
 timer_isr_end:
 sub rsp, 32
-call entropy_shuffle
 call lapic_send_eoi
 add rsp, 32
 popaq
-sti
 iretq
 thermal_isr:
 cli
@@ -580,7 +576,8 @@ mov qword [rel exception_args+104], r13
 mov qword [rel exception_args+112], r14
 mov qword [rel exception_args+120], r15
 mov qword [rel exception_args+128], rbp
-mov qword [rel exception_args+136], rsp
+mov qword rax, [rsp+32]
+mov qword [rel exception_args+136], rax
 mov qword rax, cr0
 mov qword [rel exception_args+144], rax
 mov qword rax, cr2
@@ -619,7 +616,8 @@ mov qword [rel exception_args+104], r13
 mov qword [rel exception_args+112], r14
 mov qword [rel exception_args+120], r15
 mov qword [rel exception_args+128], rbp
-mov qword [rel exception_args+136], rsp
+mov qword rax, [rsp+40]
+mov qword [rel exception_args+136], rax
 mov qword rax, cr0
 mov qword [rel exception_args+144], rax
 mov qword rax, cr2
