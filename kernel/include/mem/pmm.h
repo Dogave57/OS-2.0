@@ -40,6 +40,7 @@ struct p_pt_info{
 extern uint64_t installedMemory;
 extern uint64_t freeMemory;
 extern uint64_t totalMemory;
+extern uint64_t maxPhysicalAddress;
 int pmm_init(void);
 KAPI int getTotalMemory(uint64_t* pTotalMemory);
 KAPI int getInstalledMemory(uint64_t* pInstalledMemory);

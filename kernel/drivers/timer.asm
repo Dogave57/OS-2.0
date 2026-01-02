@@ -7,11 +7,10 @@ global get_time_ms
 global timer_get_tpms
 global timer_set_tpms
 global sleep
-global lapic_tick_count
 extern hpet_get_ms
 extern hpet_set_ms
+extern thread_yield
 section .data
-lapic_tick_count dq 0
 tick_per_ms dq 0
 section .text
 timer_reset:
@@ -43,7 +42,10 @@ call get_time_ms
 pop rcx
 sub rax, rbx
 cmp rax, rcx
-jb sleep_loop
+jae sleep_loop_end
+sub qword rsp, 32
+call thread_yield
+add qword rsp, 32
 sleep_loop_end:
 xor rax, rax
 ret

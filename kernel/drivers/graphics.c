@@ -1,5 +1,6 @@
 #include "bootloader.h"
 #include "stdlib/stdlib.h"
+#include "cpu/thread.h"
 #include "drivers/filesystem.h"
 #include "drivers/serial.h"
 #include "drivers/graphics.h"
@@ -31,7 +32,9 @@ KAPI int clear(void){
 	return 0;
 }
 int writechar(unsigned int position, unsigned char ch){
-	while (printLock){};
+	while (printLock){
+		thread_yield();
+	}
 	printLock = 1;
 	if (ch>255)
 		ch = L' ';

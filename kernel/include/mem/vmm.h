@@ -13,8 +13,10 @@
 #define PTE_PAT (1ull<<7)
 #define PTE_GLOBAL (1ull<<8)
 #define PTE_NX (1ull<<63)
-#define PTE_ADDR_MASK 0x000ffffffffffff000
-#define PTE_GET_ADDR(entry)((((uint64_t)entry)&PTE_ADDR_MASK))
+#define PTE_LAZY (1ull<<52)
+#define PTE_ADDR_MASK (0x000FFFFFFFFFF000)
+#define PTE_GET_ADDR(entry)(((uint64_t)entry)&PTE_ADDR_MASK)
+#define PTE_GET_FLAGS(entry)(((uint64_t)entry)&~PTE_ADDR_MASK)
 #define PTE_GET_PAT(entry)(((uint64_t)entry)&PTE_PAT)
 #define PTE_IS_PRESENT(entry)((((uint64_t)entry)&PTE_PRESENT))
 #define PTE_IS_WRITABLE(entry)(((uint64_t)entry)&PTE_RW)
@@ -24,6 +26,9 @@
 #define PTE_IS_DIRTY(entry)(((uint64_t)entry)&PTE_DIRTY)
 #define PTE_IS_GLOBAL(entry)(((uint64_t)entry)&PTE_GLOBAL)
 #define PTE_IS_EXECUTABLE(entry)(!(((uint64_t)entry)&PTE_NX))
+#define PTE_IS_LAZY(entry)(((uint64_t)entry)&PTE_LAZY)
+#define PTE_IS_MAPPED(entry)(PTE_IS_PRESENT(entry)||PTE_IS_LAZY(entry))
+#define MAP_FLAG_LAZY (1<<0)
 #define VMM_RANGE_INVALID 0
 #define VMM_RANGE_FREE 1
 #define VMM_RANGE_INUSE 2
@@ -57,6 +62,7 @@ KAPI int virtualAlloc(uint64_t* pva, uint64_t size, uint64_t flags, uint64_t map
 KAPI int virtualFree(uint64_t va, uint64_t size);
 KAPI int virtualProtectPage(uint64_t va, uint64_t prot);
 KAPI int virtualProtectPages(uint64_t va, uint64_t pageCount, uint64_t prot);
+KAPI int virtualGetPageFlags(uint64_t va, uint64_t* pFlags);
 uint64_t get_pt(void);
 int load_pt(uint64_t pml4);
 int flush_tlb(uint64_t va);

@@ -229,8 +229,11 @@ extern entropy_shuffle
 extern pFirstThread
 extern pLastThread
 extern pCurrentThread
-extern lapic_tick_count
 extern lapic_set_tick_ms
+extern virtualMapPage
+extern vmm_getPageTableEntry
+extern physicalAllocPage
+extern virtualGetPageFlags
 exception_fg:
 db 255, 255, 255, 0
 exception_bg:
@@ -489,37 +492,27 @@ je priority_case_low
 cmp rbx, 2
 je priority_case_high
 priority_case_normal:
-push rax
 mov qword rcx, 10
-sub qword rsp, 32
-call lapic_set_tick_ms
-add qword rsp, 32
-pop rax
 jmp priority_check_end
 priority_case_high:
-push rax
 mov qword rcx, 20
+jmp priority_check_end
+priority_case_low:
+mov qword rcx, 5
+priority_check_end:
+push rax
 sub qword rsp, 32
 call lapic_set_tick_ms
 add qword rsp, 32
 pop rax
-jmp priority_check_end
-priority_case_low:
-push rax
-mov qword rcx, 5
-sub qword rsp, 32
-call lapic_set_tick_ms
-add qword rsp, 32 
-pop rax
-priority_check_end:
 mov qword rbx, [rax+112]
 mov qword [rsp+24], rbx
 mov qword rbx, [rax+128]
 mov qword [rsp], rbx
 switch_rflags:
 mov qword rbx, [rax+136]
-;or rbx, (1<<9)
-;mov qword [rsp+16], rbx
+or rbx, (1<<9)
+mov qword [rsp+16], rbx
 switch_rflags_end:
 mov qword rbx, [rax+8]
 mov qword rcx, [rax+16]
@@ -543,7 +536,6 @@ ctx_switch_time dq 10
 timer_isr:
 cli
 pushaq
-add qword [rel lapic_tick_count], 1
 jmp ctx_switch
 timer_isr_end:
 sub rsp, 32
@@ -731,8 +723,90 @@ sub rsp, 8
 mov qword [rsp], 13
 jmp exception_handler_entry_error_code
 hlt
+pa_msg db "physical address: %p", 10, 0
+lazy_msg db "lazy page", 10, 0
+lazy_physical_alloc_msg db "physical page: %p", 10, 0
+lazy_physical_alloc_fail_msg db "failed to allocate physical page", 10, 0
+lazy_virtual_map_fail_msg db "failed to remap lazy page", 10, 0
 isr14:
 cli
+pte_check:
+pushaq
+mov qword rcx, cr2
+sub qword rsp, 8
+mov qword rdx, rsp
+sub qword rsp, 32
+call vmm_getPageTableEntry
+add qword rsp, 32
+mov qword rbx, [rsp]
+mov qword rcx, [rbx]
+add qword rsp, 8
+mov qword rdx, (1<<52)
+and rcx, rdx
+cmp rcx, 0
+je pte_case_lazy_end
+pte_case_lazy:
+mov qword rcx, [rbx]
+sub qword rsp, 8
+mov qword rdx, rsp
+push rbx
+push rcx
+mov qword rcx, rdx
+mov qword rdx, 2
+sub qword rsp, 32
+call physicalAllocPage
+add qword rsp, 32
+pop rcx
+pop rbx
+mov qword rdx, [rsp]
+add qword rsp, 8
+cmp rax, 0
+jne pte_physical_alloc_fail
+push rbx
+push rcx
+push rdx
+sub qword rsp, 8
+mov qword rcx, cr2
+mov qword rdx, rsp
+sub qword rsp, 32
+call virtualGetPageFlags
+add qword rsp, 32
+mov qword r8, [rsp]
+add qword rsp, 8
+pop rdx
+pop rcx
+pop rbx
+mov qword rax, 2
+push rax
+mov qword rax, 0
+push rax
+mov qword rcx, rdx
+mov qword rdx, cr2
+mov qword r9, 1
+sub qword rsp, 32
+call virtualMapPage
+add qword rsp, 32
+add qword rsp, 16
+cmp rax, 0
+jne pte_virtual_map_fail
+popaq
+add qword rsp, 8
+iretq
+pte_physical_alloc_fail:
+mov qword rcx, lazy_physical_alloc_fail_msg
+sub qword rsp, 32
+call print
+add qword rsp, 32
+hlt
+pte_virtual_map_fail:
+mov qword rcx, lazy_virtual_map_fail_msg
+sub qword rsp, 32
+call print
+add qword rsp, 32
+hlt
+pte_case_lazy_end:
+pte_check_end:
+popaq
 sub rsp, 8
 mov qword [rsp], 14
 jmp exception_handler_entry_error_code

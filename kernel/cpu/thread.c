@@ -1,5 +1,6 @@
 #include "mem/vmm.h"
 #include "mem/heap.h"
+#include "align.h"
 #include "drivers/timer.h"
 #include "stdlib/stdlib.h"
 #include "subsystem/subsystem.h"
@@ -14,20 +15,50 @@ int threads_init(void){
 		return -1;
 	return 0;
 }
+int thread_link(struct thread_t* pThread, struct thread_t* pLink){
+	if (!pThread)
+		return -1;
+	if (!pLink)
+		pLink = pLastThread;
+	if (!pFirstThread)
+		pFirstThread = pThread;
+	if (pLink){
+		pLink->pFlink = pThread;
+		pThread->pBlink = pLink;
+		if (pLink==pLastThread)
+			pThread->pFlink = pFirstThread;
+	}
+	if (pLink==pLastThread)
+		pLastThread = pThread;
+	return 0;
+}
+int thread_unlink(struct thread_t* pThread){
+	if (!pThread)
+		return -1;
+	if (pFirstThread==pThread){
+		pFirstThread = pThread->pFlink;
+	}
+	if (pLastThread==pThread){
+		pLastThread = pThread->pBlink;
+	}
+	if (pThread->pFlink){
+		pThread->pFlink->pBlink = pThread->pBlink;
+	}
+	if (pThread->pBlink){
+		pThread->pBlink->pFlink = pThread->pFlink;
+	}
+	return 0;
+}
 int thread_register(struct thread_t* pThread, uint64_t* pTid){
 	if (!pThread||!pTid)
 		return -1;
 	uint64_t tid = 0;
 	if (subsystem_alloc_entry(pSubsystemDesc, (unsigned char*)pThread, &tid)!=0)
 		return -1;
-	if (!pFirstThread){
-		pFirstThread = pThread;
+	if (thread_link(pThread, (struct thread_t*)0x0)!=0){
+		subsystem_free_entry(pSubsystemDesc, tid);
+		return -1;
 	}
-	if (pLastThread){
-		pLastThread->pFlink = pThread;
-		pThread->pBlink = pLastThread;
-	}
-	pLastThread = pThread;
 	*pTid = tid;
 	return 0;
 }
@@ -39,55 +70,62 @@ int thread_unregister(uint64_t tid){
 		return -1;
 	if (subsystem_free_entry(pSubsystemDesc, tid)!=0)
 		return -1;
-	if (pFirstThread==pThread)
-		pFirstThread = pThread->pFlink;
-	if (pLastThread==pThread)
-		pLastThread = pThread->pBlink;
-	if (pThread->pFlink)
-		pThread->pFlink->pBlink = pThread->pBlink;
-	if (pThread->pBlink)
-		pThread->pBlink->pFlink = pThread->pFlink;
+	if (thread_unlink(pThread)!=0)
+		return -1;
 	return 0;
 }
-KAPI int thread_create(uint64_t rip, uint64_t stackSize, uint64_t* pTid, uint64_t argument){
+KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve, uint64_t* pTid, uint64_t argument){
 	if (!pTid||!rip)
 		return -1;
 	__asm__ volatile("cli");
-	if (!stackSize||stackSize<4096)
-		stackSize = THREAD_DEFAULT_STACK_SIZE;
+	if (!stackCommit)
+		stackCommit = THREAD_DEFAULT_STACK_COMMIT;
+	if (!stackReserve)
+		stackReserve = THREAD_DEFAULT_STACK_RESERVE;
+	uint64_t stackCommitPages = align_up(stackCommit, PAGE_SIZE)/PAGE_SIZE;
 	unsigned char* pStack = (unsigned char*)0x0;
-	uint64_t stackGuardPages = 16;
-	uint64_t realStackSize = stackSize+(stackGuardPages*2*PAGE_SIZE);
-	if (virtualAlloc((uint64_t*)&pStack, realStackSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
-		__asm__ volatile("sti");	
+	unsigned char* pLastStackGuard = (unsigned char*)0x0;
+	uint64_t stackGuardSize = MEM_MB;
+	uint64_t stackSize = (stackGuardSize*2)+stackReserve;
+	if (virtualAlloc((uint64_t*)&pStack, stackSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
 		return -1;
 	}
-	unsigned char* pFirstGuard = pStack;
-	unsigned char* pLastGuard = pStack+(stackGuardPages*PAGE_SIZE)+stackSize;
-	if (virtualProtectPages((uint64_t)pFirstGuard, stackGuardPages, 0)!=0){
-		virtualFree((uint64_t)pStack, realStackSize);
-		__asm__ volatile("sti");
+	pLastStackGuard = pStack+stackGuardSize+stackReserve;
+	if (virtualMapPages((uint64_t)0x0, (uint64_t)pStack, 0, align_up(stackGuardSize, PAGE_SIZE)/PAGE_SIZE, 1, 0, PAGE_TYPE_NORMAL)!=0){
+		virtualFree((uint64_t)pStack, stackSize);
 		return -1;
 	}
-	if (virtualProtectPages((uint64_t)pLastGuard, stackGuardPages, 0)!=0){
-		virtualFree((uint64_t)pStack, realStackSize);
-		__asm__ volatile("sti");
+	if (virtualMapPages((uint64_t)0x0, (uint64_t)pLastStackGuard, 0, align_up(stackGuardSize, PAGE_SIZE)/PAGE_SIZE, 1, 0, PAGE_TYPE_NORMAL)!=0){
+		virtualFree((uint64_t)pStack, stackSize);
 		return -1;
 	}
-	pStack+=stackGuardPages*PAGE_SIZE;
+	pStack+=stackGuardSize;
+	for (uint64_t i = 0;i<stackCommitPages;i++){
+		uint64_t pa = 0;
+		uint64_t va = ((uint64_t)pStack)+stackReserve-(i*PAGE_SIZE);
+		if (physicalAllocPage(&pa, PAGE_TYPE_NORMAL)!=0){
+			virtualFree((uint64_t)pStack, stackSize);
+			return -1;
+		}
+		if (virtualMapPage(pa, va, PTE_RW|PTE_NX, 1, 0, PAGE_TYPE_NORMAL)!=0){
+			virtualFree((uint64_t)pStack, stackSize);
+			physicalFreePage(pa);
+			return -1;
+		}
+	}
 	struct thread_t* pThread = (struct thread_t*)kmalloc(sizeof(struct thread_t));
 	if (!pThread){
-		virtualFree((uint64_t)pStack, realStackSize);
+		virtualFree((uint64_t)pStack, stackSize);
 		__asm__ volatile("sti");
 		return -1;
 	}
 	memset((void*)pThread, 0, sizeof(struct thread_t));
-	uint64_t rsp = ((uint64_t)pStack)+stackSize-64;
+	uint64_t rsp = ((uint64_t)pStack)+stackReserve-64;
 	struct thread_context_t* pContext = &pThread->context;
 	uint64_t tid = 0;
 	if (thread_register(pThread, &tid)!=0){
 		kfree((void*)pThread);
-		virtualFree((uint64_t)pStack, realStackSize);
+		virtualFree((uint64_t)pStack, stackSize);
 		__asm__ volatile("sti");
 		return -1;
 	}
@@ -160,5 +198,13 @@ KAPI int thread_set_priority(uint64_t tid, uint64_t priority){
 	if (!pThread)
 		return -1;
 	pThread->priority = priority;
+	return 0;
+}
+KAPI int thread_yield(void){
+	return 0;
+	if (!pFirstThread||!pCurrentThread)
+		return -1;
+	__asm__ volatile("sti");
+	__asm__ volatile("int $0x30");
 	return 0;
 }

@@ -1,5 +1,6 @@
 #include "stdlib/stdlib.h"
 #include "drivers/graphics.h"
+#include "cpu/cpuid.h"
 #include "align.h"
 #include "bootloader.h"
 #include "panic.h"
@@ -9,6 +10,7 @@ uint64_t installedMemory = 0;
 uint64_t freeMemory = 0;
 struct p_pt_info* pt = (struct p_pt_info*)0x0;
 uint64_t pt_size = 0;
+uint64_t maxPhysicalAddress = 0;
 int pmm_init(void){
 	getTotalMemory(&totalMemory);
 	getInstalledMemory(&installedMemory); 
@@ -24,6 +26,11 @@ int pmm_init(void){
 	printf("installed memory + hardware memory: %dmb\r\n", totalMemory/MEM_MB);
 	printf("installed memory: %dmb\r\n", installedMemory/MEM_MB);
 	printf("free memory: %dmb\r\n", freeMemory/MEM_MB);
+	uint32_t eax = 0;
+	if (cpuid(0x80000008, 0, &eax, (uint32_t*)0x0, (uint32_t*)0x0, (uint32_t*)0x0)!=0)
+		return -1;
+	uint64_t paBits = (uint64_t)(eax&0xFF);
+	maxPhysicalAddress = ((uint64_t)1<<paBits)-1;	
 	return 0;
 }
 KAPI int getTotalMemory(uint64_t* pTotalMemory){
@@ -109,9 +116,9 @@ int initPageTable(void){
 			continue;
 		uint64_t page_index = pMemDesc->PhysicalStart/EFI_PAGE_SIZE;
 		uint64_t pa = pMemDesc->PhysicalStart;
-		for (UINTN page = 0;page<pMemDesc->NumberOfPages;page++,page_index++){
+		for (UINTN page = 0;page<pMemDesc->NumberOfPages;page++,page_index++,pa+=PAGE_SIZE){
 			struct p_page* pentry = pt->pPageEntries+page_index;
-			if (pMemDesc->Type==EfiConventionalMemory){
+			if (pMemDesc->Type==EfiConventionalMemory&&pa!=maxPhysicalAddress){
 				pentry->status = PAGE_FREE;
 				pt->pFreeEntries[pt->freeEntryCnt] = pentry;
 				pt->freeEntryCnt++;

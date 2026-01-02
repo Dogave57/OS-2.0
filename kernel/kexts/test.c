@@ -7,20 +7,22 @@ int thread_entry(uint64_t tid, uint64_t arg);
 int kext_entry(uint64_t pid){
 	uint64_t time_ms = get_time_ms();
 	printf("pid: %d\r\n", pid);
-	for (uint64_t i = 0;i<4;i++){
+	for (uint64_t i = 0;i<8;i++){
 		uint64_t tid = 0;
-		if (thread_create((uint64_t)thread_entry, 0, &tid, 0)!=0){
+		if (thread_create((uint64_t)thread_entry, 0, 0, &tid, 0)!=0){
 			printf("failed to create thread\r\n");
 			return -1;
 		}
 	}	
+	uint64_t last_elapsed_s = 0;
 	while (1){
 		uint64_t elapsed_ms = get_time_ms()-time_ms;
-		if (!elapsed_ms)
+		uint64_t elapsed_s = elapsed_ms/1000;
+		if (elapsed_s==last_elapsed_s)
 			continue;
-		if (elapsed_ms%1000)
-			continue;
-		printf("program been running for %ds\r\n", elapsed_ms/1000);
+		printf("program has been running for %ds\r\n", elapsed_s);
+		last_elapsed_s = elapsed_s;
+		sleep(500);
 	}
 	return 0;
 }
@@ -34,6 +36,7 @@ int thread_entry(uint64_t tid, uint64_t arg){
 			continue;
 		printf("thread with ID %d has been running for %ds\r\n", tid, elapsed_s);
 		last_elapsed_s = elapsed_s;
+		sleep(500);
 	}
 	return 0;
 }
