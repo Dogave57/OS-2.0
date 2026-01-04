@@ -4,6 +4,7 @@
 #include "mem/heap.h"
 #include "drivers/gpt.h"
 #include "cpu/thread.h"
+#include "cpu/mutex.h"
 #include "panic.h"
 #include "subsystem/drive.h"
 struct subsystem_desc* pDriveSubsystem = (struct subsystem_desc*)0x0;
@@ -37,19 +38,16 @@ int drive_subsystem_init(void){
 	return 0;
 }
 int drive_ahci_register(uint8_t port, uint64_t* pDriveId){
-	static unsigned char registerLock = 0;
-	while (registerLock){
-		thread_yield();
-	}
-	registerLock = 1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	uint64_t id = 0;
 	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)kmalloc(sizeof(struct drive_dev_ahci));
 	if (!pDev){
-		registerLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (subsystem_alloc_entry(pDriveSubsystem, (unsigned char*)pDev, &id)!=0){
-		registerLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	pDev->hdr.type = DRIVE_TYPE_AHCI;
@@ -58,144 +56,126 @@ int drive_ahci_register(uint8_t port, uint64_t* pDriveId){
 	pDev->hdr.getDriveInfo = (uint64_t)ahci_subsystem_get_drive_info;
 	if (ahci_get_drive_info(port, &pDev->driveInfo)!=0){
 		printf("failed to get drive info\r\n");
-		registerLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	*pDriveId = id;	
-	registerLock = 0;
+	mutex_unlock(&mutex);
 	return 0;
 }
 int drive_unregister(uint64_t drive_id){
-	static unsigned char unregisterLock = 0;
-	while (unregisterLock){
-		thread_yield();
-	}
-	unregisterLock = 1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	uint64_t pEntry = 0;
 	if (subsystem_get_entry(pDriveSubsystem, drive_id, &pEntry)!=0){
-		unregisterLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	kfree((void*)pEntry);
 	if (subsystem_free_entry(pDriveSubsystem, drive_id)!=0){
-		unregisterLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	unregisterLock = 0;
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int drive_get_info(uint64_t drive_id, struct drive_info* pDriveInfo){
 	if (!pDriveInfo)
 		return -1;
-	static unsigned char getInfoLock = 0;
-	while (getInfoLock){
-		thread_yield();
-	}
-	getInfoLock = 1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct drive_dev_hdr* pHdr = (struct drive_dev_hdr*)0x0;
 	if (subsystem_get_entry(pDriveSubsystem, drive_id, (uint64_t*)&pHdr)!=0){
-		getInfoLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
 	driveGetInfoFunc getDriveInfo = (driveGetInfoFunc)pHdr->getDriveInfo;
 	if (getDriveInfo(pHdr, pDriveInfo)!=0){
-		getInfoLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	getInfoLock = 0;
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int drive_read_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
-	static unsigned char readLock = 0;
-	while (readLock){
-		thread_yield();
-	}
-	readLock = 1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct drive_dev_hdr* pHdr = (struct drive_dev_hdr*)0x0;
 	if (subsystem_get_entry(pDriveSubsystem, drive_id, (uint64_t*)&pHdr)!=0){
-		readLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	driveSectorReadFunc sectors_read = (driveSectorReadFunc)pHdr->sectors_read;
 	if (sectors_read(pHdr, lba, sector_count, pBuffer)!=0){
-		readLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	readLock = 0;
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int drive_write_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
-	static unsigned char writeLock = 0;
-	while (writeLock){
-		thread_yield();
-	}
-	writeLock = 1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct drive_dev_hdr* pHdr = (struct drive_dev_hdr*)0x0;
 	if (subsystem_get_entry(pDriveSubsystem, drive_id, (uint64_t*)&pHdr)!=0){
-		writeLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (!pHdr){
-		writeLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
 	driveSectorWriteFunc sectors_write = (driveSectorWriteFunc)pHdr->sectors_write;
 	if (sectors_write(pHdr, lba, sector_count, pBuffer)!=0){
-		writeLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	writeLock = 0;
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int partition_read_sectors(uint64_t drive_id, uint64_t partition_id, uint64_t lba_offset, uint16_t sector_count, unsigned char* pBuffer){
 	if (!pBuffer)
 		return -1;
-	static unsigned char readLock = 0;
-	while (readLock){
-		thread_yield();
-	}
-	readLock = 1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct gpt_partition partition = {0};
 	if (gpt_get_partition(drive_id, partition_id, &partition)!=0){
-		readLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	uint64_t lba = partition.start_lba+lba_offset;
 	if (lba>partition.end_lba){
-		readLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (drive_read_sectors(drive_id, lba, sector_count, pBuffer)!=0){
-		readLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	readLock = 0;
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int partition_write_sectors(uint64_t drive_id, uint64_t partition_id, uint64_t lba_offset, uint16_t sector_count, unsigned char* pBuffer){
 	if (!pBuffer)
 		return -1;
-	static unsigned char writeLock = 0;
-	while (writeLock){
-		thread_yield();
-	}
-	writeLock = 1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct gpt_partition partition = {0};
 	if (gpt_get_partition(drive_id, partition_id, &partition)!=0){
-		writeLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	uint64_t lba = partition.start_lba+lba_offset;
 	if (lba>partition.end_lba){
-		writeLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (drive_write_sectors(drive_id, lba, sector_count, pBuffer)!=0){
-		writeLock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	writeLock = 0;
+	mutex_unlock(&mutex);
 	return 0;
 }

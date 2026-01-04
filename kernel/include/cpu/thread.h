@@ -37,9 +37,12 @@ struct thread_t{
 	uint64_t priority; // 152
 	uint64_t tid; // 160
 	uint64_t start_rip; // 168
-	uint64_t start_rsp; // 176
-	struct thread_t* pFlink; // 184
-	struct thread_t* pBlink; // 192
+	uint64_t pStack; // 176
+	uint64_t stackGuardSize; // 184
+	uint64_t stackReserve; // 192
+	uint64_t stackCommit; // 200
+	struct thread_t* pFlink; // 208
+	struct thread_t* pBlink; // 216
 }__attribute__((packed));
 int threads_init(void);
 int thread_link(struct thread_t* pThread, struct thread_t* pLink);
@@ -53,5 +56,9 @@ KAPI int thread_set_status(uint64_t tid, uint64_t status);
 KAPI int thread_get_priority(uint64_t tid, uint64_t* pPriority);
 KAPI int thread_set_priority(uint64_t tid, uint64_t priority);
 KAPI int thread_yield(void);
-uint64_t get_rflags(void);
+KAPI int get_current_thread(uint64_t* pTid);
+KAPI int thread_exists(uint64_t tid);
+__attribute__((ms_abi)) uint64_t get_rflags(void);
+__attribute__((ms_abi)) int set_rflags(uint64_t rflags);
+__attribute__((ms_abi)) int thread_destroy_safe(uint64_t tid);
 #endif

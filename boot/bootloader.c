@@ -222,7 +222,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 			break;
 		}
 	}
-	blargs->graphicsInfo.physicalFrameBuffer = (struct vec4*)gopProtocol->Mode->FrameBufferBase;
+	blargs->graphicsInfo.physicalFrameBuffer = (struct uvec4_8*)gopProtocol->Mode->FrameBufferBase;
 	blargs->graphicsInfo.width = gopProtocol->Mode->Info->HorizontalResolution;
 	blargs->graphicsInfo.height = gopProtocol->Mode->Info->VerticalResolution;
 	blargs->systable = ST;

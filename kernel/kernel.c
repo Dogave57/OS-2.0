@@ -5,7 +5,7 @@
 #include "mem/pmm.h"
 #include "mem/vmm.h"
 #include "mem/heap.h"
-#include "drivers/graphics.h"
+#include "drivers/gpu/framebuffer.h"
 #include "drivers/smbios.h"
 #include "drivers/smp.h"
 #include "drivers/serial.h"
@@ -20,6 +20,7 @@
 #include "subsystem/subsystem.h"
 #include "subsystem/filesystem.h"
 #include "drivers/gpt.h"
+#include "drivers/gpu/virtio.h"
 #include "drivers/filesystem/fat32.h"
 #include "drivers/filesystem/exfat.h"
 #include "drivers/filesystem/fluxfs.h"
@@ -141,8 +142,11 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	if (virtio_gpu_init()!=0){
+		printf("failed to initialize virtual I/O GPU driver\r\n");
+	}
 	uint64_t va = 0;
-	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
+	uint64_t pagecnt = (MEM_GB)/PAGE_SIZE;
 	uint64_t before_us = get_time_us();
 	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate %d pages\r\n", pagecnt);	
@@ -150,8 +154,9 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	uint64_t elapsed_us = get_time_us()-before_us;
-	if (elapsed_us)
+	if (elapsed_us){
 		printf("%dGB/s allocation\r\n", (1000000/((MEM_GB/PAGE_SIZE)/pagecnt))/elapsed_us);
+	}
 	if (virtualFreePages(va, pagecnt)!=0){
 		printf("failed to free %d pages\r\n", pagecnt);
 		while (1){};
@@ -170,10 +175,10 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf("--page info--\r\n");
-	struct vec3 green = {0, 255, 0};
-	struct vec3 red = {255, 0, 0};
-	struct vec3 old_fg = {0,0,0};
-	struct vec3 old_bg = {0,0,0};
+	struct uvec3_8 green = {0, 255, 0};
+	struct uvec3_8 red = {255, 0, 0};
+	struct uvec3_8 old_fg = {0,0,0};
+	struct uvec3_8 old_bg = {0,0,0};
 	get_text_color(&old_fg, &old_bg);
 	set_text_color(red, old_bg);
 	printf("used pages: %d\r\n", usedPages);

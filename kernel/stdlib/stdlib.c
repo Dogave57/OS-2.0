@@ -1,6 +1,6 @@
 #include <stdarg.h>
 #include <stdint.h>
-#include "drivers/graphics.h"
+#include "drivers/gpu/framebuffer.h"
 #include "cpu/thread.h"
 #include "stdlib/stdlib.h"
 unsigned char printfLock = 0;

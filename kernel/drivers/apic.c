@@ -32,7 +32,7 @@ int apic_init(void){
 	write_msr(LAPIC_BASE_MSR, lapic_base);
 	uint64_t base = 0;
 	uint64_t value = 0;
-	uint64_t div_conf = 0x3;
+	uint64_t div_conf = 0x07;
 	lapic_get_version(&lapic_version);
 	printf("LAPIC version: %x\r\n", lapic_version);
 	lapic_get_id(&main_lapic_id);
@@ -45,25 +45,25 @@ int apic_init(void){
 	uint64_t elapsed_us = 0;
 	uint64_t time_us = 0;
 	uint64_t start_ticks = 0xFFFFFFFF;
-	uint64_t time_precision_us = 500*1000;
+	uint64_t time_precision_us = 1000*50;
+	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
 	lapic_write_reg(LAPIC_REG_INIT_COUNT, start_ticks);
 	lapic_write_reg(LAPIC_REG_TPR, 0);
-	lapic_write_reg(LAPIC_REG_DIV_CONFIG, div_conf);
-	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<17));
 	while (elapsed_us<time_precision_us){
 		elapsed_us = get_time_us()-start_time;
 	}
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, (1<<16));
 	uint64_t elapsed_ticks = 0;
-	lapic_read_reg(LAPIC_REG_CURRENT_COUNT, &elapsed_ticks);
-	elapsed_ticks = start_ticks-elapsed_ticks;
+	uint64_t current_ticks = 0;
+	lapic_read_reg(LAPIC_REG_CURRENT_COUNT, &current_ticks);
+	elapsed_ticks = start_ticks-current_ticks;
 	uint64_t tpus = elapsed_ticks/time_precision_us;
 	timer_reset();
 	timer_set_tpus(tpus);
-	if (lapic_set_tick_us(10000)!=0){
-		printf("failed to set tick ms\r\n");
+	if (lapic_set_tick_us(1000*10)!=0){
+		printf("failed to set ticks per microsecond\r\n");
 		return -1;
-	}
+	}	
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, 0x30|(1<<17));
 	lapic_read_reg(LAPIC_REG_SPI, &value);
 	value|=0x100;
@@ -140,8 +140,8 @@ int x2lapic_is_supported(unsigned int* psupported){
 }
 int lapic_set_tick_us(uint64_t tick_us){
 	uint64_t tpus = timer_get_tpus();
+	lapic_write_reg(LAPIC_REG_DIV_CONFIG, 0x07);
 	lapic_write_reg(LAPIC_REG_INIT_COUNT, tpus*tick_us);
-	lapic_write_reg(LAPIC_REG_DIV_CONFIG, 1);
 	return 0;
 }
 int ioapic_get_base(uint64_t* pbase){

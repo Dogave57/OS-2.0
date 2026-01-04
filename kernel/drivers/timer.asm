@@ -6,11 +6,13 @@ global timer_get_tpus
 global timer_set_tpus
 global sleep
 global sleep_us
+global lapic_tick_count
 extern hpet_get_us
 extern hpet_set_us
 extern thread_yield
 section .data
 ticks_per_us dq 0
+lapic_tick_count dq 0
 section .text
 timer_reset:
 xor rcx, rcx

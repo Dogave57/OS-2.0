@@ -3,6 +3,7 @@
 #include "idt.h"
 #define SAFE_STACK_SIZE 8192
 extern unsigned char safe_stack[SAFE_STACK_SIZE];
+extern unsigned char* pSafeStackTop;
 struct cpu_exception_entry{
 	uint64_t pIsr;
 	uint64_t istVector;

@@ -7,13 +7,13 @@
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
 #include "subsystem/drive.h"
-#include "drivers/graphics.h"
+#include "drivers/gpu/framebuffer.h"
 #include "drivers/acpi.h"
 #include "drivers/smbios.h"
 struct bootloader_graphicsInfo{
 	unsigned int width;
 	unsigned int height;
-	struct vec4* physicalFrameBuffer;
+	struct uvec4_8* physicalFrameBuffer;
 	unsigned int font_initialized;
 	unsigned char* fontData;
 	unsigned int fontDataSize;

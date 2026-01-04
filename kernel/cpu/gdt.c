@@ -1,6 +1,5 @@
 #include "bootloader.h"
 #include "mem/vmm.h"
-#include "drivers/graphics.h"
 #include "stdlib/stdlib.h"
 #include "cpu/interrupt.h"
 #include "cpu/gdt.h"
@@ -8,6 +7,7 @@ struct gdt_entry_t gdt[GDT_ENTRIES] = {0};
 __attribute__((aligned(16))) struct tss_entry_t tss = {0};
 struct gdt_ptr pgdt = {0};
 unsigned char safe_stack[SAFE_STACK_SIZE] = {0};
+unsigned char* pSafeStackTop = (unsigned char*)(safe_stack+SAFE_STACK_SIZE);
 int gdt_add_entry(struct gdt_entry_t* pTarget, uint32_t base, uint32_t limit, uint8_t access, uint16_t flags){
 	if (limit>0xFFFFF)
 		return -1;

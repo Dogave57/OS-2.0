@@ -1,7 +1,6 @@
 #include "kernel_include.h"
 #include "mem/vmm.h"
 #include "mem/heap.h"
-#include "drivers/graphics.h"
 #include "drivers/timer.h"
 #include "stdlib/stdlib.h"
 #include "align.h"

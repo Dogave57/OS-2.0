@@ -1,7 +1,6 @@
 #include "cpu/port.h"
 #include "bootloader.h"
 #include "stdlib/stdlib.h"
-#include "drivers/graphics.h"
 #include "drivers/keyboard.h"
 unsigned int keysPressed[256]={0};
 void ps2_keyboard_handler(void){

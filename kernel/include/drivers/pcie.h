@@ -32,4 +32,5 @@ int pcie_get_class(uint8_t bus, uint8_t dev, uint8_t func, uint8_t* pClass);
 int pcie_get_subclass(uint8_t bus, uint8_t dev, uint8_t func, uint8_t* pSubclass);
 int pcie_device_exists(uint8_t bus, uint8_t dev, uint8_t func);
 int pcie_get_device_by_class(uint8_t class, uint8_t subclass, uint8_t* pBus, uint8_t* pDev, uint8_t* pFunc);
+int pcie_get_device_by_id(uint16_t vendor_id, uint16_t device_id, uint8_t* pBus, uint8_t* pDev, uint8_t* pFunc);
 #endif

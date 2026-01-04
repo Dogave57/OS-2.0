@@ -1,5 +1,5 @@
 #include "stdlib/stdlib.h"
-#include "drivers/graphics.h"
+#include "drivers/gpu/framebuffer.h"
 #include "cpu/cpuid.h"
 #include "align.h"
 #include "bootloader.h"

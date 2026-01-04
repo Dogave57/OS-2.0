@@ -28,7 +28,7 @@ int vmm_init(void){
 		EFI_MEMORY_DESCRIPTOR* pMemDesc = (EFI_MEMORY_DESCRIPTOR*)(((unsigned char*)pbootargs->memoryInfo.pMemoryMap)+(i*pbootargs->memoryInfo.memoryDescSize));
 		if (pMemDesc->Type!=EfiConventionalMemory)
 			continue;
-		if (virtualMapPages((uint64_t)pMemDesc->PhysicalStart, (uint64_t)pMemDesc->PhysicalStart, PTE_RW|PTE_NX, (uint64_t)pMemDesc->NumberOfPages, 1, 0, PAGE_TYPE_NORMAL)!=0){
+		if (virtualMapPages((uint64_t)pMemDesc->PhysicalStart, ((uint64_t)pMemDesc->PhysicalStart), PTE_RW|PTE_NX, (uint64_t)pMemDesc->NumberOfPages, 1, 0, PAGE_TYPE_NORMAL)!=0){
 			printf("failed to identity map %d pages at %p\r\n", pMemDesc->NumberOfPages, (void*)pMemDesc->PhysicalStart);
 			return -1;
 		}
@@ -210,7 +210,11 @@ KAPI int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uin
 			return -1;
 		}
 	}
-	uint64_t va = pa;
+	uint64_t va = 0;
+	if (virtualGetSpace(&va, 1)!=0){
+		physicalFreePage(pa);
+		return -1;
+	}
 	if (virtualMapPage(pa, va, flags, 1, map_flags, pageType)!=0)
 		return -1;
 	*pVa = va;
@@ -238,7 +242,8 @@ KAPI int virtualFreePage(uint64_t va, uint64_t map_flags){
 KAPI int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType){
 	if (!pVa)
 		return -1;
-	uint64_t va = last_page_va+PAGE_SIZE;
+	uint64_t va = 0;
+	virtualGetSpace(&va, page_cnt);
 	for (uint64_t i = 0;i<page_cnt;i++){
 		uint64_t new_ppage = (uint64_t)0;
 		if (!(map_flags&MAP_FLAG_LAZY)){
@@ -295,5 +300,14 @@ KAPI int virtualGetPageFlags(uint64_t va, uint64_t* pFlags){
 	if (vmm_getPageTableEntry(va, &pEntry)!=0)
 		return -1;
 	*pFlags = PTE_GET_FLAGS(*pEntry);
+	return 0;
+}
+KAPI int virtualGetSpace(uint64_t* pVa, uint64_t pageCount){
+	if (!pVa)
+		return -1;
+	uint64_t va = last_page_va+PAGE_SIZE;
+	if (va<VMM_RANGE_BASE)
+		va+=VMM_RANGE_BASE;
+	*pVa = va;
 	return 0;
 }

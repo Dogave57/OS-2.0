@@ -2,7 +2,6 @@
 #include "panic.h"
 #include "stdlib/stdlib.h"
 #include "mem/vmm.h"
-#include "drivers/graphics.h"
 #include "drivers/acpi.h"
 #include "drivers/hpet.h"
 struct hpet_info_t hpetInfo = {0};
@@ -12,7 +11,7 @@ int hpet_init(void){
 		return -1;
 	}
 	volatile struct hpet_base_mmio* pBase = hpetInfo.pBaseMmio;
-	if (virtualMapPage((uint64_t)pBase, (uint64_t)pBase, PTE_RW|PTE_NX, 1, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualMapPage((uint64_t)pBase, (uint64_t)pBase, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to map HPET MMIO base\r\n");
 		return -1;
 	}

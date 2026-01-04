@@ -13,7 +13,7 @@
 #define PTE_PAT (1ull<<7)
 #define PTE_GLOBAL (1ull<<8)
 #define PTE_NX (1ull<<63)
-#define PTE_LAZY (1ull<<52)
+#define PTE_LAZY (1ull<<9)
 #define PTE_ADDR_MASK (0x000FFFFFFFFFF000)
 #define PTE_GET_ADDR(entry)(((uint64_t)entry)&PTE_ADDR_MASK)
 #define PTE_GET_FLAGS(entry)(((uint64_t)entry)&~PTE_ADDR_MASK)
@@ -28,24 +28,8 @@
 #define PTE_IS_EXECUTABLE(entry)(!(((uint64_t)entry)&PTE_NX))
 #define PTE_IS_LAZY(entry)(((uint64_t)entry)&PTE_LAZY)
 #define PTE_IS_MAPPED(entry)(PTE_IS_PRESENT(entry)||PTE_IS_LAZY(entry))
+#define VMM_RANGE_BASE 0xffff800000000000
 #define MAP_FLAG_LAZY (1<<0)
-#define VMM_RANGE_INVALID 0
-#define VMM_RANGE_FREE 1
-#define VMM_RANGE_INUSE 2
-#define VMM_MAX_RANGE 169
-#define MAP_FLAGS_NO_RANGE_ALLOC (1ull<<0)
-struct vmm_range_entry{
-	uint64_t status;
-	uint64_t min;
-	uint64_t max;
-}__attribute__((packed));
-struct vmm_range_node{
-	struct vmm_range_node* pflink;
-	struct vmm_range_node* pblink;
-	uint64_t currentRange;
-	uint8_t padding[16];
-	struct vmm_range_entry ranges[169];
-}__attribute__((packed));
 int vmm_init(void);
 int vmm_getPageTableEntry(uint64_t va, uint64_t** ppEntry);
 int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t index);
@@ -63,6 +47,7 @@ KAPI int virtualFree(uint64_t va, uint64_t size);
 KAPI int virtualProtectPage(uint64_t va, uint64_t prot);
 KAPI int virtualProtectPages(uint64_t va, uint64_t pageCount, uint64_t prot);
 KAPI int virtualGetPageFlags(uint64_t va, uint64_t* pFlags);
+KAPI int virtualGetSpace(uint64_t* pVa, uint64_t pageCount);
 uint64_t get_pt(void);
 int load_pt(uint64_t pml4);
 int flush_tlb(uint64_t va);

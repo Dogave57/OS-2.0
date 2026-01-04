@@ -1,5 +1,5 @@
 SERIAL_PATH="/dev/null"
-MACOS_FLAGS="-cpu max,+x2apic,+apic -serial stdio"
+MACOS_FLAGS="-cpu max,+x2apic,+apic -serial stdio -device virtio-gpu-pci"
 LINUX_FLAGS="-cpu max,+x2apic,+apic -enable-kvm -serial stdio"
 OS=$(uname -s)
 bash restore_firmware.sh

@@ -234,6 +234,7 @@ extern virtualMapPage
 extern vmm_getPageTableEntry
 extern physicalAllocPage
 extern virtualGetPageFlags
+extern lapic_tick_count
 exception_fg:
 db 255, 255, 255, 0
 exception_bg:
@@ -479,7 +480,7 @@ mov qword rbx, [rel ctx_switch_args]
 mov qword [rax], rbx
 mov qword rbx, [rsp+16]
 mov qword [rax+136], rbx
-mov qword rax, [rax+184]
+mov qword rax, [rax+208]
 cmp rax, 0
 je ctx_switch_first_thread
 ctx_switch_next_thread_end:
@@ -491,13 +492,13 @@ je priority_case_low
 cmp rbx, 2
 je priority_case_high
 priority_case_normal:
-mov qword rcx, 100
+mov qword rcx, 1000
 jmp priority_check_end
 priority_case_high:
-mov qword rcx, 20000
+mov qword rcx, 5000
 jmp priority_check_end
 priority_case_low:
-mov qword rcx, 5000
+mov qword rcx, 500
 priority_check_end:
 push rax
 sub qword rsp, 32
@@ -534,6 +535,7 @@ ctx_switch_time dq 10
 timer_isr:
 cli
 pushaq
+add qword [rel lapic_tick_count], 10
 jmp ctx_switch
 timer_isr_end:
 sub rsp, 32
@@ -557,7 +559,6 @@ call entropy_shuffle
 call lapic_send_eoi
 add rsp, 32
 popaq
-sti
 iretq
 isr0_msg db "divide by zero ISR triggered", 10, 0
 exception_handler_entry:
@@ -739,7 +740,7 @@ add qword rsp, 32
 mov qword rbx, [rsp]
 mov qword rcx, [rbx]
 add qword rsp, 8
-mov qword rdx, (1<<52)
+mov qword rdx, (1<<9)
 and rcx, rdx
 cmp rcx, 0
 je pte_case_lazy_end

@@ -50,7 +50,7 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 		elf_unload(pHandle);
 		return -1;
 	}
-	while (1){};
+	while (!thread_exists(tid)){};
 	kfree((void*)pArgs);
 	if (kext_unregister(pid)!=0){
 		printf("failed to unregister kext\r\n");
@@ -58,6 +58,7 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 		return -1;
 	}
 	elf_unload(pHandle);
+	printf("kext finished\r\n");
 	return 0;
 }
 int kext_unload(uint64_t pid){
@@ -135,11 +136,14 @@ int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
 	}
 	uint64_t status = entry(pArgs->pKextDesc->pid);
 	printf("program exited with status 0x%x\r\n", status);
+	if (thread_destroy(tid)!=0){
+		printf("failed to destroy thread\r\n");
+		while (1){
+			thread_yield();
+		}
+		return -1;
+	}
+	thread_yield();
 	while (1){};	
-	return 0;
-}
-int thread2(uint64_t tid, uint64_t argument){
-
-	
 	return 0;
 }
