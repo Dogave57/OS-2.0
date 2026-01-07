@@ -124,8 +124,6 @@ KAPI int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int s
 	if (va%PAGE_SIZE||pa%PAGE_SIZE){
 		va = align_down(va, PAGE_SIZE);
 		pa = align_down(pa, PAGE_SIZE);
-		if (virtualMapPage(pa+PAGE_SIZE, va+PAGE_SIZE, flags, shared, map_flags, pageType)!=0)
-			return -1;	
 	}
 	uint64_t* pentry = (uint64_t*)0x0;
 	if (vmm_getPageTableEntry(va, &pentry)!=0)

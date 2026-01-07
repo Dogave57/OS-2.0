@@ -1,6 +1,6 @@
 SERIAL_PATH="/dev/null"
-MACOS_FLAGS="-cpu max,+x2apic,+apic -serial stdio -device virtio-gpu-pci"
-LINUX_FLAGS="-cpu max,+x2apic,+apic -enable-kvm -serial stdio"
+MACOS_FLAGS="-cpu max,+x2apic,+apic -serial stdio -device qemu-xhci,id=xhci -device usb-mouse,bus=xhci.0 -device usb-mouse,bus=xhci.0"
+LINUX_FLAGS="-cpu max,+x2apic,+apic -enable-kvm -serial stdio -device qemu-xhci,id=xhci -device usb-kbd,bus=xhci.0 -device usb-mouse,bus=xhci.0"
 OS=$(uname -s)
 bash restore_firmware.sh
 case "$OS" in

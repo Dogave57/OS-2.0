@@ -10,7 +10,7 @@
 #include "kexts/loader.h"
 static struct subsystem_desc* pSubsystemDesc = (struct subsystem_desc*)0x0;
 int kext_subsystem_init(void){
-	if (subsystem_init(&pSubsystemDesc, 66536)!=0)
+	if (subsystem_init(&pSubsystemDesc, MEM_KB*256)!=0)
 		return -1;
 	return 0;
 }
@@ -106,8 +106,6 @@ int kext_get_entry(uint64_t pid, struct kext_desc_t** ppEntry){
 	return 0;
 }
 int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
-	printf("thread started\r\n");
-	printf("tid: %d\r\n", tid);
 	if (!pArgs){
 		printf("invalid arguments\r\n");
 		while (1){};

@@ -21,15 +21,17 @@ int apic_init(void){
 	x2lapic_is_supported(&x2lapic_supported);
 	if (!x2lapic_supported){
 		printf("x2lapic is unsupported!\r\n");
-		return -1;
 	}
-	lapic_base = read_msr(LAPIC_BASE_MSR);
-	lapic_base&=0xfffff000;
+	uint64_t lapic_base_reg = read_msr(LAPIC_BASE_MSR);
+	lapic_base = lapic_base_reg&0xFFFFF000;
+	uint64_t lapicPages = 16;
+	if (virtualMapPages((uint64_t)lapic_base, (uint64_t)lapic_base, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, lapicPages, 1, 0, PAGE_TYPE_MMIO)!=0)
+		return -1;
 	if (x2lapic_supported)
-		lapic_base|=0xC00;
+		lapic_base_reg|=0xC00;
 	else
-		lapic_base|=0x800;
-	write_msr(LAPIC_BASE_MSR, lapic_base);
+		lapic_base_reg|=0x800;
+	write_msr(LAPIC_BASE_MSR, lapic_base_reg);
 	uint64_t base = 0;
 	uint64_t value = 0;
 	uint64_t div_conf = 0x07;

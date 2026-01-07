@@ -24,6 +24,7 @@
 #include "drivers/filesystem/fat32.h"
 #include "drivers/filesystem/exfat.h"
 #include "drivers/filesystem/fluxfs.h"
+#include "drivers/usb/xhci.h"
 #include "crypto/guid.h"
 #include "crypto/random.h"
 #include "kexts/loader.h"
@@ -145,10 +146,13 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (virtio_gpu_init()!=0){
 		printf("failed to initialize virtual I/O GPU driver\r\n");
 	}
+	if (xhci_init()!=0){
+		printf("failed to initialize XHCI controller\r\n");
+	}
 	uint64_t va = 0;
 	uint64_t pagecnt = (MEM_GB)/PAGE_SIZE;
 	uint64_t before_us = get_time_us();
-	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate %d pages\r\n", pagecnt);	
 		while (1){};
 		return -1;

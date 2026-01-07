@@ -7,6 +7,7 @@ int thread_entry(uint64_t tid, uint64_t arg);
 int kext_entry(uint64_t pid){
 	uint64_t time_us = get_time_us();
 	printf("pid: %d\r\n", pid);
+	while (1){};
 	for (uint64_t i = 0;i<32;i++){
 		uint64_t tid = 0;
 		if (thread_create((uint64_t)thread_entry, 0, 0, &tid, 0)!=0){
@@ -14,7 +15,6 @@ int kext_entry(uint64_t pid){
 			return -1;
 		}
 	}	
-	return 0;
 	uint64_t last_elapsed_s = 0;
 	while (1){
 		uint64_t elapsed_us = get_time_us()-time_us;

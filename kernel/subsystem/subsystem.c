@@ -1,6 +1,7 @@
 #include "stdlib/stdlib.h"
 #include "mem/heap.h"
 #include "mem/vmm.h"
+#include "cpu/mutex.h"
 #include "align.h"
 #include "subsystem/subsystem.h"
 int subsystem_init(struct subsystem_desc** ppSubsystemDesc, uint64_t max_entries){
@@ -47,20 +48,30 @@ int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, unsigned char* 
 		return -1;
 	if (!pSubsystemDesc->freeEntries)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	uint64_t id = pSubsystemDesc->pFreeEntries[pSubsystemDesc->freeEntries-1];
-	if (id>=pSubsystemDesc->maxEntries)
+	if (id>=pSubsystemDesc->maxEntries){
+		mutex_unlock(&mutex);
 		return -1;
+	}
 	pSubsystemDesc->pEntries[id] = (uint64_t)pEntry;
 	pSubsystemDesc->freeEntries--;
 	*pId = id;
+	mutex_unlock(&mutex);
 	return 0;
 }
 int subsystem_free_entry(struct subsystem_desc* pSubsystemDesc, uint64_t id){
 	if (!pSubsystemDesc)
 		return -1;
-	if (pSubsystemDesc->freeEntries>=pSubsystemDesc->maxEntries)
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	if (pSubsystemDesc->freeEntries>=pSubsystemDesc->maxEntries){
+		mutex_unlock(&mutex);
 		return -1;
+	}
 	pSubsystemDesc->pFreeEntries[pSubsystemDesc->freeEntries] = id;
 	pSubsystemDesc->freeEntries++;
+	mutex_unlock(&mutex);
 	return 0;
 }

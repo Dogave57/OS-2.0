@@ -169,7 +169,13 @@ KAPI int physicalFreePage(uint64_t physicalAddress){
 	return 0;
 }
 KAPI int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType){
-	struct p_page* pNewPage = pt->pPageEntries+(physicalAddress/PAGE_SIZE);
+	if (pageType==PAGE_TYPE_MMIO)
+		return 0;
+	uint64_t page_index = physicalAddress/PAGE_SIZE;
+	uint64_t entryCount = pt->maxUsedEntries+pt->maxFreeEntries;
+	if (page_index>entryCount)
+		return -1;
+	struct p_page* pNewPage = pt->pPageEntries+page_index;
 	pNewPage->status = PAGE_INUSE;
 	pNewPage->pageType = pageType;
 	pNewPage->virtualAddress = align_down(virtualAddress, PAGE_SIZE);

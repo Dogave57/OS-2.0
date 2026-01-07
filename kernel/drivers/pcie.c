@@ -10,39 +10,13 @@ int pcie_init(void){
 		printf("failed to get PCIE controller info\r\n");
 		return -1;
 	}
-	if (virtualMapPages(pcie_info.pBase, pcie_info.pBase, PTE_RW, 16, 1, 0, PAGE_TYPE_MMIO)!=0){
+	uint64_t virtualSpace = pcie_info.pBase_phys;
+	uint64_t mmioBasePages = 16;
+	if (virtualMapPages(pcie_info.pBase_phys, virtualSpace, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, mmioBasePages, 1, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to map PCIE controller registers\r\n");
 		return -1;
 	}
-	for (uint8_t bus = pcie_info.startBus;bus<pcie_info.endBus;bus++){
-		for (uint8_t dev = 0;dev<32;dev++){
-			for (uint8_t func = 0;func<8;func++){
-				uint16_t vendor_id = 0;
-				uint16_t dev_id = 0;
-				uint8_t class = 0;
-				uint8_t subclass = 0;
-				if (pcie_get_vendor_id(bus, dev, func, &vendor_id)!=0){
-					printf("failed to get vendor id of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
-					return -1;		
-				}
-				if (vendor_id==0xffff)
-					continue;
-				if (pcie_get_device_id(bus, dev, func, &dev_id)!=0){
-					printf("failed to get device id of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
-					return -1;
-				}
-				if (pcie_get_class(bus, dev, func, &class)!=0){
-					printf("failed to get class of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
-					return -1;
-				}
-				if (pcie_get_subclass(bus, dev, func, &subclass)!=0){
-					printf("failed to get subclass of device at bus %d, dev %d, func %d\r\n", bus, dev, func);
-					return -1;
-				}
-				printf("vendor id: 0x%x | device id: 0x%x | class: 0x%x | subclass: 0x%x\r\n", vendor_id, dev_id, class, subclass);
-			}
-		}
-	}
+	pcie_info.pBase = virtualSpace;
 	return 0;
 }
 int pcie_get_info(struct pcie_info* pInfo){
@@ -59,7 +33,7 @@ int pcie_get_info(struct pcie_info* pInfo){
 		printf("no PCIE controller!\r\n");
 		return -1;
 	}
-	pInfo->pBase = pFirstEntry->pBase;
+	pInfo->pBase_phys = (uint64_t)pFirstEntry->pBase;
 	pInfo->startBus = pFirstEntry->startBus;
 	pInfo->endBus = pFirstEntry->endBus;
 	return 0;
@@ -68,11 +42,11 @@ int pcie_get_ecam_base(uint8_t bus, uint8_t dev, uint8_t func, uint64_t* pBase){
 	if (!pBase)
 		return -1;
 	uint64_t ecam_offset = (bus<<20)+(dev<<15)+(func<<12);
-	uint64_t base = pcie_info.pBase+ecam_offset;
-	uint64_t base_page = align_down(base, PAGE_SIZE);
-	if (virtualMapPages(base_page, base_page, PTE_RW, 8, 1, 0, PAGE_TYPE_MMIO)!=0)
+	uint64_t base_phys = pcie_info.pBase_phys+ecam_offset;
+	uint64_t base_virtual = pcie_info.pBase+ecam_offset;
+	if (virtualMapPages(base_phys, base_virtual, PTE_RW, 8, 1, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
-	*pBase = base;
+	*pBase = base_virtual;
 	return 0;
 }
 int pcie_read_byte(uint8_t bus, uint8_t dev, uint8_t func, uint64_t byte_offset, uint8_t* pValue){
@@ -156,6 +130,11 @@ int pcie_get_device_id(uint8_t bus, uint8_t dev, uint8_t func, uint16_t* pDevice
 	if (!pDeviceId)
 		return -1;
 	return pcie_read_word(bus, dev, func, 0x2, pDeviceId);
+}
+int pcie_get_progif(uint8_t bus, uint8_t dev, uint8_t func, uint8_t* pProgIf){
+	if (!pProgIf)
+		return -1;
+	return pcie_read_byte(bus, dev, func, 0x9, pProgIf);
 }
 int pcie_get_bar(uint8_t bus, uint8_t dev, uint8_t func, uint64_t barType, uint64_t* pBar){
 	if (!pBar)

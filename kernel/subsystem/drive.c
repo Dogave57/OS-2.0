@@ -9,7 +9,7 @@
 #include "subsystem/drive.h"
 struct subsystem_desc* pDriveSubsystem = (struct subsystem_desc*)0x0;
 int drive_subsystem_init(void){
-	if (subsystem_init(&pDriveSubsystem, 512)!=0){
+	if (subsystem_init(&pDriveSubsystem, MEM_KB*64)!=0){
 		printf("failed to initialize drive subsystem\r\n");
 		return -1;
 	}

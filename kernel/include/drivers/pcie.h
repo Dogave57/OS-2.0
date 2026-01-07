@@ -2,10 +2,12 @@
 #define _PCIE
 #define PCIE_CLASS_DRIVE_CONTROLLER 0x01
 #define PCIE_SUBCLASS_NVME_CONTROLLER 0x08
-#define PCIE_CLASS_SERIAL_BUS_CONTROLLER (0x0C)
-#define PCIE_SUBCLASS_USB_CONTROLLER (0x03)
+#define PCIE_CLASS_USB_HCI (0x0C)
+#define PCIE_SUBCLASS_USB (0x03)
+#define PCIE_PROGIF_XHCI (0x30)
 struct pcie_info{
 	uint64_t pBase;
+	uint64_t pBase_phys;
 	uint8_t startBus;
 	uint8_t endBus;
 };
@@ -27,6 +29,7 @@ int pcie_read_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offse
 int pcie_write_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offset, uint64_t value);
 int pcie_get_vendor_id(uint8_t bus, uint8_t dev, uint8_t func, uint16_t* pVendorId);
 int pcie_get_device_id(uint8_t bus, uint8_t dev, uint8_t func, uint16_t* pDeviceId);
+int pcie_get_progif(uint8_t bus, uint8_t dev, uint8_t func, uint8_t* pProgIf);
 int pcie_get_bar(uint8_t bus, uint8_t dev, uint8_t func, uint64_t barType, uint64_t* pBar);
 int pcie_get_class(uint8_t bus, uint8_t dev, uint8_t func, uint8_t* pClass);
 int pcie_get_subclass(uint8_t bus, uint8_t dev, uint8_t func, uint8_t* pSubclass);
