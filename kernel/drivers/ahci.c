@@ -19,6 +19,7 @@ int ahci_init(void){
 	pcie_read_dword(ahciInfo.bus, ahciInfo.dev, ahciInfo.func, 0x4, &pcie_cmd_reg);
 	pcie_cmd_reg|=(1<<0);
 	pcie_cmd_reg|=(1<<1);
+	pcie_cmd_reg|=(1<<2);
 	pcie_write_dword(ahciInfo.bus, ahciInfo.dev, ahciInfo.func, 0x4, pcie_cmd_reg);
 	volatile struct ahci_hba_mem* pBase = (volatile struct ahci_hba_mem*)ahciInfo.pBase;
 	if (pBase->os_handoff_ctrl_status&(1<<0)){

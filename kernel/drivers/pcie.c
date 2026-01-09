@@ -121,6 +121,26 @@ int pcie_write_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offs
 	*pReg = value;
 	return 0;
 }
+int pcie_get_cap_offset(uint8_t bus, uint8_t dev, uint8_t func, uint8_t cap_id, uint64_t* pOffset){
+	if (!pOffset)
+		return -1;
+	struct pcie_cap_link currentLink = {0};
+	uint64_t currentOffset = 0x34;
+	while (currentOffset){
+		if (pcie_read_word(bus, dev, func, currentOffset, (uint16_t*)&currentLink)!=0)
+			return -1;
+		if (currentLink.cap_id!=cap_id){
+			if (!currentLink.next_offset){
+				break;
+			}
+			currentOffset=(uint64_t)currentLink.next_offset;;
+			continue;
+		}
+		*pOffset = currentOffset+sizeof(uint16_t);
+		return 0;
+	}
+	return -1;
+}
 int pcie_get_vendor_id(uint8_t bus, uint8_t dev, uint8_t func, uint16_t* pVendorId){
 	if (!pVendorId)
 		return -1;

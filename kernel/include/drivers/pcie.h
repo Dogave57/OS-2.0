@@ -5,6 +5,7 @@
 #define PCIE_CLASS_USB_HCI (0x0C)
 #define PCIE_SUBCLASS_USB (0x03)
 #define PCIE_PROGIF_XHCI (0x30)
+#define PCIE_CAP_ID_PM 0x04
 struct pcie_info{
 	uint64_t pBase;
 	uint64_t pBase_phys;
@@ -16,6 +17,18 @@ struct pcie_location{
 	uint8_t dev;
 	uint8_t func;	
 };
+struct pcie_cap_link{
+	uint8_t cap_id;
+	uint8_t next_offset;
+}__attribute__((packed));
+struct pcie_cap_pm{
+	uint16_t power_state:2;
+	uint16_t reserved0:1;
+	uint16_t pme_enable:1;
+	uint16_t reserved1:4;
+	uint16_t pme_status:1;
+	uint16_t reserved2:7;
+}__attribute__((packed));
 int pcie_init(void);
 int pcie_get_info(struct pcie_info* pInfo);
 int pcie_get_ecam_base(uint8_t bus, uint8_t dev, uint8_t func, uint64_t* pBase);
@@ -27,6 +40,7 @@ int pcie_read_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offse
 int pcie_write_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offset, uint32_t value);
 int pcie_read_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offset, uint64_t* pValue);
 int pcie_write_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offset, uint64_t value);
+int pcie_get_cap_offset(uint8_t bus, uint8_t dev, uint8_t func, uint8_t cap_id, uint64_t* pOffset);
 int pcie_get_vendor_id(uint8_t bus, uint8_t dev, uint8_t func, uint16_t* pVendorId);
 int pcie_get_device_id(uint8_t bus, uint8_t dev, uint8_t func, uint16_t* pDeviceId);
 int pcie_get_progif(uint8_t bus, uint8_t dev, uint8_t func, uint8_t* pProgIf);
