@@ -12,14 +12,16 @@ int vmm_init(void){
 		return -1;
 	}
 	memset((void*)pml4, 0, PAGE_SIZE);
+	printf("pml4: %p\r\n", (uint64_t)pml4);
 	if (virtualMapPage((uint64_t)pml4, (uint64_t)pml4, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 0, 0, PAGE_TYPE_VMM)!=0){
 		printf("failed to map pml4\r\n");
 		return -1;
 	}
 	uint64_t fb_pages = (pbootargs->graphicsInfo.width*pbootargs->graphicsInfo.height*4)/PAGE_SIZE;
-	uint64_t pFrameBuffer = (uint64_t)pbootargs->graphicsInfo.physicalFrameBuffer;
-	uint64_t va = pFrameBuffer;
-	if (virtualMapPages(pFrameBuffer, pFrameBuffer, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, fb_pages, 0, 0, PAGE_TYPE_MMIO)!=0){
+	uint64_t fb_size = fb_pages*PAGE_SIZE;
+	uint64_t pPhysicalFrameBuffer = (uint64_t)pbootargs->graphicsInfo.physicalFrameBuffer;
+	uint64_t pFrameBuffer_va = pPhysicalFrameBuffer;
+	if (virtualMapPages(pPhysicalFrameBuffer, pFrameBuffer_va, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, fb_pages, 0, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to map framebuffer\r\n");
 		return -1;
 	}
@@ -28,9 +30,8 @@ int vmm_init(void){
 		EFI_MEMORY_DESCRIPTOR* pMemDesc = (EFI_MEMORY_DESCRIPTOR*)(((unsigned char*)pbootargs->memoryInfo.pMemoryMap)+(i*pbootargs->memoryInfo.memoryDescSize));
 		if (pMemDesc->Type!=EfiConventionalMemory)
 			continue;
-		if (virtualMapPages((uint64_t)pMemDesc->PhysicalStart, ((uint64_t)pMemDesc->PhysicalStart), PTE_RW|PTE_NX, (uint64_t)pMemDesc->NumberOfPages, 1, 0, PAGE_TYPE_NORMAL)!=0){
-			printf("failed to identity map %d pages at %p\r\n", pMemDesc->NumberOfPages, (void*)pMemDesc->PhysicalStart);
-			return -1;
+		if (virtualMapPages((uint64_t)pMemDesc->PhysicalStart, ((uint64_t)pMemDesc->PhysicalStart), PTE_RW|PTE_NX, (uint64_t)pMemDesc->NumberOfPages, 0, 0, PAGE_TYPE_NORMAL)!=0){
+			continue;
 		}
 	}
 	uint64_t kernel_pages = align_up(pbootargs->kernelInfo.kernelSize, PAGE_SIZE)/PAGE_SIZE;
@@ -38,6 +39,7 @@ int vmm_init(void){
 		printf("failed to map kernel\r\n");
 		return -1;
 	}
+	printf("base kernel virtual image base: %p\r\n", (uint64_t)pbootargs->kernelInfo.pKernel);
 	uint64_t kernelFileBuffer_pages = align_up(pbootargs->kernelInfo.kernelFileDataSize, PAGE_SIZE)/PAGE_SIZE;
 	if (virtualMapPages(pbootargs->kernelInfo.pKernelFileData, pbootargs->kernelInfo.pKernelFileData, PTE_RW|PTE_NX, kernelFileBuffer_pages, 1, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to map kernel file buffer\r\n");
@@ -69,6 +71,7 @@ int vmm_init(void){
 		return -1;
 	}
 	uint64_t physicalPageTablePages = align_up(physicalPageTableSize, PAGE_SIZE)/PAGE_SIZE;
+	printf("physical page table va: %p\r\n", (uint64_t)pPhysicalPageTable);
 	if (virtualMapPages((uint64_t)pPhysicalPageTable, (uint64_t)pPhysicalPageTable, PTE_RW, physicalPageTablePages, 1, 0, PAGE_TYPE_PMM)!=0){
 		printf("failed to map physical page table\r\n");
 		return -1;
@@ -77,6 +80,7 @@ int vmm_init(void){
 		printf("failed to map drive device path string\r\n");
 		return -1;
 	}
+	pbootargs->graphicsInfo.virtualFrameBuffer = (struct uvec4_8*)pFrameBuffer_va;
 	load_pt((uint64_t)pml4);
 	virtualUnmapPage(0x0, 0);
 	physicalMapPage(0x0, 0x0, PAGE_TYPE_RESERVED);
@@ -121,6 +125,15 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 	return 0;
 }
 KAPI int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint32_t pageType){
+	if (!VA_IS_CANONICAL(va)){
+		printf("non-canonical virtual address: %p\r\n", va);
+		while (1){};
+		return -1;
+	}
+	if (va>=VA_MAX){
+		printf("max virtual address\r\n");
+		return -1;
+	}
 	if (va%PAGE_SIZE||pa%PAGE_SIZE){
 		va = align_down(va, PAGE_SIZE);
 		pa = align_down(pa, PAGE_SIZE);
@@ -250,7 +263,8 @@ KAPI int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uin
 			if (physicalAllocPage(&new_ppage, PAGE_TYPE_NORMAL)!=0)
 				return -1;
 		}
-		if (virtualMapPage(new_ppage, va+(PAGE_SIZE*i), flags, 1, map_flags, pageType)!=0)
+		uint64_t page_va = va+(PAGE_SIZE*i);
+		if (virtualMapPage(new_ppage, page_va, flags, 1, map_flags, pageType)!=0)
 			return -1;
 	}
 	*pVa = va;

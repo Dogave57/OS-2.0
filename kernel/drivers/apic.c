@@ -36,9 +36,7 @@ int apic_init(void){
 	uint64_t value = 0;
 	uint64_t div_conf = 0x07;
 	lapic_get_version(&lapic_version);
-	printf("LAPIC version: %x\r\n", lapic_version);
 	lapic_get_id(&main_lapic_id);
-	printf("LAPIC id: 0x%x\r\n", main_lapic_id);
 	if (hpet_init()!=0){
 		printf("failed to initialize HPET\r\n");
 		return -1;
@@ -81,9 +79,6 @@ int apic_init(void){
 	ioapic_get_version(&ioapic_version);
 	ioapic_get_id(&ioapic_id);
 	ioapic_get_max_redirs(&ioapic_max_redirs);
-	printf("IOAPIC base: %p\r\n", (void*)ioapic_base);
-	printf("IOAPIC version: 0x%x\r\n", ioapic_version);
-	printf("IOAPIC id: 0x%x\r\n", ioapic_id);
 	printf("IOAPIC max redirection entries: %d\r\n", ioapic_max_redirs);
 	ioapic_enable_irq(1, 0x40, (uint8_t)main_lapic_id);
 	inb(0x60);

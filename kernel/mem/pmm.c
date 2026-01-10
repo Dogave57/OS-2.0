@@ -112,7 +112,7 @@ int initPageTable(void){
 	UINTN memoryDescCnt = pbootargs->memoryInfo.memoryMapSize/pbootargs->memoryInfo.memoryDescSize;
 	for (UINTN i = 0;i<memoryDescCnt;i++){
 		EFI_MEMORY_DESCRIPTOR* pMemDesc = (EFI_MEMORY_DESCRIPTOR*)(((unsigned char*)pbootargs->memoryInfo.pMemoryMap)+(i*pbootargs->memoryInfo.memoryDescSize));
-		if (pMemDesc->Type==EfiMemoryMappedIO||pMemDesc->Type==EfiMemoryMappedIOPortSpace||pMemDesc->Type==EfiACPIReclaimMemory||pMemDesc->Type==EfiACPIMemoryNVS||pMemDesc->Type==EfiReservedMemoryType)
+		if (pMemDesc->Type==EfiMemoryMappedIO)
 			continue;
 		uint64_t page_index = pMemDesc->PhysicalStart/EFI_PAGE_SIZE;
 		uint64_t pa = pMemDesc->PhysicalStart;

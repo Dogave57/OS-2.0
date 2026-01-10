@@ -150,9 +150,9 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		printf("failed to initialize XHCI controller\r\n");
 	}
 	uint64_t va = 0;
-	uint64_t pagecnt = (MEM_GB)/PAGE_SIZE;
+	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
 	uint64_t before_us = get_time_us();
-	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0x0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate %d pages\r\n", pagecnt);	
 		while (1){};
 		return -1;

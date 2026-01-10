@@ -222,9 +222,10 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 			break;
 		}
 	}
-	blargs->graphicsInfo.physicalFrameBuffer = (struct uvec4_8*)gopProtocol->Mode->FrameBufferBase;
+	blargs->graphicsInfo.physicalFrameBuffer = (uint64_t)gopProtocol->Mode->FrameBufferBase;
 	blargs->graphicsInfo.width = gopProtocol->Mode->Info->HorizontalResolution;
 	blargs->graphicsInfo.height = gopProtocol->Mode->Info->VerticalResolution;
+	blargs->graphicsInfo.virtualFrameBuffer = (struct uvec4_8*)blargs->graphicsInfo.physicalFrameBuffer;
 	blargs->systable = ST;
 	status = BS->GetMemoryMap(&memoryMapSize, pMemoryMap, &memoryMapKey, &memoryMapDescSize, &memoryMapDescVersion);
 	if (status!=EFI_BUFFER_TOO_SMALL){

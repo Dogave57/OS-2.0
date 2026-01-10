@@ -44,7 +44,7 @@ int pcie_get_ecam_base(uint8_t bus, uint8_t dev, uint8_t func, uint64_t* pBase){
 	uint64_t ecam_offset = (bus<<20)+(dev<<15)+(func<<12);
 	uint64_t base_phys = pcie_info.pBase_phys+ecam_offset;
 	uint64_t base_virtual = pcie_info.pBase+ecam_offset;
-	if (virtualMapPages(base_phys, base_virtual, PTE_RW, 8, 1, 0, PAGE_TYPE_MMIO)!=0)
+	if (virtualMapPages(base_phys, base_virtual, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 32, 1, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
 	*pBase = base_virtual;
 	return 0;
@@ -121,22 +121,26 @@ int pcie_write_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offs
 	*pReg = value;
 	return 0;
 }
-int pcie_get_cap_offset(uint8_t bus, uint8_t dev, uint8_t func, uint8_t cap_id, uint64_t* pOffset){
-	if (!pOffset)
+int pcie_get_cap_ptr(uint8_t bus, uint8_t dev, uint8_t func, uint8_t cap_id, struct pcie_cap_link** ppCapLink){
+	if (!ppCapLink)
 		return -1;
 	struct pcie_cap_link currentLink = {0};
 	uint64_t currentOffset = 0x34;
-	while (currentOffset){
-		if (pcie_read_word(bus, dev, func, currentOffset, (uint16_t*)&currentLink)!=0)
-			return -1;
+	uint8_t newOffset = 0;
+	pcie_read_byte(bus, dev, func, currentOffset, &newOffset);
+	currentOffset = (uint64_t)newOffset;
+	while (currentOffset&&currentOffset<0xFF){
+		pcie_read_word(bus, dev, func, currentOffset, (uint16_t*)&currentLink);
 		if (currentLink.cap_id!=cap_id){
-			if (!currentLink.next_offset){
-				break;
-			}
-			currentOffset=(uint64_t)currentLink.next_offset;;
+			currentOffset = (uint64_t)currentLink.next_offset;
 			continue;
 		}
-		*pOffset = currentOffset+sizeof(uint16_t);
+		uint64_t ecam_base = 0;
+		if (pcie_get_ecam_base(bus, dev, func, &ecam_base)!=0){
+			return -1;
+		}
+		struct pcie_cap_link* pCapLink = (struct pcie_cap_link*)(ecam_base+currentOffset);
+		*ppCapLink = pCapLink;
 		return 0;
 	}
 	return -1;

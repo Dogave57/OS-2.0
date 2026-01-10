@@ -19,32 +19,26 @@ int xhci_init(void){
 		printf("failed to initialize cmd ring TRB list\r\n");
 		return -1;
 	}
+	struct pcie_msix_msg_ctrl* pMsgControl = (struct pcie_msix_msg_ctrl*)0x0;
+	if (pcie_get_cap_ptr(xhciInfo.location.bus, xhciInfo.location.dev, xhciInfo.location.func, 0x11, (struct pcie_cap_link**)&pMsgControl)!=0){
+		printf("failed to get MSI-X cap offset\r\n");
+		return -1;
+	}
 	printf("XHCI controller virtual base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio);
+	if (xhci_reset()!=0){
+		printf("failed to reset XHCI controller\r\n");
+		return -1;
+	}
 	return 0;
-	printf("current run bit: %d\r\n", xhciInfo.pOperational->usb_cmd.hc_reset);
-	xhciInfo.pOperational->usb_cmd.hc_reset = 1;
-	printf("current run bit: %d\r\n", xhciInfo.pOperational->usb_cmd.hc_reset);
-	while (xhciInfo.pOperational->usb_status.controller_not_ready||!xhciInfo.pOperational->usb_status.halted){};
 	printf("old page size: %d\r\n", xhciInfo.pOperational->page_size);
-	xhciInfo.pOperational->page_size = 0;
-	printf("new page size: %d\r\n", xhciInfo.pOperational->page_size);
-	xhciInfo.pOperational->usb_cmd.run = 0;
-	while (xhciInfo.pOperational->usb_cmd.run){};
-	xhciInfo.pOperational->usb_cmd.hc_reset = 1;
-	while (xhciInfo.pOperational->usb_cmd.hc_reset||!xhciInfo.pOperational->usb_status.halted){};
-	printf("halted: %d\r\n", xhciInfo.pOperational->usb_status.halted);
-	printf("old page size: %d\r\n", xhciInfo.pOperational->page_size);
-	xhciInfo.pOperational->page_size = 0;
-	xhciInfo.pOperational->cmd_ring_ctrl.ring_base = xhciInfo.cmdRingInfo.pRingBuffer_phys;
 	uint8_t portCount = 0;
 	if (xhci_get_port_count(&portCount)!=0)
 		return -1;
 	printf("port count: %d\r\n", portCount);
-	printf("cmd ring base: %p\r\n", (uint64_t)xhciInfo.pOperational->cmd_ring_ctrl.ring_base);
 	struct xhci_trb trb = {0};
 	uint64_t trbIndex = 0;
 	memset((void*)&trb, 0, sizeof(struct xhci_trb));
-	trb.command.control.type = XHCI_TRB_TYPE_NORMAL;
+	trb.command.control.type = XHCI_TRB_TYPE_NOP_CMD;
 	if (xhci_alloc_trb(&xhciInfo.cmdRingInfo, trb, &trbIndex)!=0){
 		printf("failed to allocate TRB entry\r\n");
 		return -1;
@@ -59,19 +53,21 @@ int xhci_init(void){
 		printf("failed to allocate link TRB entry\r\n");
 		return -1;
 	}
-	printf("cmd ring base: %p\r\n", (uint64_t)xhciInfo.pOperational->cmd_ring_ctrl.ring_base);
+	xhci_set_cmd_ring_base(xhciInfo.cmdRingInfo.pRingBuffer_phys);	
+	uint64_t cmdRingBase = 0;
+	xhci_get_cmd_ring_base(&cmdRingBase);
+	printf("cmd ring base: %p\r\n", cmdRingBase);
+	xhci_start();
 	xhci_ring(0);
-	xhciInfo.pOperational->usb_cmd.run = 1;
-	while (xhciInfo.pOperational->usb_cmd.run){
-		printf("running...\r\n");
-		sleep(50);
-	}
-	printf("cmd ring base: %p\r\n", (uint64_t)xhciInfo.pOperational->cmd_ring_ctrl.ring_base);
+	while (xhci_is_running()){}
+	xhci_get_cmd_ring_base(&cmdRingBase);
+	printf("cmd ring base: %p\r\n", cmdRingBase);
 	for (uint8_t i = 0;i<portCount;i++){
 		if (xhci_device_exists(i)!=0)
 			continue;
 		printf("XHCI controlled USB device at port %d\r\n", i);
 	}
+	while (1){};
 	return 0;
 }
 int xhci_get_info(struct xhci_info* pInfo){
@@ -93,8 +89,9 @@ int xhci_get_info(struct xhci_info* pInfo){
 	}
 	pInfo->pCapabilities = (volatile struct xhci_cap_mmio*)pInfo->pBaseMmio;
 	pInfo->pOperational = (volatile struct xhci_operational_mmio*)(pInfo->pBaseMmio+(uint64_t)pInfo->pCapabilities->cap_len);
-	pInfo->pRuntime = (volatile struct xhci_runtime_mmio*)(pInfo->pBaseMmio+pInfo->pCapabilities->runtime_register_offset);
-	pInfo->pDoorBells = (volatile uint32_t*)(pInfo->pBaseMmio+pInfo->pCapabilities->doorbell_offset);
+	pInfo->pRuntime = (volatile struct xhci_runtime_mmio*)(pInfo->pBaseMmio+pInfo->pCapabilities->runtime_register_offset*4);
+	pInfo->pDoorBells = (volatile uint32_t*)(pInfo->pBaseMmio+pInfo->pCapabilities->doorbell_offset*4);
+	printf("doorbell offset: %d\r\n", pInfo->pCapabilities->doorbell_offset);
 	return 0;
 }
 int xhci_get_location(struct pcie_location* pLocation){
@@ -251,5 +248,59 @@ int xhci_get_trb(uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry){
 int xhci_ring(uint64_t doorbell_vector){
 	volatile uint32_t* pDoorBell = xhciInfo.pDoorBells+doorbell_vector;
 	*pDoorBell = 1;
+	return 0;
+}
+int xhci_reset(void){
+	struct xhci_usb_cmd cmd = xhciInfo.pOperational->usb_cmd;
+	cmd.run = 0;
+	xhciInfo.pOperational->usb_cmd = cmd;
+	uint64_t start_us = get_time_us();
+	printf("offset: %d\r\n", (((uint64_t)&xhciInfo.pOperational->usb_status)-((uint64_t)xhciInfo.pOperational)));
+	struct xhci_usb_status status = xhciInfo.pOperational->usb_status;
+	while (!status.halted){
+		uint64_t current_us = get_time_us();
+		uint64_t elapsed_us = current_us-start_us;
+		if (elapsed_us>500000){
+			printf("controller reset timed out\r\n");
+			return -1;
+		}
+		status = xhciInfo.pOperational->usb_status;
+	}
+	xhciInfo.pOperational->page_size = 0;
+	return 0;
+}
+int xhci_start(void){
+	struct xhci_usb_cmd cmd = xhciInfo.pOperational->usb_cmd;
+	cmd.run = 1;
+	xhciInfo.pOperational->usb_cmd = cmd;
+	return 0;
+}
+int xhci_is_running(void){
+	struct xhci_usb_cmd cmd = xhciInfo.pOperational->usb_cmd;
+	return cmd.run;
+}
+int xhci_get_cmd_ring_base(uint64_t* pBase){
+	if (!pBase)
+		return -1;
+	return xhci_read_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, pBase);
+}
+int xhci_set_cmd_ring_base(uint64_t base){
+	return xhci_write_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, base);
+}
+int xhci_read_qword(uint64_t* pQword, uint64_t* pValue){
+	if (!pQword||!pValue)
+		return -1;
+	uint32_t low = *(uint32_t*)pQword;
+	uint32_t high = *(((uint32_t*)pQword)+1);
+	*pValue = ((uint64_t)high<<32)|((uint64_t)low);
+	return 0;
+}
+int xhci_write_qword(uint64_t* pQword, uint64_t value){
+	if (!pQword)
+		return -1;
+	uint32_t low = value&0xFFFFFFFF;
+	uint32_t high = (value>>32)&0xFFFFFFFF;
+	*(uint32_t*)pQword = low;
+	*(((uint32_t*)pQword)+1) = high;
 	return 0;
 }

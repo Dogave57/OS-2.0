@@ -12,7 +12,7 @@
 #define XHCI_TRB_TYPE_ISOCH (0x05)
 #define XHCI_TRB_TYPE_LINK (0x06)
 #define XHCI_TRB_TYPE_EVENT (0x07)
-#define XHCI_TRB_TYPE_NOP (0x08)
+#define XHCI_TRB_TYPE_NOP_TRANSFER (0x08)
 #define XHCI_TRB_TYPE_ENABLE_SLOT (0x09)
 #define XHCI_TRB_TYPE_DISABLE_SLOT (0x0A)
 #define XHCI_TRB_TYPE_ADDRESS_DEVICE (0x0B)
@@ -24,15 +24,59 @@
 #define XHCI_TRB_TYPE_RESET_DEVICE (0x11)
 #define XHCI_TRB_TYPE_FORCE_EVENT (0x12)
 #define XHCI_TRB_TYPE_GET_BANDWIDTH (0x13)
+#define XHCI_TRB_TYPE_GET_LATENCY_TOLERANCE (0x14)
+#define XHCI_TRB_TYPE_GET_PORT_BANDWIDTH (0x15)
+#define XHCI_TRB_TYPE_FORCE_HEADER (0x16)
+#define XHCI_TRB_TYPE_NOP_CMD (0x17)
+#define XHCI_TRB_TYPE_GET_EXTENDED_CAP (0x18)
+#define XHCI_TRB_TYPE_SET_EXTENDED_CAP (0x19)
+#define XHCI_EVENT_TRB_TYPE_TRANSFER_EVENT (0x20)
+#define XHCI_EVENT_TRB_TYPE_CMD_COMPLETION (0x21)
+#define XHCI_EVENT_TRB_TYPE_PORT_STATUS_CHANGE (0x22)
+#define XHCI_EVENT_TRB_TYPE_BANDWIDTH_REQUEST (0x23)
+#define XHCI_EVENT_TRB_TYPE_DOORBELL_EVENT (0x24)
+#define XHCI_EVENT_TRB_TYPE_HC_ERROR (0x25)
+#define XHCI_EVENT_TRB_TYPE_DEV_NOTIF (0x26)
+#define XHCI_EVENT_TRB_TYPE_MFINDEX_WRAP (0x27)
+struct xhci_cap_param0{
+	uint32_t long_addressing:1;
+	uint32_t bandwidth_negotiation:1;
+	uint32_t context_size:1;
+	uint32_t port_power_ctrl:1;
+	uint32_t port_indicators:1;
+	uint32_t light_hc_reset_cap:1;
+	uint32_t latency_tolerance_messaging:1;
+	uint32_t no_second_sid:1;
+	uint32_t parse_all_event_data:1;
+	uint32_t stopped_short_packet:1;
+	uint32_t stopped_edtla:1;
+	uint32_t contiguous_frame_id_cap:1;
+	uint32_t max_psa:4;
+	uint32_t extended_cap_ptr:16;
+}__attribute__((packed));
+struct xhci_extended_cap_hdr{
+	uint32_t cap_id:8;
+	uint32_t next_offset:8;
+	uint32_t reserved0:16;
+}__attribute__((packed));
+struct xhci_usb_legacy_support{
+	uint32_t firmware_owned:1;
+	uint32_t os_owned:1;
+	uint32_t reserved0:30;
+}__attribute__((packed));
+struct xhci_usb_legacy_ctrl_status{
+	uint32_t smi_enable:1;
+	uint32_t smi_pending:1;
+	uint32_t reserved0:30;
+}__attribute__((packed));
 struct xhci_cap_mmio{
 	uint8_t cap_len;
 	uint8_t reserved0;
 	uint16_t hci_version;
 	uint32_t structure_params[3];
-	uint32_t cap_params0;
+	struct xhci_cap_param0 cap_params0;
 	uint32_t doorbell_offset;
 	uint32_t runtime_register_offset;
-	uint32_t cap_params1;
 }__attribute__((packed));
 struct xhci_cmd_ring_ctrl{
 	uint64_t ring_base:60;
@@ -199,4 +243,11 @@ int xhci_alloc_trb(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, ui
 int xhci_free_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex);
 int xhci_get_trb(uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
 int xhci_ring(uint64_t doorbell_vector);
+int xhci_reset(void);
+int xhci_start(void);
+int xhci_is_running(void);
+int xhci_get_cmd_ring_base(uint64_t* pBase);
+int xhci_set_cmd_ring_base(uint64_t base);
+int xhci_read_qword(uint64_t* pQword, uint64_t* pValue);
+int xhci_write_qword(uint64_t* pQword, uint64_t value);
 #endif

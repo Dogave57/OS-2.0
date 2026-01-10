@@ -16,13 +16,13 @@ int write_pixel(unsigned int pixel, struct uvec3_8 color){
 	if (!pbootargs){
 		return -1;
 	}
-	if (!pbootargs->graphicsInfo.physicalFrameBuffer){
+	if (!pbootargs->graphicsInfo.virtualFrameBuffer){
 		return -1;
 	}
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct uvec4_8 flip_color = {color.z, color.y, color.x, 0};
-	struct uvec4_8* pPixel = pbootargs->graphicsInfo.physicalFrameBuffer+pixel;
+	struct uvec4_8* pPixel = pbootargs->graphicsInfo.virtualFrameBuffer+pixel;
 	*pPixel = flip_color;
 	mutex_unlock(&mutex);
 	return 0;	

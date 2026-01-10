@@ -14,7 +14,7 @@
 #define PTE_GLOBAL (1ull<<8)
 #define PTE_NX (1ull<<63)
 #define PTE_LAZY (1ull<<9)
-#define PTE_ADDR_MASK (0x000FFFFFFFFFF000)
+#define PTE_ADDR_MASK ((uint64_t)0x000FFFFFFFFFF000)
 #define PTE_GET_ADDR(entry)(((uint64_t)entry)&PTE_ADDR_MASK)
 #define PTE_GET_FLAGS(entry)(((uint64_t)entry)&~PTE_ADDR_MASK)
 #define PTE_GET_PAT(entry)(((uint64_t)entry)&PTE_PAT)
@@ -28,7 +28,11 @@
 #define PTE_IS_EXECUTABLE(entry)(!(((uint64_t)entry)&PTE_NX))
 #define PTE_IS_LAZY(entry)(((uint64_t)entry)&PTE_LAZY)
 #define PTE_IS_MAPPED(entry)(PTE_IS_PRESENT(entry)||PTE_IS_LAZY(entry))
-#define VMM_RANGE_BASE 0xffff800000000000
+#define NON_CANONICAL_RANGE_LOW ((uint64_t)0x0000800000000000)
+#define NON_CANONICAL_RANGE_HIGH ((uint64_t)0xFFFF7FFFFFFFFFFF)
+#define VA_MAX ((uint64_t)0xFFFFFFFFFFFFFFFF)
+#define VA_IS_CANONICAL(va)(!(va>NON_CANONICAL_RANGE_LOW&&va<NON_CANONICAL_RANGE_HIGH))
+#define VMM_RANGE_BASE ((uint64_t)0xffff800000000000)
 #define MAP_FLAG_LAZY (1<<0)
 int vmm_init(void);
 int vmm_getPageTableEntry(uint64_t va, uint64_t** ppEntry);

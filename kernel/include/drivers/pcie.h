@@ -18,8 +18,8 @@ struct pcie_location{
 	uint8_t func;	
 };
 struct pcie_cap_link{
-	uint8_t cap_id;
-	uint8_t next_offset;
+	uint16_t cap_id:8;
+	uint16_t next_offset:8;
 }__attribute__((packed));
 struct pcie_cap_pm{
 	uint16_t power_state:2;
@@ -28,6 +28,21 @@ struct pcie_cap_pm{
 	uint16_t reserved1:4;
 	uint16_t pme_status:1;
 	uint16_t reserved2:7;
+}__attribute__((packed));
+struct pcie_msix_msg_ctrl{
+	struct pcie_cap_link capLink;
+	uint32_t table_size:11;
+	uint32_t reserved0:3;
+	uint32_t vector_mask:1;
+	uint32_t msix_enable:1;
+}__attribute__((packed));
+struct pcie_msix_table_info{
+	uint32_t table_bar:3;
+	uint32_t table_offset:29;
+}__attribute__((packed));
+struct pcie_msix_pba_info{
+	uint32_t pba_bar:3;
+	uint32_t pba_offset:29;
 }__attribute__((packed));
 int pcie_init(void);
 int pcie_get_info(struct pcie_info* pInfo);
@@ -40,7 +55,7 @@ int pcie_read_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offse
 int pcie_write_dword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t dword_offset, uint32_t value);
 int pcie_read_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offset, uint64_t* pValue);
 int pcie_write_qword(uint8_t bus, uint8_t dev, uint8_t func, uint64_t qword_offset, uint64_t value);
-int pcie_get_cap_offset(uint8_t bus, uint8_t dev, uint8_t func, uint8_t cap_id, uint64_t* pOffset);
+int pcie_get_cap_ptr(uint8_t bus, uint8_t dev, uint8_t func, uint8_t cap_id, struct pcie_cap_link** ppCapLink);
 int pcie_get_vendor_id(uint8_t bus, uint8_t dev, uint8_t func, uint16_t* pVendorId);
 int pcie_get_device_id(uint8_t bus, uint8_t dev, uint8_t func, uint16_t* pDeviceId);
 int pcie_get_progif(uint8_t bus, uint8_t dev, uint8_t func, uint8_t* pProgIf);

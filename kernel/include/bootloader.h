@@ -13,7 +13,8 @@
 struct bootloader_graphicsInfo{
 	unsigned int width;
 	unsigned int height;
-	struct uvec4_8* physicalFrameBuffer;
+	uint64_t physicalFrameBuffer;
+	struct uvec4_8* virtualFrameBuffer;
 	unsigned int font_initialized;
 	unsigned char* fontData;
 	unsigned int fontDataSize;
