@@ -214,6 +214,7 @@ global isr18
 global isr19
 global isr20
 global ctx_switch_time
+global xhci_interrupter_isr
 extern print
 extern lprint
 extern printf
@@ -235,6 +236,7 @@ extern vmm_getPageTableEntry
 extern physicalAllocPage
 extern virtualGetPageFlags
 extern lapic_tick_count
+extern xhci_interrupter
 exception_fg:
 db 255, 255, 255, 0
 exception_bg:
@@ -558,6 +560,15 @@ call ps2_keyboard_handler
 call entropy_shuffle
 call lapic_send_eoi
 add rsp, 32
+popaq
+iretq
+xhci_interrupter_isr:
+cli
+pushaq
+sub qword rsp, 32
+call xhci_interrupter
+call lapic_send_eoi
+add qword rsp, 32
 popaq
 iretq
 isr0_msg db "divide by zero ISR triggered", 10, 0

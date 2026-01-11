@@ -5,6 +5,10 @@
 #include "drivers/pcie.h"
 #define XHCI_PORT_LIST_OFFSET (0x400)
 #define XHCI_MAX_CMD_TRB_ENTRIES (256)
+#define XHCI_MAX_EVENT_TRB_ENTRIES (256)
+#define XHCI_MAX_DEVICE_COUNT (256)
+#define XHCI_DEFAULT_PAGE_SIZE (0x0)
+#define XHCI_DEFAULT_INTERRUPTER_ID (0x0)
 #define XHCI_TRB_TYPE_NORMAL (0x01)
 #define XHCI_TRB_TYPE_SETUP (0x02)
 #define XHCI_TRB_TYPE_DATA (0x03)
@@ -78,12 +82,16 @@ struct xhci_cap_mmio{
 	uint32_t doorbell_offset;
 	uint32_t runtime_register_offset;
 }__attribute__((packed));
-struct xhci_cmd_ring_ctrl{
-	uint64_t ring_base:60;
-	uint64_t reserved0:1;
-	uint64_t cycle_state:1;
-	uint64_t running:1;
-	uint64_t reserved1:2;
+union xhci_cmd_ring_ctrl{
+	uint64_t raw;
+	struct{
+		uint64_t ring_cycle_state:1;
+		uint64_t cmd_stop:1;
+		uint64_t cmd_abort:1;
+		uint64_t cmd_ring_running:1;
+		uint64_t reserved0:2;
+		uint64_t base:58;
+	};
 }__attribute__((packed));
 struct xhci_dev_notif_ctrl{
 	uint32_t interrupt_enable:1;
@@ -118,20 +126,38 @@ struct xhci_operational_mmio{
 	uint32_t page_size;
 	uint32_t reserved0;
 	struct xhci_dev_notif_ctrl device_notif_ctrl;
-	struct xhci_cmd_ring_ctrl cmd_ring_ctrl;
+	union xhci_cmd_ring_ctrl cmd_ring_ctrl;
 	uint32_t reserved1[4];
 	uint64_t device_context_base_list_ptr;
 	uint32_t config;
 	uint32_t reserved2;
 }__attribute__((packed));
-struct xhci_runtime_mmio{
+struct xhci_dequeue_ring_ptr{
+	uint64_t dequeue_table_segment_index:3;
+	uint64_t event_handler_busy:1;
+	uint64_t event_ring_dequeue_ptr:60;
+};
+struct xhci_segment_table_entry{
+	uint64_t base;
+	uint32_t size;
+	uint32_t reserved0;
+}__attribute__((packed));
+struct xhci_interrupter_segment_table_size{
+	uint32_t table_size:16;
+	uint32_t reserved0:16;
+}__attribute__((packed));
+struct xhci_interrupter{
 	uint32_t interrupt_management;
 	uint32_t interrupt_moderation;
-	uint32_t event_ring_entry_count;
+	struct xhci_interrupter_segment_table_size event_ring_segment_table_size;
 	uint32_t reserved0;
-	uint32_t event_ring_base;
-	uint32_t event_ring_dequeue_ptr;
-	uint32_t reserved1[10];
+	uint64_t event_ring_segment_table_base;
+	struct xhci_dequeue_ring_ptr dequeue_ring_ptr;
+}__attribute__((packed));
+struct xhci_runtime_mmio{
+	uint32_t microframe_index;
+	uint32_t reserved0[7];
+	volatile struct xhci_interrupter interrupter_list[];
 }__attribute__((packed));
 struct xhci_port{
 	uint32_t port_status;
@@ -146,31 +172,30 @@ struct xhci_trb_status{
 }__attribute__((packed));
 struct xhci_trb_control{
 	uint32_t cycle_bit:1;
-	uint32_t link_trb:1;
-	uint32_t interrupter_enable:1;
-	uint32_t chain_bit:1;
+	uint32_t tc_bit:1;
+	uint32_t reserved1:3;
 	uint32_t ioc:1;
-	uint32_t reserved0:2;
+	uint32_t reserved2:4;
 	uint32_t type:6;
-	uint32_t reserved1:19;
+	uint32_t reserved3:6;
+	uint32_t init_target:10;
 }__attribute__((packed));
 struct xhci_trb{
 	union{
 		struct{
 			uint64_t ptr;
-			uint32_t transfer_len:24;
-			uint32_t status:8;
+			struct xhci_trb_status status;
 			struct xhci_trb_control control;
 		}generic;
 		struct{
 			uint64_t trb_ptr;
-			uint32_t status;
+			struct xhci_trb_status status;
 			struct xhci_trb_control control;
 		}event;
 		struct{
 			uint32_t param0;
 			uint32_t param1;
-			uint32_t status;
+			struct xhci_trb_status status;
 			struct xhci_trb_control control;
 		}command;
 	};
@@ -208,17 +233,30 @@ struct xhci_endpoint_context{
 }__attribute__((packed));
 struct xhci_device_context{
 	struct xhci_slot_context slot;
-	struct xhci_endpoint_context endpoints[31];
+	volatile struct xhci_endpoint_context endpoints[31];
 }__attribute__((packed));
 struct xhci_trb_ring_info{
 	volatile struct xhci_trb* pRingBuffer;
-	uint64_t* pFreeList;
-	uint64_t* pEntryList;
+	uint64_t pRingBuffer_phys;
+	uint64_t ringBufferSize;
+	unsigned char cycle_state;
+	uint64_t currentEntry;	
+	uint64_t maxEntries;
+};
+struct xhci_event_trb_ring_info{
+	volatile struct xhci_segment_table_entry* pSegmentTableEntry;
+	uint64_t pSegmentTableEntry_phys;
+	volatile struct xhci_trb* pRingBuffer;
 	uint64_t pRingBuffer_phys;
 	uint64_t maxEntries;
-	uint64_t entryCount;
-	uint64_t freeEntryCount;	
-	uint64_t entryListSize;
+};
+struct xhci_interrupter_info{
+	uint8_t vector;
+	struct xhci_event_trb_ring_info eventRingInfo;
+};
+struct xhci_device_context_list_info{
+	uint64_t* pContextList;
+	uint64_t maxDeviceCount;
 };
 struct xhci_info{
 	uint64_t pBaseMmio;
@@ -228,11 +266,15 @@ struct xhci_info{
 	volatile struct xhci_runtime_mmio* pRuntime;
 	volatile uint32_t* pDoorBells;
 	struct xhci_trb_ring_info cmdRingInfo;
+	struct xhci_interrupter_info interrupterInfo;
+	struct xhci_device_context_list_info deviceContextListInfo;
 	struct pcie_location location;
 };
 int xhci_init(void);
 int xhci_get_info(struct xhci_info* pInfo);
 int xhci_get_location(struct pcie_location* pLocation);
+int xhci_read_qword(volatile uint64_t* pQword, uint64_t* pValue);
+int xhci_write_qword(volatile uint64_t* pQword, uint64_t value);
 int xhci_get_port_list(volatile struct xhci_port** ppPortList);
 int xhci_get_port(uint8_t port, volatile struct xhci_port** ppPort);
 int xhci_device_exists(uint8_t port);
@@ -240,14 +282,26 @@ int xhci_get_port_count(uint8_t* pPortCount);
 int xhci_init_trb_list(struct xhci_trb_ring_info* pRingInfo);
 int xhci_deinit_trb_list(struct xhci_trb_ring_info* pRingInfo);
 int xhci_alloc_trb(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, uint64_t* pTrbIndex);
-int xhci_free_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex);
-int xhci_get_trb(uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
+int xhci_get_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
+int xhci_write_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry);
+int xhci_read_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry);
 int xhci_ring(uint64_t doorbell_vector);
 int xhci_reset(void);
 int xhci_start(void);
+int xhci_stop(void);
 int xhci_is_running(void);
+int xhci_is_ready(void);
 int xhci_get_cmd_ring_base(uint64_t* pBase);
 int xhci_set_cmd_ring_base(uint64_t base);
-int xhci_read_qword(uint64_t* pQword, uint64_t* pValue);
-int xhci_write_qword(uint64_t* pQword, uint64_t value);
+int xhci_get_cmd_ring_running(void);
+int xhci_get_interrupter_base(uint64_t interrupter_id, volatile struct xhci_interrupter** ppBase);
+int xhci_init_trb_event_list(struct xhci_event_trb_ring_info* pRingInfo);
+int xhci_deinit_trb_event_list(struct xhci_event_trb_ring_info* pRingInfo);
+int xhci_init_interrupter(void);
+int xhci_send_ack(uint64_t interrupter_id);
+int xhci_interrupter(void);
+int xhci_interrupter_isr(void);
+int xhci_init_device_context_list(void);
+int xhci_get_driver_cycle_state(unsigned char* pCycleState);
+int xhci_get_hc_cycle_state(unsigned char* pCycleState);
 #endif

@@ -15,10 +15,27 @@ int idt_add_entry(uint8_t vector, uint64_t isr, uint8_t flags, uint8_t ist_entry
 	pentry->ist = ist_entry;
 	return 0;
 }
-int idt_init(void){
-	for (unsigned int i = 0;i<IDT_MAX_ENTRIES;i++){
-		idt_add_entry(i, (uint64_t)default_isr, 0x8E, 0x0);
+int idt_get_entry(uint8_t vector, struct idt_entry_t** ppEntry){
+	if (!ppEntry||vector>=IDT_MAX_ENTRIES)
+		return -1;
+	*ppEntry = idt+(uint64_t)vector;
+	return 0;
+}
+int idt_get_free_vector(uint8_t* pVector){
+	if (!pVector)
+		return -1;
+	for (uint64_t i = IDT_FREE_VECTOR_START;i<IDT_FREE_VECTOR_END;i++){
+		struct idt_entry_t* pEntry = (struct idt_entry_t*)0x0;
+		if (idt_get_entry((uint8_t)i, &pEntry)!=0)
+			return -1;
+		if (pEntry->isr_low)
+			continue;
+		*pVector = (uint8_t)i;
+		return 0;
 	}
+	return -1;
+}
+int idt_init(void){
 	struct cpu_exception_entry cpu_exception_table[] = {
 		{(uint64_t)isr0, 1, 0},
 		{(uint64_t)isr1, 1, 1},

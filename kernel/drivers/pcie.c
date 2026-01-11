@@ -1,6 +1,9 @@
 #include "drivers/acpi.h"
 #include "drivers/timer.h"
+#include "drivers/apic.h"
 #include "mem/vmm.h"
+#include "cpu/thread.h"
+#include "cpu/mutex.h"
 #include "stdlib/stdlib.h"
 #include "align.h"
 #include "drivers/pcie.h"
@@ -235,4 +238,58 @@ int pcie_get_device_by_id(uint16_t vendor_id, uint16_t device_id, uint8_t* pBus,
 		}
 	}
 	return -1;
+}
+int pcie_msix_get_table_info(uint8_t bus, uint8_t dev, uint8_t func, volatile struct pcie_msix_msg_ctrl* pMsgControl, volatile struct pcie_msix_table_info** ppTableInfo){
+	if (!pMsgControl||!ppTableInfo)
+		return -1;
+	volatile struct pcie_msix_table_info* pTableInfo = (volatile struct pcie_msix_table_info*)0x0;
+	uint64_t bar_base = 0;
+	if (pcie_get_bar(bus, dev, func, (uint64_t)pMsgControl->table_info_bar, &bar_base)!=0)
+		return -1;
+	pTableInfo = (volatile struct pcie_msix_table_info*)(bar_base+pMsgControl->table_info_offset);
+	*ppTableInfo = pTableInfo;
+	return 0;
+}
+int pcie_msix_get_table_base(uint8_t bus, uint8_t dev, uint8_t func, volatile struct pcie_msix_msg_ctrl* pMsgControl, volatile struct pcie_msix_table_entry** ppTableBase){
+	if (!pMsgControl||!ppTableBase)
+		return -1;
+	volatile struct pcie_msix_table_info* pTableInfo = (volatile struct pcie_msix_table_info*)0x0;
+	if (pcie_msix_get_table_info(bus, dev, func, pMsgControl, &pTableInfo)!=0)
+		return -1;
+	if (virtualMapPage((uint64_t)pTableInfo, (uint64_t)pTableInfo, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0)
+		return -1;
+	volatile struct pcie_msix_table_entry* pTableBase = (volatile struct pcie_msix_table_entry*)0x0;
+	uint64_t bar_base = 0;
+	if (pcie_get_bar(bus, dev, func, (uint64_t)pTableInfo->table_bar, &bar_base)!=0)
+		return -1;
+	pTableBase = (volatile struct pcie_msix_table_entry*)(bar_base+pTableInfo->table_offset);
+	*ppTableBase = pTableBase;
+	return 0;
+}
+int pcie_set_msix_entry(volatile struct pcie_msix_table_entry* pEntry, uint64_t lapic_id, uint8_t interrupt_vector){
+	if (!pEntry)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	if (virtualMapPage((uint64_t)pEntry, (uint64_t)pEntry, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t lapic_base = 0;
+	if (lapic_get_base(&lapic_base)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+//	memset((void*)pEntry, 0, sizeof(struct pcie_msix_table_entry));
+	pEntry->msg_addr.magic = 0xFEE;
+	pEntry->msg_addr.dest_lapic_id = lapic_id;
+	pEntry->msg_addr.dest_mode = 0;
+	pEntry->msg_addr.redir_hint = 0;
+	pEntry->msg_data.vector = interrupt_vector;
+	pEntry->msg_data.delivery_mode = 0;
+	pEntry->msg_data.level = 0;
+	pEntry->msg_data.trigger = 0;
+	pEntry->vector_ctrl.mask = 0;
+	mutex_unlock(&mutex);
+	return 0;
 }

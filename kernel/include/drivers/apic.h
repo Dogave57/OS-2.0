@@ -34,6 +34,7 @@ int lapic_write_reg(unsigned int reg, uint64_t value);
 int lapic_read_reg(unsigned int reg, uint64_t* pvalue);
 int lapic_set_tick_us(uint64_t time_us);
 int x2lapic_is_supported(unsigned int* psupported);
+int lapic_get_base(uint64_t* pBase);
 int ioapic_get_base(uint64_t* pbase);
 int ioapic_get_version(uint32_t* pversion);
 int ioapic_get_max_redirs(uint32_t* pmax_redirs);

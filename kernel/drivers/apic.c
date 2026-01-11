@@ -2,6 +2,7 @@
 #include "stdlib/stdlib.h"
 #include "cpu/cpuid.h"
 #include "cpu/port.h"
+#include "cpu/mutex.h"
 #include "drivers/pit.h"
 #include "drivers/pic.h"
 #include "mem/vmm.h"
@@ -32,6 +33,7 @@ int apic_init(void){
 	else
 		lapic_base_reg|=0x800;
 	write_msr(LAPIC_BASE_MSR, lapic_base_reg);
+	printf("LAPIC base: %p\r\n", lapic_base);
 	uint64_t base = 0;
 	uint64_t value = 0;
 	uint64_t div_conf = 0x07;
@@ -108,21 +110,29 @@ int x2lapic_read_reg(unsigned int reg, uint64_t* pvalue){
 	return 0;
 }
 int lapic_write_reg(unsigned int reg, uint64_t value){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	if (x2lapic_supported){
 		x2lapic_write_reg(reg, value);
+		mutex_unlock(&mutex);
 		return 0;
 	}
 	*(unsigned int*)(lapic_base+reg) = (unsigned int)value;
+	mutex_unlock(&mutex);
 	return 0;
 }
 int lapic_read_reg(unsigned int reg, uint64_t* pvalue){
 	if (!pvalue)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	if (x2lapic_supported){
 		x2lapic_read_reg(reg, pvalue);
+		mutex_unlock(&mutex);
 		return 0;
 	}
 	*(unsigned int*)pvalue = *(unsigned int*)(lapic_base+reg);
+	mutex_unlock(&mutex);
 	return 0;
 }
 int lapic_send_eoi(void){
@@ -139,6 +149,22 @@ int lapic_set_tick_us(uint64_t tick_us){
 	uint64_t tpus = timer_get_tpus();
 	lapic_write_reg(LAPIC_REG_DIV_CONFIG, 0x07);
 	lapic_write_reg(LAPIC_REG_INIT_COUNT, tpus*tick_us);
+	return 0;
+}
+int lapic_get_base(uint64_t* pBase){
+	if (!pBase)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	if (lapic_base){
+		*pBase = lapic_base;
+		mutex_unlock(&mutex);
+		return 0;
+	}
+	uint64_t base = read_msr(LAPIC_BASE_MSR);
+	base&=0xFFFFF000;
+	*pBase = base;
+	mutex_unlock(&mutex);
 	return 0;
 }
 int ioapic_get_base(uint64_t* pbase){
