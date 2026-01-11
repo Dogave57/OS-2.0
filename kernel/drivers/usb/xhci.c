@@ -56,7 +56,6 @@ int xhci_init(void){
 	memset((void*)&trb, 0, sizeof(struct xhci_trb));
 	trb.command.control.type = XHCI_TRB_TYPE_NOP_CMD;
 	trb.command.control.ioc = 1;
-	trb.command.control.cycle_bit = xhciInfo.cmdRingInfo.cycle_state;
 	trb.command.control.init_target = 0;
 	if (xhci_alloc_trb(&xhciInfo.cmdRingInfo, trb, &trbIndex)!=0){
 		printf("failed to allocate TRB entry\r\n");
@@ -201,6 +200,7 @@ int xhci_init_trb_list(struct xhci_trb_ring_info* pRingInfo){
 	if (virtualAllocPage((uint64_t*)&pRingBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
 	memset((uint64_t*)pRingInfo, 0, sizeof(struct xhci_trb_ring_info));
+	pRingInfo->cycle_state = 1;
 	pRingInfo->pRingBuffer = pRingBuffer;
 	pRingInfo->maxEntries = XHCI_MAX_CMD_TRB_ENTRIES;
 	uint64_t ringBufferSize = pRingInfo->maxEntries*sizeof(struct xhci_trb);
@@ -211,6 +211,16 @@ int xhci_init_trb_list(struct xhci_trb_ring_info* pRingInfo){
 		return -1;
 	}
 	memset((void*)pRingBuffer, 0, ringBufferSize);
+	struct xhci_trb defaultTrb = {0};
+	memset((void*)&defaultTrb, 0, sizeof(defaultTrb));
+	defaultTrb.generic.control.ioc = 1;
+	defaultTrb.generic.control.type = XHCI_TRB_TYPE_NOP_CMD;
+	for (uint64_t i = 0;i<XHCI_MAX_CMD_TRB_ENTRIES-1;i++){
+		if (xhci_write_trb(pRingInfo, i, defaultTrb)!=0){
+			xhci_deinit_trb_list(pRingInfo);
+			return -1;
+		}
+	}
 	struct xhci_trb linkTrb = {0};
 	memset((void*)&linkTrb, 0, sizeof(struct xhci_trb));
 	linkTrb.generic.ptr = (uint64_t)pRingInfo->pRingBuffer_phys;
@@ -243,6 +253,10 @@ int xhci_alloc_trb(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, ui
 	while (pTrbEntry->generic.control.cycle_bit!=pRingInfo->cycle_state){
 		xhci_get_trb(pRingInfo, trbIndex, &pTrbEntry);
 		trbIndex++;
+		if (trbIndex>=XHCI_MAX_CMD_TRB_ENTRIES-1){
+			trbIndex = 0;
+			pRingInfo->cycle_state = !pRingInfo->cycle_state;
+		}
 		if (trbIndex==startIndex)
 			return -1;
 	}
@@ -364,12 +378,8 @@ int xhci_get_cmd_ring_base(uint64_t* pBase){
 	return 0;
 }
 int xhci_set_cmd_ring_base(uint64_t base){
-	union xhci_cmd_ring_ctrl cmdRingControl = {0};
-	xhci_read_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, (uint64_t*)&cmdRingControl);
-	cmdRingControl.base = base;
-	uint64_t value = base|(1<<0);
-	return xhci_write_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, value);
-	return xhci_write_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, *(uint64_t*)&cmdRingControl);
+	uint64_t cmdRingControl = base|(1<<0);
+	return xhci_write_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, cmdRingControl);
 }
 int xhci_get_cmd_ring_running(void){
 	union xhci_cmd_ring_ctrl cmdRingControl = xhciInfo.pOperational->cmd_ring_ctrl;
