@@ -23,6 +23,14 @@ int xhci_init(void){
 		printf("failed to reset XHCI controller\r\n");
 		return -1;
 	}
+	if (xhci_stop()!=0){
+		printf("failed to stop XHCI controller\r\n");
+		return -1;
+	}
+	if (xhci_init_scratchpad()!=0){
+		printf("failed to initialize scratchpad pages\r\n");
+		return -1;
+	}
 	if (xhci_init_trb_list(&xhciInfo.cmdRingInfo)!=0){
 		printf("failed to initialize cmd TRB ring list\r\n");
 		return -1;
@@ -35,7 +43,10 @@ int xhci_init(void){
 		printf("failed to initialize XHCI interrupter\r\n");
 		return -1;
 	}
-	xhci_stop();
+	volatile struct xhci_usb_legacy_support* pLegacySupport = (volatile struct xhci_usb_legacy_support*)0x0;
+	if (xhci_get_extended_cap(1, (volatile struct xhci_extended_cap_hdr**)&pLegacySupport)!=0){
+		printf("failed to get USB legacy support extended cap header\r\n");
+	}
 	uint8_t portCount = 0;
 	if (xhci_get_port_count(&portCount)!=0)
 		return -1;
@@ -51,9 +62,6 @@ int xhci_init(void){
 		printf("failed to allocate TRB entry\r\n");
 		return -1;
 	}
-	uint64_t cmdRingBase = 0;
-	xhci_get_cmd_ring_base(&cmdRingBase);
-	printf("cmd ring base: %p\r\n", cmdRingBase);
 	xhci_start();
 	printf("running TRBs\r\n");
 	xhci_ring(0);
@@ -63,8 +71,6 @@ int xhci_init(void){
 		printf("host system error\r\n");
 	if (xhciInfo.pOperational->usb_status.host_controller_error)
 		printf("host controller error\r\n");
-	xhci_get_cmd_ring_base(&cmdRingBase);
-	printf("cmd ring base: %p\r\n", cmdRingBase);
 	for (uint8_t i = 0;i<portCount;i++){
 		if (xhci_device_exists(i)!=0)
 			continue;
@@ -96,6 +102,8 @@ int xhci_get_info(struct xhci_info* pInfo){
 	pInfo->pOperational = (volatile struct xhci_operational_mmio*)(pInfo->pBaseMmio+(uint64_t)pInfo->pCapabilities->cap_len);
 	pInfo->pRuntime = (volatile struct xhci_runtime_mmio*)(pInfo->pBaseMmio+runtimeOffset);
 	pInfo->pDoorBells = (volatile uint32_t*)(pInfo->pBaseMmio+doorbellOffset);
+	struct xhci_cap_param0 capParam = pInfo->pCapabilities->cap_param0;
+	pInfo->pExtendedCapList = (volatile struct xhci_extended_cap_hdr*)(((uint32_t*)pInfo->pBaseMmio)+(((uint64_t)capParam.extended_cap_ptr)));
 	printf("doorbell offset: %d\r\n", doorbellOffset);
 	return 0;
 }
@@ -181,7 +189,8 @@ int xhci_get_port_count(uint8_t* pPortCount){
 	volatile struct xhci_cap_mmio* pCap = xhciInfo.pCapabilities;
 	if (!pCap)
 		return -1;
-	uint8_t portCount = (uint8_t)((pCap->structure_params[0]>>24)&0xFF);
+	struct xhci_structure_param0 param0 = pCap->structure_param0;	
+	uint8_t portCount = param0.max_ports;
 	*pPortCount = portCount;
 	return 0;
 }
@@ -266,16 +275,16 @@ int xhci_read_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struc
 int xhci_ring(uint64_t doorbell_vector){
 	volatile uint32_t* pDoorBell = xhciInfo.pDoorBells+doorbell_vector;
 	*pDoorBell = 0;
-	sleep(5);
 	return 0;
 }
 int xhci_reset(void){
+	xhci_stop();
 	struct xhci_usb_cmd cmd = xhciInfo.pOperational->usb_cmd;
 	cmd.hc_reset = 1;
 	xhciInfo.pOperational->usb_cmd = cmd;
 	uint64_t start_us = get_time_us();
 	struct xhci_usb_status status = xhciInfo.pOperational->usb_status;
-	while (!status.halted||status.controller_not_ready){
+	while (!status.halted||status.controller_not_ready||cmd.hc_reset){
 		uint64_t current_us = get_time_us();
 		uint64_t elapsed_us = current_us-start_us;
 		if (elapsed_us>500000){
@@ -283,9 +292,16 @@ int xhci_reset(void){
 			return -1;
 		}
 		status = xhciInfo.pOperational->usb_status;
+		cmd = xhciInfo.pOperational->usb_cmd;
 	}
-	sleep(250);
+	sleep(50);
 	xhci_stop();
+	sleep(25);
+	struct xhci_config config = xhciInfo.pOperational->config;
+	struct xhci_structure_param0 param0 = xhciInfo.pCapabilities->structure_param0;
+	config.max_slots_enabled = param0.max_slots;
+	xhciInfo.pOperational->config = config;
+	sleep(5);
 	return 0;
 }
 int xhci_start(void){
@@ -344,17 +360,15 @@ int xhci_is_ready(void){
 int xhci_get_cmd_ring_base(uint64_t* pBase){
 	if (!pBase)
 		return -1;
-	union xhci_cmd_ring_ctrl cmdRingControl = {0};
-	xhci_read_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, (uint64_t*)&cmdRingControl);
-	printf("value: %p\r\n", *(uint64_t*)&cmdRingControl);
-	*pBase = cmdRingControl.base;
+	*pBase = xhciInfo.cmdRingInfo.pRingBuffer_phys;
 	return 0;
 }
 int xhci_set_cmd_ring_base(uint64_t base){
 	union xhci_cmd_ring_ctrl cmdRingControl = {0};
 	xhci_read_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, (uint64_t*)&cmdRingControl);
 	cmdRingControl.base = base;
-	printf("base: %p\r\n", cmdRingControl.base);
+	uint64_t value = base|(1<<0);
+	return xhci_write_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, value);
 	return xhci_write_qword((uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, *(uint64_t*)&cmdRingControl);
 }
 int xhci_get_cmd_ring_running(void){
@@ -462,6 +476,7 @@ int xhci_init_interrupter(void){
 	}
 	idt_add_entry(interrupterVector, (uint64_t)xhci_interrupter_isr, 0x8E, 0x0);
 	printf("event ring segment table base: %p\r\n", (uint64_t)xhciInfo.interrupterInfo.eventRingInfo.pSegmentTableEntry_phys);
+	printf("event ring base: %p\r\n", (uint64_t)xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys);
 	xhci_write_qword((volatile uint64_t*)&pInt->event_ring_segment_table_base, xhciInfo.interrupterInfo.eventRingInfo.pSegmentTableEntry_phys);
 	struct xhci_interrupter_segment_table_size tableSize = {0};
 	tableSize.reserved0 = 0;
@@ -527,4 +542,25 @@ int xhci_get_hc_cycle_state(unsigned char* pCycleState){
 	union xhci_cmd_ring_ctrl cmdRingControl = xhciInfo.pOperational->cmd_ring_ctrl;
 	*pCycleState = cmdRingControl.ring_cycle_state;
 	return 0;
+}
+int xhci_init_scratchpad(void){
+	struct xhci_structure_param1 param1 = xhciInfo.pCapabilities->structure_param1;
+	uint64_t scratchpadPages = 0;
+	return 0;
+}
+int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr** ppCapHeader){
+	if (!ppCapHeader)
+		return -1;
+	volatile struct xhci_extended_cap_hdr* pCurrentHeader = xhciInfo.pExtendedCapList;
+	while (1){
+		if (pCurrentHeader->cap_id!=cap_id){
+			if (!pCurrentHeader->next_offset)
+				return -1;
+			pCurrentHeader = (volatile struct xhci_extended_cap_hdr*)(((uint64_t)pCurrentHeader)+(pCurrentHeader->next_offset<<2));
+			continue;
+		}
+		*ppCapHeader = pCurrentHeader;
+		return 0;
+	}
+	return -1;
 }

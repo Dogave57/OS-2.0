@@ -42,6 +42,25 @@
 #define XHCI_EVENT_TRB_TYPE_HC_ERROR (0x25)
 #define XHCI_EVENT_TRB_TYPE_DEV_NOTIF (0x26)
 #define XHCI_EVENT_TRB_TYPE_MFINDEX_WRAP (0x27)
+struct xhci_structure_param0{
+	uint32_t max_slots:8;
+	uint32_t max_interrupters:11;
+	uint32_t reserved0:5;
+	uint32_t max_ports:8;
+}__attribute__((packed));
+struct xhci_structure_param1{
+	uint32_t ist:4;
+	uint32_t event_ring_segment_table_max:4;
+	uint32_t reserved0:13;	
+	uint32_t scratchpad_pages_high:5;
+	uint32_t reserved1:1;
+	uint32_t scratchpad_pages_low:5;
+}__attribute__((packed));
+struct xhci_structure_param2{
+	uint32_t u1_latency:8;
+	uint32_t reserved0:8;
+	uint32_t u2_latency:16;
+}__attribute__((packed));
 struct xhci_cap_param0{
 	uint32_t long_addressing:1;
 	uint32_t bandwidth_negotiation:1;
@@ -59,14 +78,26 @@ struct xhci_cap_param0{
 	uint32_t extended_cap_ptr:16;
 }__attribute__((packed));
 struct xhci_extended_cap_hdr{
-	uint32_t cap_id:8;
-	uint32_t next_offset:8;
-	uint32_t reserved0:16;
+	uint8_t cap_id;
+	uint8_t next_offset;
+	uint16_t reserved0;
 }__attribute__((packed));
 struct xhci_usb_legacy_support{
+	struct xhci_extended_cap_hdr* pCapHeader;
 	uint32_t firmware_owned:1;
 	uint32_t os_owned:1;
 	uint32_t reserved0:30;
+}__attribute__((packed));
+struct xhci_protocol_cap{
+	uint8_t id;
+	uint8_t next;
+	uint8_t minor_version;
+	uint8_t major_version;
+	uint32_t type;
+	uint8_t start_port;
+	uint8_t port_count;
+	uint16_t reserved0;
+	uint32_t slot_type;
 }__attribute__((packed));
 struct xhci_usb_legacy_ctrl_status{
 	uint32_t smi_enable:1;
@@ -77,8 +108,10 @@ struct xhci_cap_mmio{
 	uint8_t cap_len;
 	uint8_t reserved0;
 	uint16_t hci_version;
-	uint32_t structure_params[3];
-	struct xhci_cap_param0 cap_params0;
+	struct xhci_structure_param0 structure_param0;
+	struct xhci_structure_param1 structure_param1;
+	struct xhci_structure_param2 structure_param2;
+	struct xhci_cap_param0 cap_param0;
 	uint32_t doorbell_offset;
 	uint32_t runtime_register_offset;
 }__attribute__((packed));
@@ -120,23 +153,28 @@ struct xhci_usb_status{
 	uint32_t host_controller_error:1;
 	uint32_t reserved1:19;
 }__attribute__((packed));
+struct xhci_config{
+	uint32_t max_slots_enabled:8;
+	uint32_t reserved0:24;
+}__attribute__((packed));
 struct xhci_operational_mmio{
 	struct xhci_usb_cmd usb_cmd;
 	struct xhci_usb_status usb_status;
 	uint32_t page_size;
 	uint32_t reserved0;
+	uint32_t reserved1;
 	struct xhci_dev_notif_ctrl device_notif_ctrl;
 	union xhci_cmd_ring_ctrl cmd_ring_ctrl;
-	uint32_t reserved1[4];
+	uint32_t reserved2[4];
 	uint64_t device_context_base_list_ptr;
-	uint32_t config;
-	uint32_t reserved2;
+	struct xhci_config config;
+	uint32_t reserved3;
 }__attribute__((packed));
 struct xhci_dequeue_ring_ptr{
 	uint64_t dequeue_table_segment_index:3;
 	uint64_t event_handler_busy:1;
 	uint64_t event_ring_dequeue_ptr:60;
-};
+}__attribute__((packed));
 struct xhci_segment_table_entry{
 	uint64_t base;
 	uint32_t size;
@@ -264,6 +302,7 @@ struct xhci_info{
 	volatile struct xhci_cap_mmio* pCapabilities;
 	volatile struct xhci_operational_mmio* pOperational;
 	volatile struct xhci_runtime_mmio* pRuntime;
+	volatile struct xhci_extended_cap_hdr* pExtendedCapList;
 	volatile uint32_t* pDoorBells;
 	struct xhci_trb_ring_info cmdRingInfo;
 	struct xhci_interrupter_info interrupterInfo;
@@ -304,4 +343,6 @@ int xhci_interrupter_isr(void);
 int xhci_init_device_context_list(void);
 int xhci_get_driver_cycle_state(unsigned char* pCycleState);
 int xhci_get_hc_cycle_state(unsigned char* pCycleState);
+int xhci_init_scratchpad(void);
+int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr** ppCapHeader);
 #endif
