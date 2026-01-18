@@ -67,15 +67,15 @@ int nvme_init(void){
 	return 0;
 }
 int nvme_drive_exists(struct pcie_location location){
-	if (pcie_device_exists(location.bus, location.dev, location.func)!=0)
+	if (pcie_device_exists(location)!=0)
 		return -1;
 	uint8_t class = 0;
 	uint8_t subclass = 0;
-	if (pcie_get_class(location.bus, location.dev, location.func, &class)!=0)
+	if (pcie_get_class(location, &class)!=0)
 		return -1;
 	if (class!=PCIE_CLASS_DRIVE_CONTROLLER)
 		return -1;
-	if (pcie_get_subclass(location.bus, location.dev, location.func, &subclass)!=0)
+	if (pcie_get_subclass(location, &subclass)!=0)
 		return -1;
 	if (subclass!=PCIE_SUBCLASS_NVME_CONTROLLER)
 		return -1;
@@ -207,11 +207,11 @@ int nvme_get_drive_info(struct pcie_location location, struct nvme_driveinfo* pI
 		return -1;
 	uint64_t base_low = 0;
 	uint64_t base_high = 0;
-	if (pcie_get_bar(location.bus, location.dev, location.func, 0, &base_low)!=0){
+	if (pcie_get_bar(location, 0, &base_low)!=0){
 		printf("failed to get BAR0\r\n");
 		return -1;
 	}
-	if (pcie_get_bar(location.bus, location.dev, location.func, 1, &base_high)!=0){
+	if (pcie_get_bar(location, 1, &base_high)!=0){
 		printf("failed to get BAR1\r\n");
 		return -1;
 	}

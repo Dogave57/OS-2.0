@@ -1,5 +1,6 @@
 #ifndef _AHCI
 #define _AHCI
+#include "drivers/pcie.h"
 #include "subsystem/drive.h"
 #define AHCI_DRIVE_MMIO_OFFSET 0x100
 #define AHCI_SATA_SIGNATURE 0x101
@@ -21,9 +22,7 @@
 #define AHCI_FIS_TYPE_DEV_BITS 0xA1
 struct ahci_info{
 	uint64_t pBase;
-	uint8_t bus;
-	uint8_t dev;
-	uint8_t func;
+	struct pcie_location location;
 };
 struct ahci_fis_host_to_dev{
 	uint8_t fis_type;

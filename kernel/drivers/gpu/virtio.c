@@ -24,10 +24,10 @@ int virtio_gpu_get_info(struct virtio_gpu_info* pInfo){
 		*pInfo = gpuInfo;
 		return 0;
 	}
-	if (pcie_get_device_by_id(VIRTIO_VENDOR_ID, VIRTIO_GPU_DEVICE_ID, &gpuInfo.location.bus, &gpuInfo.location.dev, &gpuInfo.location.func)!=0){
+	if (pcie_get_device_by_id(VIRTIO_VENDOR_ID, VIRTIO_GPU_DEVICE_ID, &gpuInfo.location)!=0){
 		return -1;
 	}
-	if (pcie_get_bar(gpuInfo.location.bus, gpuInfo.location.dev, gpuInfo.location.func, 0, (uint64_t*)&gpuInfo.pBaseMmio)!=0){
+	if (pcie_get_bar(gpuInfo.location, 0, (uint64_t*)&gpuInfo.pBaseMmio)!=0){
 		return -1;
 	}
 	if (!gpuInfo.pBaseMmio){

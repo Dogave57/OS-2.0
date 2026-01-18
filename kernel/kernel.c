@@ -80,7 +80,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	printf("VMM initialized\r\n");
 	if (heap_init()!=0){
 		printf("failed to initialize heap\r\n");
 		while (1){};
@@ -109,7 +108,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (ahci_init()!=0){
 		printf("no AHCI controller available\r\n");
 	}
-	printf("initialized AHCI controller\r\n");
 /*	if (nvme_init()!=0){
 		printf("failed to initialize NVME driver\r\n");
 	}
@@ -150,7 +148,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		printf("failed to initialize XHCI controller\r\n");
 	}
 	uint64_t va = 0;
-	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
+	uint64_t pagecnt = (MEM_MB*64)/PAGE_SIZE;
 	uint64_t before_us = get_time_us();
 	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0x0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate %d pages\r\n", pagecnt);	

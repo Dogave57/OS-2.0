@@ -12,7 +12,6 @@ int vmm_init(void){
 		return -1;
 	}
 	memset((void*)pml4, 0, PAGE_SIZE);
-	printf("pml4: %p\r\n", (uint64_t)pml4);
 	if (virtualMapPage((uint64_t)pml4, (uint64_t)pml4, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 0, 0, PAGE_TYPE_VMM)!=0){
 		printf("failed to map pml4\r\n");
 		return -1;
@@ -39,7 +38,6 @@ int vmm_init(void){
 		printf("failed to map kernel\r\n");
 		return -1;
 	}
-	printf("base kernel virtual image base: %p\r\n", (uint64_t)pbootargs->kernelInfo.pKernel);
 	uint64_t kernelFileBuffer_pages = align_up(pbootargs->kernelInfo.kernelFileDataSize, PAGE_SIZE)/PAGE_SIZE;
 	if (virtualMapPages(pbootargs->kernelInfo.pKernelFileData, pbootargs->kernelInfo.pKernelFileData, PTE_RW|PTE_NX, kernelFileBuffer_pages, 1, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to map kernel file buffer\r\n");
@@ -71,7 +69,6 @@ int vmm_init(void){
 		return -1;
 	}
 	uint64_t physicalPageTablePages = align_up(physicalPageTableSize, PAGE_SIZE)/PAGE_SIZE;
-	printf("physical page table va: %p\r\n", (uint64_t)pPhysicalPageTable);
 	if (virtualMapPages((uint64_t)pPhysicalPageTable, (uint64_t)pPhysicalPageTable, PTE_RW, physicalPageTablePages, 1, 0, PAGE_TYPE_PMM)!=0){
 		printf("failed to map physical page table\r\n");
 		return -1;
@@ -115,12 +112,15 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 		return 0;
 	}
 	if (physicalAllocPage((uint64_t*)&pNextLevel, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate physical page\r\n");
 		return -1;
 	}
 	memset((void*)pNextLevel, 0, PAGE_SIZE);
 	*((uint64_t*)(pCurrentLevel)+index) = (uint64_t)(((uint64_t)(pNextLevel))|PTE_RW|PTE_PRESENT);
-	if (virtualMapPage((uint64_t)pNextLevel, (uint64_t)pNextLevel, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 1, 0, PAGE_TYPE_VMM)!=0)
+	if (virtualMapPage((uint64_t)pNextLevel, (uint64_t)pNextLevel, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 1, 0, PAGE_TYPE_VMM)!=0){
+		printf("failed to map next level\r\n");
 		return -1;
+	}
 	*ppNextLevel = (uint64_t*)pNextLevel;
 	return 0;
 }
@@ -137,12 +137,15 @@ KAPI int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int s
 	if (va%PAGE_SIZE||pa%PAGE_SIZE){
 		va = align_down(va, PAGE_SIZE);
 		pa = align_down(pa, PAGE_SIZE);
-		if (virtualMapPage(pa+PAGE_SIZE, va+PAGE_SIZE, flags, shared, map_flags, pageType)!=0)
+		if (virtualMapPage(pa+PAGE_SIZE, va+PAGE_SIZE, flags, shared, map_flags, pageType)!=0){
 			return -1;
+		}
 	}
 	uint64_t* pentry = (uint64_t*)0x0;
-	if (vmm_getPageTableEntry(va, &pentry)!=0)
+	if (vmm_getPageTableEntry(va, &pentry)!=0){
+		printf("failed to get PTE\r\n");
 		return -1;
+	}
 	if (!(map_flags&MAP_FLAG_LAZY)){
 		flags|=PTE_PRESENT;
 	}
@@ -230,6 +233,9 @@ KAPI int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uin
 	}
 	if (virtualMapPage(pa, va, flags, 1, map_flags, pageType)!=0)
 		return -1;
+	if (physicalMapPage(pa, va, pageType)!=0){
+		return -1;
+	}
 	*pVa = va;
 	return 0;
 }
@@ -266,6 +272,9 @@ KAPI int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uin
 		uint64_t page_va = va+(PAGE_SIZE*i);
 		if (virtualMapPage(new_ppage, page_va, flags, 1, map_flags, pageType)!=0)
 			return -1;
+		if (physicalMapPage(new_ppage, page_va, pageType)!=0){
+			return -1;
+		}
 	}
 	*pVa = va;
 	return 0;

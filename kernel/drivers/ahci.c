@@ -16,11 +16,11 @@ int ahci_init(void){
 		return -1;
 	}
 	uint32_t pcie_cmd_reg = 0;
-	pcie_read_dword(ahciInfo.bus, ahciInfo.dev, ahciInfo.func, 0x4, &pcie_cmd_reg);
+	pcie_read_dword(ahciInfo.location, 0x4, &pcie_cmd_reg);
 	pcie_cmd_reg|=(1<<0);
 	pcie_cmd_reg|=(1<<1);
 	pcie_cmd_reg|=(1<<2);
-	pcie_write_dword(ahciInfo.bus, ahciInfo.dev, ahciInfo.func, 0x4, pcie_cmd_reg);
+	pcie_write_dword(ahciInfo.location, 0x4, pcie_cmd_reg);
 	volatile struct ahci_hba_mem* pBase = (volatile struct ahci_hba_mem*)ahciInfo.pBase;
 	if (pBase->os_handoff_ctrl_status&(1<<0)&&0){
 		printf("firmware still locked on\r\n");
@@ -59,15 +59,13 @@ int ahci_get_info(struct ahci_info* pInfo){
 		*pInfo = ahciInfo;
 		return 0;
 	}
-	uint8_t bus = 0;
-	uint8_t dev = 0;
-	uint8_t func = 0;
 	uint64_t pBase = 0;
-	if (pcie_get_device_by_class(0x01, 0x06, &bus, &dev, &func)!=0){
+	struct pcie_location location = {0};
+	if (pcie_get_device_by_class(0x01, 0x06, &location)!=0){
 		printf("failed to get AHCI controller\r\n");
 		return -1;
 	}
-	if (pcie_get_bar(bus, dev, func, 5, &pBase)!=0){
+	if (pcie_get_bar(location, 5, &pBase)!=0){
 		printf("failed to get AHCI base\r\n");
 		return -1;
 	}
@@ -75,9 +73,7 @@ int ahci_get_info(struct ahci_info* pInfo){
 		printf("invalid AHCI base\r\n");
 		return -1;
 	}
-	ahciInfo.bus = bus;
-	ahciInfo.dev = dev;
-	ahciInfo.func = func;
+	ahciInfo.location = location;
 	ahciInfo.pBase = pBase;
 	return 0;
 }

@@ -7,6 +7,7 @@
 #define XHCI_MAX_CMD_TRB_ENTRIES (256)
 #define XHCI_MAX_EVENT_TRB_ENTRIES (256)
 #define XHCI_MAX_DEVICE_COUNT (256)
+#define XHCI_MAX_EVENT_SEGMENT_TABLE_ENTRIES (256)
 #define XHCI_DEFAULT_PAGE_SIZE (0x0)
 #define XHCI_DEFAULT_INTERRUPTER_ID (0x0)
 #define XHCI_TRB_TYPE_NORMAL (0x01)
@@ -180,16 +181,17 @@ struct xhci_segment_table_entry{
 	uint32_t size;
 	uint32_t reserved0;
 }__attribute__((packed));
-struct xhci_interrupter_segment_table_size{
-	uint32_t table_size:16;
-	uint32_t reserved0:16;
+struct xhci_interrupter_iman{
+	uint32_t interrupt_pending:1;
+	uint32_t interrupt_enable:1;
+	uint32_t reserved0:30;
 }__attribute__((packed));
 struct xhci_interrupter{
-	uint32_t interrupt_management;
+	struct xhci_interrupter_iman interrupt_management;
 	uint32_t interrupt_moderation;
-	struct xhci_interrupter_segment_table_size event_ring_segment_table_size;
+	uint32_t table_size;
 	uint32_t reserved0;
-	uint64_t event_ring_segment_table_base;
+	uint64_t table_base;
 	struct xhci_dequeue_ring_ptr dequeue_ring_ptr;
 }__attribute__((packed));
 struct xhci_runtime_mmio{
@@ -211,12 +213,15 @@ struct xhci_trb_status{
 struct xhci_trb_control{
 	uint32_t cycle_bit:1;
 	uint32_t tc_bit:1;
-	uint32_t reserved1:3;
+	uint32_t isp:1;
+	uint32_t no_snoop:1;
+	uint32_t chain_bit:1;
 	uint32_t ioc:1;
-	uint32_t reserved2:4;
+	uint32_t immediate_data:1;
+	uint32_t reserved0:2;
+	uint32_t block_event_int:1;
 	uint32_t type:6;
-	uint32_t reserved3:6;
-	uint32_t init_target:10;
+	uint32_t reserved1:16;
 }__attribute__((packed));
 struct xhci_trb{
 	union{
@@ -282,8 +287,10 @@ struct xhci_trb_ring_info{
 	uint64_t maxEntries;
 };
 struct xhci_event_trb_ring_info{
-	volatile struct xhci_segment_table_entry* pSegmentTableEntry;
-	uint64_t pSegmentTableEntry_phys;
+	uint64_t dequeueTrbBase;
+	volatile struct xhci_segment_table_entry* pSegmentTable;
+	uint64_t pSegmentTable_phys;
+	uint64_t maxSegmentTableEntryCount;
 	volatile struct xhci_trb* pRingBuffer;
 	uint64_t pRingBuffer_phys;
 	uint64_t maxEntries;
@@ -337,9 +344,12 @@ int xhci_get_interrupter_base(uint64_t interrupter_id, volatile struct xhci_inte
 int xhci_init_trb_event_list(struct xhci_event_trb_ring_info* pRingInfo);
 int xhci_deinit_trb_event_list(struct xhci_event_trb_ring_info* pRingInfo);
 int xhci_init_interrupter(void);
+int xhci_start_interrupter(uint64_t interrupter_id);
 int xhci_send_ack(uint64_t interrupter_id);
+int xhci_update_dequeue_trb(void);
 int xhci_interrupter(void);
 int xhci_interrupter_isr(void);
+int xhci_dump_interrupter(uint64_t interrupter_id);
 int xhci_init_device_context_list(void);
 int xhci_get_driver_cycle_state(unsigned char* pCycleState);
 int xhci_get_hc_cycle_state(unsigned char* pCycleState);

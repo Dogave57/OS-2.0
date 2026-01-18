@@ -1,4 +1,5 @@
 #include "bootloader.h"
+#include "stdlib/stdlib.h"
 #include "cpu/port.h"
 #include "cpu/interrupt.h"
 __attribute__((aligned(0x10)))
@@ -36,6 +37,7 @@ int idt_get_free_vector(uint8_t* pVector){
 	return -1;
 }
 int idt_init(void){
+	memset((void*)idt, 0, sizeof(idt));
 	struct cpu_exception_entry cpu_exception_table[] = {
 		{(uint64_t)isr0, 1, 0},
 		{(uint64_t)isr1, 1, 1},

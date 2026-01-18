@@ -1,4 +1,5 @@
 #include "stdlib/stdlib.h"
+#include "align.h"
 #include "mem/vmm.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
@@ -12,13 +13,14 @@ int xhci_init(void){
 		return -1;
 	printf("XHCI controller bus: %d, dev: %d, func: %d\r\n", xhciInfo.location.bus, xhciInfo.location.dev, xhciInfo.location.func);
 	uint32_t pcie_cmd_reg = 0;
-	pcie_read_dword(xhciInfo.location.bus, xhciInfo.location.dev, xhciInfo.location.func, 0x4, &pcie_cmd_reg);
+	pcie_read_dword(xhciInfo.location, 0x4, &pcie_cmd_reg);
 	pcie_cmd_reg|=(1<<0);
 	pcie_cmd_reg|=(1<<1);
 	pcie_cmd_reg|=(1<<2);
 	pcie_cmd_reg|=(1<<10);
-	pcie_write_dword(xhciInfo.location.bus, xhciInfo.location.dev, xhciInfo.location.func, 0x4, pcie_cmd_reg);
-	printf("XHCI controller virtual base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio);
+	pcie_write_dword(xhciInfo.location, 0x4, pcie_cmd_reg);
+	printf("XHC virtual base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio);
+	printf("XHC physical base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio_physical);
 	if (xhci_reset()!=0){
 		printf("failed to reset XHCI controller\r\n");
 		return -1;
@@ -39,10 +41,12 @@ int xhci_init(void){
 		printf("failed to initialize device context ptr list\r\n");
 		return -1;
 	}
+	printf("initializing INT0 and ER\r\n");
 	if (xhci_init_interrupter()!=0){
 		printf("failed to initialize XHCI interrupter\r\n");
 		return -1;
 	}
+	printf("done\r\n");
 	volatile struct xhci_usb_legacy_support* pLegacySupport = (volatile struct xhci_usb_legacy_support*)0x0;
 	if (xhci_get_extended_cap(1, (volatile struct xhci_extended_cap_hdr**)&pLegacySupport)!=0){
 		printf("failed to get USB legacy support extended cap header\r\n");
@@ -55,8 +59,7 @@ int xhci_init(void){
 	uint64_t trbIndex = 0;
 	memset((void*)&trb, 0, sizeof(struct xhci_trb));
 	trb.command.control.type = XHCI_TRB_TYPE_NOP_CMD;
-	trb.command.control.ioc = 1;
-	trb.command.control.init_target = 0;
+//	trb.command.control.ioc = 1;
 	if (xhci_alloc_trb(&xhciInfo.cmdRingInfo, trb, &trbIndex)!=0){
 		printf("failed to allocate TRB entry\r\n");
 		return -1;
@@ -66,9 +69,10 @@ int xhci_init(void){
 	xhci_ring(0);
 	while (!xhci_get_cmd_ring_running()){};
 	printf("done running TRBs\r\n");
-	if (xhciInfo.pOperational->usb_status.host_system_error)
+	struct xhci_usb_status usb_status = xhciInfo.pOperational->usb_status;
+	if (usb_status.host_system_error)
 		printf("host system error\r\n");
-	if (xhciInfo.pOperational->usb_status.host_controller_error)
+	if (usb_status.host_controller_error)
 		printf("host controller error\r\n");
 	for (uint8_t i = 0;i<portCount;i++){
 		if (xhci_device_exists(i)!=0)
@@ -87,7 +91,7 @@ int xhci_get_info(struct xhci_info* pInfo){
 	}
 	if (xhci_get_location(&pInfo->location)!=0)
 		return -1;
-	if (pcie_get_bar(pInfo->location.bus, pInfo->location.dev, pInfo->location.func, 0, &pInfo->pBaseMmio_physical)!=0)
+	if (pcie_get_bar(pInfo->location, 0, &pInfo->pBaseMmio_physical)!=0)
 		return -1;
 	uint64_t baseMmioPages = 64;
 	if (virtualGetSpace((uint64_t*)&pInfo->pBaseMmio, baseMmioPages)!=0)
@@ -103,7 +107,6 @@ int xhci_get_info(struct xhci_info* pInfo){
 	pInfo->pDoorBells = (volatile uint32_t*)(pInfo->pBaseMmio+doorbellOffset);
 	struct xhci_cap_param0 capParam = pInfo->pCapabilities->cap_param0;
 	pInfo->pExtendedCapList = (volatile struct xhci_extended_cap_hdr*)(((uint32_t*)pInfo->pBaseMmio)+(((uint64_t)capParam.extended_cap_ptr)));
-	printf("doorbell offset: %d\r\n", doorbellOffset);
 	return 0;
 }
 int xhci_get_location(struct pcie_location* pLocation){
@@ -118,15 +121,19 @@ int xhci_get_location(struct pcie_location* pLocation){
 				uint8_t class_id = 0;
 				uint8_t subclass_id = 0;
 				uint8_t progif_id = 0;
-				if (pcie_get_class(bus, dev, func, &class_id)!=0)
+				struct pcie_location location = {0};
+				location.bus = bus;
+				location.dev = dev;
+				location.func = func;
+				if (pcie_get_class(location, &class_id)!=0)
 					continue;
 				if (class_id!=PCIE_CLASS_USB_HCI)
 					continue;
-				if (pcie_get_subclass(bus, dev, func, &subclass_id)!=0)
+				if (pcie_get_subclass(location, &subclass_id)!=0)
 					continue;
 				if (subclass_id!=PCIE_SUBCLASS_USB)
 					continue;
-				if (pcie_get_progif(bus, dev, func, &progif_id)!=0)
+				if (pcie_get_progif(location, &progif_id)!=0)
 					continue;
 				if (progif_id!=PCIE_PROGIF_XHCI)
 					continue;
@@ -144,7 +151,8 @@ int xhci_read_qword(volatile uint64_t* pQword, uint64_t* pValue){
 		return -1;
 	uint32_t low = *(volatile uint32_t*)pQword;
 	uint32_t high = *(((volatile uint32_t*)pQword)+1);
-	*pValue = *pQword;
+	*(uint32_t*)pValue = low;
+	*(((uint32_t*)pValue)+1) = high;
 	return 0;
 }
 int xhci_write_qword(volatile uint64_t* pQword, uint64_t value){
@@ -152,7 +160,8 @@ int xhci_write_qword(volatile uint64_t* pQword, uint64_t value){
 		return -1;
 	uint32_t low = (uint32_t)(value&0xFFFFFFFF);
 	uint32_t high = (uint32_t)((value>>32)&0xFFFFFFFF);
-	*pQword = value;
+	*(uint32_t*)pQword = low;
+	*(((uint32_t*)pQword)+1) = high;
 	return 0;
 }
 int xhci_get_port_list(volatile struct xhci_port** ppPortList){
@@ -211,16 +220,6 @@ int xhci_init_trb_list(struct xhci_trb_ring_info* pRingInfo){
 		return -1;
 	}
 	memset((void*)pRingBuffer, 0, ringBufferSize);
-	struct xhci_trb defaultTrb = {0};
-	memset((void*)&defaultTrb, 0, sizeof(defaultTrb));
-	defaultTrb.generic.control.ioc = 1;
-	defaultTrb.generic.control.type = XHCI_TRB_TYPE_NOP_CMD;
-	for (uint64_t i = 0;i<XHCI_MAX_CMD_TRB_ENTRIES-1;i++){
-		if (xhci_write_trb(pRingInfo, i, defaultTrb)!=0){
-			xhci_deinit_trb_list(pRingInfo);
-			return -1;
-		}
-	}
 	struct xhci_trb linkTrb = {0};
 	memset((void*)&linkTrb, 0, sizeof(struct xhci_trb));
 	linkTrb.generic.ptr = (uint64_t)pRingInfo->pRingBuffer_phys;
@@ -230,7 +229,6 @@ int xhci_init_trb_list(struct xhci_trb_ring_info* pRingInfo){
 		xhci_deinit_trb_list(pRingInfo);
 		return -1;
 	}
-	printf("ring buffer physical address: %p\r\n", pRingInfo->pRingBuffer_phys);
 	xhci_set_cmd_ring_base((uint64_t)pRingInfo->pRingBuffer_phys);
 	return 0;
 }
@@ -250,7 +248,7 @@ int xhci_alloc_trb(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, ui
 	volatile struct xhci_trb* pTrbEntry = (volatile struct xhci_trb*)0x0;
 	xhci_get_trb(pRingInfo, trbIndex, &pTrbEntry);
 	uint64_t startIndex = trbIndex;
-	while (pTrbEntry->generic.control.cycle_bit!=pRingInfo->cycle_state){
+	while (pTrbEntry->generic.control.cycle_bit!=pRingInfo->cycle_state&&pTrbEntry->generic.control.type){
 		xhci_get_trb(pRingInfo, trbIndex, &pTrbEntry);
 		trbIndex++;
 		if (trbIndex>=XHCI_MAX_CMD_TRB_ENTRIES-1){
@@ -308,14 +306,9 @@ int xhci_reset(void){
 		status = xhciInfo.pOperational->usb_status;
 		cmd = xhciInfo.pOperational->usb_cmd;
 	}
-	sleep(50);
+	sleep(25);
 	xhci_stop();
 	sleep(25);
-	struct xhci_config config = xhciInfo.pOperational->config;
-	struct xhci_structure_param0 param0 = xhciInfo.pCapabilities->structure_param0;
-	config.max_slots_enabled = param0.max_slots;
-	xhciInfo.pOperational->config = config;
-	sleep(5);
 	return 0;
 }
 int xhci_start(void){
@@ -336,6 +329,9 @@ int xhci_start(void){
 		status = xhciInfo.pOperational->usb_status;
 		if (status.halted)
 			continue;
+		status.host_controller_error = 0;
+		status.host_system_error = 0;
+		xhciInfo.pOperational->usb_status = status;
 		return 0;
 	}
 	return -1;
@@ -410,6 +406,8 @@ int xhci_deinit_trb_event_list(struct xhci_event_trb_ring_info* pRingInfo){
 		return -1;
 	if (virtualFreePage((uint64_t)pRingInfo->pRingBuffer, 0)!=0)
 		return -1;
+	if (virtualFreePage((uint64_t)pRingInfo->pSegmentTable, 0)!=0)
+		return -1;
 	memset((void*)&pRingInfo, 0, sizeof(struct xhci_event_trb_ring_info));
 	return 0;
 }
@@ -419,11 +417,24 @@ int xhci_init_interrupter(void){
 		printf("failed to get interrupter registers\r\n");
 		return -1;
 	}
+	uint64_t msixVector = 0;
 	volatile struct pcie_msix_msg_ctrl* pMsgControl = (volatile struct pcie_msix_msg_ctrl*)0x0;
-	if (pcie_get_cap_ptr(xhciInfo.location.bus, xhciInfo.location.dev, xhciInfo.location.func, 0x11, (struct pcie_cap_link**)&pMsgControl)!=0){
-		printf("failed to get MSIX capatability\r\n");
+	volatile struct pcie_msi_msg_ctrl* pMsiMsgControl = (volatile struct pcie_msi_msg_ctrl*)0x0;
+	volatile struct pcie_msix_table_entry* pMsixEntry = (volatile struct pcie_msix_table_entry*)0x0;
+	if (pcie_msix_get_msg_ctrl(xhciInfo.location, &pMsgControl)!=0){
+		printf("failed to get MSIX control\r\n");
 		return -1;
 	}
+	pcie_msi_get_msg_ctrl(xhciInfo.location, &pMsiMsgControl);
+	if (pMsiMsgControl){
+		printf("disabling MSI\r\n");
+		pcie_msi_disable(pMsiMsgControl);
+	}
+	if (pcie_get_msix_entry(xhciInfo.location, &pMsixEntry, pMsgControl, msixVector)!=0){
+		printf("failed to get MSIX table entry\r\n");
+		return -1;
+	}
+	pcie_msix_disable(pMsgControl);
 	if (xhci_init_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo)!=0){
 		printf("failed to initialize event TRB list\r\n");
 		return -1;
@@ -446,88 +457,144 @@ int xhci_init_interrupter(void){
 		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
 		return -1;
 	}
-	volatile struct xhci_segment_table_entry* pSegmentTableEntry = (volatile struct xhci_segment_table_entry*)0x0;
-	if (virtualAllocPage((uint64_t*)&pSegmentTableEntry, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
-		printf("failed to allocate segment table entry\r\n");
-		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
-		return -1;
-	}
-	uint64_t pSegmentTableEntry_phys = 0;
-	if (virtualToPhysical((uint64_t)pSegmentTableEntry, (uint64_t*)&pSegmentTableEntry_phys)!=0){
-		printf("failed to get physical address of segment table entry\r\n");
-		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
-		virtualFreePage((uint64_t)pSegmentTableEntry, 0);
-		return -1;
-	}
-	xhciInfo.interrupterInfo.eventRingInfo.pSegmentTableEntry = pSegmentTableEntry;
-	xhciInfo.interrupterInfo.eventRingInfo.pSegmentTableEntry_phys = pSegmentTableEntry_phys;
-	pSegmentTableEntry->base = (uint64_t)xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
-	pSegmentTableEntry->size = XHCI_MAX_CMD_TRB_ENTRIES;
-	pSegmentTableEntry->reserved0 = 0;
-	volatile struct pcie_msix_table_entry* pMsixTableBase = (volatile struct pcie_msix_table_entry*)0x0;
-	if (pcie_msix_get_table_base(xhciInfo.location.bus, xhciInfo.location.dev, xhciInfo.location.func, pMsgControl, &pMsixTableBase)!=0){
-		printf("failed to get MSIX table base\r\n");
-		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
-		virtualFreePage((uint64_t)pSegmentTableEntry, 0);
-		return -1;
-	}
-	if (virtualMapPage((uint64_t)pMsixTableBase, (uint64_t)pMsixTableBase, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0){
-		printf("failed to map MSIX table\r\n");
-		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
-		virtualFreePage((uint64_t)pSegmentTableEntry, 0);
-		return -1;
-	}
-	volatile struct pcie_msix_table_entry* pMsixEntry = pMsixTableBase;
-	if (pcie_set_msix_entry(pMsixEntry, lapic_id, interrupterVector)!=0){
+	idt_add_entry(interrupterVector, (uint64_t)xhci_interrupter_isr, 0x8E, 0x0);
+	if (pcie_set_msix_entry(xhciInfo.location, pMsgControl, 0, lapic_id, interrupterVector)!=0){
 		printf("failed to set MSIX entry\r\n");
 		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
-		virtualFreePage((uint64_t)pSegmentTableEntry, 0);
 		return -1;
 	}
-	idt_add_entry(interrupterVector, (uint64_t)xhci_interrupter_isr, 0x8E, 0x0);
-	printf("event ring segment table base: %p\r\n", (uint64_t)xhciInfo.interrupterInfo.eventRingInfo.pSegmentTableEntry_phys);
-	printf("event ring base: %p\r\n", (uint64_t)xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys);
-	xhci_write_qword((volatile uint64_t*)&pInt->event_ring_segment_table_base, xhciInfo.interrupterInfo.eventRingInfo.pSegmentTableEntry_phys);
-	struct xhci_interrupter_segment_table_size tableSize = {0};
-	tableSize.reserved0 = 0;
-	tableSize.table_size = 1;
-	pInt->event_ring_segment_table_size = tableSize;
-	uint32_t interrupt_moderation = pInt->interrupt_moderation;
-	*(uint16_t*)&interrupt_moderation = 0x0;
-	pInt->interrupt_moderation = interrupt_moderation;
-	uint32_t interrupt_management = pInt->interrupt_management;
-	interrupt_management = (interrupt_management&~0x2)|0x2;
-	pInt->interrupt_management = interrupt_management;
-	union xhci_cmd_ring_ctrl cmdRingControl = {0};
-	xhci_read_qword((volatile uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, (uint64_t*)&cmdRingControl);
-	unsigned char cycle_state = 0;
-	xhci_get_driver_cycle_state(&cycle_state);
-	cmdRingControl.ring_cycle_state = cycle_state;
-	xhci_write_qword((volatile uint64_t*)&xhciInfo.pOperational->cmd_ring_ctrl, *(uint64_t*)&cmdRingControl);
+	volatile struct xhci_segment_table_entry* pSegmentTable = (volatile struct xhci_segment_table_entry*)0x0;
+	uint64_t pSegmentTable_phys = 0;
+	if (virtualAllocPage((uint64_t*)&pSegmentTable, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate event segment table\r\n");
+		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
+		return -1;
+	}
+	if (virtualToPhysical((uint64_t)pSegmentTable, &pSegmentTable_phys)!=0){
+		printf("failed to get physical address of event ring segment table\r\n");
+		virtualFreePage((uint64_t)pSegmentTable, 0);
+		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
+		return -1;
+	}
+	memset((void*)pSegmentTable, 0, PAGE_SIZE);
+	printf("event TRB ring buffer PA: %p\r\n", xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys);
+	printf("cmd ring base: %p\r\n", xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys);
+	struct xhci_segment_table_entry segmentEntry = {0};
+	segmentEntry.base = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
+	segmentEntry.size = xhciInfo.interrupterInfo.eventRingInfo.maxEntries;
+	segmentEntry.reserved0 = 0;
+	*pSegmentTable = segmentEntry;
+	printf("segment table PA: %p\r\n", pSegmentTable_phys);
+	pInt->table_size = 1;
+	struct xhci_interrupter_iman iman = pInt->interrupt_management;
+	iman.interrupt_enable = 1;
+	iman.interrupt_pending = 1;
+	pInt->interrupt_management = iman;
+	uint32_t imod = pInt->interrupt_moderation;
+	imod = 0;
+	pInt->interrupt_moderation = imod;
+	printf("interrupter vector: %d\r\n", interrupterVector);
+	xhci_update_dequeue_trb();
+	struct xhci_usb_cmd usb_cmd = xhciInfo.pOperational->usb_cmd;
+	xhci_write_qword((uint64_t*)&pInt->table_base, pSegmentTable_phys);	
+	usb_cmd.interrupter_enable = 1;
+	xhciInfo.pOperational->usb_cmd = usb_cmd;
+	xhciInfo.interrupterInfo.eventRingInfo.pSegmentTable = pSegmentTable;
+	xhciInfo.interrupterInfo.eventRingInfo.pSegmentTable_phys = pSegmentTable_phys;
+	xhciInfo.interrupterInfo.eventRingInfo.maxSegmentTableEntryCount = XHCI_MAX_EVENT_SEGMENT_TABLE_ENTRIES;
+	xhciInfo.interrupterInfo.vector = interrupterVector;
+	pcie_msix_enable(pMsgControl);
+	pcie_msix_enable_entry(xhciInfo.location, pMsgControl, msixVector);
+	printf("interrupter vector: %d\r\n", interrupterVector);
+	xhci_send_ack(0);
+	return 0;
+}
+int xhci_start_interrupter(uint64_t interrupter_id){
+	volatile struct xhci_interrupter* pInt = (volatile struct xhci_interrupter*)0x0;
+	if (xhci_get_interrupter_base(interrupter_id, &pInt)!=0)
+		return -1;
+	struct xhci_dequeue_ring_ptr dequeue_ring_ptr = {0};
+	xhci_read_qword((volatile uint64_t*)&pInt->dequeue_ring_ptr, (uint64_t*)&dequeue_ring_ptr);
+	dequeue_ring_ptr.event_ring_dequeue_ptr = (uint64_t)xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
+	dequeue_ring_ptr.event_handler_busy = 1;
+	xhci_write_qword((volatile uint64_t*)&pInt->dequeue_ring_ptr, *(uint64_t*)&dequeue_ring_ptr);
 	struct xhci_usb_cmd usb_cmd = xhciInfo.pOperational->usb_cmd;
 	usb_cmd.interrupter_enable = 1;
 	xhciInfo.pOperational->usb_cmd = usb_cmd;
-	struct xhci_dequeue_ring_ptr dequeue_ring_ptr = {0};
-	xhci_read_qword((volatile uint64_t*)&pInt->dequeue_ring_ptr, (uint64_t*)&dequeue_ring_ptr);
-	dequeue_ring_ptr.event_handler_busy = 0;
-	dequeue_ring_ptr.event_ring_dequeue_ptr = (uint64_t)xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
-	xhci_write_qword((volatile uint64_t*)&pInt->dequeue_ring_ptr, *(uint64_t*)&dequeue_ring_ptr);
-	pMsgControl->msix_enable = 1;
-	pMsgControl->vector_mask = 0;
+	xhci_send_ack(interrupter_id);
 	return 0;
 }
 int xhci_send_ack(uint64_t interrupter_id){
 	volatile struct xhci_interrupter* pInt = (volatile struct xhci_interrupter*)0x0;
 	if (xhci_get_interrupter_base(interrupter_id, &pInt)!=0)
 		return -1;
-	uint32_t iman = pInt->interrupt_management;
-	iman|=(1<<0);
+	struct xhci_usb_status usb_status = xhciInfo.pOperational->usb_status;
+	usb_status.event_int = 1;
+	xhciInfo.pOperational->usb_status = usb_status;
+	struct xhci_interrupter_iman iman = pInt->interrupt_management;	
+	iman.interrupt_pending = 1;
 	pInt->interrupt_management = iman;	
+	return 0;
+}
+int xhci_update_dequeue_trb(void){
+	volatile struct xhci_interrupter* pInt = (volatile struct xhci_interrupter*)0x0;
+	if (xhci_get_interrupter_base(0, &pInt)!=0)
+		return -1;
+	if (!xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase)
+		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
+	else
+		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase+=sizeof(struct xhci_trb);
+	uint64_t dequeue_ring_ptr = xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase;
+	printf("new dequeue ring TRB: %p\r\n", dequeue_ring_ptr);
+	xhci_write_qword((uint64_t*)&pInt->dequeue_ring_ptr, dequeue_ring_ptr);
 	return 0;
 }
 int xhci_interrupter(void){
 	printf("XHCI interrupter\r\n");
+	xhci_update_dequeue_trb();
 	xhci_send_ack(0);
+	return 0;
+}
+int xhci_dump_interrupter(uint64_t interrupter_id){
+	volatile struct xhci_interrupter* pInt = (volatile struct xhci_interrupter*)0x0;
+	if (xhci_get_interrupter_base(interrupter_id, &pInt)!=0)
+		return -1;
+	struct xhci_interrupter_iman iman = pInt->interrupt_management;
+	uint64_t event_segment_table_base = 0;
+	uint64_t event_segment_table_entry_count = pInt->table_size;
+	xhci_read_qword(&pInt->table_base, &event_segment_table_base);
+	if (!event_segment_table_base){
+		printf("invalid segment table base\r\n");
+		return -1;
+	}
+	volatile uint64_t* pSegmentTable = (volatile uint64_t*)0x0;
+	uint64_t segmentTablePages = align_up(event_segment_table_entry_count*sizeof(uint64_t), PAGE_SIZE)/PAGE_SIZE;
+	if (virtualGetSpace((uint64_t*)&pSegmentTable, segmentTablePages)!=0){
+		return -1;
+	}
+	if (virtualMapPages(event_segment_table_base, (uint64_t)pSegmentTable, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, segmentTablePages, 1, 0, PAGE_TYPE_MMIO)!=0){
+		return -1;
+	}
+	printf("interrupt enable: %s\r\n", (iman.interrupt_enable) ? "true" : "false");
+	printf("interrupt pending: %s\r\n", (iman.interrupt_pending) ? "true" : "false");
+	printf("event segment table entry count: %d\r\n", event_segment_table_entry_count);
+	for (uint64_t i = 0;i<event_segment_table_entry_count;i++){
+		uint64_t segmentEntry_pa = (uint64_t)pSegmentTable[i];
+		if (!segmentEntry_pa){
+			printf("invalid segment entry\r\n");
+			virtualUnmapPages((uint64_t)pSegmentTable, segmentTablePages, 0);
+			return -1;
+		}
+		volatile struct xhci_segment_table_entry* pSegmentEntry = (volatile struct xhci_segment_table_entry*)0x0;
+		if (virtualGetSpace((uint64_t*)&pSegmentEntry, 1)!=0)
+			return -1;
+		if (virtualMapPage(segmentEntry_pa, (uint64_t)pSegmentEntry, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0)
+			return -1;
+		printf("event ring segment base: %p\r\n", pSegmentEntry->base);
+		printf("event ring max TRB count: %d\r\n", pSegmentEntry->size);
+		virtualUnmapPage((uint64_t)pSegmentEntry, 0);
+	}
+	virtualUnmapPages((uint64_t)pSegmentTable, segmentTablePages, 0);
 	return 0;
 }
 int xhci_init_device_context_list(void){
