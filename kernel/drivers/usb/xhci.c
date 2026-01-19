@@ -99,10 +99,28 @@ int xhci_init(void){
 		printf("host system error\r\n");
 	if (usb_status.host_controller_error)
 		printf("host controller error\r\n");
+	while (1){
+		uint64_t slotId = 0;
+		if (xhci_enable_slot(&slotId)!=0){
+			printf("failed to enable slot\r\n");
+			break;
+		}
+		printf("slot ID: %d\r\n", slotId);
+		if (xhci_disable_slot(slotId)!=0){
+			printf("failed to disable slot\r\n");
+			break;
+		}
+	}
 	for (uint8_t i = 0;i<portCount;i++){
 		if (xhci_device_exists(i)!=0)
 			continue;
 		printf("XHCI controlled USB device at port %d\r\n", i);
+		struct xhci_device_context* pDeviceContext = (struct xhci_device_context*)0x0;
+		if (xhci_alloc_device_context(i, &pDeviceContext)!=0){
+			printf("failed to get device context\r\n");
+			continue;
+		}
+		xhci_free_device_context(pDeviceContext);
 	}
 	while (1){};
 	return 0;
@@ -279,9 +297,13 @@ int xhci_alloc_cmd(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, st
 	if (!pRingInfo||!ppCmdDesc)
 		return -1;
 	uint64_t trbIndex = pRingInfo->currentEntry;
-	if (trbIndex>XHCI_MAX_CMD_TRB_ENTRIES-1){
-		pRingInfo->cycle_state!=pRingInfo->cycle_state;
+	if (trbIndex>=XHCI_MAX_CMD_TRB_ENTRIES-1){
+		pRingInfo->cycle_state = !pRingInfo->cycle_state;
 		trbIndex = 0;
+		pRingInfo->currentEntry = 0;
+		volatile struct xhci_trb* pLinkTrb = (volatile struct xhci_trb*)0x0;
+		xhci_get_cmd(pRingInfo, XHCI_MAX_CMD_TRB_ENTRIES-1, &pLinkTrb);
+		pLinkTrb->command.control.cycle_bit = pRingInfo->cycle_state;
 	}
 	xhci_write_cmd(pRingInfo, trbIndex, trb);
 	volatile struct xhci_trb* pCmdTrb = pRingInfo->pRingBuffer+trbIndex;
@@ -291,8 +313,8 @@ int xhci_alloc_cmd(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, st
 	pCmdDesc->pCmdTrb = pCmdTrb;
 	pCmdDesc->pCmdTrb_phys = pCmdTrb_phys;
 	pCmdDesc->trbIndex = trbIndex;
-	*ppCmdDesc = pCmdDesc;
 	pRingInfo->currentEntry++;	
+	*ppCmdDesc = pCmdDesc;
 	return 0;
 }
 int xhci_get_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry){
@@ -570,7 +592,7 @@ int xhci_update_dequeue_trb(void){
 	volatile struct xhci_interrupter* pInt = (volatile struct xhci_interrupter*)0x0;
 	if (xhci_get_interrupter_base(0, &pInt)!=0)
 		return -1;
-	if (!xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase||(xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb)>=xhciInfo.interrupterInfo.eventRingInfo.maxEntries-1){
+	if (!xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase||(xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb)>xhciInfo.interrupterInfo.eventRingInfo.maxEntries-1){
 		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase_phys = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
 		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer;
 		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb = 0;
@@ -608,8 +630,13 @@ int xhci_get_event_trb_phys(uint64_t* ppTrbEntry){
 	return 0;
 }
 int xhci_get_trb_type_name(uint64_t type, const unsigned char** ppName){
-	if (!ppName||type>0x27)
+	if (!ppName){
 		return -1;
+	}
+	if (type>0x27){
+		*ppName = "Invalid type";
+		return 0;
+	}
 	static const unsigned char* mapping[]={
 		[XHCI_TRB_TYPE_INVALID]="Invalid type",
 		[XHCI_TRB_TYPE_NORMAL]="Normal",
@@ -648,7 +675,38 @@ int xhci_get_trb_type_name(uint64_t type, const unsigned char** ppName){
 	};
 	const unsigned char* pName = mapping[type];
 	if (!pName)
+		pName = "Invalid type";
+	*ppName = pName;
+	return 0;
+}
+int xhci_get_error_name(uint64_t error_code, const unsigned char** ppName){
+	if (!ppName)
 		return -1;
+	if (error_code>0x1A){
+		*ppName = "Unknown error";
+		return 0;
+	}
+	static const unsigned char* mapping[]={
+		[XHCI_COMPLETION_CODE_INVALID]="Unknown error",
+		[XHCI_COMPLETION_CODE_SUCCESS]="Success",
+		[XHCI_COMPLETION_CODE_DMA_ERROR]="Dma access error",
+		[XHCI_COMPLETION_CODE_OVERFLOW]="Overflow", 
+		[XHCI_COMPLETION_CODE_BUS_ERROR]="Bus error",
+		[XHCI_COMPLETION_CODE_TRB_ERROR]="Trb error",
+		[XHCI_COMPLETION_CODE_STALL_ERROR]="Stall error",
+		[XHCI_COMPLETION_CODE_RESOURCE_ERROR]="Resource error",
+		[XHCI_COMPLETION_CODE_BANDWIDTH_ERROR]="Bandwidth error",
+		[XHCI_COMPLETION_CODE_NO_SLOTS_AVAILABLE]="No slots available", 
+		[XHCI_COMPLETION_CODE_SLOT_NOT_ENABLED]="Slot not enabled",
+		[XHCI_COMPLETION_CODE_ENDPOINT_NOT_ENABLED]="Endpoint not enabled",
+		[XHCI_COMPLETION_CODE_SHORT_PACKET]="Short packet",
+		[XHCI_COMPLETION_CODE_PARAM_ERROR]="Param error",
+		[XHCI_COMPLETION_CODE_CONTEXT_STATE_ERROR]="Context state error",
+		[XHCI_COMPLETION_CODE_EVENT_RING_FULL]="Event ring fulll",
+	};
+	const unsigned char* pName = mapping[error_code];
+	if (!pName)
+		pName = "Unknown error";
 	*ppName = pName;
 	return 0;
 }
@@ -736,9 +794,15 @@ int xhci_init_device_context_list(void){
 	if (virtualAllocPage((uint64_t*)&pDeviceContextList, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
 	memset((void*)pDeviceContextList, 0, PAGE_SIZE);
+	uint64_t pDeviceContextList_phys = 0;
+	if (virtualToPhysical((uint64_t)pDeviceContextList, &pDeviceContextList_phys)!=0){
+		virtualFreePage((uint64_t)pDeviceContextList, 0);
+		return -1;
+	}
 	xhciInfo.deviceContextListInfo.pContextList = pDeviceContextList;
+	xhciInfo.deviceContextListInfo.pContextList_phys = pDeviceContextList_phys;
 	xhciInfo.deviceContextListInfo.maxDeviceCount = XHCI_MAX_DEVICE_COUNT;
-	xhci_write_qword((uint64_t*)&xhciInfo.pOperational->device_context_base_list_ptr, (uint64_t)pDeviceContextList);
+	xhci_write_qword((uint64_t*)&xhciInfo.pOperational->device_context_base_list_ptr, (uint64_t)pDeviceContextList_phys);
 	return 0;
 }
 int xhci_get_driver_cycle_state(unsigned char* pCycleState){
@@ -774,4 +838,71 @@ int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr*
 		return 0;
 	}
 	return -1;
+}
+int xhci_enable_slot(uint64_t* pSlotId){
+	if (!pSlotId)
+		return -1;
+	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
+	struct xhci_trb cmdTrb = {0};
+	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
+	cmdTrb.command.control.type = XHCI_TRB_TYPE_ENABLE_SLOT;
+	if (xhci_alloc_cmd(&xhciInfo.cmdRingInfo, cmdTrb, &pCmdDesc)!=0)
+		return -1;
+	xhci_start();
+	xhci_ring(0);
+	while (!pCmdDesc->pEventTrb||!xhci_get_cmd_ring_running()){};
+	volatile struct xhci_trb* pEventTrb = pCmdDesc->pEventTrb;
+	struct xhci_trb eventTrb = *pEventTrb;
+	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
+		const unsigned char* errorName = "Unknown error";
+		xhci_get_error_name((uint64_t)eventTrb.event.completion_code, &errorName);
+		printf("failed to enable slot (%s)\r\n", errorName);
+		return -1;
+	}
+	*pSlotId = (uint64_t)eventTrb.enable_slot_event.slot_id;
+	return 0;
+}
+int xhci_disable_slot(uint64_t slotId){
+	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
+	struct xhci_trb cmdTrb = {0};
+	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
+	cmdTrb.disable_slot_cmd.type = XHCI_TRB_TYPE_DISABLE_SLOT;
+	cmdTrb.disable_slot_cmd.slot_id = (uint8_t)slotId;
+	if (xhci_alloc_cmd(&xhciInfo.cmdRingInfo, cmdTrb, &pCmdDesc)!=0)
+		return -1;
+	xhci_start();
+	xhci_ring(0);
+	while (!pCmdDesc->pEventTrb||!xhci_get_cmd_ring_running()){};
+	volatile struct xhci_trb* pEventTrb = pCmdDesc->pEventTrb;
+	struct xhci_trb eventTrb = *pEventTrb;
+	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
+		const unsigned char* errorName = "Unknown error";
+		xhci_get_error_name((uint64_t)eventTrb.event.completion_code, &errorName);
+		printf("failed to disable slot (%s)\r\n", errorName);
+		return -1;
+	}
+	return 0;
+}
+int xhci_alloc_device_context(uint64_t port, struct xhci_device_context** ppDeviceContext){
+	if (!ppDeviceContext)
+		return -1;
+	uint64_t slotId = 0;
+	if (xhci_enable_slot(&slotId)!=0)
+		return -1;
+	struct xhci_device_context* pDeviceContext = (struct xhci_device_context*)kmalloc(sizeof(struct xhci_device_context));
+	if (!pDeviceContext){
+		virtualFreePage((uint64_t)pDeviceContext, 0);
+		xhci_disable_slot(slotId);
+		return -1;
+	}
+	memset((void*)pDeviceContext, 0, sizeof(struct xhci_device_context));
+	*ppDeviceContext = pDeviceContext;
+	return 0;
+}
+int xhci_free_device_context(struct xhci_device_context* pDeviceContext){
+	if (!pDeviceContext)
+		return -1;
+	if (kfree((void*)pDeviceContext)!=0)
+		return -1;
+	return 0;
 }

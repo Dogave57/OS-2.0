@@ -44,6 +44,22 @@
 #define XHCI_EVENT_TRB_TYPE_HC_ERROR (0x25)
 #define XHCI_EVENT_TRB_TYPE_DEV_NOTIF (0x26)
 #define XHCI_EVENT_TRB_TYPE_MFINDEX_WRAP (0x27)
+#define XHCI_COMPLETION_CODE_INVALID (0x0)
+#define XHCI_COMPLETION_CODE_SUCCESS (0x1)
+#define XHCI_COMPLETION_CODE_DMA_ERROR (0x2)
+#define XHCI_COMPLETION_CODE_OVERFLOW (0x3)
+#define XHCI_COMPLETION_CODE_BUS_ERROR (0x4)
+#define XHCI_COMPLETION_CODE_TRB_ERROR (0x5)
+#define XHCI_COMPLETION_CODE_STALL_ERROR (0x6)
+#define XHCI_COMPLETION_CODE_RESOURCE_ERROR (0x7)
+#define XHCI_COMPLETION_CODE_BANDWIDTH_ERROR (0x8)
+#define XHCI_COMPLETION_CODE_NO_SLOTS_AVAILABLE (0x9)
+#define XHCI_COMPLETION_CODE_SLOT_NOT_ENABLED (0xB)
+#define XHCI_COMPLETION_CODE_ENDPOINT_NOT_ENABLED (0xC)
+#define XHCI_COMPLETION_CODE_SHORT_PACKET (0xD)
+#define XHCI_COMPLETION_CODE_PARAM_ERROR (0x11)
+#define XHCI_COMPLETION_CODE_CONTEXT_STATE_ERROR (0x13)
+#define XHCI_COMPLETION_CODE_EVENT_RING_FULL (0x1A)
 struct xhci_structure_param0{
 	uint32_t max_slots:8;
 	uint32_t max_interrupters:11;
@@ -235,9 +251,40 @@ struct xhci_trb{
 		}generic;
 		struct{
 			uint64_t trb_ptr;
-			struct xhci_trb_status status;
+			uint32_t reserved0:24;
+			uint32_t completion_code:8;
 			struct xhci_trb_control control;
 		}event;
+		struct{
+			uint64_t trb_ptr;
+			uint32_t reserved0:24;
+			uint32_t completion_code:8;
+			uint32_t cycle_bit:1;
+			uint32_t reserved1:9;
+			uint32_t type:6;
+			uint32_t vf_id:8;
+			uint32_t slot_id:8;
+		}enable_slot_event;
+		struct{
+			uint64_t context_list_ptr;
+			uint32_t reserved0;
+			uint32_t cycle_bit:1;
+			uint32_t reserved1:8;
+			uint32_t block_set_address_request:1;
+			uint32_t type:6;
+			uint32_t reserved2:8;
+			uint32_t slot_id:8;
+		}address_device_cmd;
+		struct{
+			uint32_t reserved0;
+			uint32_t reserved1;
+			uint32_t reserved2;
+			uint32_t cycle_bit:1;
+			uint32_t reserved3:9;
+			uint32_t type:6;
+			uint32_t reserved4:8;
+			uint32_t slot_id:8;
+		}disable_slot_cmd;
 		struct{
 			uint32_t param0;
 			uint32_t param1;
@@ -277,10 +324,6 @@ struct xhci_endpoint_context{
 	uint32_t reserved3;
 	uint32_t reserved4;
 }__attribute__((packed));
-struct xhci_device_context{
-	struct xhci_slot_context slot;
-	volatile struct xhci_endpoint_context endpoints[31];
-}__attribute__((packed));
 struct xhci_cmd_desc{
 	volatile struct xhci_trb* pCmdTrb;
 	volatile struct xhci_trb* pEventTrb;
@@ -315,7 +358,12 @@ struct xhci_interrupter_info{
 };
 struct xhci_device_context_list_info{
 	uint64_t* pContextList;
+	uint64_t pContextList_phys;
 	uint64_t maxDeviceCount;
+};
+struct xhci_device_context{
+	volatile struct xhci_slot_context* pSlotContext;
+	uint64_t pSlotContext_phys;
 };
 struct xhci_info{
 	uint64_t pBaseMmio;
@@ -365,6 +413,7 @@ int xhci_update_dequeue_trb(void);
 int xhci_get_event_trb(volatile struct xhci_trb** ppTrbEntry);
 int xhci_get_event_trb_phys(uint64_t* ppTrbEntry);
 int xhci_get_trb_type_name(uint64_t type, const unsigned char** ppName);
+int xhci_get_error_name(uint64_t error_code, const unsigned char** ppName);
 int xhci_interrupter(void);
 int xhci_interrupter_isr(void);
 int xhci_dump_interrupter(uint64_t interrupter_id);
@@ -373,4 +422,8 @@ int xhci_get_driver_cycle_state(unsigned char* pCycleState);
 int xhci_get_hc_cycle_state(unsigned char* pCycleState);
 int xhci_init_scratchpad(void);
 int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr** ppCapHeader);
+int xhci_enable_slot(uint64_t* pSlotId);
+int xhci_disable_slot(uint64_t slotId);
+int xhci_alloc_device_context(uint64_t port, struct xhci_device_context** ppDeviceContext);
+int xhci_free_device_context(struct xhci_device_context* pDeviceContext);
 #endif
