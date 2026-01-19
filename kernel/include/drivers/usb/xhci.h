@@ -10,6 +10,7 @@
 #define XHCI_MAX_EVENT_SEGMENT_TABLE_ENTRIES (256)
 #define XHCI_DEFAULT_PAGE_SIZE (0x0)
 #define XHCI_DEFAULT_INTERRUPTER_ID (0x0)
+#define XHCI_TRB_TYPE_INVALID (0x0)
 #define XHCI_TRB_TYPE_NORMAL (0x01)
 #define XHCI_TRB_TYPE_SETUP (0x02)
 #define XHCI_TRB_TYPE_DATA (0x03)
@@ -144,15 +145,17 @@ struct xhci_usb_cmd{
 }__attribute__((packed));
 struct xhci_usb_status{
 	uint32_t halted:1;
+	uint32_t reserved0:1;
 	uint32_t host_system_error:1;
 	uint32_t event_int:1;
 	uint32_t port_change_detect:1;
-	uint32_t reserved0:5;
+	uint32_t reserved1:3;
 	uint32_t save_state_status:1;
 	uint32_t restore_state_status:1;
+	uint32_t save_restore_error:1;
 	uint32_t controller_not_ready:1;
 	uint32_t host_controller_error:1;
-	uint32_t reserved1:19;
+	uint32_t reserved2:19;
 }__attribute__((packed));
 struct xhci_config{
 	uint32_t max_slots_enabled:8;
@@ -287,7 +290,9 @@ struct xhci_trb_ring_info{
 	uint64_t maxEntries;
 };
 struct xhci_event_trb_ring_info{
-	uint64_t dequeueTrbBase;
+	uint64_t dequeueTrb;
+	uint64_t dequeueTrbBase_phys;
+	volatile struct xhci_trb* dequeueTrbBase;
 	volatile struct xhci_segment_table_entry* pSegmentTable;
 	uint64_t pSegmentTable_phys;
 	uint64_t maxSegmentTableEntryCount;
@@ -344,9 +349,12 @@ int xhci_get_interrupter_base(uint64_t interrupter_id, volatile struct xhci_inte
 int xhci_init_trb_event_list(struct xhci_event_trb_ring_info* pRingInfo);
 int xhci_deinit_trb_event_list(struct xhci_event_trb_ring_info* pRingInfo);
 int xhci_init_interrupter(void);
-int xhci_start_interrupter(uint64_t interrupter_id);
 int xhci_send_ack(uint64_t interrupter_id);
+int xhci_get_dequeue_trb_phys(uint64_t* ppTrbEntry);
+int xhci_get_dequeue_trb(volatile struct xhci_trb** ppTrbEntry);
 int xhci_update_dequeue_trb(void);
+int xhci_get_event_trb(volatile struct xhci_trb** ppTrbEntry);
+int xhci_get_trb_type_name(uint64_t type, const unsigned char** ppName);
 int xhci_interrupter(void);
 int xhci_interrupter_isr(void);
 int xhci_dump_interrupter(uint64_t interrupter_id);

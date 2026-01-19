@@ -9,6 +9,7 @@
 #include "drivers/usb/xhci.h"
 struct xhci_info xhciInfo = {0};
 int xhci_init(void){
+	memset((void*)&xhciInfo, 0, sizeof(struct xhci_info));
 	if (xhci_get_info(&xhciInfo)!=0)
 		return -1;
 	printf("XHCI controller bus: %d, dev: %d, func: %d\r\n", xhciInfo.location.bus, xhciInfo.location.dev, xhciInfo.location.func);
@@ -17,7 +18,7 @@ int xhci_init(void){
 	pcie_cmd_reg|=(1<<0);
 	pcie_cmd_reg|=(1<<1);
 	pcie_cmd_reg|=(1<<2);
-	pcie_cmd_reg|=(1<<10);
+//	pcie_cmd_reg|=(1<<10);
 	pcie_write_dword(xhciInfo.location, 0x4, pcie_cmd_reg);
 	printf("XHC virtual base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio);
 	printf("XHC physical base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio_physical);
@@ -59,16 +60,20 @@ int xhci_init(void){
 	uint64_t trbIndex = 0;
 	memset((void*)&trb, 0, sizeof(struct xhci_trb));
 	trb.command.control.type = XHCI_TRB_TYPE_NOP_CMD;
-//	trb.command.control.ioc = 1;
-	if (xhci_alloc_trb(&xhciInfo.cmdRingInfo, trb, &trbIndex)!=0){
-		printf("failed to allocate TRB entry\r\n");
-		return -1;
+	trb.command.control.ioc = 1;
+	for (uint64_t i = 0;i<8;i++){
+		if (xhci_alloc_trb(&xhciInfo.cmdRingInfo, trb, &trbIndex)!=0){
+			printf("failed to allocate TRB entry\r\n");
+			return -1;
+		}
 	}
 	xhci_start();
 	printf("running TRBs\r\n");
 	xhci_ring(0);
+	uint64_t time_us = get_time_us();
 	while (!xhci_get_cmd_ring_running()){};
-	printf("done running TRBs\r\n");
+	uint64_t elapsed_us = get_time_us()-time_us;
+	printf("done running TRBs in %dus\r\n", elapsed_us);
 	struct xhci_usb_status usb_status = xhciInfo.pOperational->usb_status;
 	if (usb_status.host_system_error)
 		printf("host system error\r\n");
@@ -243,22 +248,12 @@ int xhci_alloc_trb(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, ui
 	if (!pRingInfo||!pTrbIndex)
 		return -1;
 	uint64_t trbIndex = pRingInfo->currentEntry;
-	if (trbIndex>XHCI_MAX_CMD_TRB_ENTRIES-1)
+	if (trbIndex>XHCI_MAX_CMD_TRB_ENTRIES-1){
+		pRingInfo->cycle_state!=pRingInfo->cycle_state;
 		trbIndex = 0;
-	volatile struct xhci_trb* pTrbEntry = (volatile struct xhci_trb*)0x0;
-	xhci_get_trb(pRingInfo, trbIndex, &pTrbEntry);
-	uint64_t startIndex = trbIndex;
-	while (pTrbEntry->generic.control.cycle_bit!=pRingInfo->cycle_state&&pTrbEntry->generic.control.type){
-		xhci_get_trb(pRingInfo, trbIndex, &pTrbEntry);
-		trbIndex++;
-		if (trbIndex>=XHCI_MAX_CMD_TRB_ENTRIES-1){
-			trbIndex = 0;
-			pRingInfo->cycle_state = !pRingInfo->cycle_state;
-		}
-		if (trbIndex==startIndex)
-			return -1;
 	}
 	xhci_write_trb(pRingInfo, trbIndex, trb);
+	pRingInfo->currentEntry++;
 	*pTrbIndex = trbIndex;
 	return 0;
 }
@@ -494,7 +489,6 @@ int xhci_init_interrupter(void){
 	imod = 0;
 	pInt->interrupt_moderation = imod;
 	printf("interrupter vector: %d\r\n", interrupterVector);
-	xhci_update_dequeue_trb();
 	struct xhci_usb_cmd usb_cmd = xhciInfo.pOperational->usb_cmd;
 	xhci_write_qword((uint64_t*)&pInt->table_base, pSegmentTable_phys);	
 	usb_cmd.interrupter_enable = 1;
@@ -503,25 +497,11 @@ int xhci_init_interrupter(void){
 	xhciInfo.interrupterInfo.eventRingInfo.pSegmentTable_phys = pSegmentTable_phys;
 	xhciInfo.interrupterInfo.eventRingInfo.maxSegmentTableEntryCount = XHCI_MAX_EVENT_SEGMENT_TABLE_ENTRIES;
 	xhciInfo.interrupterInfo.vector = interrupterVector;
-	pcie_msix_enable(pMsgControl);
 	pcie_msix_enable_entry(xhciInfo.location, pMsgControl, msixVector);
+	pcie_msix_enable(pMsgControl);
 	printf("interrupter vector: %d\r\n", interrupterVector);
 	xhci_send_ack(0);
-	return 0;
-}
-int xhci_start_interrupter(uint64_t interrupter_id){
-	volatile struct xhci_interrupter* pInt = (volatile struct xhci_interrupter*)0x0;
-	if (xhci_get_interrupter_base(interrupter_id, &pInt)!=0)
-		return -1;
-	struct xhci_dequeue_ring_ptr dequeue_ring_ptr = {0};
-	xhci_read_qword((volatile uint64_t*)&pInt->dequeue_ring_ptr, (uint64_t*)&dequeue_ring_ptr);
-	dequeue_ring_ptr.event_ring_dequeue_ptr = (uint64_t)xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
-	dequeue_ring_ptr.event_handler_busy = 1;
-	xhci_write_qword((volatile uint64_t*)&pInt->dequeue_ring_ptr, *(uint64_t*)&dequeue_ring_ptr);
-	struct xhci_usb_cmd usb_cmd = xhciInfo.pOperational->usb_cmd;
-	usb_cmd.interrupter_enable = 1;
-	xhciInfo.pOperational->usb_cmd = usb_cmd;
-	xhci_send_ack(interrupter_id);
+	xhci_update_dequeue_trb();
 	return 0;
 }
 int xhci_send_ack(uint64_t interrupter_id){
@@ -536,23 +516,111 @@ int xhci_send_ack(uint64_t interrupter_id){
 	pInt->interrupt_management = iman;	
 	return 0;
 }
+int xhci_get_dequeue_trb_phys(uint64_t* ppTrbEntry){
+	if (!ppTrbEntry)
+		return -1;
+	*ppTrbEntry = xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase_phys;
+	return 0;
+}
+int xhci_get_dequeue_trb(volatile struct xhci_trb** ppTrbEntry){
+	if (!ppTrbEntry)
+		return -1;
+	*ppTrbEntry = xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase;
+	return 0;
+}
 int xhci_update_dequeue_trb(void){
 	volatile struct xhci_interrupter* pInt = (volatile struct xhci_interrupter*)0x0;
 	if (xhci_get_interrupter_base(0, &pInt)!=0)
 		return -1;
-	if (!xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase)
-		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
-	else
-		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase+=sizeof(struct xhci_trb);
-	uint64_t dequeue_ring_ptr = xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase;
-	printf("new dequeue ring TRB: %p\r\n", dequeue_ring_ptr);
+	if (!xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase||(xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb)>=xhciInfo.interrupterInfo.eventRingInfo.maxEntries-1){
+		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase_phys = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
+		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer;
+		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb = 0;
+	}
+	else{
+		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase_phys+=sizeof(struct xhci_trb);
+		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase++;
+	}
+	uint64_t dequeue_ring_ptr = xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase_phys;
+	dequeue_ring_ptr|=(1<<3);
 	xhci_write_qword((uint64_t*)&pInt->dequeue_ring_ptr, dequeue_ring_ptr);
+	xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb++;
+	return 0;
+}
+int xhci_get_event_trb(volatile struct xhci_trb** ppTrbEntry){
+	if (!ppTrbEntry)
+		return -1;
+	volatile struct xhci_trb* pTrbEntry = (volatile struct xhci_trb*)0x0;
+	if (xhci_get_dequeue_trb(&pTrbEntry)!=0)
+		return -1;
+	if (!pTrbEntry)
+		pTrbEntry = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer;
+	*ppTrbEntry = pTrbEntry;
+	return 0;
+}
+int xhci_get_trb_type_name(uint64_t type, const unsigned char** ppName){
+	if (!ppName||type>0x27)
+		return -1;
+	static const unsigned char* mapping[]={
+		[XHCI_TRB_TYPE_INVALID]="Invalid type",
+		[XHCI_TRB_TYPE_NORMAL]="Normal",
+		[XHCI_TRB_TYPE_SETUP]="Setup",
+		[XHCI_TRB_TYPE_DATA]="Data",
+		[XHCI_TRB_TYPE_STATUS]="Status",
+		[XHCI_TRB_TYPE_ISOCH]="Isoch",
+		[XHCI_TRB_TYPE_LINK]="Link",
+		[XHCI_TRB_TYPE_EVENT]="Event",
+		[XHCI_TRB_TYPE_NOP_TRANSFER]="Nop transfer",
+		[XHCI_TRB_TYPE_ENABLE_SLOT]="Enable slot",
+		[XHCI_TRB_TYPE_DISABLE_SLOT]="Disable slot",
+		[XHCI_TRB_TYPE_ADDRESS_DEVICE]="Address device",
+		[XHCI_TRB_TYPE_CONFIG_ENDPOINT]="Configure endpoint",
+		[XHCI_TRB_TYPE_UPDATE_CONTEXT]="Update context",
+		[XHCI_TRB_TYPE_RESET_ENDPOINT]="Reset endpoint",
+		[XHCI_TRB_TYPE_STOP_ENDPOINT]="Stop endpoint",
+		[XHCI_TRB_TYPE_SET_EVENT_DEQUEUE_PTR]="Set event dequeue pointer",
+		[XHCI_TRB_TYPE_RESET_DEVICE]="Reset device",
+		[XHCI_TRB_TYPE_FORCE_EVENT]="Force event",
+		[XHCI_TRB_TYPE_GET_BANDWIDTH]="Get bandwidth",
+		[XHCI_TRB_TYPE_GET_LATENCY_TOLERANCE]="Get latency tolerance",
+		[XHCI_TRB_TYPE_GET_PORT_BANDWIDTH]="Get port bandwidth",
+		[XHCI_TRB_TYPE_FORCE_HEADER]="Force header",
+		[XHCI_TRB_TYPE_NOP_CMD]="Nop",
+		[XHCI_TRB_TYPE_GET_EXTENDED_CAP]="Get extended capability",
+		[XHCI_TRB_TYPE_SET_EXTENDED_CAP]="Set extended capability",
+		[XHCI_EVENT_TRB_TYPE_TRANSFER_EVENT]="Event transfer event",
+		[XHCI_EVENT_TRB_TYPE_CMD_COMPLETION]="Command completion",
+		[XHCI_EVENT_TRB_TYPE_PORT_STATUS_CHANGE]="Port status change",
+		[XHCI_EVENT_TRB_TYPE_BANDWIDTH_REQUEST]="Bandwidth request",
+		[XHCI_EVENT_TRB_TYPE_DOORBELL_EVENT]="Doorbell event",
+		[XHCI_EVENT_TRB_TYPE_HC_ERROR]="Host controller error",
+		[XHCI_EVENT_TRB_TYPE_DEV_NOTIF]="Device notificiation", 
+		[XHCI_EVENT_TRB_TYPE_MFINDEX_WRAP]="Microframe index wrap",
+	};
+	const unsigned char* pName = mapping[type];
+	if (!pName)
+		return -1;
+	*ppName = pName;
 	return 0;
 }
 int xhci_interrupter(void){
-	printf("XHCI interrupter\r\n");
-	xhci_update_dequeue_trb();
+	volatile struct xhci_trb* pTrbEntry = (volatile struct xhci_trb*)0x0;
+	if (xhci_get_event_trb(&pTrbEntry)!=0){
+		printf("failed to get current event TRB\r\n");
+		xhci_send_ack(0);
+		xhci_update_dequeue_trb();
+		return -1;
+	}
+	const unsigned char* pTrbTypeName = (const unsigned char*)0x0;
+	if (xhci_get_trb_type_name(pTrbEntry->event.control.type, &pTrbTypeName)!=0){
+		printf("failed to get event TRB type name\r\n");
+		xhci_send_ack(0);
+		xhci_update_dequeue_trb();
+		return -1;
+	}
+	printf("event TRB type: %s | base: %p\r\n", pTrbTypeName, (uint64_t)pTrbEntry);	
 	xhci_send_ack(0);
+	xhci_update_dequeue_trb();
 	return 0;
 }
 int xhci_dump_interrupter(uint64_t interrupter_id){

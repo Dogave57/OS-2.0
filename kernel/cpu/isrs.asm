@@ -429,6 +429,10 @@ jmp b
 hlt
 ret
 default_isr:
+cli
+sub qword rsp, 32
+call lapic_send_eoi
+add qword rsp, 32
 iretq
 pic_timer_isr:
 cli

@@ -65,6 +65,7 @@ int idt_init(void){
 		idt_add_entry(exceptionEntry.idtVector, exceptionEntry.pIsr, 0x8E, exceptionEntry.istVector);
 	}
 	idt_add_entry(0x20, (uint64_t)pic_timer_isr, 0x8E, 0x0);
+	idt_add_entry(0x21, (uint64_t)default_isr, 0x8E, 0x0);
 	idt_add_entry(0x30, (uint64_t)timer_isr, 0x8E, 0x0);
 	idt_add_entry(0x31, (uint64_t)thermal_isr, 0x8E, 0x0);
 	idt_add_entry(0x40, (uint64_t)ps2_kbd_isr, 0x8E, 0x0);

@@ -173,7 +173,21 @@ int pcie_get_bar(struct pcie_location location, uint64_t barType, uint64_t* pBar
 	if (!pBar)
 		return -1;
 	uint64_t bar_reg = 0x10+(0x4*barType);
-	return pcie_read_qword(location, bar_reg,  pBar);
+	uint64_t bar_value = 0;
+	if (pcie_read_qword(location, bar_reg, &bar_value)!=0)
+		return -1;
+	*pBar = bar_value&~0xF;
+	return 0;
+}
+int pcie_get_bar_flags(struct pcie_location location, uint64_t barType, uint8_t* pFlags){
+	if (!pFlags)
+		return -1;
+	uint64_t bar_reg = 0x10+(0x4*barType);
+	uint64_t bar_value = 0;
+	if (pcie_read_qword(location, bar_reg, &bar_value)!=0)
+		return -1;
+	*pFlags = bar_value&0xF;
+	return 0;
 }
 int pcie_get_class(struct pcie_location location, uint8_t* pClass){
 	if (!pClass)
@@ -292,7 +306,7 @@ int pcie_msix_get_table_base(struct pcie_location location, volatile struct pcie
 	uint64_t bar_base = 0;
 	if (pcie_get_bar(location, tableBar, &bar_base)!=0)
 		return -1;
-	pTableBase = (volatile struct pcie_msix_table_entry*)(bar_base+tableOffset);
+	pTableBase = (volatile struct pcie_msix_table_entry*)((bar_base&~0xF)+tableOffset);
 	printf("BAR%d table offset: %d\r\n", msgControl.table_bar, tableOffset);
 	*ppTableBase = pTableBase;
 	return 0;
@@ -338,8 +352,11 @@ int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix
 	}
 	volatile struct pcie_msix_table_entry* pEntry = (volatile struct pcie_msix_table_entry*)0x0;
 	pEntry = pMsixTable+msix_vector;
-	uint32_t oldStatus = pMsgControl->msix_enable;
-	pMsgControl->msix_enable = 0;
+	uint32_t oldStatus = 0;
+	struct pcie_msix_msg_ctrl msgControl = *pMsgControl;
+	oldStatus = msgControl.msix_enable;
+	msgControl.msix_enable = 0;
+	*pMsgControl = msgControl;
 	if (virtualMapPage((uint64_t)pEntry, (uint64_t)pEntry, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0){
 		pMsgControl->msix_enable = oldStatus;
 		mutex_unlock(&mutex);
@@ -351,30 +368,37 @@ int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	printf("LAPIC base: %p\r\n", lapic_base);
-	printf("old LAPIC base: %p\r\n", pEntry->msg_addr);
+	printf("LAPIC id: %d\r\n", lapic_id);
 	uint64_t msgAddress = lapic_base|(lapic_id<<12);
-	*(uint32_t*)&pEntry->msg_addr = (uint32_t)msgAddress;
-	union pcie_msix_table_entry_msg_data msgData = pEntry->msg_data;
-	msgData.raw = (uint32_t)(interrupt_vector);
+	pEntry->msg_addr_low = (uint32_t)(msgAddress&0xFFFFFFFF);
+	pEntry->msg_addr_high = (uint32_t)((msgAddress>>32)&0xFFFFFFFF);
+	union pcie_msix_table_entry_msg_data msgData = {0};
+	memset((void*)&msgData, 0, sizeof(union pcie_msix_table_entry_msg_data));
+	msgData.vector = interrupt_vector;
 	pEntry->msg_data = msgData;
 	pEntry->vector_ctrl.raw = 0;
-	pMsgControl->msix_enable = oldStatus;
+	msgControl = *pMsgControl;
+	msgControl.msix_enable = oldStatus;
+	*pMsgControl = msgControl;
 	mutex_unlock(&mutex);
 	return 0;
 }
 int pcie_msix_enable(volatile struct pcie_msix_msg_ctrl* pMsgControl){
 	if (!pMsgControl)
 		return -1;
-	pMsgControl->vector_mask = 0;
-	pMsgControl->msix_enable = 1;
+	struct pcie_msix_msg_ctrl msgControl = *pMsgControl;
+	msgControl.vector_mask = 0;
+	msgControl.msix_enable = 1;
+	*pMsgControl = msgControl;
 	return 0;
 }
 int pcie_msix_disable(volatile struct pcie_msix_msg_ctrl* pMsgControl){
 	if (!pMsgControl)
 		return -1;
-	pMsgControl->vector_mask = 1;
-	pMsgControl->msix_enable = 0;
+	struct pcie_msix_msg_ctrl msgControl = *pMsgControl;
+	msgControl.vector_mask = 1;
+	msgControl.msix_enable = 0;
+	*pMsgControl = msgControl;
 	return 0;
 }
 int pcie_msix_enable_entry(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
@@ -383,8 +407,8 @@ int pcie_msix_enable_entry(struct pcie_location location, volatile struct pcie_m
 	volatile struct pcie_msix_table_entry* pMsixEntry = (volatile struct pcie_msix_table_entry*)0x0;
 	if (pcie_get_msix_entry(location, &pMsixEntry, pMsgControl, msix_vector)!=0)
 		return -1;
-	union pcie_msix_table_entry_vector_ctrl vectorCtrl = pMsixEntry->vector_ctrl;
-	vectorCtrl.mask = 0;
+	union pcie_msix_table_entry_vector_ctrl vectorCtrl = {0};
+	vectorCtrl.raw = 0;
 	pMsixEntry->vector_ctrl = vectorCtrl;
 	return 0;
 }

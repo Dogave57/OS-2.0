@@ -2,8 +2,9 @@
 #define _IDT
 #include <stdint.h>
 #define IDT_MAX_ENTRIES 256
-#define IDT_FREE_VECTOR_START (0x20)
+#define IDT_FREE_VECTOR_START (0x22)
 #define IDT_FREE_VECTOR_END (IDT_MAX_ENTRIES)
+#define IDT_DEFAULT_ISR_VECTOR (0x21)
 struct idt_entry_t{
 	uint16_t isr_low;
 	uint16_t cs;

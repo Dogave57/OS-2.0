@@ -3,6 +3,7 @@
 #include "cpu/cpuid.h"
 #include "cpu/port.h"
 #include "cpu/mutex.h"
+#include "cpu/idt.h"
 #include "drivers/pit.h"
 #include "drivers/pic.h"
 #include "mem/vmm.h"
@@ -68,7 +69,8 @@ int apic_init(void){
 	}	
 	lapic_write_reg(LAPIC_REG_LVT_TIMER, 0x30|(1<<17));
 	lapic_read_reg(LAPIC_REG_SPI, &value);
-	value|=0x100;
+	value = IDT_DEFAULT_ISR_VECTOR&0xFF;
+	value|=(1<<8);
 	lapic_write_reg(LAPIC_REG_SPI, value);
 	if (ioapic_get_base(&ioapic_base)){
 		printf("failed to get IOAPIC base\r\n");
@@ -165,6 +167,22 @@ int lapic_get_base(uint64_t* pBase){
 	base&=0xFFFFF000;
 	*pBase = base;
 	mutex_unlock(&mutex);
+	return 0;
+}
+int lapic_send_ipi(uint32_t lapic_id, uint8_t vector, uint8_t delivery_mode, uint8_t level, uint8_t trigger_mode){
+	struct lapic_icr icr = {0};
+	*(uint64_t*)&icr = 0;
+	icr.vector = vector;
+	icr.delivery_mode = delivery_mode;
+	icr.delivery_status = 0;
+	icr.level = level;
+	icr.trigger_mode = trigger_mode;
+	icr.destination_shorthand = 0;	
+	if (x2lapic_is_supported)
+		icr.lapic_id = lapic_id;
+	if (!x2lapic_is_supported)
+		lapic_write_reg(LAPIC_REG_ICR_HIGH, lapic_id);
+	lapic_write_reg(LAPIC_REG_ICR_LOW, *(uint64_t*)&icr);
 	return 0;
 }
 int ioapic_get_base(uint64_t* pbase){

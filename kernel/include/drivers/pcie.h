@@ -76,7 +76,8 @@ union pcie_msix_table_entry_vector_ctrl{
 	uint32_t raw;
 }__attribute__((packed));
 struct pcie_msix_table_entry{
-	uint64_t msg_addr;
+	uint32_t msg_addr_low;
+	uint32_t msg_addr_high;
 	union pcie_msix_table_entry_msg_data msg_data;
 	union pcie_msix_table_entry_vector_ctrl vector_ctrl;
 }__attribute__((packed));
@@ -96,6 +97,7 @@ int pcie_get_vendor_id(struct pcie_location location, uint16_t* pVendorId);
 int pcie_get_device_id(struct pcie_location location, uint16_t* pDeviceId);
 int pcie_get_progif(struct pcie_location location, uint8_t* pProgIf);
 int pcie_get_bar(struct pcie_location location, uint64_t barType, uint64_t* pBar);
+int pcie_get_bar_flags(struct pcie_location location, uint64_t barType, uint8_t* pFlags);
 int pcie_get_class(struct pcie_location location, uint8_t* pClass);
 int pcie_get_subclass(struct pcie_location location, uint8_t* pSubclass);
 int pcie_device_exists(struct pcie_location location);
