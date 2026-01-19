@@ -1,6 +1,7 @@
 #include "stdlib/stdlib.h"
 #include "align.h"
 #include "mem/vmm.h"
+#include "mem/heap.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
 #include "drivers/pcie.h"
@@ -18,7 +19,7 @@ int xhci_init(void){
 	pcie_cmd_reg|=(1<<0);
 	pcie_cmd_reg|=(1<<1);
 	pcie_cmd_reg|=(1<<2);
-//	pcie_cmd_reg|=(1<<10);
+	pcie_cmd_reg|=(1<<10);
 	pcie_write_dword(xhciInfo.location, 0x4, pcie_cmd_reg);
 	printf("XHC virtual base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio);
 	printf("XHC physical base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio_physical);
@@ -34,7 +35,7 @@ int xhci_init(void){
 		printf("failed to initialize scratchpad pages\r\n");
 		return -1;
 	}
-	if (xhci_init_trb_list(&xhciInfo.cmdRingInfo)!=0){
+	if (xhci_init_cmd_list(&xhciInfo.cmdRingInfo)!=0){
 		printf("failed to initialize cmd TRB ring list\r\n");
 		return -1;
 	}	
@@ -61,16 +62,35 @@ int xhci_init(void){
 	memset((void*)&trb, 0, sizeof(struct xhci_trb));
 	trb.command.control.type = XHCI_TRB_TYPE_NOP_CMD;
 	trb.command.control.ioc = 1;
-	for (uint64_t i = 0;i<8;i++){
-		if (xhci_alloc_trb(&xhciInfo.cmdRingInfo, trb, &trbIndex)!=0){
-			printf("failed to allocate TRB entry\r\n");
-			return -1;
-		}
+	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
+	if (xhci_alloc_cmd(&xhciInfo.cmdRingInfo, trb, &pCmdDesc)!=0){
+		printf("failed to allocate TRB entry\r\n");
+		return -1;
+	}
+	struct xhci_cmd_desc* pNewCmdDesc = (struct xhci_cmd_desc*)0x0;
+	if (xhci_alloc_cmd(&xhciInfo.cmdRingInfo, trb, &pNewCmdDesc)!=0){
+		printf("failed to allocate new TRB entry\r\n");
+		return -1;
 	}
 	xhci_start();
 	printf("running TRBs\r\n");
 	xhci_ring(0);
 	uint64_t time_us = get_time_us();
+	while (!pCmdDesc->pEventTrb){};
+	const unsigned char* pEventTrbName = (const unsigned char*)0x0;
+	if (xhci_get_trb_type_name(pCmdDesc->pEventTrb->event.control.type, &pEventTrbName)!=0){
+		printf("failed to get event TRB type name\r\n");
+		return -1;
+	}
+	printf("event TRB type: %s\r\n", pEventTrbName);
+	printf("event TRB: %p\r\n", (uint64_t)pCmdDesc->pEventTrb);
+	while (!pNewCmdDesc->pEventTrb){};
+	if (xhci_get_trb_type_name(pCmdDesc->pEventTrb->event.control.type, &pEventTrbName)!=0){
+		printf("failed to get event TRB type name\r\n");
+		return -1;
+	}
+	printf("new event TRB type: %s\r\n", pEventTrbName);
+	printf("new event TRB: %p\r\n", (uint64_t)pNewCmdDesc->pEventTrb);
 	while (!xhci_get_cmd_ring_running()){};
 	uint64_t elapsed_us = get_time_us()-time_us;
 	printf("done running TRBs in %dus\r\n", elapsed_us);
@@ -207,21 +227,30 @@ int xhci_get_port_count(uint8_t* pPortCount){
 	*pPortCount = portCount;
 	return 0;
 }
-int xhci_init_trb_list(struct xhci_trb_ring_info* pRingInfo){
+int xhci_init_cmd_list(struct xhci_trb_ring_info* pRingInfo){
 	if (!pRingInfo)
 		return -1;
 	volatile struct xhci_trb* pRingBuffer = (volatile struct xhci_trb*)0x0;
 	if (virtualAllocPage((uint64_t*)&pRingBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
+	struct xhci_cmd_desc* pCmdDescList = (struct xhci_cmd_desc*)0x0;
+	uint64_t cmdListDescSize = XHCI_MAX_CMD_TRB_ENTRIES*sizeof(struct xhci_cmd_desc);
+	if (virtualAlloc((uint64_t*)&pCmdDescList, cmdListDescSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
+		virtualFreePage((uint64_t)pRingBuffer, 0);
+		return -1;
+	}
 	memset((uint64_t*)pRingInfo, 0, sizeof(struct xhci_trb_ring_info));
 	pRingInfo->cycle_state = 1;
 	pRingInfo->pRingBuffer = pRingBuffer;
 	pRingInfo->maxEntries = XHCI_MAX_CMD_TRB_ENTRIES;
+	pRingInfo->pCmdDescList = pCmdDescList;
+	pRingInfo->cmdDescListSize = cmdListDescSize;
 	uint64_t ringBufferSize = pRingInfo->maxEntries*sizeof(struct xhci_trb);
 	pRingInfo->ringBufferSize = ringBufferSize;
 	if (virtualToPhysical((uint64_t)pRingBuffer, &pRingInfo->pRingBuffer_phys)!=0){
 		printf("failed to get physical address of TRB ring buffer\r\n");
 		virtualFreePage((uint64_t)pRingBuffer, 0);
+		virtualFreePage((uint64_t)pCmdDescList, 0);
 		return -1;
 	}
 	memset((void*)pRingBuffer, 0, ringBufferSize);
@@ -230,40 +259,49 @@ int xhci_init_trb_list(struct xhci_trb_ring_info* pRingInfo){
 	linkTrb.generic.ptr = (uint64_t)pRingInfo->pRingBuffer_phys;
 	linkTrb.generic.control.tc_bit = 1;
 	linkTrb.generic.control.type = XHCI_TRB_TYPE_LINK;
-	if (xhci_write_trb(pRingInfo, XHCI_MAX_CMD_TRB_ENTRIES-1, linkTrb)!=0){
-		xhci_deinit_trb_list(pRingInfo);
+	if (xhci_write_cmd(pRingInfo, XHCI_MAX_CMD_TRB_ENTRIES-1, linkTrb)!=0){
+		xhci_deinit_cmd_list(pRingInfo);
 		return -1;
 	}
 	xhci_set_cmd_ring_base((uint64_t)pRingInfo->pRingBuffer_phys);
 	return 0;
 }
-int xhci_deinit_trb_list(struct xhci_trb_ring_info* pRingInfo){
+int xhci_deinit_cmd_list(struct xhci_trb_ring_info* pRingInfo){
 	if (!pRingInfo)
 		return -1;
 	if (virtualFreePage((uint64_t)pRingInfo->pRingBuffer, 0)!=0)
 		return -1;
+	if (virtualFreePage((uint64_t)pRingInfo->pCmdDescList, 0)!=0)
+		return -1;
 	return 0;
 }
-int xhci_alloc_trb(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, uint64_t* pTrbIndex){
-	if (!pRingInfo||!pTrbIndex)
+int xhci_alloc_cmd(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, struct xhci_cmd_desc** ppCmdDesc){
+	if (!pRingInfo||!ppCmdDesc)
 		return -1;
 	uint64_t trbIndex = pRingInfo->currentEntry;
 	if (trbIndex>XHCI_MAX_CMD_TRB_ENTRIES-1){
 		pRingInfo->cycle_state!=pRingInfo->cycle_state;
 		trbIndex = 0;
 	}
-	xhci_write_trb(pRingInfo, trbIndex, trb);
-	pRingInfo->currentEntry++;
-	*pTrbIndex = trbIndex;
+	xhci_write_cmd(pRingInfo, trbIndex, trb);
+	volatile struct xhci_trb* pCmdTrb = pRingInfo->pRingBuffer+trbIndex;
+	uint64_t pCmdTrb_phys = pRingInfo->pRingBuffer_phys+(trbIndex*sizeof(struct xhci_trb));	
+	struct xhci_cmd_desc* pCmdDesc = pRingInfo->pCmdDescList+trbIndex;
+	memset((void*)pCmdDesc, 0, sizeof(struct xhci_cmd_desc));
+	pCmdDesc->pCmdTrb = pCmdTrb;
+	pCmdDesc->pCmdTrb_phys = pCmdTrb_phys;
+	pCmdDesc->trbIndex = trbIndex;
+	*ppCmdDesc = pCmdDesc;
+	pRingInfo->currentEntry++;	
 	return 0;
 }
-int xhci_get_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry){
+int xhci_get_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry){
 	if (!pRingInfo||!ppTrbEntry)
 		return -1;
 	*ppTrbEntry = xhciInfo.cmdRingInfo.pRingBuffer+trbIndex;
 	return 0;
 }
-int xhci_write_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry){
+int xhci_write_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry){
 	if (!pRingInfo)
 		return -1;
 	unsigned char cycle_state = 0;
@@ -273,7 +311,7 @@ int xhci_write_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, stru
 	*(pRingInfo->pRingBuffer+trbIndex) = trbEntry;
 	return 0;
 }
-int xhci_read_trb(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry){
+int xhci_read_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry){
 	if (!pRingInfo||!pTrbEntry)
 		return -1;
 	*pTrbEntry = *(pRingInfo->pRingBuffer+trbIndex);
@@ -558,6 +596,17 @@ int xhci_get_event_trb(volatile struct xhci_trb** ppTrbEntry){
 	*ppTrbEntry = pTrbEntry;
 	return 0;
 }
+int xhci_get_event_trb_phys(uint64_t* ppTrbEntry){
+	if (!ppTrbEntry)
+		return -1;
+	uint64_t pTrbEntry = 0;
+	if (xhci_get_dequeue_trb_phys(&pTrbEntry)!=0)
+		return -1;
+	if (!pTrbEntry)
+		pTrbEntry = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
+	*ppTrbEntry = pTrbEntry;
+	return 0;
+}
 int xhci_get_trb_type_name(uint64_t type, const unsigned char** ppName){
 	if (!ppName||type>0x27)
 		return -1;
@@ -604,21 +653,38 @@ int xhci_get_trb_type_name(uint64_t type, const unsigned char** ppName){
 	return 0;
 }
 int xhci_interrupter(void){
-	volatile struct xhci_trb* pTrbEntry = (volatile struct xhci_trb*)0x0;
-	if (xhci_get_event_trb(&pTrbEntry)!=0){
+	volatile struct xhci_trb* pEventTrb = (volatile struct xhci_trb*)0x0;
+	if (xhci_get_event_trb(&pEventTrb)!=0){
 		printf("failed to get current event TRB\r\n");
 		xhci_send_ack(0);
 		xhci_update_dequeue_trb();
 		return -1;
 	}
+	uint64_t pCmdTrb_phys = pEventTrb->event.trb_ptr;	
+	if (!pCmdTrb_phys){
+		printf("event TRB not linked to cmd TRB\r\n");
+		xhci_send_ack(0);
+		xhci_update_dequeue_trb();
+		return -1;
+	}
+	uint64_t pEventTrb_phys = 0;
+	if (xhci_get_event_trb_phys(&pEventTrb_phys)!=0){
+		printf("failed to get event TRB physical address\r\n");
+		xhci_send_ack(0);
+		xhci_update_dequeue_trb();
+		return -1;
+	}
+	uint64_t trbIndex = (uint64_t)((pCmdTrb_phys-xhciInfo.cmdRingInfo.pRingBuffer_phys)/sizeof(struct xhci_trb));
+	struct xhci_cmd_desc* pCmdDesc = xhciInfo.cmdRingInfo.pCmdDescList+trbIndex;
+	pCmdDesc->pEventTrb = pEventTrb;
+	pCmdDesc->pEventTrb_phys = pEventTrb_phys;
 	const unsigned char* pTrbTypeName = (const unsigned char*)0x0;
-	if (xhci_get_trb_type_name(pTrbEntry->event.control.type, &pTrbTypeName)!=0){
+	if (xhci_get_trb_type_name(pEventTrb->event.control.type, &pTrbTypeName)!=0){
 		printf("failed to get event TRB type name\r\n");
 		xhci_send_ack(0);
 		xhci_update_dequeue_trb();
 		return -1;
 	}
-	printf("event TRB type: %s | base: %p\r\n", pTrbTypeName, (uint64_t)pTrbEntry);	
 	xhci_send_ack(0);
 	xhci_update_dequeue_trb();
 	return 0;
