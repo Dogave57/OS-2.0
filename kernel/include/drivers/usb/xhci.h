@@ -414,7 +414,11 @@ struct xhci_device_context_desc{
 	volatile struct xhci_input_context* pInputContext;
 	uint64_t pInputContext_phys;
 	uint64_t slotId;
+};
+struct xhci_device{
 	uint8_t port;
+	struct xhci_device_context_desc deviceContext;
+	struct xhci_cmd_ring_info* pTransferRingInfo;
 };
 struct xhci_info{
 	uint64_t pBaseMmio;
@@ -440,8 +444,8 @@ int xhci_get_port_speed(uint8_t port, uint8_t* pSpeed);
 int xhci_device_exists(uint8_t port);
 int xhci_reset_port(uint8_t port);
 int xhci_get_port_count(uint8_t* pPortCount);
-int xhci_init_cmd_list(struct xhci_cmd_ring_info** ppRingInfo);
-int xhci_deinit_cmd_list(struct xhci_cmd_ring_info* pRingInfo);
+int xhci_init_cmd_ring(struct xhci_cmd_ring_info** ppRingInfo);
+int xhci_deinit_cmd_ring(struct xhci_cmd_ring_info* pRingInfo);
 int xhci_alloc_cmd(struct xhci_cmd_ring_info* pRingInfo, struct xhci_trb trb, struct xhci_cmd_desc** ppCmdDesc);
 int xhci_get_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
 int xhci_write_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry);
@@ -477,6 +481,6 @@ int xhci_init_scratchpad(void);
 int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr** ppCapHeader);
 int xhci_enable_slot(uint64_t* pSlotId);
 int xhci_disable_slot(uint64_t slotId);
-int xhci_alloc_device_context(uint8_t port, struct xhci_device_context_desc** ppContextDesc);
-int xhci_free_device_context(struct xhci_device_context_desc* pContextDesc);
+int xhci_init_device(uint8_t port, struct xhci_device** ppDevice);
+int xhci_deinit_device(struct xhci_device* pDevice);
 #endif
