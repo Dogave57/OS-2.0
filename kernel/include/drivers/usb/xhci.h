@@ -218,8 +218,29 @@ struct xhci_runtime_mmio{
 	uint32_t reserved0[7];
 	volatile struct xhci_interrupter interrupter_list[];
 }__attribute__((packed));
+struct xhci_port_status{
+	uint32_t connection_status:1;
+	uint32_t enabled:1;
+	uint32_t reserved0:1;
+	uint32_t over_current_active:1;
+	uint32_t port_reset:1;
+	uint32_t port_link_state:4;
+	uint32_t port_power:1;
+	uint32_t port_speed:4;
+	uint32_t port_indicator_ctrl:2;
+	uint32_t link_write_strobe:1;
+	uint32_t reserved1:1;
+	uint32_t connect_status_change:1;
+	uint32_t port_enabled_change:1;
+	uint32_t warm_port_reset_change:1;
+	uint32_t over_current_change:1;
+	uint32_t port_reset_change:1;
+	uint32_t port_link_state_change:1;
+	uint32_t config_error_change:1;
+	uint32_t reserved2:2;
+}__attribute__((packed));
 struct xhci_port{
-	uint32_t port_status;
+	struct xhci_port_status port_status;
 	uint32_t port_power_ctrl;
 	uint32_t port_link_info;
 	uint32_t reserved0;
@@ -266,11 +287,11 @@ struct xhci_trb{
 			uint32_t slot_id:8;
 		}enable_slot_event;
 		struct{
-			uint64_t context_list_ptr;
+			uint64_t input_context_ptr;
 			uint32_t reserved0;
 			uint32_t cycle_bit:1;
 			uint32_t reserved1:8;
-			uint32_t block_set_address_request:1;
+			uint32_t block_set_address:1;
 			uint32_t type:6;
 			uint32_t reserved2:8;
 			uint32_t slot_id:8;
@@ -296,33 +317,59 @@ struct xhci_trb{
 struct xhci_slot_context{
 	uint32_t route_string:20;
 	uint32_t speed:4;
-	uint32_t reserved0:8;
-
-	uint32_t reserved1;
+	uint32_t reserved0:1;
+	uint32_t mtt:1;
+	uint32_t hub:1;
+	uint32_t context_entries:5;
 
 	uint32_t max_exit_latency:16;
-	uint32_t root_hub_port:8;
-	uint32_t endpoint_count:8;
+	uint32_t root_hub_port_num:8;
+	uint32_t port_count:8;
 
-	uint32_t unused[5];
+	uint32_t tt_hub_slot_id:8;
+	uint32_t tt_port_num:8;
+	uint32_t ttt:2;
+	uint32_t reserved1:4;
+	uint32_t interrupter_target:10;
+
+	uint32_t usb_device_address:8;
+	uint32_t reserved2:19;
+	uint32_t slot_state:5;
+	
+	uint32_t reserved3[4];
 }__attribute__((packed));
 struct xhci_endpoint_context{
 	uint32_t state:3;
 	uint32_t reserved0:5;
-	uint32_t max_bursts:2;
+	uint32_t mult:2;
+	uint32_t max_primary_streams:5;
+	uint32_t linear_stream_array:1;
+	uint32_t interval:8;
+	uint32_t reserved1:8;
+	
+	uint32_t reserved2:1;
+	uint32_t error_count:2;
+	uint32_t type:3;
+	uint32_t reserved3:1;
+	uint32_t max_burst_size:8;
 	uint32_t max_packet_size:16;
-	uint32_t poll_interval:8;
-
-	uint32_t reserved1;
-
-	uint64_t tr_dequeue_ptr;
+	
+	uint64_t dequeue_cycle_state:1;
+	uint64_t dequeue_ptr:63;
 
 	uint32_t average_trb_len:16;
-	uint32_t max_esit_payload:16;
+	uint32_t max_esit_payload_low:16;	
 
-	uint32_t reserved2;
-	uint32_t reserved3;
-	uint32_t reserved4;
+	uint32_t reserved4[3];
+}__attribute__((packed));
+struct xhci_input_context{
+	uint32_t drop_flags;
+	uint32_t add_flags;
+	uint32_t reserved0[6];
+}__attribute__((packed));
+struct xhci_device_context{
+	struct xhci_slot_context slotContext;
+	struct xhci_endpoint_context endpointList[31];
 }__attribute__((packed));
 struct xhci_cmd_desc{
 	volatile struct xhci_trb* pCmdTrb;
@@ -331,7 +378,7 @@ struct xhci_cmd_desc{
 	uint64_t pEventTrb_phys;
 	uint64_t trbIndex;
 };
-struct xhci_trb_ring_info{
+struct xhci_cmd_ring_info{
 	struct xhci_cmd_desc* pCmdDescList;
 	uint64_t cmdDescListSize;
 	volatile struct xhci_trb* pRingBuffer;
@@ -361,9 +408,13 @@ struct xhci_device_context_list_info{
 	uint64_t pContextList_phys;
 	uint64_t maxDeviceCount;
 };
-struct xhci_device_context{
-	volatile struct xhci_slot_context* pSlotContext;
-	uint64_t pSlotContext_phys;
+struct xhci_device_context_desc{
+	volatile struct xhci_device_context* pDeviceContext;
+	uint64_t pDeviceContext_phys;
+	volatile struct xhci_input_context* pInputContext;
+	uint64_t pInputContext_phys;
+	uint64_t slotId;
+	uint8_t port;
 };
 struct xhci_info{
 	uint64_t pBaseMmio;
@@ -373,7 +424,7 @@ struct xhci_info{
 	volatile struct xhci_runtime_mmio* pRuntime;
 	volatile struct xhci_extended_cap_hdr* pExtendedCapList;
 	volatile uint32_t* pDoorBells;
-	struct xhci_trb_ring_info cmdRingInfo;
+	struct xhci_cmd_ring_info* pCmdRingInfo;
 	struct xhci_interrupter_info interrupterInfo;
 	struct xhci_device_context_list_info deviceContextListInfo;
 	struct pcie_location location;
@@ -385,14 +436,16 @@ int xhci_read_qword(volatile uint64_t* pQword, uint64_t* pValue);
 int xhci_write_qword(volatile uint64_t* pQword, uint64_t value);
 int xhci_get_port_list(volatile struct xhci_port** ppPortList);
 int xhci_get_port(uint8_t port, volatile struct xhci_port** ppPort);
+int xhci_get_port_speed(uint8_t port, uint8_t* pSpeed);
 int xhci_device_exists(uint8_t port);
+int xhci_reset_port(uint8_t port);
 int xhci_get_port_count(uint8_t* pPortCount);
-int xhci_init_cmd_list(struct xhci_trb_ring_info* pRingInfo);
-int xhci_deinit_cmd_list(struct xhci_trb_ring_info* pRingInfo);
-int xhci_alloc_cmd(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, struct xhci_cmd_desc** ppCmdDesc);
-int xhci_get_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
-int xhci_write_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry);
-int xhci_read_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry);
+int xhci_init_cmd_list(struct xhci_cmd_ring_info** ppRingInfo);
+int xhci_deinit_cmd_list(struct xhci_cmd_ring_info* pRingInfo);
+int xhci_alloc_cmd(struct xhci_cmd_ring_info* pRingInfo, struct xhci_trb trb, struct xhci_cmd_desc** ppCmdDesc);
+int xhci_get_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
+int xhci_write_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry);
+int xhci_read_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry);
 int xhci_ring(uint64_t doorbell_vector);
 int xhci_reset(void);
 int xhci_start(void);
@@ -424,6 +477,6 @@ int xhci_init_scratchpad(void);
 int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr** ppCapHeader);
 int xhci_enable_slot(uint64_t* pSlotId);
 int xhci_disable_slot(uint64_t slotId);
-int xhci_alloc_device_context(uint64_t port, struct xhci_device_context** ppDeviceContext);
-int xhci_free_device_context(struct xhci_device_context* pDeviceContext);
+int xhci_alloc_device_context(uint8_t port, struct xhci_device_context_desc** ppContextDesc);
+int xhci_free_device_context(struct xhci_device_context_desc* pContextDesc);
 #endif

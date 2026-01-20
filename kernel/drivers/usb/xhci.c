@@ -35,7 +35,7 @@ int xhci_init(void){
 		printf("failed to initialize scratchpad pages\r\n");
 		return -1;
 	}
-	if (xhci_init_cmd_list(&xhciInfo.cmdRingInfo)!=0){
+	if (xhci_init_cmd_list(&xhciInfo.pCmdRingInfo)!=0){
 		printf("failed to initialize cmd TRB ring list\r\n");
 		return -1;
 	}	
@@ -63,12 +63,12 @@ int xhci_init(void){
 	trb.command.control.type = XHCI_TRB_TYPE_NOP_CMD;
 	trb.command.control.ioc = 1;
 	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
-	if (xhci_alloc_cmd(&xhciInfo.cmdRingInfo, trb, &pCmdDesc)!=0){
+	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, trb, &pCmdDesc)!=0){
 		printf("failed to allocate TRB entry\r\n");
 		return -1;
 	}
 	struct xhci_cmd_desc* pNewCmdDesc = (struct xhci_cmd_desc*)0x0;
-	if (xhci_alloc_cmd(&xhciInfo.cmdRingInfo, trb, &pNewCmdDesc)!=0){
+	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, trb, &pNewCmdDesc)!=0){
 		printf("failed to allocate new TRB entry\r\n");
 		return -1;
 	}
@@ -99,28 +99,14 @@ int xhci_init(void){
 		printf("host system error\r\n");
 	if (usb_status.host_controller_error)
 		printf("host controller error\r\n");
-	while (1){
-		uint64_t slotId = 0;
-		if (xhci_enable_slot(&slotId)!=0){
-			printf("failed to enable slot\r\n");
-			break;
-		}
-		printf("slot ID: %d\r\n", slotId);
-		if (xhci_disable_slot(slotId)!=0){
-			printf("failed to disable slot\r\n");
-			break;
-		}
-	}
 	for (uint8_t i = 0;i<portCount;i++){
 		if (xhci_device_exists(i)!=0)
 			continue;
-		printf("XHCI controlled USB device at port %d\r\n", i);
-		struct xhci_device_context* pDeviceContext = (struct xhci_device_context*)0x0;
-		if (xhci_alloc_device_context(i, &pDeviceContext)!=0){
-			printf("failed to get device context\r\n");
+		if (xhci_reset_port(i)!=0){
+			printf("failed to reset port %d\r\n", i);
 			continue;
 		}
-		xhci_free_device_context(pDeviceContext);
+		printf("XHCI controlled USB device at port %d\r\n", i);
 	}
 	while (1){};
 	return 0;
@@ -224,11 +210,33 @@ int xhci_get_port(uint8_t port, volatile struct xhci_port** ppPort){
 	*ppPort = pPort;
 	return 0;
 }
+int xhci_get_port_speed(uint8_t port, uint8_t* pSpeed){
+	if (!pSpeed)
+		return -1;
+	volatile struct xhci_port* pPort = (volatile struct xhci_port*)0x0;
+	if (xhci_get_port(port, &pPort)!=0)
+		return -1;
+	struct xhci_port_status status = pPort->port_status;
+	*pSpeed = status.port_speed;
+	return 0;
+}
 int xhci_device_exists(uint8_t port){
 	volatile struct xhci_port* pPort = (volatile struct xhci_port*)0x0;
 	if (xhci_get_port(port, &pPort)!=0)
 		return -1;
-	return (pPort->port_status&(1<<0)) ? 0 : -1;
+	struct xhci_port_status status = pPort->port_status;	
+	return status.connection_status ? 0 : -1;
+}
+int xhci_reset_port(uint8_t port){
+	volatile struct xhci_port* pPort = (volatile struct xhci_port*)0x0;
+	if (xhci_get_port(port, &pPort)!=0)
+		return -1;
+	struct xhci_port_status status = pPort->port_status;
+	status.port_reset = 1;
+	while (status.port_reset){
+		status = pPort->port_status;
+	}	
+	return 0;
 }
 int xhci_get_port_count(uint8_t* pPortCount){
 	if (!pPortCount)
@@ -245,8 +253,8 @@ int xhci_get_port_count(uint8_t* pPortCount){
 	*pPortCount = portCount;
 	return 0;
 }
-int xhci_init_cmd_list(struct xhci_trb_ring_info* pRingInfo){
-	if (!pRingInfo)
+int xhci_init_cmd_list(struct xhci_cmd_ring_info** ppRingInfo){
+	if (!ppRingInfo)
 		return -1;
 	volatile struct xhci_trb* pRingBuffer = (volatile struct xhci_trb*)0x0;
 	if (virtualAllocPage((uint64_t*)&pRingBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0)
@@ -257,7 +265,13 @@ int xhci_init_cmd_list(struct xhci_trb_ring_info* pRingInfo){
 		virtualFreePage((uint64_t)pRingBuffer, 0);
 		return -1;
 	}
-	memset((uint64_t*)pRingInfo, 0, sizeof(struct xhci_trb_ring_info));
+	struct xhci_cmd_ring_info* pRingInfo = (struct xhci_cmd_ring_info*)kmalloc(sizeof(struct xhci_cmd_ring_info));
+	if (!pRingInfo){
+		printf("failed to allocate cmd TRB ring info\r\n");
+		virtualFree((uint64_t)pCmdDescList, cmdListDescSize);
+		return -1;
+	}
+	memset((void*)pRingInfo, 0, sizeof(struct xhci_cmd_ring_info));
 	pRingInfo->cycle_state = 1;
 	pRingInfo->pRingBuffer = pRingBuffer;
 	pRingInfo->maxEntries = XHCI_MAX_CMD_TRB_ENTRIES;
@@ -265,6 +279,7 @@ int xhci_init_cmd_list(struct xhci_trb_ring_info* pRingInfo){
 	pRingInfo->cmdDescListSize = cmdListDescSize;
 	uint64_t ringBufferSize = pRingInfo->maxEntries*sizeof(struct xhci_trb);
 	pRingInfo->ringBufferSize = ringBufferSize;
+	*ppRingInfo = pRingInfo;
 	if (virtualToPhysical((uint64_t)pRingBuffer, &pRingInfo->pRingBuffer_phys)!=0){
 		printf("failed to get physical address of TRB ring buffer\r\n");
 		virtualFreePage((uint64_t)pRingBuffer, 0);
@@ -277,14 +292,16 @@ int xhci_init_cmd_list(struct xhci_trb_ring_info* pRingInfo){
 	linkTrb.generic.ptr = (uint64_t)pRingInfo->pRingBuffer_phys;
 	linkTrb.generic.control.tc_bit = 1;
 	linkTrb.generic.control.type = XHCI_TRB_TYPE_LINK;
+	printf("writing link TRB\r\n");
 	if (xhci_write_cmd(pRingInfo, XHCI_MAX_CMD_TRB_ENTRIES-1, linkTrb)!=0){
 		xhci_deinit_cmd_list(pRingInfo);
 		return -1;
 	}
+	printf("done\r\n");
 	xhci_set_cmd_ring_base((uint64_t)pRingInfo->pRingBuffer_phys);
 	return 0;
 }
-int xhci_deinit_cmd_list(struct xhci_trb_ring_info* pRingInfo){
+int xhci_deinit_cmd_list(struct xhci_cmd_ring_info* pRingInfo){
 	if (!pRingInfo)
 		return -1;
 	if (virtualFreePage((uint64_t)pRingInfo->pRingBuffer, 0)!=0)
@@ -293,7 +310,7 @@ int xhci_deinit_cmd_list(struct xhci_trb_ring_info* pRingInfo){
 		return -1;
 	return 0;
 }
-int xhci_alloc_cmd(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, struct xhci_cmd_desc** ppCmdDesc){
+int xhci_alloc_cmd(struct xhci_cmd_ring_info* pRingInfo, struct xhci_trb trb, struct xhci_cmd_desc** ppCmdDesc){
 	if (!pRingInfo||!ppCmdDesc)
 		return -1;
 	uint64_t trbIndex = pRingInfo->currentEntry;
@@ -317,13 +334,13 @@ int xhci_alloc_cmd(struct xhci_trb_ring_info* pRingInfo, struct xhci_trb trb, st
 	*ppCmdDesc = pCmdDesc;
 	return 0;
 }
-int xhci_get_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry){
+int xhci_get_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry){
 	if (!pRingInfo||!ppTrbEntry)
 		return -1;
-	*ppTrbEntry = xhciInfo.cmdRingInfo.pRingBuffer+trbIndex;
+	*ppTrbEntry = pRingInfo->pRingBuffer+trbIndex;
 	return 0;
 }
-int xhci_write_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry){
+int xhci_write_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry){
 	if (!pRingInfo)
 		return -1;
 	unsigned char cycle_state = 0;
@@ -333,7 +350,7 @@ int xhci_write_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, stru
 	*(pRingInfo->pRingBuffer+trbIndex) = trbEntry;
 	return 0;
 }
-int xhci_read_cmd(struct xhci_trb_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry){
+int xhci_read_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry){
 	if (!pRingInfo||!pTrbEntry)
 		return -1;
 	*pTrbEntry = *(pRingInfo->pRingBuffer+trbIndex);
@@ -425,7 +442,7 @@ int xhci_is_ready(void){
 int xhci_get_cmd_ring_base(uint64_t* pBase){
 	if (!pBase)
 		return -1;
-	*pBase = xhciInfo.cmdRingInfo.pRingBuffer_phys;
+	*pBase = xhciInfo.pCmdRingInfo->pRingBuffer_phys;
 	return 0;
 }
 int xhci_set_cmd_ring_base(uint64_t base){
@@ -732,8 +749,8 @@ int xhci_interrupter(void){
 		xhci_update_dequeue_trb();
 		return -1;
 	}
-	uint64_t trbIndex = (uint64_t)((pCmdTrb_phys-xhciInfo.cmdRingInfo.pRingBuffer_phys)/sizeof(struct xhci_trb));
-	struct xhci_cmd_desc* pCmdDesc = xhciInfo.cmdRingInfo.pCmdDescList+trbIndex;
+	uint64_t trbIndex = (uint64_t)((pCmdTrb_phys-xhciInfo.pCmdRingInfo->pRingBuffer_phys)/sizeof(struct xhci_trb));
+	struct xhci_cmd_desc* pCmdDesc = xhciInfo.pCmdRingInfo->pCmdDescList+trbIndex;
 	pCmdDesc->pEventTrb = pEventTrb;
 	pCmdDesc->pEventTrb_phys = pEventTrb_phys;
 	const unsigned char* pTrbTypeName = (const unsigned char*)0x0;
@@ -808,7 +825,7 @@ int xhci_init_device_context_list(void){
 int xhci_get_driver_cycle_state(unsigned char* pCycleState){
 	if (!pCycleState)
 		return -1;
-	*pCycleState = xhciInfo.cmdRingInfo.cycle_state;
+	*pCycleState = xhciInfo.pCmdRingInfo->cycle_state;
 	return 0;
 }
 int xhci_get_hc_cycle_state(unsigned char* pCycleState){
@@ -846,7 +863,7 @@ int xhci_enable_slot(uint64_t* pSlotId){
 	struct xhci_trb cmdTrb = {0};
 	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
 	cmdTrb.command.control.type = XHCI_TRB_TYPE_ENABLE_SLOT;
-	if (xhci_alloc_cmd(&xhciInfo.cmdRingInfo, cmdTrb, &pCmdDesc)!=0)
+	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0)
 		return -1;
 	xhci_start();
 	xhci_ring(0);
@@ -868,7 +885,7 @@ int xhci_disable_slot(uint64_t slotId){
 	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
 	cmdTrb.disable_slot_cmd.type = XHCI_TRB_TYPE_DISABLE_SLOT;
 	cmdTrb.disable_slot_cmd.slot_id = (uint8_t)slotId;
-	if (xhci_alloc_cmd(&xhciInfo.cmdRingInfo, cmdTrb, &pCmdDesc)!=0)
+	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0)
 		return -1;
 	xhci_start();
 	xhci_ring(0);
@@ -883,26 +900,107 @@ int xhci_disable_slot(uint64_t slotId){
 	}
 	return 0;
 }
-int xhci_alloc_device_context(uint64_t port, struct xhci_device_context** ppDeviceContext){
-	if (!ppDeviceContext)
+int xhci_alloc_device_context(uint8_t port, struct xhci_device_context_desc** ppContextDesc){
+	if (!ppContextDesc)
 		return -1;
-	uint64_t slotId = 0;
-	if (xhci_enable_slot(&slotId)!=0)
-		return -1;
-	struct xhci_device_context* pDeviceContext = (struct xhci_device_context*)kmalloc(sizeof(struct xhci_device_context));
-	if (!pDeviceContext){
-		virtualFreePage((uint64_t)pDeviceContext, 0);
-		xhci_disable_slot(slotId);
+	volatile struct xhci_device_context* pDeviceContext = (volatile struct xhci_device_context*)0x0;
+	uint64_t pDeviceContext_phys = 0;
+	if (virtualAllocPage((uint64_t*)&pDeviceContext, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate device context\r\n");
 		return -1;
 	}
-	memset((void*)pDeviceContext, 0, sizeof(struct xhci_device_context));
-	*ppDeviceContext = pDeviceContext;
+	if (virtualToPhysical((uint64_t)pDeviceContext, &pDeviceContext_phys)!=0){
+		printf("failed to get physical address of device context\r\n");
+		virtualFreePage((uint64_t)pDeviceContext, 0);
+		return -1;
+	}
+	memset((void*)pDeviceContext, 0, PAGE_SIZE);
+	volatile struct xhci_slot_context* pSlotContext = (volatile struct xhci_slot_context*)&pDeviceContext->slotContext;
+	volatile struct xhci_endpoint_context* pEndPointContext = (volatile struct xhci_endpoint_context*)&pDeviceContext->endpointList[0];
+	volatile struct xhci_endpoint_context* pControlContext = pEndPointContext;
+	uint8_t portSpeed = 0;
+	xhci_get_port_speed(port, &portSpeed);
+	pSlotContext->speed = portSpeed;
+	pSlotContext->context_entries = 1;
+	pSlotContext->root_hub_port_num = port;	
+	pControlContext->error_count = 3;
+	pControlContext->type = 4;
+	pControlContext->max_packet_size = 64;
+	volatile struct xhci_input_context* pInputContext = (volatile struct xhci_input_context*)0x0;
+	uint64_t pInputContext_phys = 0;
+	if (virtualAllocPage((uint64_t*)&pInputContext, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate input context\r\n");
+		return -1;
+	}
+	if (virtualToPhysical((uint64_t)pInputContext, &pInputContext_phys)!=0){
+		printf("failed to get physical address of input context\r\n");
+		virtualFreePage((uint64_t)pInputContext, 0);
+		virtualFreePage((uint64_t)pDeviceContext, 0);
+		return -1;
+	}
+	memset((void*)pInputContext, 0, PAGE_SIZE);
+	pInputContext->add_flags|=(1<<0);
+	pInputContext->add_flags|=(1<<1);
+	uint64_t slotId = 0;
+	if (xhci_enable_slot(&slotId)!=0){
+		printf("failed to enable slot\r\n");
+		virtualFreePage((uint64_t)pInputContext, 0);
+		virtualFreePage((uint64_t)pDeviceContext, 0);
+		return -1;
+	}	
+	xhciInfo.deviceContextListInfo.pContextList[slotId] = (uint64_t)pDeviceContext_phys;	
+	struct xhci_trb cmdTrb = {0};
+	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
+	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
+	cmdTrb.address_device_cmd.type = XHCI_TRB_TYPE_ADDRESS_DEVICE;
+	cmdTrb.address_device_cmd.slot_id = slotId;
+	cmdTrb.address_device_cmd.input_context_ptr = pInputContext_phys;
+	cmdTrb.address_device_cmd.block_set_address = 1;
+	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
+		printf("failed to allocate address device cmd TRB\r\n");
+		xhci_disable_slot(slotId);
+		virtualFreePage((uint64_t)pInputContext, 0);
+		virtualFreePage((uint64_t)pDeviceContext, 0);
+		return -1;
+	}
+	xhci_start();
+	xhci_ring(0);
+	while (!pCmdDesc->pEventTrb||!xhci_get_cmd_ring_running()){};
+	volatile struct xhci_trb* pEventTrb = pCmdDesc->pEventTrb;
+	struct xhci_trb eventTrb = *pEventTrb;
+	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
+		const unsigned char* errorName = "Unknown error";
+		xhci_get_error_name(eventTrb.event.completion_code, &errorName);
+		printf("failed to address device (%s)\r\n", errorName);
+		xhci_disable_slot(slotId);
+		virtualFreePage((uint64_t)pInputContext, 0);
+		virtualFreePage((uint64_t)pDeviceContext, 0);
+		return -1;
+	}
+	struct xhci_device_context_desc* pContextDesc = (struct xhci_device_context_desc*)kmalloc(sizeof(struct xhci_device_context_desc));
+	if (!pContextDesc){
+		xhci_disable_slot(slotId);
+		virtualFreePage((uint64_t)pInputContext, 0);
+		virtualFreePage((uint64_t)pDeviceContext, 0);
+		return -1;
+	}
+	memset((void*)pContextDesc, 0, sizeof(struct xhci_device_context_desc));
+	pContextDesc->port = port;
+	pContextDesc->pDeviceContext = pDeviceContext;
+	pContextDesc->pDeviceContext_phys = pDeviceContext_phys;
+	pContextDesc->pInputContext = pInputContext;
+	pContextDesc->pInputContext_phys = pInputContext_phys;
+	pContextDesc->slotId = slotId;
+	*ppContextDesc = pContextDesc;
 	return 0;
 }
-int xhci_free_device_context(struct xhci_device_context* pDeviceContext){
-	if (!pDeviceContext)
+int xhci_free_device_context(struct xhci_device_context_desc* pContextDesc){
+	if (!pContextDesc)
 		return -1;
-	if (kfree((void*)pDeviceContext)!=0)
-		return -1;
+	if (pContextDesc->slotId)
+		xhci_disable_slot(pContextDesc->slotId);
+	if (pContextDesc->pDeviceContext)
+		virtualFreePage((uint64_t)pContextDesc->pDeviceContext, 0);
+	kfree((void*)pContextDesc);
 	return 0;
 }
