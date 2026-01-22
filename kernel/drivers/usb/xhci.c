@@ -31,8 +31,8 @@ int xhci_init(void){
 		printf("failed to stop XHCI controller\r\n");
 		return -1;
 	}
-	if (xhci_init_scratchpad()!=0){
-		printf("failed to initialize scratchpad pages\r\n");
+	if (xhci_init_device_context_list()!=0){
+		printf("failed to initialize device context list\r\n");
 		return -1;
 	}
 	if (xhci_init_cmd_ring(&xhciInfo.pCmdRingInfo)!=0){
@@ -40,16 +40,10 @@ int xhci_init(void){
 		return -1;
 	}	
 	xhci_set_cmd_ring_base(xhciInfo.pCmdRingInfo->pRingBuffer_phys);	
-	if (xhci_init_device_context_list()!=0){
-		printf("failed to initialize device context ptr list\r\n");
-		return -1;
-	}
-	printf("initializing INT0 and ER\r\n");
 	if (xhci_init_interrupter()!=0){
 		printf("failed to initialize XHCI interrupter\r\n");
 		return -1;
 	}
-	printf("done\r\n");
 	volatile struct xhci_usb_legacy_support* pLegacySupport = (volatile struct xhci_usb_legacy_support*)0x0;
 	if (xhci_get_extended_cap(1, (volatile struct xhci_extended_cap_hdr**)&pLegacySupport)!=0){
 		printf("failed to get USB legacy support extended cap header\r\n");
@@ -74,25 +68,15 @@ int xhci_init(void){
 		return -1;
 	}
 	xhci_start();
-	printf("running TRBs\r\n");
 	xhci_ring(0);
 	uint64_t time_us = get_time_us();
-	while (!pCmdDesc->pEventTrb){};
-	const unsigned char* pEventTrbName = (const unsigned char*)0x0;
-	if (xhci_get_trb_type_name(pCmdDesc->pEventTrb->event.control.type, &pEventTrbName)!=0){
-		printf("failed to get event TRB type name\r\n");
-		return -1;
-	}
-	printf("event TRB type: %s\r\n", pEventTrbName);
-	printf("event TRB: %p\r\n", (uint64_t)pCmdDesc->pEventTrb);
-	while (!pNewCmdDesc->pEventTrb){};
-	if (xhci_get_trb_type_name(pCmdDesc->pEventTrb->event.control.type, &pEventTrbName)!=0){
-		printf("failed to get event TRB type name\r\n");
-		return -1;
-	}
-	printf("new event TRB type: %s\r\n", pEventTrbName);
-	printf("new event TRB: %p\r\n", (uint64_t)pNewCmdDesc->pEventTrb);
-	while (!xhci_get_cmd_ring_running()){};
+	while (!pCmdDesc->cmdComplete){};
+	const unsigned char* completionStatusName = "Unknown completion status\r\n";
+	xhci_get_error_name(pCmdDesc->eventTrb.event.completion_code, &completionStatusName);
+	printf("completion status: %s\r\n", completionStatusName);
+	while (!pCmdDesc->cmdComplete){};	
+	xhci_get_error_name(pCmdDesc->eventTrb.event.completion_code, &completionStatusName);
+	printf("completion status: %s\r\n", completionStatusName);
 	uint64_t elapsed_us = get_time_us()-time_us;
 	printf("done running TRBs in %dus\r\n", elapsed_us);
 	struct xhci_usb_status usb_status = xhciInfo.pOperational->usb_status;
@@ -107,6 +91,7 @@ int xhci_init(void){
 			printf("failed to reset port %d\r\n", i);
 			continue;
 		}
+		sleep(50);
 		printf("XHCI controlled USB device at port %d\r\n", i);
 		struct xhci_device* pDevice = (struct xhci_device*)0x0;
 		if (xhci_init_device(i, &pDevice)!=0){
@@ -245,6 +230,26 @@ int xhci_reset_port(uint8_t port){
 	}	
 	return 0;
 }
+int xhci_enable_port(uint8_t port){
+	volatile struct xhci_port* pPort = (volatile struct xhci_port*)0x0;
+	if (xhci_get_port(port, &pPort)!=0)
+		return -1;
+	struct xhci_port_status status = pPort->port_status;
+	status.enable = 1;	
+	pPort->port_status = status;
+	sleep(5);	
+	return 0;
+}
+int xhci_disable_port(uint8_t port){
+	volatile struct xhci_port* pPort = (volatile struct xhci_port*)0x0;
+	if (xhci_get_port(port, &pPort)!=0)
+		return -1;
+	struct xhci_port_status status = pPort->port_status;
+	status.enable = 0;
+	pPort->port_status = status;
+	sleep(5);
+	return 0;
+}
 int xhci_get_port_count(uint8_t* pPortCount){
 	if (!pPortCount)
 		return -1;
@@ -361,6 +366,15 @@ int xhci_read_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struc
 int xhci_ring(uint64_t doorbell_vector){
 	volatile uint32_t* pDoorBell = xhciInfo.pDoorBells+doorbell_vector;
 	*pDoorBell = 0;
+	return 0;
+}
+int xhci_ring_endpoint(uint64_t slotId, uint8_t endpoint_id, uint8_t stream_id){
+	struct xhci_doorbell doorbell = {0};
+	memset((void*)&doorbell, 0, sizeof(struct xhci_doorbell));
+	doorbell.endpoint_id = endpoint_id;
+	doorbell.stream_id = stream_id;
+	volatile struct xhci_doorbell* pDoorBell = (volatile struct xhci_doorbell*)(xhciInfo.pDoorBells+slotId);
+	*pDoorBell = doorbell;	
 	return 0;
 }
 int xhci_reset(void){
@@ -737,7 +751,8 @@ int xhci_interrupter(void){
 		xhci_update_dequeue_trb();
 		return -1;
 	}
-	uint64_t pCmdTrb_phys = pEventTrb->event.trb_ptr;	
+	struct xhci_trb eventTrb = *pEventTrb;
+	uint64_t pCmdTrb_phys = eventTrb.event.trb_ptr;	
 	if (!pCmdTrb_phys){
 		printf("event TRB not linked to cmd TRB\r\n");
 		xhci_send_ack(0);
@@ -753,8 +768,8 @@ int xhci_interrupter(void){
 	}
 	uint64_t trbIndex = (uint64_t)((pCmdTrb_phys-xhciInfo.pCmdRingInfo->pRingBuffer_phys)/sizeof(struct xhci_trb));
 	struct xhci_cmd_desc* pCmdDesc = xhciInfo.pCmdRingInfo->pCmdDescList+trbIndex;
-	pCmdDesc->pEventTrb = pEventTrb;
-	pCmdDesc->pEventTrb_phys = pEventTrb_phys;
+	pCmdDesc->eventTrb = eventTrb;
+	pCmdDesc->cmdComplete = 1;
 	const unsigned char* pTrbTypeName = (const unsigned char*)0x0;
 	if (xhci_get_trb_type_name(pEventTrb->event.control.type, &pTrbTypeName)!=0){
 		printf("failed to get event TRB type name\r\n");
@@ -869,9 +884,8 @@ int xhci_enable_slot(uint64_t* pSlotId){
 		return -1;
 	xhci_start();
 	xhci_ring(0);
-	while (!pCmdDesc->pEventTrb||!xhci_get_cmd_ring_running()){};
-	volatile struct xhci_trb* pEventTrb = pCmdDesc->pEventTrb;
-	struct xhci_trb eventTrb = *pEventTrb;
+	while (!pCmdDesc->cmdComplete){};
+	struct xhci_trb eventTrb = pCmdDesc->eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
 		const unsigned char* errorName = "Unknown error";
 		xhci_get_error_name((uint64_t)eventTrb.event.completion_code, &errorName);
@@ -891,9 +905,8 @@ int xhci_disable_slot(uint64_t slotId){
 		return -1;
 	xhci_start();
 	xhci_ring(0);
-	while (!pCmdDesc->pEventTrb||!xhci_get_cmd_ring_running()){};
-	volatile struct xhci_trb* pEventTrb = pCmdDesc->pEventTrb;
-	struct xhci_trb eventTrb = *pEventTrb;
+	while (!pCmdDesc->cmdComplete){};
+	struct xhci_trb eventTrb = pCmdDesc->eventTrb;	
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
 		const unsigned char* errorName = "Unknown error";
 		xhci_get_error_name((uint64_t)eventTrb.event.completion_code, &errorName);
@@ -905,7 +918,15 @@ int xhci_disable_slot(uint64_t slotId){
 int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 	if (!ppDevice)
 		return -1;
-	volatile struct xhci_device_context* pDeviceContext = (volatile struct xhci_device_context*)0x0;
+	volatile struct xhci_cap_mmio* pCapRegisters = xhciInfo.pCapabilities;
+	struct xhci_cap_param0 param0 = pCapRegisters->cap_param0;
+	uint64_t contextSize = param0.context_size ? sizeof(struct xhci_slot_context64) : sizeof(struct xhci_slot_context32);
+	printf("XHC has %s contexts\r\n", param0.context_size ? "long" : "short");	
+	if (xhci_enable_port(port)!=0){
+		printf("failed to enable PORT%d\r\n", port);
+		return -1;
+	}
+	uint64_t pDeviceContext = 0;	
 	uint64_t pDeviceContext_phys = 0;
 	if (virtualAllocPage((uint64_t*)&pDeviceContext, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate device context\r\n");
@@ -917,37 +938,32 @@ int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		return -1;
 	}
 	memset((void*)pDeviceContext, 0, PAGE_SIZE);
-	volatile struct xhci_slot_context* pSlotContext = (volatile struct xhci_slot_context*)&pDeviceContext->slotContext;
-	volatile struct xhci_endpoint_context* pEndPointContext = (volatile struct xhci_endpoint_context*)&pDeviceContext->endpointList[0];
-	volatile struct xhci_endpoint_context* pControlContext = pEndPointContext;
+	volatile struct xhci_input_context32* pInputContext = (volatile struct xhci_input_context32*)pDeviceContext;	
+	volatile struct xhci_slot_context32* pSlotContext = (volatile struct xhci_slot_context32*)(pDeviceContext+contextSize);
+	volatile struct xhci_endpoint_context32* pControlContext = (volatile struct xhci_endpoint_context32*)0x0;
+	pControlContext = (volatile struct xhci_endpoint_context32*)(pDeviceContext+(contextSize*2));	
 	struct xhci_cmd_ring_info* pTransferRingInfo = (struct xhci_cmd_ring_info*)0x0;
 	if (xhci_init_cmd_ring(&pTransferRingInfo)!=0){
 		printf("failed to initialize transfer cmd ring for EP0\r\n");
+		virtualFreePage((uint64_t)pDeviceContext, 0);
 		return -1;
 	}
+	struct xhci_device device = {0};	
+	device.port = port;
+	device.deviceContext.pDeviceContext = pDeviceContext;
+	device.deviceContext.pDeviceContext_phys = pDeviceContext_phys;
 	uint8_t portSpeed = 0;
 	xhci_get_port_speed(port, &portSpeed);
+	printf("port speed: %d\r\n", portSpeed);
 	pSlotContext->speed = portSpeed;
 	pSlotContext->context_entries = 1;
-	pSlotContext->root_hub_port_num = port;	
+	pSlotContext->root_hub_port_num = port+1;
 	pControlContext->error_count = 3;
 	pControlContext->type = 4;
-	pControlContext->max_packet_size = 64;
-	volatile struct xhci_input_context* pInputContext = (volatile struct xhci_input_context*)0x0;
-	uint64_t pInputContext_phys = 0;
-	if (virtualAllocPage((uint64_t*)&pInputContext, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
-		printf("failed to allocate input context\r\n");
-		xhci_deinit_cmd_ring(pTransferRingInfo);
-		return -1;
-	}
-	if (virtualToPhysical((uint64_t)pInputContext, &pInputContext_phys)!=0){
-		printf("failed to get physical address of input context\r\n");
-		virtualFreePage((uint64_t)pInputContext, 0);
-		virtualFreePage((uint64_t)pDeviceContext, 0);
-		xhci_deinit_cmd_ring(pTransferRingInfo);
-		return -1;
-	}
-	memset((void*)pInputContext, 0, PAGE_SIZE);
+	pControlContext->max_packet_size = 512;
+	pControlContext->dequeue_ptr = (uint64_t)pTransferRingInfo->pRingBuffer_phys;
+	pControlContext->dequeue_cycle_state = pTransferRingInfo->cycle_state;
+	pControlContext->average_trb_len = 8;
 	pInputContext->add_flags|=(1<<0);
 	pInputContext->add_flags|=(1<<1);
 	uint64_t slotId = 0;
@@ -957,54 +973,58 @@ int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		xhci_deinit_cmd_ring(pTransferRingInfo);
 		return -1;
-	}	
-	xhciInfo.deviceContextListInfo.pContextList[slotId] = (uint64_t)pDeviceContext_phys;	
-	struct xhci_trb cmdTrb = {0};
+	}
+	printf("slot ID: %d\r\n", slotId);
+	device.deviceContext.slotId = slotId;
+	xhciInfo.deviceContextListInfo.pContextList[slotId] = (uint64_t)pDeviceContext_phys;
 	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
-	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
-	cmdTrb.address_device_cmd.type = XHCI_TRB_TYPE_ADDRESS_DEVICE;
-	cmdTrb.address_device_cmd.slot_id = slotId;
-	cmdTrb.address_device_cmd.input_context_ptr = pInputContext_phys;
-	cmdTrb.address_device_cmd.block_set_address = 0;
-	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
-		printf("failed to allocate address device cmd TRB\r\n");
-		xhci_disable_slot(slotId);
+	if (xhci_address_device(&device, 0, &pCmdDesc)!=0){
+		printf("failed to address device\r\n");
 		virtualFreePage((uint64_t)pInputContext, 0);
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		xhci_deinit_cmd_ring(pTransferRingInfo);
 		return -1;
-	}
-	xhci_start();
-	xhci_ring(0);
-	while (!pCmdDesc->pEventTrb||!xhci_get_cmd_ring_running()){};
-	volatile struct xhci_trb* pEventTrb = pCmdDesc->pEventTrb;
-	struct xhci_trb eventTrb = *pEventTrb;
+	}	
+	struct xhci_trb eventTrb = pCmdDesc->eventTrb;
+	const unsigned char* completionStatusName = "Unknown status";
+	xhci_get_error_name(eventTrb.event.completion_code, &completionStatusName);	
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
-		const unsigned char* errorName = "Unknown error";
-		xhci_get_error_name(eventTrb.event.completion_code, &errorName);
-		printf("failed to address device (%s)\r\n", errorName);
+		printf("failed to address device (%s)\r\n", completionStatusName);
 		xhci_disable_slot(slotId);
 		virtualFreePage((uint64_t)pInputContext, 0);
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		return -1;
 	}
-	struct xhci_device* pDevice = (struct xhci_device*)kmalloc(sizeof(struct xhci_device));
+	printf("address device status (%s)\r\n", completionStatusName);
+	struct xhci_trb cmdTrb = {0};
+	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
+	cmdTrb.command.control.type = XHCI_TRB_TYPE_NOP_TRANSFER;
+	cmdTrb.command.control.ioc = 1;
+	if (xhci_alloc_cmd(pTransferRingInfo, cmdTrb, &pCmdDesc)!=0){
+		printf("failed to allocate NOP trb\r\n");
+		xhci_disable_slot(slotId);	
+		virtualFreePage((uint64_t)pInputContext, 0);
+		virtualFreePage((uint64_t)pDeviceContext, 0);
+		return -1;
+	}
+	pControlContext->dequeue_cycle_state = pTransferRingInfo->cycle_state;
+	pControlContext->dequeue_ptr = pTransferRingInfo->pRingBuffer_phys;
+/*	xhci_start();
+	xhci_ring_endpoint(slotId, 1, 0);
+	while (!pCmdDesc->cmdComplete){};
+	eventTrb = pCmdDesc->eventTrb;
+	const unsigned char* errorName = "Unknown error";
+	xhci_get_error_name(eventTrb.event.completion_code, &errorName);
+	printf("NOP TRB status: %s\r\n", errorName);
+*/	struct xhci_device* pDevice = (struct xhci_device*)kmalloc(sizeof(struct xhci_device));
 	if (!pDevice){
 		printf("failed to allocate device descriptor\r\n");
 		xhci_disable_slot(slotId);
 		virtualFreePage((uint64_t)pInputContext, 0);
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		return -1;
-	}
-	memset((void*)pDevice, 0, sizeof(struct xhci_device));
-	pDevice->port = port;
-	pDevice->pTransferRingInfo = pTransferRingInfo;
-	struct xhci_device_context_desc* pContextDesc = &pDevice->deviceContext;
-	pContextDesc->pDeviceContext = pDeviceContext;
-	pContextDesc->pDeviceContext_phys = pDeviceContext_phys;
-	pContextDesc->pInputContext = pInputContext;
-	pContextDesc->pInputContext_phys = pInputContext_phys;
-	pContextDesc->slotId = slotId;
+	}	
+	*pDevice = device;
 	*ppDevice = pDevice;	
 	return 0;
 }
@@ -1022,5 +1042,44 @@ int xhci_deinit_device(struct xhci_device* pDevice){
 		xhci_deinit_cmd_ring(pDevice->pTransferRingInfo);
 	}	
 	kfree((void*)pDevice);
+	return 0;
+}
+int xhci_get_endpoint_context(struct xhci_device_context_desc* pContextDesc, uint64_t endpoint_index, volatile struct xhci_endpoint_context32** ppEndPointContext){
+	if (!pContextDesc||!ppEndPointContext)
+		return -1;
+	if (pContextDesc->shortContext){
+		volatile struct xhci_device_context32* pDeviceContext = (volatile struct xhci_device_context32*)pContextDesc->pDeviceContext;
+		*ppEndPointContext = pDeviceContext->endpointList+endpoint_index;
+		return 0;
+	}	
+	volatile struct xhci_device_context64* pDeviceContext = (volatile struct xhci_device_context64*)pContextDesc->pDeviceContext;
+	*ppEndPointContext = (volatile struct xhci_endpoint_context32*)(pDeviceContext->endpointList+endpoint_index);
+	return 0;
+}
+int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_address, struct xhci_cmd_desc** ppCmdDesc){
+	if (!pDevice)
+		return -1;
+	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
+	struct xhci_trb cmdTrb = {0};
+	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
+	cmdTrb.address_device_cmd.type = XHCI_TRB_TYPE_ADDRESS_DEVICE;	
+	cmdTrb.address_device_cmd.input_context_ptr = pDevice->deviceContext.pDeviceContext_phys;
+	cmdTrb.address_device_cmd.slotId = pDevice->deviceContext.slotId;
+	cmdTrb.address_device_cmd.block_set_address = block_set_address ? 1 : 0;
+	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
+		printf("failed to push addrss device TRB to cmd ring\r\n");
+		return -1;
+	}	
+	xhci_start();
+	xhci_ring(0);
+	while (!pCmdDesc->cmdComplete||!xhci_get_cmd_ring_running()){};
+	struct xhci_trb eventTrb = pCmdDesc->eventTrb;
+	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
+		const unsigned char* errorName = "Unknown error";
+		xhci_get_error_name(eventTrb.event.completion_code, &errorName);
+		printf("failed to address device (%s)\r\n", errorName);
+		return -1;
+	}
+	*ppCmdDesc = pCmdDesc;
 	return 0;
 }

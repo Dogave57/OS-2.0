@@ -119,16 +119,16 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 	*((uint64_t*)(pCurrentLevel)+index) = (uint64_t)(((uint64_t)(pNextLevel))|PTE_RW|PTE_PRESENT);
 	if (virtualMapPage((uint64_t)pNextLevel, (uint64_t)pNextLevel, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 1, 0, PAGE_TYPE_VMM)!=0){
 		printf("failed to map next level\r\n");
-		return -1;
+		return -1; 
 	}
 	*ppNextLevel = (uint64_t*)pNextLevel;
 	return 0;
 }
 KAPI int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint32_t pageType){
 	if (!VA_IS_CANONICAL(va)){
-		printf("non-canonical virtual address: %p\r\n", va);
-		while (1){};
-		return -1;
+//		printf("non-canonical virtual address: %p\r\n", va);
+//		while (1){};
+//		return -1;
 	}
 	if (va>=VA_MAX){
 		printf("max virtual address\r\n");
