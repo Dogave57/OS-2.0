@@ -356,6 +356,37 @@ struct xhci_trb{
 			uint32_t reserved3:14;
 		}setup_stage_cmd;
 		struct{
+			uint64_t buffer_phys;
+			uint32_t trb_transfer_len:17;
+			uint32_t td_size:5;
+			uint32_t interrupter_target:10;
+			uint32_t cycle_bit:1;
+			uint32_t eval_next_trb:1;
+			uint32_t interrupt_short_packet:1;
+			uint32_t no_snoop:1;
+			uint32_t chain:1;
+			uint32_t ioc:1;
+			uint32_t immediate_data:1;
+			uint32_t reserved0:3;
+			uint32_t type:6;
+			uint32_t dir:1;
+			uint32_t reserved1:15;
+		}data_stage_cmd;
+		struct{
+			uint64_t reserved0;
+			uint32_t reserved1:22;
+			uint32_t interrupter_target:10;
+			uint32_t cycle_bit:1;
+			uint32_t eval_next_trb:1;
+			uint32_t reserved2:2;
+			uint32_t chain:1;
+			uint32_t ioc:1;
+			uint32_t reserved3:4;
+			uint32_t type:6;
+			uint32_t dir:1;
+			uint32_t reserved4:15;
+		}status_stage_cmd;
+		struct{
 			uint32_t param0;
 			uint32_t param1;
 			struct xhci_trb_status status;
@@ -408,8 +439,7 @@ struct xhci_endpoint_context32{
 	uint32_t max_burst_size:8;
 	uint32_t max_packet_size:16;
 	
-	uint64_t dequeue_cycle_state:1;
-	uint64_t dequeue_ptr:63;
+	uint64_t dequeue_ptr;
 
 	uint16_t average_trb_len;
 	uint16_t max_esit_payload_low;
@@ -445,6 +475,34 @@ struct xhci_doorbell{
 	uint32_t endpoint_id:8;
 	uint32_t reserved0:16;
 	uint32_t stream_id:8;
+}__attribute__((packed));
+struct xhci_usb_desc_header{
+	uint8_t length;
+	uint8_t descriptorType;
+}__attribute__((packed));
+struct xhci_usb_desc{
+	struct xhci_usb_desc_header header;
+	unsigned char data[];
+}__attribute__((packed));
+struct xhci_usb_device_desc{
+	struct xhci_usb_desc_header header;
+	uint16_t usbVersion;
+	uint8_t class;
+	uint8_t subclass;
+	uint8_t protocolCode;
+	uint8_t maxPacketSize;
+	uint16_t vendorId;
+	uint16_t productId;
+	uint16_t deviceRelease;
+	uint8_t manufacturerIndex;
+	uint8_t productIndex;
+	uint8_t serialIndex;
+	uint8_t maxConfigCount;
+}__attribute__((packed));
+struct xhci_usb_string_desc{
+	struct xhci_usb_desc_header header;
+	uint16_t string[126];
+	unsigned char padding0[1];
 }__attribute__((packed));
 struct xhci_cmd_desc{
 	volatile struct xhci_trb* pCmdTrb;
@@ -594,5 +652,6 @@ int xhci_disable_slot(uint64_t slotId);
 int xhci_init_device(uint8_t port, struct xhci_device** ppDevice);
 int xhci_deinit_device(struct xhci_device* pDevice);
 int xhci_get_endpoint_context(struct xhci_device_context_desc* pContextDesc, uint64_t endpoint_index, volatile struct xhci_endpoint_context32** ppEndPointContext);
-int xhci_address_device(struct xhci_device* pDevice, uint8_t blcok_set_address, struct xhci_cmd_desc** ppCmdDesc);
+int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_address, struct xhci_cmd_desc** ppCmdDesc);
+int xhci_get_descriptor(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t index, uint8_t type, unsigned char* pBuffer, uint64_t len, struct xhci_trb* pEventTrb);
 #endif

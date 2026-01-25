@@ -1,6 +1,6 @@
 SERIAL_PATH="/dev/null"
 MACOS_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci -device usb-kbd,bus=xhci.0 -device usb-mouse,bus=xhci.0 -trace "usb_xhci_*" -d guest_errors,unimp -device virtio-gpu"
-LINUX_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci,msix=on -device usb-kbd,bus=xhci.0 -device usb-mouse,bus=xhci.0 -trace "usb_xhci_*" -serial stdio -d guest_errors,unimp"
+LINUX_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci,msix=on -device usb-kbd,bus=xhci.0 -trace "usb_xhci_*" -serial stdio -d guest_errors,unimp"
 OS=$(uname -s)
 bash restore_firmware.sh
 case "$OS" in

@@ -39,7 +39,7 @@ KAPI int printf(unsigned char* fmt, ...){
 	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
-		CHAR16 ch = fmt[i];
+		unsigned char ch = fmt[i];
 		if (ch!='%'){
 			putchar(ch);
 			continue;
@@ -109,7 +109,7 @@ KAPI int lprintf(uint16_t* fmt, ...){
 	for (unsigned int i = 0;fmt[i];i++){
 		uint16_t ch = fmt[i];
 		if (ch!=L'%'){
-			putchar(ch);
+			putlchar(ch);
 			continue;
 		}
 		switch (fmt[i+1]){
@@ -149,13 +149,13 @@ KAPI int lprintf(uint16_t* fmt, ...){
 			i++;
 			break;
 			}
-			case 's':{
+			case L's':{
 			uint16_t* str = (uint16_t*)va_arg(args, void*);	 
 			lprint(str);
 			i++;
 			break;	 
 			}
-			case 'c':{
+			case L'c':{
 			uint16_t ch = (uint16_t)va_arg(args, unsigned int);
 	       		putlchar(ch);		
 			i++;
