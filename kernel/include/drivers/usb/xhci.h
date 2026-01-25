@@ -5,9 +5,12 @@
 #include "drivers/pcie.h"
 #define XHCI_PORT_LIST_OFFSET (0x400)
 #define XHCI_MAX_CMD_TRB_ENTRIES (256)
+#define XHCI_MAX_TRANFER_TRB_ENTRIES (256)
 #define XHCI_MAX_EVENT_TRB_ENTRIES (256)
-#define XHCI_MAX_DEVICE_COUNT (256)
+#define XHCI_MAX_DEVICE_COUNT (255)
 #define XHCI_MAX_EVENT_SEGMENT_TABLE_ENTRIES (256)
+#define XHCI_MAX_ENDPOINT_COUNT (31)
+#define XHCI_MAX_SLOT_COUNT (256)
 #define XHCI_DEFAULT_PAGE_SIZE (0x0)
 #define XHCI_DEFAULT_INTERRUPTER_ID (0x0)
 #define XHCI_TRB_TYPE_INVALID (0x0)
@@ -60,6 +63,16 @@
 #define XHCI_COMPLETION_CODE_PARAM_ERROR (0x11)
 #define XHCI_COMPLETION_CODE_CONTEXT_STATE_ERROR (0x13)
 #define XHCI_COMPLETION_CODE_EVENT_RING_FULL (0x1A)
+#define XHCI_REQUEST_TRANSFER_DIRECTION_H2D 0x0
+#define XHCI_REQUEST_TRANSFER_DIRECTION_D2H 0x1
+#define XHCI_REQUEST_TARGET_DEVICE 0x0
+#define XHCI_REQUEST_TARGET_INTERFACE 0x1
+#define XHCI_REQUEST_TARGET_ENDPOINT 0x2
+#define XHCI_REQUEST_TARGET_OTHER 0x3
+#define XHCI_REQUEST_TYPE_STANDARD 0x0
+#define XHCI_REQUEST_TYPE_CLASS 0x1
+#define XHCI_REQUEST_TYPE_VENDOR 0x2
+#define XHCI_REQUEST_TYPE_RESERVED 0x3
 struct xhci_structure_param0{
 	uint32_t max_slots:8;
 	uint32_t max_interrupters:11;
@@ -263,6 +276,11 @@ struct xhci_trb_control{
 	uint32_t type:6;
 	uint32_t reserved1:16;
 }__attribute__((packed));
+struct xhci_setup_stage_request_type{
+	uint8_t request_target:5;
+	uint8_t request_type:2;
+	uint8_t request_direction:1;
+}__attribute__((packed));
 struct xhci_trb{
 	union{
 		struct{
@@ -276,6 +294,19 @@ struct xhci_trb{
 			uint32_t completion_code:8;
 			struct xhci_trb_control control;
 		}event;
+		struct{
+			uint64_t trb_ptr;
+			uint32_t transfer_length:24;
+			uint32_t completion_code:8;
+			uint32_t cycle_bit:1;
+			uint32_t reserved0:1;
+			uint32_t event_data:1;
+			uint32_t reserved1:7;
+			uint32_t type:6;
+			uint32_t endpoint_id:5;
+			uint32_t reserved2:3;
+			uint32_t slot_id:8;
+		}event_transfer;
 		struct{
 			uint64_t trb_ptr;
 			uint32_t reserved0:24;
@@ -306,6 +337,24 @@ struct xhci_trb{
 			uint32_t reserved4:8;
 			uint32_t slot_id:8;
 		}disable_slot_cmd;
+		struct{
+			struct xhci_setup_stage_request_type requestType;
+			uint8_t request;
+			uint16_t value;
+			uint16_t index;
+			uint16_t length;
+			uint32_t trb_transfer_len:24;
+			uint32_t immediate_data:1;
+			uint32_t reserved0:7;
+			uint32_t cycle_bit:1;
+			uint32_t reserved1:5;
+			uint32_t ioc:1;
+			uint32_t chain_bit:1;
+			uint32_t reserved2:2;
+			uint32_t type:6;
+			uint32_t transfer_type:2;
+			uint32_t reserved3:14;
+		}setup_stage_cmd;
 		struct{
 			uint32_t param0;
 			uint32_t param1;
@@ -404,6 +453,13 @@ struct xhci_cmd_desc{
 	uint64_t pCmdTrb_phys;
 	uint64_t trbIndex;
 };
+struct xhci_transfer_desc{
+	volatile struct xhci_trb* pTransferTrb;
+	uint8_t transferComplete;
+	struct xhci_trb eventTrb;
+	uint64_t pTransferTrb_phys;
+	uint64_t trbIndex;
+};
 struct xhci_cmd_ring_info{
 	struct xhci_cmd_desc* pCmdDescList;
 	uint64_t cmdDescListSize;
@@ -413,6 +469,16 @@ struct xhci_cmd_ring_info{
 	unsigned char cycle_state;
 	uint64_t currentEntry;	
 	uint64_t maxEntries;
+};
+struct xhci_transfer_ring_info{
+	volatile struct xhci_trb* pRingBuffer;
+	uint64_t pRingBuffer_phys;
+	uint64_t ringBufferSize;
+	unsigned char cycle_state;
+	uint64_t currentEntry;
+	uint64_t maxEntries;
+	struct xhci_device* pDevice;
+	uint64_t endpoint;
 };
 struct xhci_event_trb_ring_info{
 	uint64_t dequeueTrb;
@@ -445,7 +511,6 @@ struct xhci_device_context_desc{
 struct xhci_device{
 	uint8_t port;
 	struct xhci_device_context_desc deviceContext;
-	struct xhci_cmd_ring_info* pTransferRingInfo;
 };
 struct xhci_info{
 	uint64_t pBaseMmio;
@@ -458,6 +523,9 @@ struct xhci_info{
 	struct xhci_cmd_ring_info* pCmdRingInfo;
 	struct xhci_interrupter_info interrupterInfo;
 	struct xhci_device_context_list_info deviceContextListInfo;
+	struct xhci_transfer_ring_info* pTransferRingList;
+	struct xhci_transfer_desc* pTransferDescList;
+	struct xhci_device* pDeviceDescList;
 	struct pcie_location location;
 };
 int xhci_init(void);
@@ -473,12 +541,24 @@ int xhci_reset_port(uint8_t port);
 int xhci_enable_port(uint8_t port);
 int xhci_disable_port(uint8_t port);
 int xhci_get_port_count(uint8_t* pPortCount);
+int xhci_get_device(uint8_t port, struct xhci_device** ppDevice);
+int xhci_init_device_desc_list(void);
 int xhci_init_cmd_ring(struct xhci_cmd_ring_info** ppRingInfo);
 int xhci_deinit_cmd_ring(struct xhci_cmd_ring_info* pRingInfo);
 int xhci_alloc_cmd(struct xhci_cmd_ring_info* pRingInfo, struct xhci_trb trb, struct xhci_cmd_desc** ppCmdDesc);
 int xhci_get_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
 int xhci_write_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry);
 int xhci_read_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry);
+int xhci_init_transfer_ring_list(void);
+int xhci_init_transfer_desc_list(void);
+int xhci_get_transfer_ring(uint8_t slotId, uint8_t endpoint, struct xhci_transfer_ring_info** ppTransferRing);
+int xhci_get_transfer_desc(uint8_t port, uint8_t endpoint, uint64_t trbIndex, struct xhci_transfer_desc** ppTransferDesc);
+int xhci_init_transfer_ring(struct xhci_device* pDevice, uint8_t endpoint, struct xhci_transfer_ring_info** ppTransferRingInfo);
+int xhci_deinit_transfer_ring(struct xhci_transfer_ring_info* pTransferRingInfo);
+int xhci_alloc_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, struct xhci_trb trb, struct xhci_transfer_desc** ppTransferDesc);
+int xhci_get_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
+int xhci_write_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry);
+int xhci_read_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry);
 int xhci_ring(uint64_t doorbell_vector);
 int xhci_ring_endpoint(uint64_t slotId, uint8_t endpoint_id, uint8_t stream_id);
 int xhci_reset(void);
