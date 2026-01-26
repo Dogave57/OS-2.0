@@ -6,21 +6,20 @@
 #define MEM_GB ((uint64_t)1073741824)
 #define MEM_MB ((uint64_t)1048576)
 #define MEM_KB ((uint64_t)1024)
-#define PAGE_SIZE 4096
-#define MAX_ORDER 2048
-#define PAGE_TYPE_RESERVED 0
-#define PAGE_TYPE_FREE 1
-#define PAGE_TYPE_NORMAL 2
-#define PAGE_TYPE_STACK 3
-#define PAGE_TYPE_HEAP 4
-#define PAGE_TYPE_MMIO 5
-#define PAGE_TYPE_FIRMWARE_DATA 6
-#define PAGE_TYPE_PMM 7
-#define PAGE_TYPE_VMM 8
-#define PAGE_INVALID 0
-#define PAGE_FREE 1
-#define PAGE_INUSE 2
-#define PAGE_RESERVED 3
+#define PAGE_SIZE (4096)
+#define PAGE_TYPE_RESERVED (0)
+#define PAGE_TYPE_FREE (1)
+#define PAGE_TYPE_NORMAL (2)
+#define PAGE_TYPE_STACK (3)
+#define PAGE_TYPE_HEAP (4)
+#define PAGE_TYPE_MMIO (5)
+#define PAGE_TYPE_FIRMWARE_DATA (6)
+#define PAGE_TYPE_PMM (7)
+#define PAGE_TYPE_VMM (8)
+#define PAGE_INVALID (0)
+#define PAGE_FREE (1)
+#define PAGE_INUSE (2)
+#define PAGE_RESERVED (3)
 struct p_page{
 	uint8_t status;
 	uint8_t pageType;

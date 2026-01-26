@@ -25,7 +25,7 @@
 #define XHCI_TRB_TYPE_ENABLE_SLOT (0x09)
 #define XHCI_TRB_TYPE_DISABLE_SLOT (0x0A)
 #define XHCI_TRB_TYPE_ADDRESS_DEVICE (0x0B)
-#define XHCI_TRB_TYPE_CONFIG_ENDPOINT (0x0C)
+#define XHCI_TRB_TYPE_CONFIGURE_ENDPOINT (0x0C)
 #define XHCI_TRB_TYPE_EVALUATE_CONTEXT (0x0D)
 #define XHCI_TRB_TYPE_RESET_ENDPOINT (0x0E)
 #define XHCI_TRB_TYPE_STOP_ENDPOINT (0x0F)
@@ -102,6 +102,23 @@
 #define XHCI_INTERFACE_CLASS_HID (0x03)
 #define XHCI_INTERFACE_PROTOCOL_KEYBOARD (0x01)
 #define XHCI_INTERFACE_PROTOCOL_MOUSE (0x02)
+#define XHCI_TRANSFER_TYPE_CONTROL (0x0)
+#define XHCI_TRANSFER_TYPE_ISOCH (0x1)
+#define XHCI_TRANSFER_TYPE_BULK (0x2)
+#define XHCI_TRANSFER_TYPE_INT (0x3)
+#define XHCI_ENDPOINT_STATE_INVALID (0x0)
+#define XHCI_ENDPOINT_STATE_RUNNING (0x1)
+#define XHCI_ENDPOINT_STATE_HALTED (0x2)
+#define XHCI_ENDPOINT_STATE_STOPPED (0x3)
+#define XHCI_ENDPOINT_STATE_ERROR (0x4)
+#define XHCI_ENDPOINT_TYPE_INVALID (0x0)
+#define XHCI_ENDPOINT_TYPE_ISOCH_OUT (0x1)
+#define XHCI_ENDPOINT_TYPE_BULK_OUT (0x2)
+#define XHCI_ENDPOINT_TYPE_INT_OUT (0x3)
+#define XHCI_ENDPOINT_TYPE_CONTROL (0x4)
+#define XHCI_ENDPOINT_TYPE_ISOCH_IN (0x5)
+#define XHCI_ENDPOINT_TYPE_BULK_IN (0x6)
+#define XHCI_ENDPOINT_TYPE_INT_IN (0x7)
 struct xhci_structure_param0{
 	uint32_t max_slots:8;
 	uint32_t max_interrupters:11;
@@ -366,6 +383,16 @@ struct xhci_trb{
 			uint32_t reserved3:8;
 			uint32_t slot_id:8;
 		}evaluate_context_cmd;
+		struct{
+			uint64_t input_context_ptr;
+			uint32_t reserved0;
+			uint32_t cycle_bit:1;
+			uint32_t reserved1:8;
+			uint32_t deconfig:1;
+			uint32_t type:6;
+			uint32_t reserved2:8;
+			uint32_t slot_id:8;
+		}configure_endpoint_cmd;
 		struct{
 			uint32_t reserved0;
 			uint32_t reserved1;
@@ -645,17 +672,22 @@ struct xhci_device_context_desc{
 	uint64_t slotId;
 };
 struct xhci_endpoint_desc{
-	struct xhci_endpoint_context32* pEndPoint;
+	struct xhci_endpoint_context32* pEndpointContext;
+	struct xhci_transfer_ring_info* pTransferRingInfo;
 	uint8_t endpointIndex;
-	uint8_t direction;
+	uint8_t endpointDirection;
+};
+struct xhci_interface_desc{
+	struct xhci_usb_interface_desc usbInterfaceDesc;
+	struct xhci_endpoint_desc* pEndpointDescList;
+	uint64_t endpointCount;
 };
 struct xhci_device{
 	uint8_t port;
 	struct xhci_device_context_desc deviceContext;
 	struct xhci_usb_config_desc* pConfigDescriptor;	
-	struct xhci_endpoint_desc endpointDescList[31];
-	struct xhci_usb_interface_desc* pInterfaceDescList;
-	uint64_t interfaceDescCount;
+	struct xhci_interface_desc* pInterfaceDescList;
+	uint8_t interfaceDescCount;
 	uint64_t maxInterfaceDescCount;
 };
 struct xhci_info{
@@ -740,7 +772,9 @@ int xhci_disable_slot(uint64_t slotId);
 int xhci_init_device(uint8_t port, struct xhci_device** ppDevice);
 int xhci_deinit_device(struct xhci_device* pDevice);
 int xhci_get_endpoint_context(struct xhci_device_context_desc* pContextDesc, uint64_t endpoint_index, volatile struct xhci_endpoint_context32** ppEndPointContext);
-int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_address, struct xhci_cmd_desc** ppCmdDesc);
-int xhci_evaluate_context(struct xhci_device* pDevice, struct xhci_cmd_desc** ppCmdDesc);
+int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_address, struct xhci_trb* pEventTrb);
+int xhci_evaluate_context(struct xhci_device* pDevice, struct xhci_trb* pEventTrb);
 int xhci_get_descriptor(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t index, uint8_t type, unsigned char* pBuffer, uint64_t len, struct xhci_trb* pEventTrb);
+int xhci_configure_endpoint(struct xhci_device* pDevice, struct xhci_trb* pEventTrb);
+int xhci_set_configuration(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t configValue, struct xhci_trb* pEventTrb);
 #endif
