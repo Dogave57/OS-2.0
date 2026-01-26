@@ -26,7 +26,7 @@
 #define XHCI_TRB_TYPE_DISABLE_SLOT (0x0A)
 #define XHCI_TRB_TYPE_ADDRESS_DEVICE (0x0B)
 #define XHCI_TRB_TYPE_CONFIG_ENDPOINT (0x0C)
-#define XHCI_TRB_TYPE_UPDATE_CONTEXT (0x0D)
+#define XHCI_TRB_TYPE_EVALUATE_CONTEXT (0x0D)
 #define XHCI_TRB_TYPE_RESET_ENDPOINT (0x0E)
 #define XHCI_TRB_TYPE_STOP_ENDPOINT (0x0F)
 #define XHCI_TRB_TYPE_SET_EVENT_DEQUEUE_PTR (0x10)
@@ -63,16 +63,45 @@
 #define XHCI_COMPLETION_CODE_PARAM_ERROR (0x11)
 #define XHCI_COMPLETION_CODE_CONTEXT_STATE_ERROR (0x13)
 #define XHCI_COMPLETION_CODE_EVENT_RING_FULL (0x1A)
-#define XHCI_REQUEST_TRANSFER_DIRECTION_H2D 0x0
-#define XHCI_REQUEST_TRANSFER_DIRECTION_D2H 0x1
-#define XHCI_REQUEST_TARGET_DEVICE 0x0
-#define XHCI_REQUEST_TARGET_INTERFACE 0x1
-#define XHCI_REQUEST_TARGET_ENDPOINT 0x2
-#define XHCI_REQUEST_TARGET_OTHER 0x3
-#define XHCI_REQUEST_TYPE_STANDARD 0x0
-#define XHCI_REQUEST_TYPE_CLASS 0x1
-#define XHCI_REQUEST_TYPE_VENDOR 0x2
-#define XHCI_REQUEST_TYPE_RESERVED 0x3
+#define XHCI_REQUEST_TRANSFER_DIRECTION_H2D (0x0)
+#define XHCI_REQUEST_TRANSFER_DIRECTION_D2H (0x1)
+#define XHCI_REQUEST_TARGET_DEVICE (0x0)
+#define XHCI_REQUEST_TARGET_INTERFACE (0x1)
+#define XHCI_REQUEST_TARGET_ENDPOINT (0x2)
+#define XHCI_REQUEST_TARGET_OTHER (0x3)
+#define XHCI_REQUEST_TYPE_STANDARD (0x0)
+#define XHCI_REQUEST_TYPE_CLASS (0x1)
+#define XHCI_REQUEST_TYPE_VENDOR (0x2)
+#define XHCI_REQUEST_TYPE_RESERVED (0x3)
+#define XHCI_PORT_SPEED_FULL (0x1)
+#define XHCI_PORT_SPEED_LOW (0x2)
+#define XHCI_PORT_SPEED_HIGH (0x3)
+#define XHCI_PORT_SPEED_SUPER (0x4)
+#define XHCI_USB_DESC_DEVICE (0x01)
+#define XHCI_USB_DESC_CONFIG (0x02)
+#define XHCI_USB_DESC_STRING (0x03)
+#define XHCI_USB_DESC_INTERFACE (0x04)
+#define XHCI_USB_DESC_ENDPOINT (0x05)
+#define XHCI_USB_DESC_DEVICE_QUALIFIER (0x06)
+#define XHCI_USB_DESC_OTHER_SPEED_CONFIG (0x07)
+#define XHCI_USB_DESC_INTERFACE_POWER (0x08)
+#define XHCI_USB_DESC_OTG (0x09)
+#define XHCI_USB_DESC_DEBUG (0x0A)
+#define XHCI_USB_DESC_INTERFACE_ASSOCIATION (0x0B)
+#define XHCI_USB_DESC_BOS (0x0F)
+#define XHCI_USB_DESC_DEVICE_CAPABILITY (0x10)
+#define XHCI_USB_DESC_WIRELESS_ENDPOINT_COMPANION (0x11)
+#define XHCI_USB_DESC_SUPERSPEED_ENDPOINT_COMPANION (0x30)
+#define XHCI_USB_DESC_HID (0x21)
+#define XHCI_USB_DESC_HID_REPORT (0x22)
+#define XHCI_USB_DESC_HID_PHYSICAL_REPORT (0x23)
+#define XHCI_USB_DESC_HUB (0x29)
+#define XHCI_USB_DESC_SUPERSPEED_HUB (0x2A)
+#define XHCI_USB_DESC_BILLBOARD (0x0D)
+#define XHCI_USB_DESC_TYPE_C_BRIDGE (0x0E)
+#define XHCI_INTERFACE_CLASS_HID (0x03)
+#define XHCI_INTERFACE_PROTOCOL_KEYBOARD (0x01)
+#define XHCI_INTERFACE_PROTOCOL_MOUSE (0x02)
 struct xhci_structure_param0{
 	uint32_t max_slots:8;
 	uint32_t max_interrupters:11;
@@ -328,6 +357,16 @@ struct xhci_trb{
 			uint32_t slotId:8;
 		}address_device_cmd;
 		struct{
+			uint64_t input_context_ptr;
+			uint32_t reserved0;
+			uint32_t cycle_bit:1;
+			uint32_t reserved1:8;
+			uint32_t reserved2:1;
+			uint32_t type:6;
+			uint32_t reserved3:8;
+			uint32_t slot_id:8;
+		}evaluate_context_cmd;
+		struct{
 			uint32_t reserved0;
 			uint32_t reserved1;
 			uint32_t reserved2;
@@ -504,6 +543,45 @@ struct xhci_usb_string_desc{
 	uint16_t string[126];
 	unsigned char padding0[1];
 }__attribute__((packed));
+struct xhci_usb_config_desc{
+	struct xhci_usb_desc_header header;
+	uint16_t totalLength;
+	uint8_t interfaceCount;
+	uint8_t configValue;
+	uint8_t config;
+	uint8_t attributes;
+	uint8_t maxPower;
+	unsigned char data[2048];
+}__attribute__((packed));
+struct xhci_usb_interface_desc{
+	struct xhci_usb_desc_header header;
+	uint8_t interfaceNumber;
+	uint8_t alternateSetting;
+	uint8_t endpointCount;
+	uint8_t interfaceClass;
+	uint8_t interfaceSubClass;
+	uint8_t interfaceProtocol;
+	uint8_t interfaceStringIndex;
+	unsigned char padding0[7];
+}__attribute__((packed));
+struct xhci_usb_hid_report_desc{
+	uint8_t descriptorType;
+	uint16_t descriptorLength;
+}__attribute__((packed));
+struct xhci_usb_hid_desc{
+	struct xhci_usb_desc_header header;
+	uint16_t bcdHid;
+	uint8_t countryCode;
+	uint8_t descriptorCount;
+	struct xhci_usb_hid_report_desc reportDescList[];
+}__attribute__((packed));
+struct xhci_usb_endpoint_desc{
+	struct xhci_usb_desc_header header;
+	uint8_t endpointAddress;
+	uint8_t attributes;
+	uint16_t maxPacketSize;
+	uint8_t interval;
+}__attribute__((packed));
 struct xhci_cmd_desc{
 	volatile struct xhci_trb* pCmdTrb;
 	uint8_t cmdComplete;
@@ -566,9 +644,19 @@ struct xhci_device_context_desc{
 	uint64_t pInputContext_phys;
 	uint64_t slotId;
 };
+struct xhci_endpoint_desc{
+	struct xhci_endpoint_context32* pEndPoint;
+	uint8_t endpointIndex;
+	uint8_t direction;
+};
 struct xhci_device{
 	uint8_t port;
 	struct xhci_device_context_desc deviceContext;
+	struct xhci_usb_config_desc* pConfigDescriptor;	
+	struct xhci_endpoint_desc endpointDescList[31];
+	struct xhci_usb_interface_desc* pInterfaceDescList;
+	uint64_t interfaceDescCount;
+	uint64_t maxInterfaceDescCount;
 };
 struct xhci_info{
 	uint64_t pBaseMmio;
@@ -653,5 +741,6 @@ int xhci_init_device(uint8_t port, struct xhci_device** ppDevice);
 int xhci_deinit_device(struct xhci_device* pDevice);
 int xhci_get_endpoint_context(struct xhci_device_context_desc* pContextDesc, uint64_t endpoint_index, volatile struct xhci_endpoint_context32** ppEndPointContext);
 int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_address, struct xhci_cmd_desc** ppCmdDesc);
+int xhci_evaluate_context(struct xhci_device* pDevice, struct xhci_cmd_desc** ppCmdDesc);
 int xhci_get_descriptor(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t index, uint8_t type, unsigned char* pBuffer, uint64_t len, struct xhci_trb* pEventTrb);
 #endif

@@ -33,6 +33,7 @@
 #define VA_MAX ((uint64_t)0xFFFFFFFFFFFFFFFF)
 #define VA_IS_CANONICAL(va)(!(va>NON_CANONICAL_RANGE_LOW&&va<NON_CANONICAL_RANGE_HIGH))
 #define VMM_RANGE_BASE ((uint64_t)0xffff800000000000)
+#define VMM_IDENTITY_MAP_BASE ((uint64_t)0xffff800000000000)
 #define MAP_FLAG_LAZY (1<<0)
 int vmm_init(void);
 int vmm_getPageTableEntry(uint64_t va, uint64_t** ppEntry);
@@ -52,6 +53,7 @@ KAPI int virtualProtectPage(uint64_t va, uint64_t prot);
 KAPI int virtualProtectPages(uint64_t va, uint64_t pageCount, uint64_t prot);
 KAPI int virtualGetPageFlags(uint64_t va, uint64_t* pFlags);
 KAPI int virtualGetSpace(uint64_t* pVa, uint64_t pageCount);
+KAPI int pt_loaded(void);
 uint64_t get_pt(void);
 int load_pt(uint64_t pml4);
 int flush_tlb(uint64_t va);

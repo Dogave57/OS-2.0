@@ -80,6 +80,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	printf("initializing heap\r\n");
 	if (heap_init()!=0){
 		printf("failed to initialize heap\r\n");
 		while (1){};
@@ -143,6 +144,18 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	if (virtio_gpu_init()!=0){
 		printf("failed to initialize virtual I/O GPU driver\r\n");
+	}
+	uint64_t usedPhysPages = 0;
+	uint64_t freePhysPages = 0;
+	if (getUsedPhysicalPages(&usedPhysPages)!=0){
+		printf("failed to get used physical pages\r\n");
+		while (1){};
+		return -1;
+	}
+	if (getFreePhysicalPages(&freePhysPages)!=0){
+		printf("failed to get free physical pages\r\n");
+		while (1){};
+		return -1;
 	}
 	if (xhci_init()!=0){
 		printf("failed to initialize XHCI controller\r\n");
