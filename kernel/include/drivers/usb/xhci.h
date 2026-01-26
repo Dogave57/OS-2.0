@@ -5,7 +5,7 @@
 #include "drivers/pcie.h"
 #define XHCI_PORT_LIST_OFFSET (0x400)
 #define XHCI_MAX_CMD_TRB_ENTRIES (256)
-#define XHCI_MAX_TRANFER_TRB_ENTRIES (256)
+#define XHCI_MAX_TRANSFER_TRB_ENTRIES (256)
 #define XHCI_MAX_EVENT_TRB_ENTRIES (256)
 #define XHCI_MAX_DEVICE_COUNT (255)
 #define XHCI_MAX_EVENT_SEGMENT_TABLE_ENTRIES (256)
@@ -428,9 +428,9 @@ struct xhci_trb{
 			uint32_t interrupter_target:10;
 			uint32_t cycle_bit:1;
 			uint32_t eval_next_trb:1;
-			uint32_t interrupt_short_packet:1;
+			uint32_t isp:1;
 			uint32_t no_snoop:1;
-			uint32_t chain:1;
+			uint32_t chain_bit:1;
 			uint32_t ioc:1;
 			uint32_t immediate_data:1;
 			uint32_t reserved0:3;
@@ -609,6 +609,12 @@ struct xhci_usb_endpoint_desc{
 	uint16_t maxPacketSize;
 	uint8_t interval;
 }__attribute__((packed));
+struct xhci_usb_packet_request{
+	uint64_t interfaceId;
+	uint64_t endpointIndex;
+	unsigned char* pBuffer;
+	uint64_t bufferSize;
+};
 struct xhci_cmd_desc{
 	volatile struct xhci_trb* pCmdTrb;
 	uint8_t cmdComplete;
@@ -679,13 +685,14 @@ struct xhci_endpoint_desc{
 };
 struct xhci_interface_desc{
 	struct xhci_usb_interface_desc usbInterfaceDesc;
+	struct xhci_usb_hid_desc* pHidDescriptor;	
 	struct xhci_endpoint_desc* pEndpointDescList;
 	uint64_t endpointCount;
 };
 struct xhci_device{
 	uint8_t port;
 	struct xhci_device_context_desc deviceContext;
-	struct xhci_usb_config_desc* pConfigDescriptor;	
+	struct xhci_usb_config_desc* pConfigDescriptor;
 	struct xhci_interface_desc* pInterfaceDescList;
 	uint8_t interfaceDescCount;
 	uint64_t maxInterfaceDescCount;
@@ -777,4 +784,8 @@ int xhci_evaluate_context(struct xhci_device* pDevice, struct xhci_trb* pEventTr
 int xhci_get_descriptor(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t index, uint8_t type, unsigned char* pBuffer, uint64_t len, struct xhci_trb* pEventTrb);
 int xhci_configure_endpoint(struct xhci_device* pDevice, struct xhci_trb* pEventTrb);
 int xhci_set_configuration(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t configValue, struct xhci_trb* pEventTrb);
+int xhci_get_device_interface(struct xhci_device* pDevice, uint64_t interfaceId, struct xhci_interface_desc** ppInterfaceDesc);
+int xhci_get_device_interface_endpoint(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_endpoint_desc** ppEndpointDesc);
+int xhci_get_endpoint_transfer_ring(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_transfer_ring_info** ppTransferRingInfo);
+int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packet_request request, struct xhci_trb* pEventTrb);
 #endif
