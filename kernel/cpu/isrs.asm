@@ -541,38 +541,52 @@ ctx_switch_time dq 10
 timer_isr:
 cli
 pushaq
+mov qword rbp, rsp
+and rsp, -16
 add qword [rel lapic_tick_count], 10
 jmp ctx_switch
 timer_isr_end:
 sub rsp, 32
 call lapic_send_eoi
 add rsp, 32
+mov qword rsp, rbp
 popaq
 iretq
 thermal_isr:
 cli
+mov qword rbp, rsp
+and rsp, -16
 sub rsp, 32
 call lapic_send_eoi
 add rsp, 32
+mov qword rsp, rbp
 sti
 iretq
 ps2_kbd_isr:
 cli
 pushaq
+mov qword rbp, rsp
+and rsp, -16
 sub rsp, 32
 call ps2_keyboard_handler
 call entropy_shuffle
 call lapic_send_eoi
 add rsp, 32
+mov qword rsp, rbp
 popaq
 iretq
 xhci_interrupter_isr:
 cli
 pushaq
+mov qword rbp, rsp
+and rsp, -16
 sub qword rsp, 32
 call xhci_interrupter
+add qword rsp, 32
+sub qword rsp, 32
 call lapic_send_eoi
 add qword rsp, 32
+mov qword rsp, rbp
 popaq
 iretq
 isr0_msg db "divide by zero ISR triggered", 10, 0

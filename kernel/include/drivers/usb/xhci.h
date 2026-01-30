@@ -73,6 +73,7 @@
 #define XHCI_REQUEST_TYPE_CLASS (0x1)
 #define XHCI_REQUEST_TYPE_VENDOR (0x2)
 #define XHCI_REQUEST_TYPE_RESERVED (0x3)
+#define XHCI_REQUEST_TYPE_SET_PROTOCOL (0x0B)
 #define XHCI_PORT_SPEED_FULL (0x1)
 #define XHCI_PORT_SPEED_LOW (0x2)
 #define XHCI_PORT_SPEED_HIGH (0x3)
@@ -119,6 +120,8 @@
 #define XHCI_ENDPOINT_TYPE_ISOCH_IN (0x5)
 #define XHCI_ENDPOINT_TYPE_BULK_IN (0x6)
 #define XHCI_ENDPOINT_TYPE_INT_IN (0x7)
+struct xhci_transfer_desc;
+typedef int(*xhciTransferCompletionFunc)(struct xhci_transfer_desc* pTransferDesc);
 struct xhci_structure_param0{
 	uint32_t max_slots:8;
 	uint32_t max_interrupters:11;
@@ -340,6 +343,24 @@ struct xhci_trb{
 			uint32_t completion_code:8;
 			struct xhci_trb_control control;
 		}event;
+		struct{
+			uint64_t buffer_phys;
+			uint32_t transfer_len:17;
+			uint32_t td_size:5;
+			uint32_t interrupter_target:10;
+			uint32_t cycle_bit:1;
+			uint32_t eval_next_trb:1;
+			uint32_t isp:1;
+			uint32_t no_snoop:1;
+			uint32_t chain_bit:1;
+			uint32_t ioc:1;
+			uint32_t immediate_data:1;
+			uint32_t reserved0:2;
+			uint32_t block_event_int:1;
+			uint32_t type:6;
+			uint32_t dir:1;
+			uint32_t reserved1:15;
+		}normal_transfer;
 		struct{
 			uint64_t trb_ptr;
 			uint32_t transfer_length:24;
@@ -610,10 +631,11 @@ struct xhci_usb_endpoint_desc{
 	uint8_t interval;
 }__attribute__((packed));
 struct xhci_usb_packet_request{
-	uint64_t interfaceId;
-	uint64_t endpointIndex;
+	uint8_t interfaceId;	
+	uint8_t endpointId;	
 	unsigned char* pBuffer;
 	uint64_t bufferSize;
+	xhciTransferCompletionFunc completionFunc;
 };
 struct xhci_cmd_desc{
 	volatile struct xhci_trb* pCmdTrb;
@@ -623,11 +645,13 @@ struct xhci_cmd_desc{
 	uint64_t trbIndex;
 };
 struct xhci_transfer_desc{
+	struct xhci_transfer_ring_info* pTransferRingInfo;
 	volatile struct xhci_trb* pTransferTrb;
 	uint8_t transferComplete;
 	struct xhci_trb eventTrb;
 	uint64_t pTransferTrb_phys;
 	uint64_t trbIndex;
+	xhciTransferCompletionFunc completionFunc;
 };
 struct xhci_cmd_ring_info{
 	struct xhci_cmd_desc* pCmdDescList;
@@ -647,7 +671,9 @@ struct xhci_transfer_ring_info{
 	uint64_t currentEntry;
 	uint64_t maxEntries;
 	struct xhci_device* pDevice;
-	uint64_t endpoint;
+	uint8_t interfaceId;
+	uint8_t endpointIndex;
+	uint8_t endpointId;
 };
 struct xhci_event_trb_ring_info{
 	uint64_t dequeueTrb;
@@ -673,7 +699,7 @@ struct xhci_device_context_desc{
 	uint8_t shortContext;
 	uint64_t pDeviceContext;
 	uint64_t pDeviceContext_phys;
-	volatile struct xhci_input_context* pInputContext;
+	volatile struct xhci_input_context32* pInputContext;
 	uint64_t pInputContext_phys;
 	uint64_t slotId;
 };
@@ -736,11 +762,11 @@ int xhci_write_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, stru
 int xhci_read_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry);
 int xhci_init_transfer_ring_list(void);
 int xhci_init_transfer_desc_list(void);
-int xhci_get_transfer_ring(uint8_t slotId, uint8_t endpoint, struct xhci_transfer_ring_info** ppTransferRing);
-int xhci_get_transfer_desc(uint8_t port, uint8_t endpoint, uint64_t trbIndex, struct xhci_transfer_desc** ppTransferDesc);
-int xhci_init_transfer_ring(struct xhci_device* pDevice, uint8_t endpoint, struct xhci_transfer_ring_info** ppTransferRingInfo);
+int xhci_get_transfer_ring(uint8_t slotId, uint8_t endpointIndex, struct xhci_transfer_ring_info** ppTransferRing);
+int xhci_get_transfer_desc(uint8_t port, uint8_t endpointIndex, uint64_t trbIndex, struct xhci_transfer_desc** ppTransferDesc);
+int xhci_init_transfer_ring(struct xhci_device* pDevice, uint8_t interfaceId, uint8_t endpointIndex, uint8_t endpointId, struct xhci_transfer_ring_info** ppTransferRingInfo);
 int xhci_deinit_transfer_ring(struct xhci_transfer_ring_info* pTransferRingInfo);
-int xhci_alloc_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, struct xhci_trb trb, struct xhci_transfer_desc** ppTransferDesc);
+int xhci_alloc_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, struct xhci_trb trb, struct xhci_transfer_desc** ppTransferDesc, xhciTransferCompletionFunc completionFunc);
 int xhci_get_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
 int xhci_write_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry);
 int xhci_read_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry);
@@ -784,8 +810,9 @@ int xhci_evaluate_context(struct xhci_device* pDevice, struct xhci_trb* pEventTr
 int xhci_get_descriptor(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t index, uint8_t type, unsigned char* pBuffer, uint64_t len, struct xhci_trb* pEventTrb);
 int xhci_configure_endpoint(struct xhci_device* pDevice, struct xhci_trb* pEventTrb);
 int xhci_set_configuration(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t configValue, struct xhci_trb* pEventTrb);
-int xhci_get_device_interface(struct xhci_device* pDevice, uint64_t interfaceId, struct xhci_interface_desc** ppInterfaceDesc);
-int xhci_get_device_interface_endpoint(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_endpoint_desc** ppEndpointDesc);
+int xhci_get_interface_desc(struct xhci_device* pDevice, uint64_t interfaceId, struct xhci_interface_desc** ppInterfaceDesc);
+int xhci_get_endpoint_desc(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_endpoint_desc** ppEndpointDesc);
 int xhci_get_endpoint_transfer_ring(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_transfer_ring_info** ppTransferRingInfo);
+int xhci_set_protocol(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t interfaceId, uint16_t protocolId, struct xhci_trb* pEventTrb);
 int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packet_request request, struct xhci_trb* pEventTrb);
 #endif

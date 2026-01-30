@@ -6,6 +6,8 @@
 #define KEY_LSHIFT 131
 #define KEY_RSHIFT 132
 #define KEY_ENTER 133
+#define KEY_LALT 134
+#define KEY_RALT 135
 static const char scantoascii[256]={
 [0x01] = 0,//ESC
 [0x02] = '1',
@@ -93,5 +95,18 @@ static const char scantoascii[256]={
 [0x57] = 0,//F11
 [0x58] = 0,//F12
 };
+struct key_desc{
+	uint8_t key;
+	uint8_t isPressed;
+	uint64_t time_us;
+};
+struct keyboard_context{
+	struct key_desc keyList[255];
+};
 void ps2_keyboard_handler(void);
+int key_register_press(uint8_t key);
+int key_register_release(uint8_t key);
+int key_pressed(uint8_t key);
+int key_get_press_time_us(uint8_t key, uint64_t* pTime);
+int key_get_desc(uint8_t key, struct key_desc** ppKeyDesc);
 #endif
