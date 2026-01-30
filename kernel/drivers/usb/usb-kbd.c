@@ -54,7 +54,6 @@ int usb_kbd_setup(struct xhci_device* pDevice, uint8_t interfaceId){
 	}	
 	if (!pEndpointDesc||!endpointIndex)
 		return -1;
-	printf("USB keyboard found port %d interface %d endpoint %d\r\n", pDevice->port, interfaceId, endpointIndex);
 	struct xhci_trb eventTrb = {0};
 	memset((void*)&eventTrb, 0, sizeof(struct xhci_trb));
 	pEndpointDesc->pEndpointContext->interval = 8;	

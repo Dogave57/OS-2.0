@@ -198,6 +198,9 @@ KAPI unsigned char toUpper(unsigned char ch){
 		['\\'] = '|',
 		['='] = '+',
 		['-'] = '_',
+		['\b'] = '\b',
+		['\t'] = '\t',
+		['\n'] = '\n',
 	};
 	if (upper>='a'&&upper<='z')
 		return 'A'+(upper-'a');
