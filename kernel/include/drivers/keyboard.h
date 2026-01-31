@@ -1,13 +1,14 @@
 #ifndef _KEYBOARD
 #define _KEYBOARD
-#define KEY_ESC 128
-#define KEY_LCTRL 129
-#define KEY_RCTRL 130
-#define KEY_LSHIFT 131
-#define KEY_RSHIFT 132
-#define KEY_ENTER 133
-#define KEY_LALT 134
-#define KEY_RALT 135
+#define KEY_ESC (128)
+#define KEY_LCTRL (129)
+#define KEY_RCTRL (130)
+#define KEY_LSHIFT (131)
+#define KEY_RSHIFT (132)
+#define KEY_ENTER (133)
+#define KEY_LALT (134)
+#define KEY_RALT (135)
+#define KEY_CAPSLOCK (136)
 static const char scantoascii[256]={
 [0x01] = 0,//ESC
 [0x02] = '1',

@@ -734,6 +734,7 @@ struct xhci_interface_desc{
 struct xhci_device{
 	uint8_t port;
 	struct xhci_device_context_desc deviceContext;
+	struct xhci_transfer_ring_info* pControlTransferRingInfo;
 	struct xhci_usb_config_desc* pConfigDescriptor;
 	struct xhci_interface_desc* pInterfaceDescList;
 	uint8_t interfaceDescCount;
@@ -818,17 +819,17 @@ int xhci_init_scratchpad(void);
 int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr** ppCapHeader);
 int xhci_enable_slot(uint64_t* pSlotId);
 int xhci_disable_slot(uint64_t slotId);
-int xhci_init_device(uint8_t port, struct xhci_device** ppDevice);
-int xhci_deinit_device(struct xhci_device* pDevice);
-int xhci_get_endpoint_context(struct xhci_device_context_desc* pContextDesc, uint64_t endpoint_index, volatile struct xhci_endpoint_context32** ppEndPointContext);
-int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_address, struct xhci_trb* pEventTrb);
-int xhci_evaluate_context(struct xhci_device* pDevice, struct xhci_trb* pEventTrb);
-int xhci_get_descriptor(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t index, uint8_t type, unsigned char* pBuffer, uint64_t len, struct xhci_trb* pEventTrb);
-int xhci_configure_endpoint(struct xhci_device* pDevice, struct xhci_trb* pEventTrb);
-int xhci_set_configuration(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t configValue, struct xhci_trb* pEventTrb);
-int xhci_get_interface_desc(struct xhci_device* pDevice, uint64_t interfaceId, struct xhci_interface_desc** ppInterfaceDesc);
-int xhci_get_endpoint_desc(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_endpoint_desc** ppEndpointDesc);
-int xhci_get_endpoint_transfer_ring(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_transfer_ring_info** ppTransferRingInfo);
-int xhci_set_protocol(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t interfaceId, uint16_t protocolId, struct xhci_trb* pEventTrb);
-int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packet_request request, struct xhci_trb* pEventTrb);
+KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice);
+KAPI int xhci_deinit_device(struct xhci_device* pDevice);
+KAPI int xhci_get_endpoint_context(struct xhci_device_context_desc* pContextDesc, uint64_t endpoint_index, volatile struct xhci_endpoint_context32** ppEndPointContext);
+KAPI int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_address, struct xhci_trb* pEventTrb);
+KAPI int xhci_evaluate_context(struct xhci_device* pDevice, struct xhci_trb* pEventTrb);
+KAPI int xhci_get_descriptor(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t index, uint8_t type, unsigned char* pBuffer, uint64_t len, struct xhci_trb* pEventTrb);
+KAPI int xhci_configure_endpoint(struct xhci_device* pDevice, struct xhci_trb* pEventTrb);
+KAPI int xhci_set_configuration(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t configValue, struct xhci_trb* pEventTrb);
+KAPI int xhci_get_interface_desc(struct xhci_device* pDevice, uint64_t interfaceId, struct xhci_interface_desc** ppInterfaceDesc);
+KAPI int xhci_get_endpoint_desc(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_endpoint_desc** ppEndpointDesc);
+KAPI int xhci_get_endpoint_transfer_ring(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_transfer_ring_info** ppTransferRingInfo);
+KAPI int xhci_set_protocol(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t interfaceId, uint16_t protocolId, struct xhci_trb* pEventTrb);
+KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packet_request request, struct xhci_trb* pEventTrb);
 #endif

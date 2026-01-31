@@ -46,8 +46,9 @@ int subsystem_get_entry(struct subsystem_desc* pSubsystemDesc, uint64_t id, uint
 int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, unsigned char* pEntry, uint64_t* pId){
 	if (!pSubsystemDesc||!pId||!pEntry)
 		return -1;
-	if (!pSubsystemDesc->freeEntries)
+	if (!pSubsystemDesc->freeEntries){
 		return -1;
+	}
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	uint64_t id = pSubsystemDesc->pFreeEntries[pSubsystemDesc->freeEntries-1];

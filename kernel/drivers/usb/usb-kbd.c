@@ -1,44 +1,34 @@
 #include "mem/pmm.h"
 #include "mem/vmm.h"
 #include "stdlib/stdlib.h"
+#include "subsystem/usb.h"
 #include "drivers/timer.h"
 #include "drivers/keyboard.h"
 #include "drivers/usb/xhci.h"
 #include "drivers/usb/usb-kbd.h"
 struct hid_boot_kbd_report bootKbdReport = {0};
 struct hid_boot_kbd_report lastBootKbdReport = {0};
-int usb_kbd_init(void){
-	uint8_t portCount = 0;
-	if (xhci_get_port_count(&portCount)!=0)
+uint64_t driverId = 0;
+int usb_kbd_driver_init(void){
+	struct usb_driver_vtable vtable = {0};
+	memset((void*)&vtable, 0, sizeof(struct usb_driver_vtable));
+	vtable.registerInterface = usb_kbd_register;
+	vtable.unregisterInterface = usb_kbd_unregister;
+	if (usb_driver_register(vtable, 3, 1, &driverId)!=0)
 		return -1;
-	for (uint8_t port = 0;port<portCount;port++){
-		if (xhci_device_exists(port)!=0)
-			continue;
-		struct xhci_device* pDevice = (struct xhci_device*)0x0;
-		if (xhci_get_device(port, &pDevice)!=0){
-			printf("failed to get USB device descriptor\r\n");
-			continue;
-		}	
-		for (uint8_t interface = 0;interface<pDevice->interfaceDescCount;interface++){
-			struct xhci_interface_desc* pInterfaceDesc = (struct xhci_interface_desc*)0x0;
-			if (xhci_get_interface_desc(pDevice, interface, &pInterfaceDesc)!=0){
-				printf("failed to get INTERFACE%d\r\n", interface);
-				continue;
-			}
-			if (pInterfaceDesc->usbInterfaceDesc.interfaceProtocol!=0x1)
-				continue;
-			if (usb_kbd_setup(pDevice, interface)!=0){
-				printf("failed to set up USB keyboard\r\n");
-				continue;
-			}
-		}
-	}
 	return 0;
 }
-int usb_kbd_setup(struct xhci_device* pDevice, uint8_t interfaceId){
+int usb_kbd_init(uint8_t port, uint8_t interfaceId){
+	struct xhci_device* pDevice = (struct xhci_device*)0x0;
+	if (xhci_get_device(port, &pDevice)!=0)
+		return -1;
 	struct xhci_interface_desc* pInterfaceDesc = (struct xhci_interface_desc*)0x0;
 	if (xhci_get_interface_desc(pDevice, interfaceId, &pInterfaceDesc)!=0)
 		return -1;
+	if (pInterfaceDesc->usbInterfaceDesc.interfaceClass!=0x3||pInterfaceDesc->usbInterfaceDesc.interfaceSubClass!=0x1||pInterfaceDesc->usbInterfaceDesc.interfaceProtocol!=0x1){
+		printf("not a valid USB HID keyboard\r\n");
+		return -1;
+	}
 	struct xhci_endpoint_desc* pEndpointDesc = (struct xhci_endpoint_desc*)0x0;
 	uint64_t endpointId = 0;
 	uint64_t endpointIndex = 0;
@@ -65,16 +55,20 @@ int usb_kbd_setup(struct xhci_device* pDevice, uint8_t interfaceId){
 		printf("failed to change endpoint interval (%s)\r\n", errorName);
 		return -1;
 	}
-	if (xhci_set_protocol(pDevice, pEndpointDesc->pTransferRingInfo, interfaceId, 0, &eventTrb)!=0){
+	if (xhci_set_protocol(pDevice, pDevice->pControlTransferRingInfo, interfaceId, 0, &eventTrb)!=0){
 		const unsigned char* errorName = "Unknown error";
 		xhci_get_error_name(eventTrb.event.completion_code, &errorName);
 		printf("failed to set protocol (%s)\r\n", errorName);
 		return -1;
 	}	
-	if (usb_kbd_request_boot_report(pDevice, endpointId, interfaceId)!=0){
-		printf("failed to request initial boot report\r\n");
+	if (usb_kbd_request_boot_report(pDevice, interfaceId, endpointId)!=0){
+		printf("failed to request boot report\r\n");
 		return -1;
-	}	
+	}
+	return 0;
+}
+int usb_kbd_deinit(uint8_t port, uint8_t interfaceId){
+	
 	return 0;
 }
 int usb_kbd_interrupt(struct xhci_transfer_desc* pTransferDesc){
@@ -135,11 +129,12 @@ int usb_kbd_handle_boot_report(void){
 		if (lastPressed){
 			continue;
 		}
-		if (character<128)
-			putchar((!key_pressed(KEY_LSHIFT)||!key_pressed(KEY_RSHIFT)) ? toUpper(character) : character);
+		if (character<128&&character)
+			putchar((!key_pressed(KEY_LSHIFT)||!key_pressed(KEY_RSHIFT)||!key_pressed(KEY_CAPSLOCK)) ? toUpper(character) : character);
 		if (spamAllowed)
 			spam = 1;
-		key_register_press(character);
+		if (character)
+			key_register_press(character);
 	}
 	for (uint64_t i = 0;i<sizeof(lastBootKbdReport.keys);i++){
 		uint64_t pressed = 0;
@@ -153,7 +148,10 @@ int usb_kbd_handle_boot_report(void){
 		}
 		if (pressed)
 			continue;
-		key_register_release(character);
+		if (keyCode==HID_KEYCODE_CAPSLOCK)
+			key_register_release(KEY_CAPSLOCK);
+		if (character)
+			key_register_release(character);
 	}
 	return 0;
 }
@@ -172,4 +170,14 @@ int usb_kbd_request_boot_report(struct xhci_device* pDevice, uint8_t interfaceId
 		return -1;
 	}
 	return 0;
+}
+int usb_kbd_register(uint8_t port, uint8_t interfaceId){
+	if (usb_kbd_init(port, interfaceId)!=0)
+		return -1;
+	return 0;
+}
+int usb_kbd_unregister(uint8_t port, uint8_t interfaceId){
+	if (usb_kbd_deinit(port, interfaceId)!=0)
+		return -1;
+	return 0;	
 }

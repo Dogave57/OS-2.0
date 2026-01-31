@@ -237,6 +237,7 @@ extern physicalAllocPage
 extern virtualGetPageFlags
 extern lapic_tick_count
 extern xhci_interrupter
+extern schedulerHalt
 exception_fg:
 db 255, 255, 255, 0
 exception_bg:
@@ -452,6 +453,9 @@ ctx_no_rip_msg db "invalid RIP", 10, 0
 current_thread_msg db "current thread ID: %d", 10, 0
 rflags_msg db "RFLAGS: %p", 10, 0
 ctx_switch:
+mov qword rax, [rel schedulerHalt]
+cmp rax, 0
+jne ctx_switch_end
 mov qword rax, [rel pFirstThread]
 cmp rax, 0
 je ctx_switch_end

@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "kernel_include.h"
 #include "drivers/usb/xhci.h"
+#define HID_KEYCODE_CAPSLOCK (0x39)
 static const unsigned char hid_keymap[255]={
 	[0x04]='a',
 	[0x05]='b',
@@ -93,9 +94,12 @@ struct hid_boot_kbd_report{
 	uint8_t reserved0;
 	uint8_t keys[6];
 }__attribute__((packed));
-int usb_kbd_init(void);
-int usb_kbd_setup(struct xhci_device* pDevice, uint8_t interfaceId);
+int usb_kbd_driver_init(void);
+int usb_kbd_init(uint8_t port, uint8_t interfaceId);
+int usb_kbd_deinit(uint8_t port, uint8_t interfaceId);
 int usb_kbd_interrupt(struct xhci_transfer_desc* pTransferDesc);
 int usb_kbd_handle_boot_report(void);
 int usb_kbd_request_boot_report(struct xhci_device* pDevice, uint8_t interfaceId, uint8_t endpointId);
+int usb_kbd_register(uint8_t port, uint8_t interfaceId);
+int usb_kbd_unregister(uint8_t port, uint8_t interfaceId);
 #endif

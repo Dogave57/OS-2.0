@@ -12,6 +12,7 @@ struct thread_t* pFirstThread = (struct thread_t*)0x0;
 struct thread_t* pLastThread = (struct thread_t*)0x0;
 struct thread_t* pCurrentThread = (struct thread_t*)0x0;
 unsigned char threadDestroySafe = 0;
+unsigned char schedulerHalt = 0;
 int threads_init(void){
 	if (subsystem_init(&pSubsystemDesc, MEM_KB*256)!=0)
 		return -1;
@@ -312,5 +313,13 @@ KAPI int thread_exists(uint64_t tid){
 		return -1;
 	if (!pThread)
 		return -1;
+	return 0;
+}
+int scheduler_halt(void){
+	schedulerHalt = 1;
+	return 0;
+}
+int scheduler_resume(void){
+	schedulerHalt = 0;
 	return 0;
 }
