@@ -291,15 +291,20 @@ struct xhci_port_status{
 	uint32_t port_speed:4;
 	uint32_t port_indicator_ctrl:2;
 	uint32_t link_write_strobe:1;
-	uint32_t reserved1:1;
-	uint32_t connect_status_change:1;
-	uint32_t port_enabled_change:1;
+	uint32_t connection_status_change:1;
+	uint32_t port_enable_change:1;
 	uint32_t warm_port_reset_change:1;
 	uint32_t over_current_change:1;
 	uint32_t port_reset_change:1;
 	uint32_t port_link_state_change:1;
 	uint32_t config_error_change:1;
+	uint32_t cold_attach_status:1;
+	uint32_t wake_on_connect_enable:1;
+	uint32_t wake_on_disconnect_enable:1;
+	uint32_t wake_on_over_current_enable:1;	
 	uint32_t reserved2:2;
+	uint32_t device_removable:1;
+	uint32_t warm_port_reset:1;
 }__attribute__((packed));
 struct xhci_port{
 	struct xhci_port_status port_status;
@@ -479,6 +484,17 @@ struct xhci_trb{
 			struct xhci_trb_status status;
 			struct xhci_trb_control control;
 		}command;
+		struct{
+			uint32_t reserved0:24;
+			uint32_t port_id:8;
+			uint32_t reserved1;
+			uint32_t reserved2:24;
+			uint32_t completion_code:8;
+			uint32_t cycle_bit:1;
+			uint32_t reserved3:9;
+			uint32_t type:6;
+			uint32_t reserved4:16;
+		}port_status_change;
 	};
 }__attribute__((packed));
 struct xhci_slot_context32{

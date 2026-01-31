@@ -99,19 +99,15 @@ int xhci_init(void){
 	for (uint8_t i = 0;i<portCount;i++){
 		if (xhci_device_exists(i)!=0)
 			continue;
-		if (xhci_reset_port(i)!=0){
-			printf("failed to reset port %d\r\n", i);
-			continue;
-		}
-		sleep(25);
 		printf("XHCI controlled USB device at port %d\r\n", i);
+		xhci_reset_port(i);
 		struct xhci_device* pDevice = (struct xhci_device*)0x0;
-		if (xhci_init_device(i, &pDevice)!=0){
+/*		if (xhci_init_device(i, &pDevice)!=0){
 			printf("failed to initialize device at port %d\r\n", i);
 			continue;
 		}
 		printf("successfully initialized device at port %d\r\n", i);
-	}
+*/	}
 	if (usb_kbd_init()!=0){
 		printf("failed to initialize USB keyboard HID driver\r\n");
 		return -1;
@@ -241,9 +237,15 @@ int xhci_reset_port(uint8_t port){
 		return -1;
 	struct xhci_port_status status = pPort->port_status;
 	status.port_reset = 1;
+	pPort->port_status = status;
 	while (status.port_reset){
 		status = pPort->port_status;
-	}
+	}	
+	status.port_power = 1;
+	pPort->port_status = status;
+	while (!status.port_power){
+		status = pPort->port_status;
+	}	
 	return 0;
 }
 int xhci_enable_port(uint8_t port){
@@ -253,7 +255,9 @@ int xhci_enable_port(uint8_t port){
 	struct xhci_port_status status = pPort->port_status;
 	status.enable = 1;	
 	pPort->port_status = status;
-	sleep(5);	
+	while (!status.enable){
+		status = pPort->port_status;
+	}
 	return 0;
 }
 int xhci_disable_port(uint8_t port){
@@ -263,7 +267,9 @@ int xhci_disable_port(uint8_t port){
 	struct xhci_port_status status = pPort->port_status;
 	status.enable = 0;
 	pPort->port_status = status;
-	sleep(5);
+	while (status.enable){
+		status = pPort->port_status;
+	}
 	return 0;
 }
 int xhci_get_port_count(uint8_t* pPortCount){
@@ -920,6 +926,7 @@ int xhci_interrupter(void){
 		xhci_update_dequeue_trb();
 		return -1;
 	}
+	uint8_t acknowledged = 0;
 	switch (eventTrb.event.control.type){	
 		case XHCI_EVENT_TRB_TYPE_CMD_COMPLETION:{
 			uint64_t trbIndex = (uint64_t)((pTrb_phys-xhciInfo.pCmdRingInfo->pRingBuffer_phys)/sizeof(struct xhci_trb));
@@ -957,9 +964,74 @@ int xhci_interrupter(void){
 			}
 			break;				       
 		}
+		case XHCI_EVENT_TRB_TYPE_PORT_STATUS_CHANGE:{
+			volatile struct xhci_port* pPort = (volatile struct xhci_port*)0x0;
+			struct xhci_device* pDevice = (struct xhci_device*)0x0;
+			uint8_t portIndex = eventTrb.port_status_change.port_id-1;
+			if (xhci_get_port(portIndex, &pPort)!=0){
+				printf("failed to get port\r\n");
+				break;
+			}
+			if (xhci_get_device(portIndex, &pDevice)!=0){
+				printf("failed to get device\r\n");
+				break;
+			}
+			struct xhci_port_status portStatus = pPort->port_status;
+			if (portStatus.connection_status_change&&portStatus.connection_status){
+				struct xhci_device* pNewDevice = (struct xhci_device*)0x0;
+				xhci_send_ack(0);
+				xhci_update_dequeue_trb();
+				acknowledged = 1;
+				lapic_send_eoi();
+				__asm__ volatile("sti");
+				if (xhci_init_device(portIndex, &pNewDevice)!=0){
+					printf("failed to initialize device\r\n");
+					break;
+				}
+				__asm__ volatile("cli");
+				printf("device at port %d connected\r\n", portIndex);
+			}
+			if (portStatus.connection_status_change&&!portStatus.connection_status){
+				xhci_send_ack(0);
+				xhci_update_dequeue_trb();
+				acknowledged = 1;
+				lapic_send_eoi();
+				__asm__ volatile("sti");
+				if (xhci_deinit_device(pDevice)!=0){
+					printf("failed to deinitialize device\r\n");
+					break;
+				}
+				__asm__ volatile("cli");
+				printf("device at port %d disconnected\r\n", portIndex);
+			}
+			if (portStatus.over_current_change){
+				xhci_send_ack(0);
+				xhci_update_dequeue_trb();
+				acknowledged = 1;
+				lapic_send_eoi();
+				__asm__ volatile("sti");
+				if (xhci_deinit_device(pDevice)!=0){
+					printf("failed to deintialize device\r\n");
+					break;
+				}
+				__asm__ volatile("cli");
+				printf("device at port %d over current\r\n", portIndex);
+			}
+			portStatus.connection_status_change = 1;
+			portStatus.port_reset_change = 1;
+			portStatus.port_enable_change = 1;
+			portStatus.over_current_change = 1;
+			if (portStatus.port_speed>XHCI_PORT_SPEED_LOW)
+				portStatus.warm_port_reset_change = 1;
+			portStatus.port_link_state_change = 1;
+			pPort->port_status = portStatus;
+			break;					    
+		};
 	}
-	xhci_send_ack(0);
-	xhci_update_dequeue_trb();
+	if (!acknowledged){
+		xhci_send_ack(0);
+		xhci_update_dequeue_trb();
+	}
 	return 0;
 }
 int xhci_dump_interrupter(uint64_t interrupter_id){
@@ -1102,6 +1174,10 @@ int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 	volatile struct xhci_cap_mmio* pCapRegisters = xhciInfo.pCapabilities;
 	struct xhci_cap_param0 param0 = pCapRegisters->cap_param0;
 	uint64_t contextSize = param0.context_size ? sizeof(struct xhci_slot_context64) : sizeof(struct xhci_slot_context32);
+	if (xhci_reset_port(port)!=0){
+		printf("failed to reset PORT%d\r\n", port);
+		return -1;
+	}
 	if (xhci_enable_port(port)!=0){
 		printf("failed to enable PORT%d\r\n", port);
 		return -1;
@@ -1137,7 +1213,7 @@ int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		printf("failed to enable slot\r\n");
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		return -1;
-	}	
+	}
 	pDevice->deviceContext.slotId = slotId;
 	if (xhci_init_transfer_ring(pDevice, 0, 0, 0x0, &pTransferRingInfo)!=0){
 		printf("failed to initialize transfer ring\r\n");
@@ -1211,7 +1287,6 @@ int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		xhci_deinit_transfer_ring(pTransferRingInfo);
 		return -1;
 	}	
-	printf("getting device descriptor\r\n");
 	if (xhci_get_descriptor(pDevice, pTransferRingInfo, XHCI_USB_DESC_DEVICE, 0x0, (unsigned char*)&deviceDescriptor, 18, &eventTrb)!=0){
 		printf("failed to get descriptor\r\n");
 		xhci_disable_slot(slotId);
@@ -1220,7 +1295,6 @@ int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		xhci_deinit_transfer_ring(pTransferRingInfo);
 		return-1;
 	}
-	printf("done\r\n");
 	if (xhci_get_descriptor(pDevice, pTransferRingInfo, XHCI_USB_DESC_CONFIG, 0x0, (unsigned char*)pConfigDescriptor, sizeof(struct xhci_usb_config_desc), &eventTrb)!=0){
 		printf("failed to get config descriptor\r\n");
 		xhci_disable_slot(slotId);

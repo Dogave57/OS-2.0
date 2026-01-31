@@ -12,7 +12,6 @@ int virtio_gpu_init(void){
 	if (virtualMapPage(0x0, (uint64_t)gpuInfo.pBaseMmio, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_NORMAL)!=0){
 		return -1;
 	}
-	*(uint64_t*)gpuInfo.pBaseMmio = 67;
 	printf("VIRTIO GPU driver bus: %d, dev: %d, func: %d\r\n", gpuInfo.location.bus, gpuInfo.location.dev, gpuInfo.location.func);
 	return 0;
 }
@@ -33,5 +32,9 @@ int virtio_gpu_get_info(struct virtio_gpu_info* pInfo){
 		return -1;
 	}
 	*pInfo = gpuInfo;
+	return 0;
+}
+int virtio_gpu_reset(void){
+
 	return 0;
 }

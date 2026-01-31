@@ -60,9 +60,17 @@ int usb_kbd_setup(struct xhci_device* pDevice, uint8_t interfaceId){
 	pDevice->deviceContext.pInputContext->drop_flags = 0;
 	pDevice->deviceContext.pInputContext->add_flags = (1<<0)|(1<<endpointIndex);
 	if (xhci_configure_endpoint(pDevice, &eventTrb)!=0){
-		printf("failed to change endpoint interval\r\n");
+		const unsigned char* errorName = "Unknown error";
+		xhci_get_error_name(eventTrb.event.completion_code, &errorName);
+		printf("failed to change endpoint interval (%s)\r\n", errorName);
 		return -1;
 	}
+	if (xhci_set_protocol(pDevice, pEndpointDesc->pTransferRingInfo, interfaceId, 0, &eventTrb)!=0){
+		const unsigned char* errorName = "Unknown error";
+		xhci_get_error_name(eventTrb.event.completion_code, &errorName);
+		printf("failed to set protocol (%s)\r\n", errorName);
+		return -1;
+	}	
 	if (usb_kbd_request_boot_report(pDevice, endpointId, interfaceId)!=0){
 		printf("failed to request initial boot report\r\n");
 		return -1;
