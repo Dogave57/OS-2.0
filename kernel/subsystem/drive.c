@@ -144,6 +144,11 @@ KAPI int drive_get_info(uint64_t drive_id, struct drive_info* pDriveInfo){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	if (pDriveDesc->driveInfo.sectorCount){
+		*pDriveInfo = pDriveDesc->driveInfo;
+		mutex_unlock(&mutex);
+		return 0;
+	}	
 	struct drive_driver_desc* pDriverDesc = (struct drive_driver_desc*)0x0;
 	if (subsystem_get_entry(pDriveDriverSubsystem, pDriveDesc->driverId, (uint64_t*)&pDriverDesc)!=0){
 		mutex_unlock(&mutex);
@@ -154,6 +159,7 @@ KAPI int drive_get_info(uint64_t drive_id, struct drive_info* pDriveInfo){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	pDriveDesc->driveInfo = driveInfo;
 	*pDriveInfo = driveInfo;
 	mutex_unlock(&mutex);
 	return 0;
