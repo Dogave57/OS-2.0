@@ -10,6 +10,7 @@
 #include "drivers/apic.h"
 #include "drivers/timer.h"
 #include "drivers/usb/usb-kbd.h"
+#include "drivers/usb/usb-bot.h"
 #include "drivers/usb/xhci.h"
 struct xhci_info xhciInfo = {0};
 int xhci_init(void){
@@ -24,8 +25,6 @@ int xhci_init(void){
 	pcie_cmd_reg|=(1<<2);
 	pcie_cmd_reg|=(1<<10);
 	pcie_write_dword(xhciInfo.location, 0x4, pcie_cmd_reg);
-	printf("XHC virtual base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio);
-	printf("XHC physical base: %p\r\n", (uint64_t)xhciInfo.pBaseMmio_physical);
 	if (usb_subsystem_init()!=0){
 		printf("failed to initialize USB subsystem\r\n");
 		return -1;
@@ -92,10 +91,8 @@ int xhci_init(void){
 	while (!pCmdDesc->cmdComplete){};
 	const unsigned char* completionStatusName = "Unknown completion status\r\n";
 	xhci_get_error_name(pCmdDesc->eventTrb.event.completion_code, &completionStatusName);
-	printf("completion status: %s\r\n", completionStatusName);
 	while (!pCmdDesc->cmdComplete){};	
 	xhci_get_error_name(pCmdDesc->eventTrb.event.completion_code, &completionStatusName);
-	printf("completion status: %s\r\n", completionStatusName);
 	uint64_t elapsed_us = get_time_us()-time_us;
 	struct xhci_usb_status usb_status = xhciInfo.pOperational->usb_status;
 	if (usb_status.host_system_error)
@@ -105,14 +102,16 @@ int xhci_init(void){
 	for (uint8_t i = 0;i<portCount;i++){
 		if (xhci_device_exists(i)!=0)
 			continue;
-		printf("XHCI controlled USB device at port %d\r\n", i);
 		xhci_reset_port(i);
 	}
 	if (usb_kbd_driver_init()!=0){
 		printf("failed to initialize USB keyboard HID driver\r\n");
 		return -1;
 	}
-	while (1){};
+	if (usb_bot_driver_init()!=0){
+		printf("failed to initialize USB BOT interface protocol driver\r\n");
+		return -1;
+	}
 	return 0;
 }
 int xhci_get_info(struct xhci_info* pInfo){
@@ -1561,13 +1560,11 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 			xhci_deinit_transfer_ring(pTransferRingInfo);
 			mutex_unlock_isr_safe(&mutex);
 			return -1;
-		}
+	 	}
 		for (uint64_t endpoint_id = 0;endpoint_id<pInterfaceDesc->endpointCount;endpoint_id++){
 			struct xhci_endpoint_desc* pEndpointDesc = pInterfaceDesc->pEndpointDescList+endpoint_id;
 			struct xhci_endpoint_context32* pEndpointContext = pEndpointDesc->pEndpointContext;
-			printf("    endpoint index: %d\r\n", pEndpointDesc->endpointIndex);
 			printf("    endpoint type: 0x%x\r\n", pEndpointContext->type);
-			printf("    endpoint state: 0x%x\r\n", pEndpointContext->state);
 		}
 		struct usb_driver_desc* pCurrentDriverDesc = (struct usb_driver_desc*)0x0;
 		while (!usb_get_next_driver_desc(pCurrentDriverDesc, &pCurrentDriverDesc)){

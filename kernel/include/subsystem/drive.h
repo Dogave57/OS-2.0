@@ -2,37 +2,45 @@
 #define _DRIVE_SUBSYSTEM
 #include <stdint.h>
 #include "kernel_include.h"
-struct ahci_drive_info{
+#define DRIVE_TYPE_INVALID (0)
+#define DRIVE_TYPE_SATA (1)
+#define DRIVE_TYPE_NVME (2)
+#define DRIVE_TYPE_USB (3)
+#define DRIVE_SECTOR_SIZE (512)
+struct drive_info;
+typedef int(*driveGetInfoFunc)(uint64_t drive_id, struct drive_info* pDriveInfo);
+typedef int(*driveReadSectorsFunc)(uint64_t drive_id, uint64_t lba, uint16_t sectorCount, unsigned char* pBuffer);
+typedef int(*driveWriteSectorsFunc)(uint64_t drive_id, uint64_t lba, uint16_t sectorCount, unsigned char* pBuffer);
+struct drive_info{
+	uint8_t driveType;
+	uint64_t sectorCount;
+};
+struct sata_drive_info{
 	uint8_t port;
 	uint64_t sector_count;
 };
-#define DRIVE_TYPE_INVALID (0)
-#define DRIVE_TYPE_AHCI (1)
-#define DRIVE_SECTOR_SIZE (512)
-struct drive_dev_hdr{
-	uint8_t type;
-	uint64_t sectors_read;
-	uint64_t sectors_write;
-	uint64_t getDriveInfo;
+struct drive_desc{
+	uint64_t driveId;
+	uint64_t driverId;
+	uint8_t port;
+	struct drive_info driveInfo;
 };
-struct drive_dev_ahci{
-	struct drive_dev_hdr hdr;
-	struct ahci_drive_info driveInfo;
-
+struct drive_driver_vtable{
+	driveReadSectorsFunc readSectors;
+	driveWriteSectorsFunc writeSectors;	
+	driveGetInfoFunc getDriveInfo;
 };
-struct drive_info{
-	uint8_t driveType;
-	uint64_t sector_count;
+struct drive_driver_desc{
+	struct drive_driver_vtable vtable;
+	uint64_t driverId;
 };
-int ahci_subsystem_read(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
-int ahci_subsystem_write(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
-int ahci_subsystem_get_drive_info(struct drive_dev_hdr* pHdr, struct drive_info* pDriveInfo);
-int ahci_get_drive_info(uint8_t port, struct ahci_drive_info* pDriveInfo);
-typedef int(*driveSectorReadFunc)(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
-typedef int(*driveSectorWriteFunc)(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
-typedef int(*driveGetInfoFunc)(struct drive_dev_hdr* pHdr, struct drive_info* pDriveInfo);
 int drive_subsystem_init(void);
-int drive_ahci_register(uint8_t port, uint64_t* pDriveId);
+int drive_register_boot_drive(uint64_t driverId, uint8_t port);
+int drive_driver_register(struct drive_driver_vtable vtable, uint64_t* pDriverId);
+int drive_driver_unregister(uint64_t driverId);
+int drive_register(uint64_t driverId, uint8_t port, uint64_t* pDriverId);
+int drive_unregister(uint64_t driveId);
+int drive_get_desc(uint64_t driveId, struct drive_desc** ppDriveDesc);
 KAPI int drive_get_info(uint64_t drive_id, struct drive_info* pDriveInfo);
 KAPI int drive_read_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
 KAPI int drive_write_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);

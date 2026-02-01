@@ -7,8 +7,10 @@ int thread_entry(uint64_t tid, uint64_t arg);
 int kext_entry(uint64_t pid){
 	uint64_t time_us = get_time_us();
 	printf("pid: %d\r\n", pid);
+	while (1){};
+	return 0;
 	printf("timer start\r\n");
-	sleep(10000);
+	sleep(5000);
 	printf("timer end\r\n");
 	while (1){};
 	for (uint64_t i = 0;i<32;i++){

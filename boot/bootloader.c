@@ -302,7 +302,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		uint64_t len = (uint64_t)((*(uint16_t*)pCurrentNode->Length));
 		if (pCurrentNode->Type==0x3&&pCurrentNode->SubType==0x12){
 			struct efi_sata_dev_path* pSataPath = (struct efi_sata_dev_path*)pCurrentNode;
-			blargs->driveInfo.driveType = DRIVE_TYPE_AHCI;
+			blargs->driveInfo.driveType = DRIVE_TYPE_SATA;
 			blargs->driveInfo.port = pSataPath->port;
 		}
 		if (pCurrentNode->Type==0x4&&pCurrentNode->SubType==0x1){

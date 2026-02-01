@@ -80,7 +80,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	printf("initializing heap\r\n");
 	if (heap_init()!=0){
 		printf("failed to initialize heap\r\n");
 		while (1){};
@@ -106,17 +105,18 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	if (drive_subsystem_init()!=0){
+		printf("failed to initialize drive subsystem\r\n");
+		while (1){};
+		return -1;
+	}
 	if (ahci_init()!=0){
 		printf("no AHCI controller available\r\n");
 	}
 /*	if (nvme_init()!=0){
 		printf("failed to initialize NVME driver\r\n");
 	}
-*/	if (drive_subsystem_init()!=0){
-		printf("failed to initialize drive subsystem\r\n");
-		while (1){};
-		return -1;
-	}
+*/
 	if (fs_subsystem_init()!=0){
 		printf("failed to initialize filesystem subsystem\r\n");
 		while (1){};
@@ -252,7 +252,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	bootDriveSize = bootDriveInfo.sector_count*DRIVE_SECTOR_SIZE;
+	bootDriveSize = bootDriveInfo.sectorCount*DRIVE_SECTOR_SIZE;
 	struct gpt_partition highestPartition = {0};
 	for (uint64_t i = 0;i<gptHeader.partition_count;i++){
 		struct gpt_partition partition = {0};
@@ -270,79 +270,14 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		uint64_t partitionSize = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
 		printf("partition size: %dMB\r\n", partitionSize/MEM_MB);
 	}
-	uint64_t fileId = 0;
+	if (threads_init()!=0){
+		printf("failed to initialize threads\r\n");
+		while (1){};
+		return -1;
+	}
 	uint64_t mountId = 0;
 	if (fs_mount(0, espNumber, &mountId)!=0){
 		printf("failed to mount ESP\r\n");
-		while (1){};
-		return -1;
-	}
-	if (fs_open(mountId, "CONFIG\\PART.CFG", 0, &fileId)!=0){
-		uint64_t rootPartitionStart = partition.end_lba*DRIVE_SECTOR_SIZE;
-		uint64_t rootPartitionSize = bootDriveSize-rootPartitionStart;
-		struct gpt_partition rootPartitionData = {0};
-		rootPartitionStart+=DRIVE_SECTOR_SIZE;
-		if (gpt_add_partition(0, "ROOTFS", rootPartitionStart, rootPartitionSize, 0, rootPartitionType, &rootPartition)!=0){
-			printf("failed to create root partition\r\n");
-			while (1){};
-			return -1;
-		}
-		if (gpt_get_partition(0, rootPartition, &rootPartitionData)!=0){
-			printf("failed to get root partition data\r\n");
-			while (1){};
-			return -1;
-		}
-		if (fs_create(mountId, "CONFIG\\PART.CFG", 0)!=0){
-			printf("failed to create partition config\r\n");
-			while (1){};
-			return -1;
-		}
-		if (fs_open(mountId, "CONFIG\\PART.CFG", 0, &fileId)!=0){
-			printf("failed to open newly created partition config\r\n");
-			while (1){};
-			return -1;
-		}
-		struct partition_conf partitionConf = {0};
-		partitionConf.rootPartitionId = rootPartition;
-		partitionConf.rootPartition = rootPartitionData;
-		if (fs_write(mountId, fileId, (unsigned char*)&partitionConf, sizeof(struct partition_conf))!=0){
-			printf("failed to write to partition config\r\n");
-			while (1){};	
-			return -1;
-		}
-	}
-	struct fs_file_info confFileInfo = {0};
-	if (fs_getFileInfo(mountId, fileId, &confFileInfo)!=0){
-		printf("failed to get file information\r\n");
-		fs_close(mountId, fileId);
-		fs_unmount(mountId);
-		while (1){};
-		return -1;
-	}
-	unsigned char* pFileBuffer = (unsigned char*)kmalloc(confFileInfo.fileSize);
-	if (!pFileBuffer){
-		printf("failed to allocate memory for file buffer\r\n");
-		fs_close(mountId, fileId);
-		fs_unmount(mountId);
-		while (1){};
-		return -1;
-	}
-	struct partition_conf* pPartitionConf = (struct partition_conf*)pFileBuffer;
-	if (fs_read(mountId, fileId, pFileBuffer, confFileInfo.fileSize)!=0){
-		printf("failed to read config\r\n");
-		fs_close(mountId, fileId);
-		fs_unmount(mountId);
-		while (1){};
-		return -1;
-	}
-	struct gpt_partition rootPartitionData = pPartitionConf->rootPartition;
-	uint64_t rootPartitionId = pPartitionConf->rootPartitionId;
-	kfree((void*)pFileBuffer);
-	fs_close(mountId, fileId);
-	if (threads_init()!=0){
-		printf("failed to initialize threads\r\n");
-		fs_close(mountId, fileId);
-		fs_unmount(mountId);
 		while (1){};
 		return -1;
 	}

@@ -60,15 +60,12 @@ int usb_driver_register(struct usb_driver_vtable vtable, uint8_t interfaceClass,
 		for (uint64_t i = 0;i<pCurrentDevice->interfaceCount&&pCurrentDevice->unresolvedInterfaceCount;i++){
 			struct xhci_interface_desc* pCurrentInterfaceDesc = pCurrentDevice->pInterfaceDescList+i;
 			if (pCurrentInterfaceDesc->driverId!=0xFFFFFFFFFFFFFFFF){
-				printf("invalid driver ID %d\r\n", driverId);
 				continue;
 			}
 			if (pCurrentInterfaceDesc->usbInterfaceDesc.interfaceClass!=interfaceClass||pCurrentInterfaceDesc->usbInterfaceDesc.interfaceSubClass!=interfaceSubClass){
-				printf("invalid interface class and subclass\r\n");	
 				continue;
 			}
 			if (pDriverDesc->vtable.registerInterface(pCurrentDevice->port, i)!=0){
-				printf("failed to register interface\r\n");
 				continue;
 			}
 			pCurrentDevice->unresolvedInterfaceCount--;

@@ -545,11 +545,11 @@ ctx_switch_time dq 10
 timer_isr:
 cli
 pushaq
-mov qword rbp, rsp
-and rsp, -16
 add qword [rel lapic_tick_count], 10
 jmp ctx_switch
 timer_isr_end:
+mov qword rbp, rsp
+and rsp, -16
 sub rsp, 32
 call lapic_send_eoi
 add rsp, 32

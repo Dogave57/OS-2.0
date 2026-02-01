@@ -307,7 +307,6 @@ int pcie_msix_get_table_base(struct pcie_location location, volatile struct pcie
 	if (pcie_get_bar(location, tableBar, &bar_base)!=0)
 		return -1;
 	pTableBase = (volatile struct pcie_msix_table_entry*)((bar_base&~0xF)+tableOffset);
-	printf("BAR%d table offset: %d\r\n", msgControl.table_bar, tableOffset);
 	*ppTableBase = pTableBase;
 	return 0;
 }
@@ -321,8 +320,6 @@ int pcie_msix_get_pba_base(struct pcie_location location, volatile struct pcie_m
 	uint64_t bar_base = 0;
 	if (pcie_get_bar(location, tableBar, &bar_base)!=0)
 		return -1;
-	printf("PBA bar: %d\r\n", tableBar);
-	printf("PBA offset: %d\r\n", tableOffset);
 	pPba = (uint8_t*)(bar_base+tableOffset);
 	*ppPba = pPba;
 	return 0;
@@ -368,7 +365,6 @@ int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	printf("LAPIC id: %d\r\n", lapic_id);
 	uint64_t msgAddress = lapic_base|(lapic_id<<12);
 	pEntry->msg_addr_low = (uint32_t)(msgAddress&0xFFFFFFFF);
 	pEntry->msg_addr_high = (uint32_t)((msgAddress>>32)&0xFFFFFFFF);

@@ -8,6 +8,7 @@
 #include "drivers/ahci.h"
 struct ahci_info ahciInfo = {0};
 struct ahci_cmd_list_desc cmdListDesc = {0};
+static uint64_t driverId = 0;
 int ahci_init(void){
 	if (ahci_get_info(&ahciInfo)!=0)
 		return -1;
@@ -38,17 +39,34 @@ int ahci_init(void){
 	}
 	uint32_t ahci_version = 0;
 	ahci_read_dword(0x10, &ahci_version);
-	printf("AHCI controller version: 0x%x\r\n", ahci_version);
+	struct drive_driver_vtable vtable = {0};
+	memset((void*)&vtable, 0, sizeof(struct drive_driver_vtable));
+	vtable.readSectors = ahci_subsystem_read;
+	vtable.writeSectors = ahci_subsystem_write;
+	vtable.getDriveInfo = ahci_subsystem_get_drive_info;	
+	if (drive_driver_register(vtable, &driverId)!=0){
+		printf("failed to register AHC driver\r\n");
+		return -1;
+	}	
+	if (pbootargs->driveInfo.driveType==DRIVE_TYPE_SATA){
+		if (drive_register_boot_drive(driverId, pbootargs->driveInfo.port)!=0){
+			printf("failed to register boot drive at port %d\r\n", pbootargs->driveInfo.port);
+			return -1;
+		}
+	}
 	for (uint32_t i = 0;i<AHCI_MAX_PORTS;i++){
 		if (ahci_drive_exists(i)!=0)
 			continue;
-		printf("AHCI device at port: %d\r\n", i);
 		struct ahci_drive_info driveInfo = {0};
 		if (ahci_get_drive_info(i, &driveInfo)!=0){
 			printf("failed to get drive info\r\n");
 			continue;
 		}
-		printf("drive size: %dMB\r\n", (driveInfo.sector_count*DRIVE_SECTOR_SIZE)/MEM_MB);
+		uint64_t driveId = 0;
+		if (drive_register(driverId, i, &driveId)!=0){
+			printf("faailed to register AHC controlled drive at port %d\r\n", i);
+			continue;
+		}	
 	}
 	return 0;
 }
@@ -517,31 +535,40 @@ int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_c
 	}
 	return 0;
 }
-int ahci_subsystem_read(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
-	if (!pHdr||!pBuffer)
+int ahci_subsystem_read(uint64_t driveId, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
+	if (!pBuffer)
 		return -1;
-	if (pHdr->type!=DRIVE_TYPE_AHCI)
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0)
 		return -1;
-	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
-	return ahci_read(pDev->driveInfo, lba, sector_count, pBuffer);
+	struct ahci_drive_info ahciDriveInfo = {0};
+	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0)
+		return -1;
+	return ahci_read(ahciDriveInfo, lba, sector_count, pBuffer);
 }
-int ahci_subsystem_write(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
-	if (!pHdr||!pBuffer)
+int ahci_subsystem_write(uint64_t driveId, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
+	if (!pBuffer)
 		return -1;
-	if (pHdr->type!=DRIVE_TYPE_AHCI)
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0)
+		return -1;	
+	struct ahci_drive_info ahciDriveInfo = {0};
+	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0)
 		return -1;
-	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
-	return ahci_write(pDev->driveInfo, lba, sector_count, pBuffer);
+	return ahci_write(ahciDriveInfo, lba, sector_count, pBuffer);
 }
-int ahci_subsystem_get_drive_info(struct drive_dev_hdr* pHdr, struct drive_info* pDriveInfo){
-	if (!pHdr||!pDriveInfo)
+int ahci_subsystem_get_drive_info(uint64_t driveId, struct drive_info* pDriveInfo){
+	if (!pDriveInfo)
 		return -1;
-	if (pHdr->type!=DRIVE_TYPE_AHCI)
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0)
+		return -1;	
+	struct ahci_drive_info ahciDriveInfo = {0};
+	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0)
 		return -1;
-	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
 	struct drive_info driveInfo = {0};
-	driveInfo.driveType = DRIVE_TYPE_AHCI;
-	driveInfo.sector_count = pDev->driveInfo.sector_count;
+	driveInfo.driveType = DRIVE_TYPE_SATA;
+	driveInfo.sectorCount = ahciDriveInfo.sector_count;
 	*pDriveInfo = driveInfo;
 	return 0;
 }

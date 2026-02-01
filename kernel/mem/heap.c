@@ -3,6 +3,7 @@
 #include "align.h"
 #include "panic.h"
 #include "stdlib/stdlib.h"
+#include "cpu/mutex.h"
 #include "cpu/thread.h"
 #include "mem/heap.h"
 struct heap_block_list* pBlockLists = (struct heap_block_list*)0x0;
@@ -75,11 +76,8 @@ int heap_init(void){
 	return 0;
 }
 KAPI void* kmalloc(uint64_t size){
-	static unsigned char lock = 0;
-	while (lock){
-		thread_yield();
-	}
-	lock = 1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);	
 	if (size<HEAP_MIN_BLOCK_SIZE)
 		size = HEAP_MIN_BLOCK_SIZE;
 	if (size>HEAP_MAX_BLOCK_SIZE){
@@ -87,79 +85,76 @@ KAPI void* kmalloc(uint64_t size){
 		uint64_t pagesNeeded = align_up(totalSize, PAGE_SIZE)/PAGE_SIZE;
 		uint64_t pPages = 0;
 		if (virtualAllocPages(&pPages, pagesNeeded, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
-			lock = 0;
+			mutex_unlock(&mutex);
 			return (void*)0x0;
 		}	
 		struct heap_block_hdr* pHdr = (struct heap_block_hdr*)pPages;
 		pHdr->heapTracked = 0;
 		pHdr->pageCnt = pagesNeeded;
 		pHdr->va = pPages;
-		lock = 0;
+		mutex_unlock(&mutex);
 		return (void*)(pHdr+1);
 	}
 	if (!pBlockLists){
 		if (heap_init()!=0){
-			lock = 0;
+			mutex_unlock(&mutex);
 			return (void*)0x0;
 		}
 	}
 	struct heap_block_list* pBlockList = (struct heap_block_list*)0x0;
 	if (heap_get_block_list(&pBlockList, size)!=0){
 		printf("failed to get block list\r\n");
-		lock = 0;
+		mutex_unlock(&mutex);
 		return (void*)0x0;
 	}
 	uint64_t block_va = 0;
 	if (heap_get_block(&block_va, pBlockList)!=0){
 		printf("failed to get block\r\n");
-		lock = 0;
+		mutex_unlock(&mutex);
 		return (void*)0x0;	
 	}
 	if (heap_pop_block(pBlockList)!=0){
 		printf("failed to pop block\r\n");
-		lock = 0;
+		mutex_unlock(&mutex);
 		return (void*)0x0;
 	}
 	struct heap_block_hdr* pHdr = (struct heap_block_hdr*)block_va;
 	pHdr->heapTracked = 1;
-	lock = 0;
+	mutex_unlock(&mutex);	
 	return (void*)(pHdr+1);
 }
 KAPI int kfree(void* pBlock){
-	static unsigned char lock = 0;
-	while (lock){
-		thread_yield();
-	}
-	lock = 1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);	
 	if (!pBlockLists){
 		if (heap_init()!=0){
-			lock = 0;
 			return -1;
 		}
 	}
 	if (!pBlock){
-		lock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct heap_block_hdr* pHdr = (struct heap_block_hdr*)pBlock;
 	pHdr--;
 	if (!pHdr->heapTracked){
-		uint64_t pPages = (uint64_t)pHdr;
-		lock = 0;
+		uint64_t pPages = (uint64_t)pHdr->va;
+		mutex_unlock(&mutex);
 		return virtualFreePages(pPages, pHdr->pageCnt);
 	}
 	if (pHdr->va!=((uint64_t)pHdr)){
 		panic("heap corruptiond detected\r\n");
+		mutex_unlock(&mutex);
 		while (1){};
 		return -1;
 	}
 	struct heap_block_list* pList = pHdr->pList;
 	if (heap_push_block(pList, pHdr->va)!=0){
 		printf("failed to push free block\r\n");
-		lock = 0;
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	lock = 0;
+	mutex_unlock(&mutex);
 	return 0;
 }
 int heap_get_block_list(struct heap_block_list** ppBlockList, uint64_t size){

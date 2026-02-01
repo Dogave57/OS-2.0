@@ -280,7 +280,7 @@ int gpt_get_partition_data_space(uint64_t drive_id, uint64_t* pSpace){
 	if (drive_get_info(drive_id, &driveInfo)!=0)
 		return -1;
 	uint64_t gptMetadataSize = (gptHeader.headerSize+(gptHeader.partition_entry_size*gptHeader.partition_count))*2;
-	uint64_t driveSize = driveInfo.sector_count*DRIVE_SECTOR_SIZE;
+	uint64_t driveSize = driveInfo.sectorCount*DRIVE_SECTOR_SIZE;
 	uint64_t dataSpace = driveSize-gptMetadataSize;
 	*pSpace = dataSpace;
 	return 0;

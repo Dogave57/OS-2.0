@@ -8,7 +8,7 @@
 #include "drivers/usb/usb-kbd.h"
 struct hid_boot_kbd_report bootKbdReport = {0};
 struct hid_boot_kbd_report lastBootKbdReport = {0};
-uint64_t driverId = 0;
+static uint64_t driverId = 0;
 int usb_kbd_driver_init(void){
 	struct usb_driver_vtable vtable = {0};
 	memset((void*)&vtable, 0, sizeof(struct usb_driver_vtable));

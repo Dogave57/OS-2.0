@@ -188,7 +188,6 @@ KAPI int virtualUnmapPage(uint64_t va, uint64_t map_flags){
 		return -1;
 	}
 	if (!PTE_IS_MAPPED(*pentry)){
-		printf("page not mapped\r\n");
 		return -1;
 	}
 	uint64_t pa = PTE_GET_ADDR(*pentry);
@@ -257,7 +256,6 @@ KAPI int virtualFreePage(uint64_t va, uint64_t map_flags){
 		}
 	}
 	if (virtualUnmapPage(va, 0)!=0){
-		printf("failed to unmap page\r\n");
 		return -1;
 	}
 	return 0;
@@ -287,7 +285,6 @@ KAPI int virtualFreePages(uint64_t va, uint64_t pagecnt){
 	for (uint64_t i = 0;i<pagecnt;i++){
 		uint64_t page_va = va+(i*PAGE_SIZE);
 		if (virtualFreePage(page_va, 0)!=0){
-			printf("failed to free page at va: %p\r\n", (void*)page_va);
 			return -1;
 		}
 	}

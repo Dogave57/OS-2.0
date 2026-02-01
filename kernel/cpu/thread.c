@@ -12,10 +12,11 @@ struct thread_t* pFirstThread = (struct thread_t*)0x0;
 struct thread_t* pLastThread = (struct thread_t*)0x0;
 struct thread_t* pCurrentThread = (struct thread_t*)0x0;
 unsigned char threadDestroySafe = 0;
-unsigned char schedulerHalt = 0;
+unsigned char schedulerHalt = 1;
 int threads_init(void){
 	if (subsystem_init(&pSubsystemDesc, MEM_KB*256)!=0)
 		return -1;
+	schedulerHalt = 0;
 	return 0;
 }
 int thread_link(struct thread_t* pThread, struct thread_t* pLink){
@@ -224,7 +225,6 @@ KAPI int thread_destroy(uint64_t tid){
 		__asm__ volatile("sti");
 		return -1;
 	}
-	printf("unregistering thread\r\n");
 	if (thread_unregister(tid)!=0){
 		mutex_unlock(&mutex);
 		__asm__ volatile("sti");
@@ -232,8 +232,9 @@ KAPI int thread_destroy(uint64_t tid){
 	}
 	kfree((void*)pThread);
 	if (tid==current_tid){
-		thread_yield();
-		while (1){};
+		while (1){
+			thread_yield();
+		}
 	}
 	mutex_unlock(&mutex);
 	__asm__ volatile("sti");
