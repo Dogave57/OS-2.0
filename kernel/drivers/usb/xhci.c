@@ -29,11 +29,7 @@ int xhci_init(void){
 	if (usb_subsystem_init()!=0){
 		printf("failed to initialize USB subsystem\r\n");
 		return -1;
-	}
-	if (usb_kbd_driver_init()!=0){
-		printf("failed to initialize USB HID keyboard driver\r\n");
-		return -1;
-	}
+	}	
 	if (xhci_reset()!=0){
 		printf("failed to reset XHCI controller\r\n");
 		return -1;
@@ -1435,9 +1431,9 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 				interfaceDesc.usbInterfaceDesc = *pDesc;
 				interfaceDesc.pEndpointDescList = pEndpointDescList;
 				interfaceDesc.endpointCount = 0;
-				*(pInterfaceDescList+pDevice->interfaceDescCount) = interfaceDesc;
-				pCurrentInterface = pInterfaceDescList+pDevice->interfaceDescCount;
-				pDevice->interfaceDescCount++;	
+				*(pInterfaceDescList+pDevice->interfaceCount) = interfaceDesc;
+				pCurrentInterface = pInterfaceDescList+pDevice->interfaceCount;
+				pDevice->interfaceCount++;	
 				break;
 			}
 			case XHCI_USB_DESC_ENDPOINT:{
@@ -1550,11 +1546,12 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	for (uint64_t i = 0;i<pDevice->interfaceDescCount;i++){
+	for (uint64_t i = 0;i<pDevice->interfaceCount;i++){
 		struct xhci_interface_desc* pInterfaceDesc = pDevice->pInterfaceDescList+i;
 		uint8_t interfaceClass = pInterfaceDesc->usbInterfaceDesc.interfaceClass;
 		uint8_t interfaceSubClass = pInterfaceDesc->usbInterfaceDesc.interfaceSubClass;
 		printf("interface %d\r\n", i);
+		pInterfaceDesc->driverId = 0xFFFFFFFFFFFFFFFF;
 		if (xhci_set_protocol(pDevice, pTransferRingInfo, i, 0, &eventTrb)!=0){
 			printf("failed to set protocol\r\n");
 			xhci_disable_slot(slotId);
@@ -1580,9 +1577,23 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 				printf("failed to register port %d interface %d with driver with ID%d\r\n", port, i, pCurrentDriverDesc->driverId);
 				continue;
 			}
-			printf("successfully linked port %d interface %d with driver with ID %d\r\n", port, i, pCurrentDriverDesc->driverId);
+			pInterfaceDesc->driverId = pCurrentDriverDesc->driverId;
 			break;
 		}
+		if (pInterfaceDesc->driverId!=0xFFFFFFFFFFFFFFFF)
+			continue;
+		pDevice->unresolvedInterfaceCount++;
+	}
+	if (xhciInfo.pLastDevice){
+		if (xhciInfo.pLastDevice->port<port){
+			xhciInfo.pLastDevice->pFlink = pDevice;
+			pDevice->pBlink = xhciInfo.pLastDevice;
+			xhciInfo.pLastDevice = pDevice;
+		}
+	}	
+	if (!xhciInfo.pFirstDevice){
+		xhciInfo.pFirstDevice = pDevice;
+		xhciInfo.pLastDevice = pDevice;
 	}
 	*ppDevice = pDevice;	
 	mutex_unlock_isr_safe(&mutex);
@@ -1594,7 +1605,7 @@ KAPI int xhci_deinit_device(struct xhci_device* pDevice){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct xhci_device_context_desc* pContextDesc = &pDevice->deviceContext;
-	for (uint64_t i = 0;i<pDevice->interfaceDescCount;i++){
+	for (uint64_t i = 0;i<pDevice->interfaceCount;i++){
 		struct xhci_interface_desc* pInterfaceDesc = pDevice->pInterfaceDescList+i;
 		if (!pInterfaceDesc->pEndpointDescList)
 			continue;
@@ -1613,6 +1624,14 @@ KAPI int xhci_deinit_device(struct xhci_device* pDevice){
 		virtualFreePage((uint64_t)pContextDesc->pDeviceContext, 0);
 	if (pContextDesc->slotId)
 		xhci_disable_slot(pContextDesc->slotId);
+	if (pDevice->pBlink)
+		pDevice->pBlink->pFlink = pDevice->pFlink;
+	if (pDevice->pFlink)
+		pDevice->pFlink->pBlink = pDevice->pBlink;
+	if (pDevice==xhciInfo.pLastDevice)
+		xhciInfo.pLastDevice = pDevice->pBlink;
+	if (pDevice==xhciInfo.pFirstDevice)
+		xhciInfo.pFirstDevice = pDevice->pFlink;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -1895,9 +1914,7 @@ KAPI int xhci_set_protocol(struct xhci_device* pDevice, struct xhci_transfer_rin
 	}
 	xhci_start();
 	xhci_ring_endpoint(pDevice->deviceContext.slotId, 1, 0);
-	printf("running transfer TRBs\r\n");
 	while (!pTransferDesc->transferComplete){};
-	printf("done\r\n");
 	struct xhci_trb eventTrb = pTransferDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;

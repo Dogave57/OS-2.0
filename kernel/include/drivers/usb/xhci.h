@@ -729,6 +729,7 @@ struct xhci_interface_desc{
 	struct xhci_usb_interface_desc usbInterfaceDesc;
 	struct xhci_usb_hid_desc* pHidDescriptor;	
 	struct xhci_endpoint_desc* pEndpointDescList;
+	uint64_t driverId;
 	uint64_t endpointCount;
 };
 struct xhci_device{
@@ -737,8 +738,11 @@ struct xhci_device{
 	struct xhci_transfer_ring_info* pControlTransferRingInfo;
 	struct xhci_usb_config_desc* pConfigDescriptor;
 	struct xhci_interface_desc* pInterfaceDescList;
-	uint8_t interfaceDescCount;
+	uint8_t interfaceCount;
+	uint8_t unresolvedInterfaceCount;
 	uint64_t maxInterfaceDescCount;
+	struct xhci_device* pFlink;
+	struct xhci_device* pBlink;
 };
 struct xhci_info{
 	uint64_t pBaseMmio;
@@ -754,6 +758,8 @@ struct xhci_info{
 	struct xhci_transfer_ring_info* pTransferRingList;
 	struct xhci_transfer_desc* pTransferDescList;
 	struct xhci_device* pDeviceDescList;
+	struct xhci_device* pFirstDevice;
+	struct xhci_device* pLastDevice;	
 	struct pcie_location location;
 };
 int xhci_init(void);

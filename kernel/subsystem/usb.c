@@ -20,10 +20,10 @@ int usb_driver_register(struct usb_driver_vtable vtable, uint8_t interfaceClass,
 	if (!pDriverId)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct usb_driver_desc* pDriverDesc = (struct usb_driver_desc*)kmalloc(sizeof(struct usb_driver_desc));
 	if (!pDriverDesc){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	memset((void*)pDriverDesc, 0, sizeof(struct usb_driver_desc));
@@ -42,12 +42,41 @@ int usb_driver_register(struct usb_driver_vtable vtable, uint8_t interfaceClass,
 	if (subsystem_alloc_entry(pDriverSubsystemDesc, (unsigned char*)pDriverDesc, &driverId)!=0){
 		printf("failed to allocate subsystem entry\r\n");
 		kfree((void*)pDriverDesc);
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	pDriverDesc->driverId = driverId;
+	struct xhci_info xhciInfo = {0};
+	if (xhci_get_info(&xhciInfo)!=0){
+		printf("failed to get XHC info\r\n");
+		kfree((void*)pDriverDesc);
+		subsystem_free_entry(pDriverSubsystemDesc, driverId);
+		mutex_unlock_isr_safe(&mutex);
+		return -1;
+	}
+	struct xhci_device* pCurrentDevice = xhciInfo.pFirstDevice;
+	uint64_t resolvedInterfaceCount = 0;
+	while (pCurrentDevice){
+		for (uint64_t i = 0;i<pCurrentDevice->interfaceCount&&pCurrentDevice->unresolvedInterfaceCount;i++){
+			struct xhci_interface_desc* pCurrentInterfaceDesc = pCurrentDevice->pInterfaceDescList+i;
+			if (pCurrentInterfaceDesc->driverId!=0xFFFFFFFFFFFFFFFF){
+				printf("invalid driver ID %d\r\n", driverId);
+				continue;
+			}
+			if (pCurrentInterfaceDesc->usbInterfaceDesc.interfaceClass!=interfaceClass||pCurrentInterfaceDesc->usbInterfaceDesc.interfaceSubClass!=interfaceSubClass){
+				printf("invalid interface class and subclass\r\n");	
+				continue;
+			}
+			if (pDriverDesc->vtable.registerInterface(pCurrentDevice->port, i)!=0){
+				printf("failed to register interface\r\n");
+				continue;
+			}
+			pCurrentDevice->unresolvedInterfaceCount--;
+		}	
+		pCurrentDevice = pCurrentDevice->pFlink;
+	}
 	*pDriverId = driverId;
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 int usb_driver_unregister(uint64_t driverId){
