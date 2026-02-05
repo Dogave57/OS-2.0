@@ -120,6 +120,7 @@
 #define XHCI_ENDPOINT_TYPE_ISOCH_IN (0x5)
 #define XHCI_ENDPOINT_TYPE_BULK_IN (0x6)
 #define XHCI_ENDPOINT_TYPE_INT_IN (0x7)
+#define XHCI_EP_ID_INDEX(id)(((id&0x0F)*2)+((id%(1<<7)) ? 1 :0))
 struct xhci_transfer_desc;
 typedef int(*xhciTransferCompletionFunc)(struct xhci_transfer_desc* pTransferDesc);
 struct xhci_structure_param0{
@@ -479,6 +480,17 @@ struct xhci_trb{
 			uint32_t reserved4:15;
 		}status_stage_cmd;
 		struct{
+			uint64_t input_context_base;
+			uint32_t reserved0;
+			uint32_t cycle_bit:1;
+			uint32_t reserved1:8;
+			uint32_t tsp:1;
+			uint32_t type:6;
+			uint32_t endpoint_id:5;
+			uint32_t reserevd2:3;
+			uint32_t slot_id:8;
+		}reset_endpoint_cmd;
+		struct{
 			uint32_t param0;
 			uint32_t param1;
 			struct xhci_trb_status status;
@@ -837,5 +849,7 @@ KAPI int xhci_get_interface_desc(struct xhci_device* pDevice, uint64_t interface
 KAPI int xhci_get_endpoint_desc(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_endpoint_desc** ppEndpointDesc);
 KAPI int xhci_get_endpoint_transfer_ring(struct xhci_device* pDevice, uint64_t interfaceId, uint64_t endpointIndex, struct xhci_transfer_ring_info** ppTransferRingInfo);
 KAPI int xhci_set_protocol(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t interfaceId, uint16_t protocolId, struct xhci_trb* pEventTrb);
+KAPI int xhci_clear_feature(struct xhci_device* pDevice, uint8_t endpointIndex, uint8_t featureId, struct xhci_trb* pEventTrb);
+KAPI int xhci_reset_endpoint(struct xhci_device* pDevice, uint8_t interfaceId, uint8_t endpointId, struct xhci_trb* pEventTrb);
 KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packet_request request, struct xhci_trb* pEventTrb);
 #endif

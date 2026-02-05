@@ -22,14 +22,14 @@ int drive_subsystem_init(void){
 		panic("unsupported boot device\r\n");
 		while (1){};
 	}
-	uint64_t driveId;
-	if (drive_register(0xFFFFFFFFFFFFFFFF, 0x0, &driveId)!=0){
+	uint64_t driveId = 0;
+	if (drive_register(0xFFFFFFFFFFFFFFFF, 0xFF, &driveId)!=0){
 		printf("failed to register boot drive placeholder\r\n");
 		return -1;
 	}
 	return 0;
 }
-int drive_register_boot_drive(uint64_t driverId, uint8_t port){
+KAPI int drive_register_boot_drive(uint64_t driverId, uint8_t port){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
@@ -44,7 +44,7 @@ int drive_register_boot_drive(uint64_t driverId, uint8_t port){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int drive_driver_register(struct drive_driver_vtable vtable, uint64_t* pDriverId){
+KAPI int drive_driver_register(struct drive_driver_vtable vtable, uint64_t* pDriverId){
 	if (!pDriverId)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -65,7 +65,7 @@ int drive_driver_register(struct drive_driver_vtable vtable, uint64_t* pDriverId
 	mutex_unlock(&mutex);
 	return 0;
 }
-int drive_driver_unregister(uint64_t driverId){
+KAPI int drive_driver_unregister(uint64_t driverId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);	
 	struct drive_driver_desc* pDriverDesc = (struct drive_driver_desc*)0x0;
@@ -81,7 +81,7 @@ int drive_driver_unregister(uint64_t driverId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int drive_register(uint64_t driverId, uint8_t port, uint64_t* pDriveId){
+KAPI int drive_register(uint64_t driverId, uint8_t port, uint64_t* pDriveId){
 	if (!pDriveId)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -104,7 +104,7 @@ int drive_register(uint64_t driverId, uint8_t port, uint64_t* pDriveId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int drive_unregister(uint64_t driveId){
+KAPI int drive_unregister(uint64_t driveId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
@@ -120,7 +120,7 @@ int drive_unregister(uint64_t driveId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int drive_get_desc(uint64_t driveId, struct drive_desc** ppDriveDesc){
+KAPI int drive_get_desc(uint64_t driveId, struct drive_desc** ppDriveDesc){
 	if (!ppDriveDesc)
 		return -1;
 	static struct mutex_t mutex = {0};

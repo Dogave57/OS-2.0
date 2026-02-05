@@ -1,5 +1,5 @@
 SERIAL_PATH="/dev/null"
-MACOS_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci -device usb-kbd,bus=xhci.0 -device usb-bot,id=bot0 -device scsi-hd,bus=bot0.0,drive=usb_drive -drive file=usb_drive.img,if=none,format=raw,id=usb_drive -serial stdio -device virtio-gpu"
+MACOS_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci -device usb-kbd,bus=xhci.0 -device usb-bot,id=bot0 -device scsi-hd,bus=bot0.0,drive=usb_drive -drive file=usb_drive.img,if=none,format=raw,id=usb_drive -trace "usb_xhci_*" -device virtio-gpu"
 LINUX_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci,msix=on -device usb-kbd,bus=xhci.0 -device usb-bot,id=bot0 -device scsi-hd,bus=bot0.0,drive=usb_drive -drive file=usb_drive.img,if=none,format=raw,id=usb_drive -serial stdio"
 OS=$(uname -s)
 bash restore_firmware.sh

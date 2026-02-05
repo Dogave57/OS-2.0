@@ -160,6 +160,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (xhci_init()!=0){
 		printf("failed to initialize XHCI controller\r\n");
 	}
+	while (1){};
 	uint64_t va = 0;
 	uint64_t pagecnt = (MEM_MB*64)/PAGE_SIZE;
 	uint64_t before_us = get_time_us();

@@ -594,9 +594,6 @@ int xhci_start(void){
 		status = xhciInfo.pOperational->usb_status;
 		if (status.halted)
 			continue;
-		status.host_controller_error = 0;
-		status.host_system_error = 0;
-		xhciInfo.pOperational->usb_status = status;
 		return 0;
 	}
 	return -1;
@@ -951,8 +948,7 @@ int xhci_interrupter(void){
 			struct xhci_transfer_desc* pTransferDesc = (struct xhci_transfer_desc*)0x0;	
 			struct xhci_transfer_ring_info* pTransferRingInfo = (struct xhci_transfer_ring_info*)0x0;
 			uint8_t slotId = eventTrb.event_transfer.slot_id;
-			uint8_t endpointIndex = eventTrb.event_transfer.endpoint_id;
-			endpointIndex = (endpointIndex==1) ? 0 : (endpointIndex/2)+1;
+			uint8_t endpointIndex = (eventTrb.event_transfer.endpoint_id==1) ? 0 : eventTrb.event_transfer.endpoint_id;
 			if (xhci_get_transfer_ring(slotId, endpointIndex, &pTransferRingInfo)!=0){
 				printf("failed to get transfer ring info\r\n");
 				break;
@@ -1266,7 +1262,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		pControlContext->dequeue_ptr|=(1<<0);
 	else
 		pControlContext->dequeue_ptr&=~(1<<0);
-	pControlContext->average_trb_len = 8;
+	pControlContext->average_trb_len = initMaxPacketSize;
 	pInputContext->add_flags|=(1<<0);
 	pInputContext->add_flags|=(1<<1);
 	xhciInfo.deviceContextListInfo.pContextList[slotId] = (uint64_t)pDeviceContext_phys;
@@ -1296,7 +1292,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 	pControlContext->error_count = 3;
 	pControlContext->type = 4;
 	pControlContext->dequeue_ptr = (uint64_t)pTransferRingInfo->pRingBuffer_phys;
-	pControlContext->average_trb_len = 8;
+	pControlContext->average_trb_len = initMaxPacketSize;
 	pControlContext->type = XHCI_ENDPOINT_TYPE_CONTROL;
 	if (pTransferRingInfo->cycle_state)
 		pControlContext->dequeue_ptr|=(1<<0);
@@ -1447,9 +1443,30 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 					return -1;
 				}
 				struct xhci_usb_endpoint_desc* pDesc = (struct xhci_usb_endpoint_desc*)pDescHeader;
-				uint8_t endpointDirection = (pDesc->endpointAddress&(1<<7)) ? 1 : 0;
-				uint8_t endpointNumber = pDesc->endpointAddress&0x0F;
-				uint8_t endpointIndex = (endpointNumber<<1);
+				uint8_t endpointDirection = pDesc->endpointAddress&(1<<7) ? 1 : 0;
+				uint8_t endpointIndex = XHCI_EP_ID_INDEX(pDesc->endpointAddress);
+				uint8_t transferType = (uint8_t)(pDesc->attributes&0x3);
+				uint8_t endpointType = 0x0;
+				printf("endpoint direction: %d\r\n", endpointDirection);
+				switch (transferType){
+					case XHCI_TRANSFER_TYPE_CONTROL:{
+						endpointType = XHCI_ENDPOINT_TYPE_CONTROL;			
+						break;
+					};	
+					case XHCI_TRANSFER_TYPE_ISOCH:{
+						endpointType = (endpointDirection) ? XHCI_ENDPOINT_TYPE_ISOCH_IN : XHCI_ENDPOINT_TYPE_ISOCH_OUT;		      
+						break;			      
+					};
+					case XHCI_TRANSFER_TYPE_BULK:{
+						endpointType = (endpointDirection) ? XHCI_ENDPOINT_TYPE_BULK_IN : XHCI_ENDPOINT_TYPE_BULK_OUT;
+						break;			     
+					};
+					case XHCI_TRANSFER_TYPE_INT:{
+						endpointType = (endpointDirection) ? XHCI_ENDPOINT_TYPE_INT_IN : XHCI_ENDPOINT_TYPE_INT_OUT;
+						break;			    
+					};
+				}
+				printf("endpoint type: 0x%x\r\n", endpointType);
 				if (!endpointIndex||endpointIndex>30){
 					printf("invalid endpoint index\r\n");
 					xhci_disable_slot(slotId);
@@ -1472,32 +1489,12 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 					return -1;
 				}
 				struct xhci_endpoint_desc* pEndpointDesc = (struct xhci_endpoint_desc*)(pCurrentInterface->pEndpointDescList+pCurrentInterface->endpointCount);
-				struct xhci_endpoint_context32* pEndpointContext = (struct xhci_endpoint_context32*)(((uint64_t)pControlContext)+(contextSize*endpointIndex));
+				struct xhci_endpoint_context32* pEndpointContext = (struct xhci_endpoint_context32*)(((uint64_t)pControlContext)+(contextSize*(endpointIndex-1)));
 				pEndpointContext->dequeue_ptr = (uint64_t)pEndpointTransferRingInfo->pRingBuffer_phys;
 				if (pEndpointTransferRingInfo->cycle_state)
 					pEndpointContext->dequeue_ptr|=(1<<0);
 				else
 					pEndpointContext->dequeue_ptr&=~(1<<0);
-				uint8_t transferType = (uint8_t)(pDesc->attributes&0x3);
-				uint8_t endpointType = 0x0;
-				switch (transferType){
-					case XHCI_TRANSFER_TYPE_CONTROL:{
-						endpointType = XHCI_ENDPOINT_TYPE_CONTROL;			
-						break;
-					};	
-					case XHCI_TRANSFER_TYPE_ISOCH:{
-						endpointType = (!endpointDirection) ? XHCI_ENDPOINT_TYPE_ISOCH_OUT : XHCI_ENDPOINT_TYPE_ISOCH_IN;		      
-						break;			      
-					};
-					case XHCI_TRANSFER_TYPE_BULK:{
-						endpointType = (!endpointDirection) ? XHCI_ENDPOINT_TYPE_BULK_OUT : XHCI_ENDPOINT_TYPE_BULK_IN;
-						break;			     
-					};
-					case XHCI_TRANSFER_TYPE_INT:{
-						endpointType = (!endpointDirection) ? XHCI_ENDPOINT_TYPE_INT_OUT : XHCI_ENDPOINT_TYPE_INT_IN;
-						break;			    
-					};
-				};
 				pEndpointContext->state = 0x0;
 				pEndpointContext->type = endpointType;
 				pEndpointContext->error_count = 3;
@@ -1509,7 +1506,11 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 				pEndpointDesc->endpointIndex = endpointIndex;
 				pEndpointDesc->endpointDirection = endpointDirection;
 				pEndpointDesc->pTransferRingInfo = pEndpointTransferRingInfo;
-				add_flags|=(1<<(1+endpointIndex));
+				if (endpointIndex+1>pSlotContext->context_entries){
+					pSlotContext->context_entries = endpointIndex+1;
+				}
+				add_flags|=(1<<(endpointIndex));
+				printf("endpoint index: %d\r\n", endpointIndex);
 				pCurrentInterface->endpointCount++;
 				break;
 			}
@@ -1565,6 +1566,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 			struct xhci_endpoint_desc* pEndpointDesc = pInterfaceDesc->pEndpointDescList+endpoint_id;
 			struct xhci_endpoint_context32* pEndpointContext = pEndpointDesc->pEndpointContext;
 			printf("    endpoint type: 0x%x\r\n", pEndpointContext->type);
+			printf("    endpoint state: 0x%x\r\n", pEndpointContext->state);
 		}
 		struct usb_driver_desc* pCurrentDriverDesc = (struct usb_driver_desc*)0x0;
 		while (!usb_get_next_driver_desc(pCurrentDriverDesc, &pCurrentDriverDesc)){
@@ -1606,6 +1608,8 @@ KAPI int xhci_deinit_device(struct xhci_device* pDevice){
 		struct xhci_interface_desc* pInterfaceDesc = pDevice->pInterfaceDescList+i;
 		if (!pInterfaceDesc->pEndpointDescList)
 			continue;
+		if (pInterfaceDesc->driverId!=0xFFFFFFFFFFFFFFFF)
+			usb_unregister_interface(pDevice->port, i, pInterfaceDesc->driverId);
 		for (uint64_t endpoint_index = 0;endpoint_index<pInterfaceDesc->endpointCount;endpoint_index++){
 			struct xhci_endpoint_desc* pEndpointDesc = pInterfaceDesc->pEndpointDescList+endpoint_index;
 			if (pEndpointDesc->pTransferRingInfo)
@@ -1922,6 +1926,82 @@ KAPI int xhci_set_protocol(struct xhci_device* pDevice, struct xhci_transfer_rin
 	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
+KAPI int xhci_clear_feature(struct xhci_device* pDevice, uint8_t endpointIndex, uint8_t featureId, struct xhci_trb* pEventTrb){
+	if (!pDevice)
+		return -1;
+	uint8_t endpointNumber = (endpointIndex/2)|((endpointIndex%2)<<7);
+	struct xhci_trb setupTrb = {0};
+	memset((void*)&setupTrb, 0, sizeof(struct xhci_trb));
+	setupTrb.setup_stage_cmd.type = XHCI_TRB_TYPE_SETUP;
+	setupTrb.setup_stage_cmd.requestType.request_target = XHCI_REQUEST_TARGET_ENDPOINT;
+	setupTrb.setup_stage_cmd.requestType.request_direction = XHCI_REQUEST_TRANSFER_DIRECTION_H2D;
+	setupTrb.setup_stage_cmd.request = 0x01;	
+	setupTrb.setup_stage_cmd.value = featureId;
+	setupTrb.setup_stage_cmd.index = endpointNumber;	
+	setupTrb.setup_stage_cmd.immediate_data = 1;
+	setupTrb.setup_stage_cmd.ioc = 1;
+	setupTrb.setup_stage_cmd.trb_transfer_len = 0x08;
+	struct xhci_trb statusTrb = {0};
+	memset((void*)&statusTrb, 0, sizeof(struct xhci_trb));
+	statusTrb.status_stage_cmd.type = XHCI_TRB_TYPE_STATUS;
+	statusTrb.status_stage_cmd.ioc = 1;
+	struct xhci_transfer_desc* pTransferDesc = (struct xhci_transfer_desc*)0x0;
+	if (xhci_alloc_transfer(pDevice->pControlTransferRingInfo, setupTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
+		printf("failed to allocate setup transfer TRB\r\n");
+		return -1;
+	}	
+	if (xhci_alloc_transfer(pDevice->pControlTransferRingInfo, statusTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
+		printf("failed to allocate status transfer TRB\r\n");
+		return -1;
+	}
+	xhci_start();
+	xhci_ring_endpoint(pDevice->deviceContext.slotId, 1, 0);
+	while (!pTransferDesc->transferComplete){};	
+	struct xhci_trb eventTrb = pTransferDesc->eventTrb;
+	if (pEventTrb)
+		*pEventTrb = eventTrb;
+	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
+		printf("failed to clear feature\r\n");
+		return -1;
+	}
+	return 0;
+}
+KAPI int xhci_reset_endpoint(struct xhci_device* pDevice, uint8_t interfaceId, uint8_t endpointId, struct xhci_trb* pEventTrb){
+	if (!pDevice)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock_isr_safe(&mutex);
+	struct xhci_endpoint_desc* pEndpointDesc = (struct xhci_endpoint_desc*)0x0;
+	if (xhci_get_endpoint_desc(pDevice, interfaceId, endpointId, &pEndpointDesc)!=0){
+		printf("failed to get endpoint descriptor\r\n");
+		mutex_unlock_isr_safe(&mutex);
+		return -1;
+	}	
+	struct xhci_trb cmdTrb = {0};
+	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
+	cmdTrb.reset_endpoint_cmd.type = XHCI_TRB_TYPE_RESET_ENDPOINT;
+	cmdTrb.reset_endpoint_cmd.input_context_base = pDevice->deviceContext.pDeviceContext_phys;
+	cmdTrb.reset_endpoint_cmd.endpoint_id = endpointId+1;	
+	cmdTrb.reset_endpoint_cmd.slot_id = pDevice->deviceContext.slotId;
+	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
+	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
+		printf("failed to push reset endpoint cmd TRB\r\n");
+		mutex_unlock_isr_safe(&mutex);
+		return -1;
+	}	
+	xhci_start();
+	xhci_ring(0);
+	while (!pCmdDesc->cmdComplete){};
+	struct xhci_trb eventTrb = pCmdDesc->eventTrb;
+	if (pEventTrb)
+		*pEventTrb = eventTrb;
+	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
+		mutex_unlock_isr_safe(&mutex);
+		return -1;
+	}
+	mutex_unlock_isr_safe(&mutex);	
+	return 0;
+}
 KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packet_request request, struct xhci_trb* pEventTrb){
 	if (!pDevice)
 		return -1;
@@ -1970,7 +2050,7 @@ KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packe
 		mutex_unlock_isr_safe(&mutex);
 		return 0;
 	}
-	while (!pTransferDesc->transferComplete||pEndpointDesc->pEndpointContext->state){};
+	while (!pTransferDesc->transferComplete){};	
 	struct xhci_trb eventTrb = pTransferDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;

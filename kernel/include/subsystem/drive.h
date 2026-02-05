@@ -23,6 +23,7 @@ struct drive_desc{
 	uint64_t driveId;
 	uint64_t driverId;
 	uint8_t port;
+	uint64_t extra;	
 	struct drive_info driveInfo;
 };
 struct drive_driver_vtable{
@@ -35,12 +36,12 @@ struct drive_driver_desc{
 	uint64_t driverId;
 };
 int drive_subsystem_init(void);
-int drive_register_boot_drive(uint64_t driverId, uint8_t port);
-int drive_driver_register(struct drive_driver_vtable vtable, uint64_t* pDriverId);
-int drive_driver_unregister(uint64_t driverId);
-int drive_register(uint64_t driverId, uint8_t port, uint64_t* pDriverId);
-int drive_unregister(uint64_t driveId);
-int drive_get_desc(uint64_t driveId, struct drive_desc** ppDriveDesc);
+KAPI int drive_register_boot_drive(uint64_t driverId, uint8_t port);
+KAPI int drive_driver_register(struct drive_driver_vtable vtable, uint64_t* pDriverId);
+KAPI int drive_driver_unregister(uint64_t driverId);
+KAPI int drive_register(uint64_t driverId, uint8_t port, uint64_t* pDriverId);
+KAPI int drive_unregister(uint64_t driveId);
+KAPI int drive_get_desc(uint64_t driveId, struct drive_desc** ppDriveDesc);
 KAPI int drive_get_info(uint64_t drive_id, struct drive_info* pDriveInfo);
 KAPI int drive_read_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
 KAPI int drive_write_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);

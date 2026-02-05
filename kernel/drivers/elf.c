@@ -22,13 +22,11 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 		fs_close(mount_id, fileId);
 		return -1;
 	}
-	printf("reading file\r\n");
 	if (fs_read(mount_id, fileId, pFileBuffer, fileInfo.fileSize)!=0){
 		virtualFree((uint64_t)pFileBuffer, fileInfo.fileSize);	
 		fs_close(mount_id, fileId);
 		return -1;
 	}
-	printf("done\r\n");
 	fs_close(mount_id, fileId);
 	uint64_t time_us = get_time_us();
 	struct elf64_header* pHeader = (struct elf64_header*)pFileBuffer;

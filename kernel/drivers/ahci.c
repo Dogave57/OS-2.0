@@ -1,6 +1,7 @@
 #include "mem/vmm.h"
 #include "mem/heap.h"
 #include "stdlib/stdlib.h"
+#include "cpu/mutex.h"
 #include "drivers/pcie.h"
 #include "drivers/timer.h"
 #include "subsystem/drive.h"
@@ -538,37 +539,66 @@ int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_c
 int ahci_subsystem_read(uint64_t driveId, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
 	if (!pBuffer)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
-	if (drive_get_desc(driveId, &pDriveDesc)!=0)
+	if (drive_get_desc(driveId, &pDriveDesc)!=0){
+		mutex_unlock(&mutex);
 		return -1;
+	}
 	struct ahci_drive_info ahciDriveInfo = {0};
-	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0)
+	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0){
+		mutex_unlock(&mutex);
 		return -1;
-	return ahci_read(ahciDriveInfo, lba, sector_count, pBuffer);
+	}
+	if (ahci_read(ahciDriveInfo, lba, sector_count, pBuffer)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
 }
 int ahci_subsystem_write(uint64_t driveId, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
 	if (!pBuffer)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
-	if (drive_get_desc(driveId, &pDriveDesc)!=0)
+	if (drive_get_desc(driveId, &pDriveDesc)!=0){
+		mutex_unlock(&mutex);
 		return -1;	
+	}
 	struct ahci_drive_info ahciDriveInfo = {0};
-	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0)
+	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0){
+		mutex_unlock(&mutex);
 		return -1;
-	return ahci_write(ahciDriveInfo, lba, sector_count, pBuffer);
+	}
+	if (ahci_write(ahciDriveInfo, lba, sector_count, pBuffer)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
 }
 int ahci_subsystem_get_drive_info(uint64_t driveId, struct drive_info* pDriveInfo){
 	if (!pDriveInfo)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
-	if (drive_get_desc(driveId, &pDriveDesc)!=0)
-		return -1;	
-	struct ahci_drive_info ahciDriveInfo = {0};
-	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0)
+	if (drive_get_desc(driveId, &pDriveDesc)!=0){
+		mutex_unlock(&mutex);
 		return -1;
+	}
+	struct ahci_drive_info ahciDriveInfo = {0};
+	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	struct drive_info driveInfo = {0};
 	driveInfo.driveType = DRIVE_TYPE_SATA;
 	driveInfo.sectorCount = ahciDriveInfo.sector_count;
 	*pDriveInfo = driveInfo;
+	mutex_unlock(&mutex);
 	return 0;
 }

@@ -2,6 +2,7 @@
 #include "mem/vmm.h"
 #include "stdlib/stdlib.h"
 #include "subsystem/usb.h"
+#include "cpu/mutex.h"
 #include "drivers/timer.h"
 #include "drivers/keyboard.h"
 #include "drivers/usb/xhci.h"
@@ -46,15 +47,6 @@ int usb_kbd_init(uint8_t port, uint8_t interfaceId){
 		return -1;
 	struct xhci_trb eventTrb = {0};
 	memset((void*)&eventTrb, 0, sizeof(struct xhci_trb));
-	pEndpointDesc->pEndpointContext->interval = 8;	
-	pDevice->deviceContext.pInputContext->drop_flags = 0;
-	pDevice->deviceContext.pInputContext->add_flags = (1<<0)|(1<<endpointIndex);
-	if (xhci_configure_endpoint(pDevice, &eventTrb)!=0){
-		const unsigned char* errorName = "Unknown error";
-		xhci_get_error_name(eventTrb.event.completion_code, &errorName);
-		printf("failed to change endpoint interval (%s)\r\n", errorName);
-		return -1;
-	}
 	if (xhci_set_protocol(pDevice, pDevice->pControlTransferRingInfo, interfaceId, 0, &eventTrb)!=0){
 		const unsigned char* errorName = "Unknown error";
 		xhci_get_error_name(eventTrb.event.completion_code, &errorName);
@@ -119,7 +111,7 @@ int usb_kbd_handle_boot_report(void){
 		uint8_t lastPressed = 0;
 		uint64_t pressTime = 0;
 		key_get_press_time_us(character, &pressTime);
-		uint8_t spamAllowed = !(pressTime<500000)&&!spam;
+		uint8_t spamAllowed = !(pressTime<1000000)&&!spam;
 		for (uint64_t j = 0;j<sizeof(lastBootKbdReport.keys)&&!spamAllowed;j++){
 			if (lastBootKbdReport.keys[j]!=keyCode)
 				continue;
@@ -172,12 +164,22 @@ int usb_kbd_request_boot_report(struct xhci_device* pDevice, uint8_t interfaceId
 	return 0;
 }
 int usb_kbd_register(uint8_t port, uint8_t interfaceId){
-	if (usb_kbd_init(port, interfaceId)!=0)
+	static struct mutex_t mutex = {0};
+	mutex_lock_isr_safe(&mutex);
+	if (usb_kbd_init(port, interfaceId)!=0){
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
+	}
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 int usb_kbd_unregister(uint8_t port, uint8_t interfaceId){
-	if (usb_kbd_deinit(port, interfaceId)!=0)
+	static struct mutex_t mutex = {0};
+	mutex_lock_isr_safe(&mutex);
+	if (usb_kbd_deinit(port, interfaceId)!=0){
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
+	}
+	mutex_unlock_isr_safe(&mutex);
 	return 0;	
 }
