@@ -168,4 +168,6 @@ int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_c
 int ahci_subsystem_read(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
 int ahci_subsystem_write(uint64_t drive_id, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
 int ahci_subsystem_get_drive_info(uint64_t drive_id, struct drive_info* pDriveInfo);
+int ahci_subsystem_register_drive(uint64_t drive_id);
+int ahci_subsystem_unregister_drive(uint64_t drive_id);
 #endif

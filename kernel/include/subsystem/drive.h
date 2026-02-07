@@ -11,6 +11,8 @@ struct drive_info;
 typedef int(*driveGetInfoFunc)(uint64_t drive_id, struct drive_info* pDriveInfo);
 typedef int(*driveReadSectorsFunc)(uint64_t drive_id, uint64_t lba, uint16_t sectorCount, unsigned char* pBuffer);
 typedef int(*driveWriteSectorsFunc)(uint64_t drive_id, uint64_t lba, uint16_t sectorCount, unsigned char* pBuffer);
+typedef int(*driveRegisterFunc)(uint64_t drive_id);
+typedef int(*driveUnregisterFunc)(uint64_t drive_id);
 struct drive_info{
 	uint8_t driveType;
 	uint64_t sectorCount;
@@ -30,6 +32,8 @@ struct drive_driver_vtable{
 	driveReadSectorsFunc readSectors;
 	driveWriteSectorsFunc writeSectors;	
 	driveGetInfoFunc getDriveInfo;
+	driveRegisterFunc driveRegister;
+	driveUnregisterFunc driveUnregister;
 };
 struct drive_driver_desc{
 	struct drive_driver_vtable vtable;
@@ -39,6 +43,7 @@ int drive_subsystem_init(void);
 KAPI int drive_register_boot_drive(uint64_t driverId, uint8_t port);
 KAPI int drive_driver_register(struct drive_driver_vtable vtable, uint64_t* pDriverId);
 KAPI int drive_driver_unregister(uint64_t driverId);
+KAPI int drive_driver_get_desc(uint64_t driverId, struct drive_driver_desc** ppDriverDesc);
 KAPI int drive_register(uint64_t driverId, uint8_t port, uint64_t* pDriverId);
 KAPI int drive_unregister(uint64_t driveId);
 KAPI int drive_get_desc(uint64_t driveId, struct drive_desc** ppDriveDesc);

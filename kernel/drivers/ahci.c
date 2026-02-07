@@ -44,7 +44,9 @@ int ahci_init(void){
 	memset((void*)&vtable, 0, sizeof(struct drive_driver_vtable));
 	vtable.readSectors = ahci_subsystem_read;
 	vtable.writeSectors = ahci_subsystem_write;
-	vtable.getDriveInfo = ahci_subsystem_get_drive_info;	
+	vtable.getDriveInfo = ahci_subsystem_get_drive_info;
+	vtable.driveRegister = ahci_subsystem_register_drive;
+	vtable.driveUnregister = ahci_subsystem_unregister_drive;
 	if (drive_driver_register(vtable, &driverId)!=0){
 		printf("failed to register AHC driver\r\n");
 		return -1;
@@ -56,16 +58,11 @@ int ahci_init(void){
 		}
 	}
 	for (uint32_t i = 0;i<AHCI_MAX_PORTS;i++){
-		if (ahci_drive_exists(i)!=0)
+		if (ahci_drive_exists(i)!=0||i==pbootargs->driveInfo.port)
 			continue;
-		struct ahci_drive_info driveInfo = {0};
-		if (ahci_get_drive_info(i, &driveInfo)!=0){
-			printf("failed to get drive info\r\n");
-			continue;
-		}
 		uint64_t driveId = 0;
 		if (drive_register(driverId, i, &driveId)!=0){
-			printf("faailed to register AHC controlled drive at port %d\r\n", i);
+			printf("failed to register AHC controlled drive at port %d\r\n", i);
 			continue;
 		}	
 	}
@@ -600,5 +597,22 @@ int ahci_subsystem_get_drive_info(uint64_t driveId, struct drive_info* pDriveInf
 	driveInfo.sectorCount = ahciDriveInfo.sector_count;
 	*pDriveInfo = driveInfo;
 	mutex_unlock(&mutex);
+	return 0;
+}
+int ahci_subsystem_register_drive(uint64_t driveId){
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0)
+		return -1;
+	struct drive_info driveInfo = {0};
+	if (ahci_subsystem_get_drive_info(driveId, &driveInfo)!=0)
+		return -1;
+	pDriveDesc->driveInfo = driveInfo;
+	return 0;
+}
+int ahci_subsystem_unregister_drive(uint64_t driveId){
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0)
+		return -1;
+
 	return 0;
 }

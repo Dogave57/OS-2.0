@@ -111,7 +111,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	if (ahci_init()!=0){
-		printf("no AHCI controller available\r\n");
+		printf("no AHC available\r\n");
 	}
 /*	if (nvme_init()!=0){
 		printf("failed to initialize NVME driver\r\n");

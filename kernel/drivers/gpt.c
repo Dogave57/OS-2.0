@@ -17,9 +17,9 @@ int gpt_get_partition(uint64_t id, uint64_t partition, struct gpt_partition* pPa
 	uint64_t backup_partition_table_lba = 0;
 	if (gpt_get_backup_partition_table_lba(id, &backup_partition_table_lba)!=0)
 		return -1;
-	uint64_t partition_entry_lba_offset = (partition*GPT_PARTITION_ENTRY_SIZE)/DRIVE_SECTOR_SIZE;
-	uint64_t partition_entry_offset = (partition*GPT_PARTITION_ENTRY_SIZE)%DRIVE_SECTOR_SIZE;
-	unsigned char sectorData[512] = {0};
+	uint64_t partition_entry_lba_offset = (partition*GPT_PARTITION_ENTRY_SIZE)/512;
+	uint64_t partition_entry_offset = (partition*GPT_PARTITION_ENTRY_SIZE)%512;
+	unsigned char sectorData[DRIVE_SECTOR_SIZE] = {0};
 	memset((void*)sectorData, 0, sizeof(sectorData));
 	if (drive_read_sectors(id, partition_table_lba+partition_entry_lba_offset, 1, (unsigned char*)sectorData)!=0)
 		return -1;
@@ -31,12 +31,12 @@ int gpt_set_partition(uint64_t id, uint64_t partition, struct gpt_partition part
 	struct gpt_header gptHeader = {0};
 	if (gpt_get_header(id, &gptHeader)!=0)
 		return -1;
-	uint64_t partition_entry_lba_offset = (partition*GPT_PARTITION_ENTRY_SIZE)/DRIVE_SECTOR_SIZE;
-	uint64_t partition_entry_offset = (partition*GPT_PARTITION_ENTRY_SIZE)%DRIVE_SECTOR_SIZE;
+	uint64_t partition_entry_lba_offset = (partition*GPT_PARTITION_ENTRY_SIZE)/512;
+	uint64_t partition_entry_offset = (partition*GPT_PARTITION_ENTRY_SIZE)%512;
 	uint64_t backup_partition_table_lba = 0;
 	if (gpt_get_backup_partition_table_lba(id, &backup_partition_table_lba)!=0)
 		return -1;
-	unsigned char sectorData[512] = {0};
+	unsigned char sectorData[DRIVE_SECTOR_SIZE] = {0};
 	if (drive_read_sectors(id, gptHeader.partition_table_lba+partition_entry_lba_offset, 1, (unsigned char*)sectorData)!=0)
 		return -1;
 	struct gpt_partition* pPartitionEntry = (struct gpt_partition*)(sectorData+partition_entry_offset);
@@ -129,7 +129,7 @@ int gpt_get_header(uint64_t id, struct gpt_header* pGptHeader){
 		*pGptHeader = last_gpt_header;
 		return 0;
 	}
-	unsigned char sectorData[512] = {0};
+	unsigned char sectorData[DRIVE_SECTOR_SIZE] = {0};
 	if (drive_read_sectors(id, 1, 1, (unsigned char*)sectorData)!=0)
 		return -1;
 	struct gpt_header gptHeader = *(struct gpt_header*)(sectorData);
@@ -143,7 +143,7 @@ int gpt_get_header(uint64_t id, struct gpt_header* pGptHeader){
 int gpt_set_header(uint64_t id, struct gpt_header newGptHeader){
 	if (newGptHeader.signature!=GPT_SIGNATURE)
 		return -1;
-	unsigned char sectorData[512] = {0};
+	unsigned char sectorData[DRIVE_SECTOR_SIZE] = {0};
 	if (drive_read_sectors(id, 1, 1, (unsigned char*)sectorData)!=0){
 		printf("failed to read GPT header sector\r\n");
 		return -1;
@@ -249,13 +249,18 @@ int gpt_verify(uint64_t id){
 	uint32_t partition_table_checksum = 0;
 	uint32_t backup_partition_table_checksum = 0;
 	uint32_t header_checksum = 0;
-	if (gpt_get_partition_table_checksum(id, &partition_table_checksum)!=0)
-		return -1;
-	if (gpt_get_backup_partition_table_checksum(id, &backup_partition_table_checksum)!=0){
+	if (gpt_get_partition_table_checksum(id, &partition_table_checksum)!=0){
+		printf("failed to get partition table checksum\r\n");
 		return -1;
 	}
-	if (gpt_get_header_checksum(id, &header_checksum)!=0)
+	if (gpt_get_backup_partition_table_checksum(id, &backup_partition_table_checksum)!=0){
+		printf("failed to get backup partition table checksum\r\n");
 		return -1;
+	}
+	if (gpt_get_header_checksum(id, &header_checksum)!=0){
+		printf("checksums dont match\r\n");
+		return -1;
+	}
 	if (gptHeader.checksum!=header_checksum){
 		printf("header checksum no match\r\n");
 		return -1;

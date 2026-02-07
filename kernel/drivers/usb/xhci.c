@@ -1447,7 +1447,6 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 				uint8_t endpointIndex = XHCI_EP_ID_INDEX(pDesc->endpointAddress);
 				uint8_t transferType = (uint8_t)(pDesc->attributes&0x3);
 				uint8_t endpointType = 0x0;
-				printf("endpoint direction: %d\r\n", endpointDirection);
 				switch (transferType){
 					case XHCI_TRANSFER_TYPE_CONTROL:{
 						endpointType = XHCI_ENDPOINT_TYPE_CONTROL;			
@@ -1466,7 +1465,6 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 						break;			    
 					};
 				}
-				printf("endpoint type: 0x%x\r\n", endpointType);
 				if (!endpointIndex||endpointIndex>30){
 					printf("invalid endpoint index\r\n");
 					xhci_disable_slot(slotId);
@@ -1510,7 +1508,6 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 					pSlotContext->context_entries = endpointIndex+1;
 				}
 				add_flags|=(1<<(endpointIndex));
-				printf("endpoint index: %d\r\n", endpointIndex);
 				pCurrentInterface->endpointCount++;
 				break;
 			}
