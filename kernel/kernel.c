@@ -132,11 +132,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	if (gpt_verify(0)!=0){
-		printf("invalid GPT partition table\r\n");
-		while (1){};
-		return -1;
-	}
 	if (kext_subsystem_init()!=0){
 		printf("failed to initialize kext subsystem\r\n");
 		while (1){};
@@ -160,7 +155,11 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (xhci_init()!=0){
 		printf("failed to initialize XHCI controller\r\n");
 	}
-	while (1){};
+	if (gpt_verify(0)!=0){
+		printf("failed to verify GPT partition table\r\n");
+		while (1){};
+		return -1;
+	}
 	uint64_t va = 0;
 	uint64_t pagecnt = (MEM_MB*64)/PAGE_SIZE;
 	uint64_t before_us = get_time_us();
@@ -258,9 +257,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	for (uint64_t i = 0;i<gptHeader.partition_count;i++){
 		struct gpt_partition partition = {0};
 		if (gpt_get_partition(0, i, &partition)!=0){
-			printf("failed to get partition %d\r\n", i);
-			while (1){};
-			continue;
+			break;
 		}
 		if (!partition.end_lba){
 			continue;

@@ -551,6 +551,9 @@ timer_isr_end:
 mov qword rbp, rsp
 and rsp, -16
 sub rsp, 32
+call entropy_shuffle
+add rsp, 32
+sub rsp, 32
 call lapic_send_eoi
 add rsp, 32
 mov qword rsp, rbp
@@ -586,6 +589,9 @@ mov qword rbp, rsp
 and rsp, -16
 sub qword rsp, 32
 call xhci_interrupter
+add qword rsp, 32
+sub qword rsp, 32
+call entropy_shuffle
 add qword rsp, 32
 sub qword rsp, 32
 call lapic_send_eoi

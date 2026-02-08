@@ -9,8 +9,8 @@
 #define DRIVE_SECTOR_SIZE (512)
 struct drive_info;
 typedef int(*driveGetInfoFunc)(uint64_t drive_id, struct drive_info* pDriveInfo);
-typedef int(*driveReadSectorsFunc)(uint64_t drive_id, uint64_t lba, uint16_t sectorCount, unsigned char* pBuffer);
-typedef int(*driveWriteSectorsFunc)(uint64_t drive_id, uint64_t lba, uint16_t sectorCount, unsigned char* pBuffer);
+typedef int(*driveReadSectorsFunc)(uint64_t drive_id, uint64_t lba, uint64_t sectorCount, unsigned char* pBuffer);
+typedef int(*driveWriteSectorsFunc)(uint64_t drive_id, uint64_t lba, uint64_t sectorCount, unsigned char* pBuffer);
 typedef int(*driveRegisterFunc)(uint64_t drive_id);
 typedef int(*driveUnregisterFunc)(uint64_t drive_id);
 struct drive_info{

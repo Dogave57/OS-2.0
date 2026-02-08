@@ -255,7 +255,7 @@ KAPI int drive_write_sectors(uint64_t drive_id, uint64_t lba, uint16_t sector_co
 		return -1;
 	}
 	struct drive_driver_desc* pDriverDesc = (struct drive_driver_desc*)0x0;
-	if (subsystem_get_entry(pDriveDriverSubsystem, pDriverDesc->driverId, (uint64_t*)&pDriverDesc)!=0){
+	if (subsystem_get_entry(pDriveDriverSubsystem, pDriveDesc->driverId, (uint64_t*)&pDriverDesc)!=0){
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}

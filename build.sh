@@ -86,7 +86,8 @@ echo linking base kernel
 $KERNELLD -shared -fPIC -Bsymbolic -hash-style=both -fno-plt -z now $KERNEL_LINKFLAGS -e kernel_stub -o build/build/kernel.elf
 $PROGRAMLD -pic -z now -Lbuild/build -l:kernel.elf -e kext_entry build/objects/kexts/test.o -o build/build/kexts/test.elf
 echo done
-sudo dd if=/dev/zero of=usb_drive.img bs=1M count=512
+sudo dd if=/dev/urandom of=usb_drive.img bs=1M count=512
+sudo qemu-img create -f raw usb_drive.img 4T
 case "$OS" in
 "Linux")
 sudo rm drive.img

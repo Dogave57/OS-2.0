@@ -69,7 +69,6 @@ int xhci_init(void){
 	uint8_t portCount = 0;
 	if (xhci_get_port_count(&portCount)!=0)
 		return -1;
-	printf("port count: %d\r\n", portCount);
 	struct xhci_trb trb = {0};
 	uint64_t trbIndex = 0;
 	memset((void*)&trb, 0, sizeof(struct xhci_trb));
@@ -417,7 +416,7 @@ int xhci_init_transfer_ring_list(void){
 	return 0;
 }
 int xhci_init_transfer_desc_list(void){
-	uint64_t listSize = sizeof(struct xhci_transfer_desc)*XHCI_MAX_SLOT_COUNT*XHCI_MAX_ENDPOINT_COUNT*256;
+	uint64_t listSize = sizeof(struct xhci_transfer_desc)*XHCI_MAX_DEVICE_COUNT*XHCI_MAX_ENDPOINT_COUNT*256;
 	struct xhci_transfer_desc* pTransferDescList = (struct xhci_transfer_desc*)0x0;
 	if (virtualAlloc((uint64_t*)&pTransferDescList, listSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0)
 		return -1;
@@ -435,7 +434,7 @@ int xhci_get_transfer_ring(uint8_t slotId, uint8_t endpointIndex, struct xhci_tr
 int xhci_get_transfer_desc(uint8_t slotId, uint8_t endpointIndex, uint64_t trbIndex, struct xhci_transfer_desc** ppTransferDesc){
 	if (!ppTransferDesc)
 		return -1;
-	uint64_t transferDescOffset = ((uint64_t)slotId*XHCI_MAX_ENDPOINT_COUNT)+(uint64_t)endpointIndex+trbIndex;
+	uint64_t transferDescOffset = (((uint64_t)slotId*XHCI_MAX_DEVICE_COUNT*XHCI_MAX_ENDPOINT_COUNT)+((uint64_t)endpointIndex*256))+trbIndex;
 	struct xhci_transfer_desc* pTransferDesc = xhciInfo.pTransferDescList+transferDescOffset;
 	*ppTransferDesc = pTransferDesc;
 	return 0;
@@ -2022,7 +2021,7 @@ KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packe
 		return -1;
 	}
 	if (!pTransferRingInfo){
-		printf("no transfer ring linked with endpoint!\r\n");
+		printf("no transfer ring linked with endpoint! port: %d interface ID: %d endpoint ID: %d\r\n", pDevice->port, request.interfaceId, request.endpointId);
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}

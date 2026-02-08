@@ -13,6 +13,10 @@
 #define BOT_OPCODE_SERVICE_ACTION_IN (0x9E)
 #define BOT_OPCODE_GET_STANDARD_CAPACITY (0x25)
 #define BOT_OPCODE_REQUEST_SENSE (0x03)
+#define BOT_OPCODE_READ32 (0x28)
+#define BOT_OPCODE_WRITE32 (0x2A)
+#define BOT_OPCODE_READ64 (0x88)
+#define BOT_OPCODE_WRITE64 (0x8A)
 #define BOT_SENSE_KEY_NO_SENSE (0x00)
 #define BOT_SENSE_KEY_RECOVERED_ERROR (0x01)
 #define BOT_SENSE_KEY_NOT_READY (0x02)
@@ -32,7 +36,7 @@
 #define BOT_RESPONSE_CODE_FIXED_DEFERRED_ERROR (0x71)
 #define BOT_RESPONSE_CODE_DESC_CURRENT_ERROR (0x72)
 #define BOT_RESPONSE_CODE_DESC_DEFERRED_ERROR (0x73)
-#define BOT_SERVICE_ACTION_READ_EXTENDED_CAPACITY (0x10)
+#define BOT_SERVICE_ACTION_GET_EXTENDED_CAPACITY (0x10)
 struct usb_bot_cmd{
 	uint32_t signature;	
 	uint32_t cmd_id;
@@ -120,7 +124,7 @@ struct usb_bot_get_drive_info_cmd{
 	uint8_t evpd:1;
 	uint8_t reserved0:7;
 	uint8_t page_code;
-	uint16_t alloc_len; //BIG ENDIAN
+	uint16_t alloc_len;
 	uint8_t control;
 	uint8_t padding0[10];
 }__attribute__((packed));
@@ -142,6 +146,22 @@ struct usb_bot_request_sense_cmd{
 	uint8_t reserved0;
 	uint8_t reserved1;
 	uint8_t alloc_length;
+	uint8_t control;
+}__attribute__((packed));
+struct usb_bot_sector32_cmd{
+	uint8_t opcode;
+	uint8_t flags;
+	uint32_t lba;
+	uint8_t reserved0;
+	uint16_t transfer_length;
+	uint8_t control;
+}__attribute__((packed));
+struct usb_bot_sector64_cmd{
+	uint8_t opcode;
+	uint8_t flags;
+	uint64_t lba;
+	uint32_t transfer_len;
+	uint8_t group;
 	uint8_t control;
 }__attribute__((packed));
 struct usb_bot_get_extended_capacity_cmd{
@@ -171,6 +191,7 @@ struct usb_bot_packet_request{
 	struct usb_bot_cmd_status cmdStatus;	
 	unsigned char* pBuffer;
 	uint64_t bufferSize;
+	uint8_t direction;
 };
 struct usb_bot_cmd_response{
 	struct xhci_trb eventTrb;
@@ -182,14 +203,19 @@ struct usb_bot_info_desc{
 };
 struct usb_bot_capacity_desc{
 	uint8_t extendedSupport;
-	uint64_t lbaCount;
+	uint64_t sectorCount;
 	uint64_t blockSize;
 	struct usb_bot_standard_capacity standardCapacity;
 	struct usb_bot_extended_capacity extendedCapacity;
 };
+struct usb_bot_desc_list_info{
+	struct usb_bot_drive_desc* pDescList;
+	uint64_t descListSize;
+};
 struct usb_bot_drive_desc{
 	uint8_t port;
 	uint8_t interfaceId;
+	uint64_t driveId;
 	uint8_t inputEndpointId;
 	uint8_t outputEndpointId;
 	struct usb_bot_info_desc infoDesc;
@@ -203,12 +229,22 @@ int usb_bot_get_extended_capacity(struct usb_bot_drive_desc* pDriveDesc, struct 
 int usb_bot_get_standard_capacity(struct usb_bot_drive_desc* pDriveDesc, struct usb_bot_capacity_desc* pCapacityDesc, struct usb_bot_cmd_response* pCmdResponse);
 int usb_bot_get_capacity(struct usb_bot_drive_desc* pDriveDesc, struct usb_bot_capacity_desc* pCapacityDesc, struct usb_bot_cmd_response* pCmdResponse);
 int usb_bot_request_sense(struct usb_bot_drive_desc* pDriveDesc, struct usb_bot_cmd_sense* pSense, struct usb_bot_cmd_response* pCmdResponse);
+int usb_bot_read_sectors32(struct usb_bot_drive_desc* pDriveDesc, uint32_t lba, uint16_t sectorCount, unsigned char* pBuffer, struct usb_bot_cmd_response* pCmdResponse);
+int usb_bot_read_sectors64(struct usb_bot_drive_desc* pDriveDesc, uint64_t lba, uint32_t sectorCount, unsigned char* pBuffer, struct usb_bot_cmd_response* pCmdResponse);
+int usb_bot_read_sectors(struct usb_bot_drive_desc* pDriveDesc, uint64_t lba, uint32_t sectorCount, unsigned char* pBuffer, struct usb_bot_cmd_response* pCmdResponse);
+int usb_bot_write_sectors32(struct usb_bot_drive_desc* pDriveDesc, uint32_t lba, uint16_t sectorCount, unsigned char* pBuffer, struct usb_bot_cmd_response* pCmdResponse);
+int usb_bot_write_sectors64(struct usb_bot_drive_desc* pDriveDesc, uint64_t lba, uint32_t sectorCount, unsigned char* pBuffer, struct usb_bot_cmd_response* pCmdResponse);
+int usb_bot_write_sectors(struct usb_bot_drive_desc* pDriveDesc, uint64_t lba, uint32_t sectorCount, unsigned char* pBuffer, struct usb_bot_cmd_response* pCmdResponse);
 int usb_bot_ping(struct usb_bot_drive_desc* pDriveDesc, struct usb_bot_cmd_response* pCmdResponse);
 int usb_bot_get_sense_key_name(uint8_t senseKey, const unsigned char** ppKeyName);
 int usb_bot_get_response_code_name(uint8_t responseCode, const unsigned char** ppResponseName);
+int usb_bot_init_bot_desc_list(void);
+int usb_bot_get_bot_desc(uint8_t port, uint8_t interfaceId, struct usb_bot_drive_desc** ppBotDesc);
 int usb_bot_interface_register(uint8_t port, uint8_t interfaceId);
 int usb_bot_interface_unregister(uint8_t port, uint8_t interfaceId);
 int usb_bot_subsystem_drive_register(uint64_t driveId);
 int usb_bot_subsystem_drive_unregister(uint64_t driveId);
 int usb_bot_subsystem_get_drive_info(uint64_t driveId, struct drive_info* pDriveInfo);
+int usb_bot_subsystem_read_sectors(uint64_t driveId, uint64_t lba, uint64_t sectorCount, unsigned char* pBuffer);
+int usb_bot_subsystem_write_sectors(uint64_t driveId, uint64_t lba, uint64_t sectorCount, unsigned char* pBuffer);
 #endif

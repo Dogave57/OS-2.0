@@ -533,7 +533,7 @@ int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_c
 	}
 	return 0;
 }
-int ahci_subsystem_read(uint64_t driveId, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
+int ahci_subsystem_read(uint64_t driveId, uint64_t lba, uint64_t sector_count, unsigned char* pBuffer){
 	if (!pBuffer)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -555,7 +555,7 @@ int ahci_subsystem_read(uint64_t driveId, uint64_t lba, uint16_t sector_count, u
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ahci_subsystem_write(uint64_t driveId, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
+int ahci_subsystem_write(uint64_t driveId, uint64_t lba, uint64_t sector_count, unsigned char* pBuffer){
 	if (!pBuffer)
 		return -1;
 	static struct mutex_t mutex = {0};

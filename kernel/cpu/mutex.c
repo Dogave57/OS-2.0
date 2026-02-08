@@ -8,7 +8,7 @@ int mutex_lock(struct mutex_t* pMutex){
 		return -1;
 	uint64_t attempts = 0;
 	while (pMutex->value){
-		if (attempts>100000){
+		if (attempts>10000000){
 			__asm__ volatile("cli");
 			pMutex->value = 0;
 			panic("deadlock detected\r\n");
