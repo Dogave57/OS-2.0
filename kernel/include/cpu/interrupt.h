@@ -4,6 +4,8 @@
 #define SAFE_STACK_SIZE 8192
 extern unsigned char safe_stack[SAFE_STACK_SIZE];
 extern unsigned char* pSafeStackTop;
+extern uint64_t isr_stub_target_list[256];
+extern uint64_t isr_stub_list[256];
 struct cpu_exception_entry{
 	uint64_t pIsr;
 	uint64_t istVector;

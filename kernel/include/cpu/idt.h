@@ -18,7 +18,7 @@ struct idt_ptr_t{
 	uint16_t limit;
 	uint64_t base;
 }__attribute__((packed));
-int idt_add_entry(uint8_t vector, uint64_t isr, uint8_t flags, uint8_t ist_entry);
+int idt_add_entry(uint8_t vector, uint64_t target_isr, uint8_t flags, uint8_t ist_entry, uint8_t no_stub);
 int idt_get_entry(uint8_t vector, struct idt_entry_t** ppEntry);
 int idt_get_free_vector(uint8_t* pVector);
 int idt_init(void);

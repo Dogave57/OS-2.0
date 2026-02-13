@@ -1,109 +1,86 @@
-apic_register_write register 0x0f = 0x1ff
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc4500
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc469f
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc4500
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc469f
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc4500
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc469f
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
+usb_xhci_port_link port 5, pls 7
+usb_xhci_port_notify port 5, bits 0x20000
+usb_xhci_reset === RESET ===
+usb_xhci_slot_disable slotid 1
+usb_xhci_slot_disable slotid 2
+usb_xhci_slot_disable slotid 3
+usb_xhci_slot_disable slotid 4
+usb_xhci_slot_disable slotid 5
+usb_xhci_slot_disable slotid 6
+usb_xhci_slot_disable slotid 7
+usb_xhci_slot_disable slotid 8
+usb_xhci_slot_disable slotid 9
+usb_xhci_slot_disable slotid 10
+usb_xhci_slot_disable slotid 11
+usb_xhci_slot_disable slotid 12
+usb_xhci_slot_disable slotid 13
+usb_xhci_slot_disable slotid 14
+usb_xhci_slot_disable slotid 15
+usb_xhci_slot_disable slotid 16
+usb_xhci_slot_disable slotid 17
+usb_xhci_slot_disable slotid 18
+usb_xhci_slot_disable slotid 19
+usb_xhci_slot_disable slotid 20
+usb_xhci_slot_disable slotid 21
+usb_xhci_slot_disable slotid 22
+usb_xhci_slot_disable slotid 23
+usb_xhci_slot_disable slotid 24
+usb_xhci_slot_disable slotid 25
+usb_xhci_slot_disable slotid 26
+usb_xhci_slot_disable slotid 27
+usb_xhci_slot_disable slotid 28
+usb_xhci_slot_disable slotid 29
+usb_xhci_slot_disable slotid 30
+usb_xhci_slot_disable slotid 31
+usb_xhci_slot_disable slotid 32
+usb_xhci_slot_disable slotid 33
+usb_xhci_slot_disable slotid 34
+usb_xhci_slot_disable slotid 35
+usb_xhci_slot_disable slotid 36
+usb_xhci_slot_disable slotid 37
+usb_xhci_slot_disable slotid 38
+usb_xhci_slot_disable slotid 39
+usb_xhci_slot_disable slotid 40
+usb_xhci_slot_disable slotid 41
+usb_xhci_slot_disable slotid 42
+usb_xhci_slot_disable slotid 43
+usb_xhci_slot_disable slotid 44
+usb_xhci_slot_disable slotid 45
+usb_xhci_slot_disable slotid 46
+usb_xhci_slot_disable slotid 47
+usb_xhci_slot_disable slotid 48
+usb_xhci_slot_disable slotid 49
+usb_xhci_slot_disable slotid 50
+usb_xhci_slot_disable slotid 51
+usb_xhci_slot_disable slotid 52
+usb_xhci_slot_disable slotid 53
+usb_xhci_slot_disable slotid 54
+usb_xhci_slot_disable slotid 55
+usb_xhci_slot_disable slotid 56
+usb_xhci_slot_disable slotid 57
+usb_xhci_slot_disable slotid 58
+usb_xhci_slot_disable slotid 59
+usb_xhci_slot_disable slotid 60
+usb_xhci_slot_disable slotid 61
+usb_xhci_slot_disable slotid 62
+usb_xhci_slot_disable slotid 63
+usb_xhci_slot_disable slotid 64
+usb_xhci_port_link port 1, pls 5
+usb_xhci_port_notify port 1, bits 0x20000
+usb_xhci_port_link port 2, pls 5
+usb_xhci_port_notify port 2, bits 0x20000
+usb_xhci_port_link port 3, pls 5
+usb_xhci_port_notify port 3, bits 0x20000
+usb_xhci_port_link port 4, pls 5
+usb_xhci_port_notify port 4, bits 0x20000
+usb_xhci_port_link port 5, pls 7
+usb_xhci_port_notify port 5, bits 0x20000
+usb_xhci_port_link port 6, pls 5
+usb_xhci_port_notify port 6, bits 0x20000
+usb_xhci_port_link port 7, pls 5
+usb_xhci_port_notify port 7, bits 0x20000
+usb_xhci_port_link port 8, pls 5
+usb_xhci_port_notify port 8, bits 0x20000
 Invalid read at addr 0xFED40000, size 1, region '(null)', reason: rejected
 Invalid read at addr 0xFED40030, size 4, region '(null)', reason: rejected
 Invalid read at addr 0xFED40014, size 4, region '(null)', reason: rejected
@@ -4206,198 +4183,908 @@ Invalid read at addr 0xFFC00FFC, size 1, region '(null)', reason: rejected
 Invalid read at addr 0xFFC00FFD, size 1, region '(null)', reason: rejected
 Invalid read at addr 0xFFC00FFE, size 1, region '(null)', reason: rejected
 Invalid read at addr 0xFFC00FFF, size 1, region '(null)', reason: rejected
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc4500
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc4687
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x3e = 0xb
-apic_register_write register 0x32 = 0x20020
-apic_register_write register 0x38 = 0x989680
-apic_register_write register 0x32 = 0x20020
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc4500
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x30 = 0xc4687
-apic_register_write register 0x31 = 0x0
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x0f = 0x10f
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x35 = 0x700
-apic_register_write register 0x36 = 0x400
-apic_register_write register 0x35 = 0x10700
-apic_register_write register 0x36 = 0x10400
-apic_register_write register 0x3e = 0x0
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x32 = 0x20005
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x32 = 0x30005
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
+usb_xhci_cap_read off 0x0000, ret 0x01000040
+usb_xhci_cap_read off 0x0004, ret 0x08001040
+usb_xhci_cap_read off 0x0008, ret 0x0000000f
+usb_xhci_cap_read off 0x0010, ret 0x00087001
+usb_xhci_cap_read off 0x0014, ret 0x00002000
+usb_xhci_cap_read off 0x0018, ret 0x00001000
+usb_xhci_oper_read off 0x0008, ret 0x00000001
+usb_xhci_cap_read off 0x0020, ret 0x02000402
+usb_xhci_cap_read off 0x0030, ret 0x03000002
+usb_xhci_cap_read off 0x0020, ret 0x02000402
+usb_xhci_cap_read off 0x0030, ret 0x03000002
+usb_xhci_cap_read off 0x0020, ret 0x02000402
+usb_xhci_cap_read off 0x0024, ret 0x20425355
+usb_xhci_cap_read off 0x0020, ret 0x02000402
+usb_xhci_cap_read off 0x0030, ret 0x03000002
+usb_xhci_cap_read off 0x0034, ret 0x20425355
+usb_xhci_oper_read off 0x0004, ret 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_write off 0x0000, val 0x00000002
+usb_xhci_reset === RESET ===
+usb_xhci_slot_disable slotid 1
+usb_xhci_slot_disable slotid 2
+usb_xhci_slot_disable slotid 3
+usb_xhci_slot_disable slotid 4
+usb_xhci_slot_disable slotid 5
+usb_xhci_slot_disable slotid 6
+usb_xhci_slot_disable slotid 7
+usb_xhci_slot_disable slotid 8
+usb_xhci_slot_disable slotid 9
+usb_xhci_slot_disable slotid 10
+usb_xhci_slot_disable slotid 11
+usb_xhci_slot_disable slotid 12
+usb_xhci_slot_disable slotid 13
+usb_xhci_slot_disable slotid 14
+usb_xhci_slot_disable slotid 15
+usb_xhci_slot_disable slotid 16
+usb_xhci_slot_disable slotid 17
+usb_xhci_slot_disable slotid 18
+usb_xhci_slot_disable slotid 19
+usb_xhci_slot_disable slotid 20
+usb_xhci_slot_disable slotid 21
+usb_xhci_slot_disable slotid 22
+usb_xhci_slot_disable slotid 23
+usb_xhci_slot_disable slotid 24
+usb_xhci_slot_disable slotid 25
+usb_xhci_slot_disable slotid 26
+usb_xhci_slot_disable slotid 27
+usb_xhci_slot_disable slotid 28
+usb_xhci_slot_disable slotid 29
+usb_xhci_slot_disable slotid 30
+usb_xhci_slot_disable slotid 31
+usb_xhci_slot_disable slotid 32
+usb_xhci_slot_disable slotid 33
+usb_xhci_slot_disable slotid 34
+usb_xhci_slot_disable slotid 35
+usb_xhci_slot_disable slotid 36
+usb_xhci_slot_disable slotid 37
+usb_xhci_slot_disable slotid 38
+usb_xhci_slot_disable slotid 39
+usb_xhci_slot_disable slotid 40
+usb_xhci_slot_disable slotid 41
+usb_xhci_slot_disable slotid 42
+usb_xhci_slot_disable slotid 43
+usb_xhci_slot_disable slotid 44
+usb_xhci_slot_disable slotid 45
+usb_xhci_slot_disable slotid 46
+usb_xhci_slot_disable slotid 47
+usb_xhci_slot_disable slotid 48
+usb_xhci_slot_disable slotid 49
+usb_xhci_slot_disable slotid 50
+usb_xhci_slot_disable slotid 51
+usb_xhci_slot_disable slotid 52
+usb_xhci_slot_disable slotid 53
+usb_xhci_slot_disable slotid 54
+usb_xhci_slot_disable slotid 55
+usb_xhci_slot_disable slotid 56
+usb_xhci_slot_disable slotid 57
+usb_xhci_slot_disable slotid 58
+usb_xhci_slot_disable slotid 59
+usb_xhci_slot_disable slotid 60
+usb_xhci_slot_disable slotid 61
+usb_xhci_slot_disable slotid 62
+usb_xhci_slot_disable slotid 63
+usb_xhci_slot_disable slotid 64
+usb_xhci_port_link port 1, pls 5
+usb_xhci_port_notify port 1, bits 0x20000
+usb_xhci_port_link port 2, pls 5
+usb_xhci_port_notify port 2, bits 0x20000
+usb_xhci_port_link port 3, pls 5
+usb_xhci_port_notify port 3, bits 0x20000
+usb_xhci_port_link port 4, pls 5
+usb_xhci_port_notify port 4, bits 0x20000
+usb_xhci_port_link port 5, pls 7
+usb_xhci_port_notify port 5, bits 0x20000
+usb_xhci_port_link port 6, pls 5
+usb_xhci_port_notify port 6, bits 0x20000
+usb_xhci_port_link port 7, pls 5
+usb_xhci_port_notify port 7, bits 0x20000
+usb_xhci_port_link port 8, pls 5
+usb_xhci_port_notify port 8, bits 0x20000
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_write off 0x0038, val 0x00000040
+usb_xhci_oper_write off 0x0030, val 0x7ea46000
+usb_xhci_oper_write off 0x0034, val 0x00000000
+usb_xhci_oper_write off 0x0018, val 0x7ea46241
+usb_xhci_oper_write off 0x001c, val 0x00000000
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_write off 0x0000, val 0x00000000
+usb_xhci_runtime_read off 0x0020, ret 0x00000000
+usb_xhci_runtime_write off 0x0020, val 0x00000000
+usb_xhci_runtime_read off 0x0020, ret 0x00000000
+usb_xhci_runtime_write off 0x0020, val 0x00000001
+usb_xhci_runtime_read off 0x0040, ret 0x00000000
+usb_xhci_runtime_write off 0x0040, val 0x00000000
+usb_xhci_runtime_read off 0x0040, ret 0x00000000
+usb_xhci_runtime_write off 0x0040, val 0x00000001
+usb_xhci_runtime_read off 0x0060, ret 0x00000000
+usb_xhci_runtime_write off 0x0060, val 0x00000000
+usb_xhci_runtime_read off 0x0060, ret 0x00000000
+usb_xhci_runtime_write off 0x0060, val 0x00000001
+usb_xhci_runtime_read off 0x0080, ret 0x00000000
+usb_xhci_runtime_write off 0x0080, val 0x00000000
+usb_xhci_runtime_read off 0x0080, ret 0x00000000
+usb_xhci_runtime_write off 0x0080, val 0x00000001
+usb_xhci_runtime_read off 0x00a0, ret 0x00000000
+usb_xhci_runtime_write off 0x00a0, val 0x00000000
+usb_xhci_runtime_read off 0x00a0, ret 0x00000000
+usb_xhci_runtime_write off 0x00a0, val 0x00000001
+usb_xhci_runtime_read off 0x00c0, ret 0x00000000
+usb_xhci_runtime_write off 0x00c0, val 0x00000000
+usb_xhci_runtime_read off 0x00c0, ret 0x00000000
+usb_xhci_runtime_write off 0x00c0, val 0x00000001
+usb_xhci_runtime_read off 0x00e0, ret 0x00000000
+usb_xhci_runtime_write off 0x00e0, val 0x00000000
+usb_xhci_runtime_read off 0x00e0, ret 0x00000000
+usb_xhci_runtime_write off 0x00e0, val 0x00000001
+usb_xhci_runtime_read off 0x0100, ret 0x00000000
+usb_xhci_runtime_write off 0x0100, val 0x00000000
+usb_xhci_runtime_read off 0x0100, ret 0x00000000
+usb_xhci_runtime_write off 0x0100, val 0x00000001
+usb_xhci_runtime_read off 0x0120, ret 0x00000000
+usb_xhci_runtime_write off 0x0120, val 0x00000000
+usb_xhci_runtime_read off 0x0120, ret 0x00000000
+usb_xhci_runtime_write off 0x0120, val 0x00000001
+usb_xhci_runtime_read off 0x0140, ret 0x00000000
+usb_xhci_runtime_write off 0x0140, val 0x00000000
+usb_xhci_runtime_read off 0x0140, ret 0x00000000
+usb_xhci_runtime_write off 0x0140, val 0x00000001
+usb_xhci_runtime_read off 0x0160, ret 0x00000000
+usb_xhci_runtime_write off 0x0160, val 0x00000000
+usb_xhci_runtime_read off 0x0160, ret 0x00000000
+usb_xhci_runtime_write off 0x0160, val 0x00000001
+usb_xhci_runtime_read off 0x0180, ret 0x00000000
+usb_xhci_runtime_write off 0x0180, val 0x00000000
+usb_xhci_runtime_read off 0x0180, ret 0x00000000
+usb_xhci_runtime_write off 0x0180, val 0x00000001
+usb_xhci_runtime_read off 0x01a0, ret 0x00000000
+usb_xhci_runtime_write off 0x01a0, val 0x00000000
+usb_xhci_runtime_read off 0x01a0, ret 0x00000000
+usb_xhci_runtime_write off 0x01a0, val 0x00000001
+usb_xhci_runtime_read off 0x01c0, ret 0x00000000
+usb_xhci_runtime_write off 0x01c0, val 0x00000000
+usb_xhci_runtime_read off 0x01c0, ret 0x00000000
+usb_xhci_runtime_write off 0x01c0, val 0x00000001
+usb_xhci_runtime_read off 0x01e0, ret 0x00000000
+usb_xhci_runtime_write off 0x01e0, val 0x00000000
+usb_xhci_runtime_read off 0x01e0, ret 0x00000000
+usb_xhci_runtime_write off 0x01e0, val 0x00000001
+usb_xhci_runtime_read off 0x0200, ret 0x00000000
+usb_xhci_runtime_write off 0x0200, val 0x00000000
+usb_xhci_runtime_read off 0x0200, ret 0x00000000
+usb_xhci_runtime_write off 0x0200, val 0x00000001
+usb_xhci_runtime_write off 0x0028, val 0x00000001
+usb_xhci_runtime_write off 0x0038, val 0x7ea47240
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_runtime_write off 0x0030, val 0x7ea49240
+usb_xhci_runtime_write off 0x0034, val 0x00000000
+usb_xhci_runtime_read off 0x0020, ret 0x00000000
+usb_xhci_runtime_write off 0x0020, val 0x00000002
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_write off 0x0000, val 0x00000001
+usb_xhci_run 
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 1, off 0x0000, ret 0x000202a0
+usb_xhci_port_write port 1, off 0x0000, val 0x000202a0
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000202a0
+usb_xhci_port_write port 2, off 0x0000, val 0x000202a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000202a0
+usb_xhci_port_write port 3, off 0x0000, val 0x000202a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000202a0
+usb_xhci_port_write port 4, off 0x0000, val 0x000202a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00020ee1
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 5, off 0x0000, ret 0x00020ee1
+usb_xhci_port_write port 5, off 0x0000, val 0x00020ee1
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000ee1
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_port_write port 5, off 0x0000, val 0x00000ef1
+usb_xhci_port_reset port 5, warm 0
+usb_xhci_port_link port 5, pls 0
+usb_xhci_port_notify port 5, bits 0x200000
+usb_xhci_queue_event v 0, idx 0, ER_PORT_STATUS_CHANGE, CC_SUCCESS, p 0x0000000005000000, s 0x01000000, c 0x00008801
+usb_xhci_port_read port 5, off 0x0000, ret 0x00200e03
+usb_xhci_port_read port 5, off 0x0000, ret 0x00200e03
+usb_xhci_port_read port 5, off 0x0000, ret 0x00200e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 5, off 0x0000, ret 0x00200e03
+usb_xhci_port_write port 5, off 0x0000, val 0x00200e01
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000007ea46240, CR_ENABLE_SLOT, p 0x0000000000000000, s 0x00000000, c 0x00002401
+usb_xhci_slot_enable slotid 1
+usb_xhci_queue_event v 0, idx 1, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000007ea46240, s 0x01000000, c 0x01008401
+usb_xhci_fetch_trb addr 0x000000007ea46250, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47248
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea47268
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000007ea46250, CR_ADDRESS_DEVICE, p 0x000000007ea49280, s 0x00000000, c 0x01002c01
+usb_xhci_slot_address slotid 1, port 1
+usb_xhci_ep_enable slotid 1, epid 1
+usb_xhci_queue_event v 0, idx 2, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000007ea46250, s 0x01000000, c 0x01008401
+usb_xhci_fetch_trb addr 0x000000007ea46260, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47268
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea47278
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea496c0, TR_SETUP, p 0x0008000001000680, s 0x00000008, c 0x00030861
+usb_xhci_fetch_trb addr 0x000000007ea496d0, TR_DATA, p 0x000000007fe5d3fe, s 0x00000008, c 0x00010c25
+usb_xhci_fetch_trb addr 0x000000007ea496e0, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 8
+usb_xhci_queue_event v 0, idx 3, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea496c0, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 4, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea496d0, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 5, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea496e0, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47278
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea472a8
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea496f0, TR_SETUP, p 0x0012000001000680, s 0x00000008, c 0x00030861
+usb_xhci_fetch_trb addr 0x000000007ea49700, TR_DATA, p 0x000000007ea45f98, s 0x00000012, c 0x00010c25
+usb_xhci_fetch_trb addr 0x000000007ea49710, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 18
+usb_xhci_queue_event v 0, idx 6, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea496f0, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 7, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49700, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 8, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49710, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea472a8
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea472d8
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000007ea46260, CR_EVALUATE_CONTEXT, p 0x000000007ea49280, s 0x00000000, c 0x01003401
+usb_xhci_slot_evaluate slotid 1
+usb_xhci_queue_event v 0, idx 9, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000007ea46260, s 0x01000000, c 0x01008401
+usb_xhci_fetch_trb addr 0x000000007ea46270, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea472d8
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea472e8
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea49720, TR_SETUP, p 0x0008000002000680, s 0x00000008, c 0x00030861
+usb_xhci_fetch_trb addr 0x000000007ea49730, TR_DATA, p 0x000000007fe5d3f0, s 0x00000008, c 0x00010c25
+usb_xhci_fetch_trb addr 0x000000007ea49740, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 8
+usb_xhci_queue_event v 0, idx 10, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49720, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 11, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49730, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 12, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49740, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea472e8
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea47318
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea49750, TR_SETUP, p 0x0022000002000680, s 0x00000008, c 0x00030861
+usb_xhci_fetch_trb addr 0x000000007ea49760, TR_DATA, p 0x000000007ea45898, s 0x00000022, c 0x00010c25
+usb_xhci_fetch_trb addr 0x000000007ea49770, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 34
+usb_xhci_queue_event v 0, idx 13, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49750, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 14, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49760, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 15, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49770, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47318
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea47348
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea49780, TR_SETUP, p 0x0002000003000680, s 0x00000008, c 0x00030861
+usb_xhci_fetch_trb addr 0x000000007ea49790, TR_DATA, p 0x000000007fe5d36c, s 0x00000002, c 0x00010c25
+usb_xhci_fetch_trb addr 0x000000007ea497a0, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 2
+usb_xhci_queue_event v 0, idx 16, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49780, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 17, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49790, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 18, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea497a0, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47348
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea47378
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea497b0, TR_SETUP, p 0x0004000003000680, s 0x00000008, c 0x00030861
+usb_xhci_fetch_trb addr 0x000000007ea497c0, TR_DATA, p 0x000000007ea44e18, s 0x00000004, c 0x00010c25
+usb_xhci_fetch_trb addr 0x000000007ea497d0, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 4
+usb_xhci_queue_event v 0, idx 19, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea497b0, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 20, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea497c0, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 21, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea497d0, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47378
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea473a8
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea497e0, TR_SETUP, p 0x0000000000010900, s 0x00000008, c 0x00000861
+usb_xhci_fetch_trb addr 0x000000007ea497f0, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00011021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 0
+usb_xhci_queue_event v 0, idx 22, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea497e0, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 23, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea497f0, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea473a8
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea473c8
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000007ea46270, CR_CONFIGURE_ENDPOINT, p 0x000000007ea49280, s 0x00000000, c 0x01003001
+usb_xhci_slot_configure slotid 1
+usb_xhci_ep_disable slotid 1, epid 3
+usb_xhci_ep_enable slotid 1, epid 3
+usb_xhci_queue_event v 0, idx 24, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000007ea46270, s 0x01000000, c 0x01008401
+usb_xhci_fetch_trb addr 0x000000007ea46280, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea473c8
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea473d8
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea49800, TR_SETUP, p 0x0001000000000880, s 0x00000008, c 0x00030861
+usb_xhci_fetch_trb addr 0x000000007ea49810, TR_DATA, p 0x000000007fe5d16e, s 0x00000001, c 0x00010c25
+usb_xhci_fetch_trb addr 0x000000007ea49820, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 1
+usb_xhci_queue_event v 0, idx 25, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49800, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 26, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49810, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 27, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49820, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea473d8
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea47408
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea49830, TR_SETUP, p 0x0000000000000b21, s 0x00000008, c 0x00000861
+usb_xhci_fetch_trb addr 0x000000007ea49840, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00011021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 0
+usb_xhci_queue_event v 0, idx 28, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49830, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 29, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49840, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47408
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea47428
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea49850, TR_SETUP, p 0x0001000002000921, s 0x00000008, c 0x00020861
+usb_xhci_fetch_trb addr 0x000000007ea49860, TR_DATA, p 0x000000007fe5d103, s 0x00000001, c 0x00000c25
+usb_xhci_fetch_trb addr 0x000000007ea49870, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00011021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 0
+usb_xhci_queue_event v 0, idx 30, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49850, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 31, ER_TRANSFER, CC_SHORT_PACKET, p 0x000000007ea49860, s 0x0d000001, c 0x01018001
+usb_xhci_queue_event v 0, idx 32, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49870, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47428
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea47458
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000003
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea4aac0, TR_NORMAL, p 0x000000007ea40e18, s 0x00000008, c 0x00000425
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 3, streamid 0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000007ea49880, TR_SETUP, p 0x0001000002000921, s 0x00000008, c 0x00020861
+usb_xhci_fetch_trb addr 0x000000007ea49890, TR_DATA, p 0x000000007fe5d1d3, s 0x00000001, c 0x00000c25
+usb_xhci_fetch_trb addr 0x000000007ea498a0, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00011021
+usb_xhci_xfer_start 0x99f98b600: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b600: len 0
+usb_xhci_queue_event v 0, idx 33, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea49880, s 0x01000000, c 0x01018001
+usb_xhci_queue_event v 0, idx 34, ER_TRANSFER, CC_SHORT_PACKET, p 0x000000007ea49890, s 0x0d000001, c 0x01018001
+usb_xhci_queue_event v 0, idx 35, ER_TRANSFER, CC_SUCCESS, p 0x000000007ea498a0, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47458
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_runtime_write off 0x0038, val 0x7ea47488
+usb_xhci_runtime_write off 0x003c, val 0x00000000
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 6, off 0x0000, ret 0x000202a0
+usb_xhci_port_write port 6, off 0x0000, val 0x000202a0
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000202a0
+usb_xhci_port_write port 7, off 0x0000, val 0x000202a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000202a0
+usb_xhci_port_write port 8, off 0x0000, val 0x000202a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4412,13 +5099,6 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4426,9 +5106,12 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4438,7 +5121,6 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4452,19 +5134,21 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4474,6 +5158,10 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4481,9 +5169,18 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4492,11 +5189,14 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4510,12 +5210,15 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4526,256 +5229,1080 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x32 = 0x30020
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_cap_read off 0x0038, ret 0x00000401
+usb_xhci_cap_read off 0x0028, ret 0x00000405
+usb_xhci_port_read port 6, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000002a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000002a0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_runtime_read off 0x0038, ret 0x7ea47480
+usb_xhci_runtime_read off 0x003c, ret 0x00000000
 i8257_write_cont: cmd 0x0b not supported
 i8257_write_cont: cmd 0x1e not supported
 i8257_write_cont: cmd 0x80 not supported
 i8257_write_cont: cmd 0x03 not supported
 i8257_write_cont: cmd 0xc7 not supported
-apic_register_write register 0x3e = 0x7
-apic_register_write register 0x38 = 0xffffffff
-apic_register_write register 0x08 = 0x0
-apic_register_write register 0x32 = 0x10000
-apic_register_write register 0x3e = 0x7
-apic_register_write register 0x38 = 0x975e0
-apic_register_write register 0x32 = 0x20030
-apic_register_write register 0x0f = 0x121
-apic_register_write register 0x0b = 0x0
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
+Invalid read at addr 0x810860A4, size 4, region '(null)', reason: rejected
+Invalid read at addr 0xA4, size 4, region '(null)', reason: rejected
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
@@ -4785,141 +6312,1363 @@ ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
 ahci: IRQ#0 level:1
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x30 = 0x22
-apic_register_write register 0x0b = 0x0
-apic_register_write register 0x31 = 0x0
+ahci: IRQ#0 level:1
+usb_xhci_cap_read off 0x0014, ret 0x00002000
+usb_xhci_cap_read off 0x0018, ret 0x00001000
+usb_xhci_cap_read off 0x0000, ret 0x01000040
+usb_xhci_cap_read off 0x0010, ret 0x00087001
+usb_xhci_oper_read off 0x0000, ret 0x00000001
+usb_xhci_oper_write off 0x0000, val 0x00000000
+usb_xhci_stop 
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000009
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_write off 0x0000, val 0x00000002
+usb_xhci_reset === RESET ===
+usb_xhci_slot_disable slotid 1
+usb_xhci_ep_disable slotid 1, epid 1
+usb_xhci_ep_disable slotid 1, epid 3
+usb_xhci_slot_disable slotid 2
+usb_xhci_slot_disable slotid 3
+usb_xhci_slot_disable slotid 4
+usb_xhci_slot_disable slotid 5
+usb_xhci_slot_disable slotid 6
+usb_xhci_slot_disable slotid 7
+usb_xhci_slot_disable slotid 8
+usb_xhci_slot_disable slotid 9
+usb_xhci_slot_disable slotid 10
+usb_xhci_slot_disable slotid 11
+usb_xhci_slot_disable slotid 12
+usb_xhci_slot_disable slotid 13
+usb_xhci_slot_disable slotid 14
+usb_xhci_slot_disable slotid 15
+usb_xhci_slot_disable slotid 16
+usb_xhci_slot_disable slotid 17
+usb_xhci_slot_disable slotid 18
+usb_xhci_slot_disable slotid 19
+usb_xhci_slot_disable slotid 20
+usb_xhci_slot_disable slotid 21
+usb_xhci_slot_disable slotid 22
+usb_xhci_slot_disable slotid 23
+usb_xhci_slot_disable slotid 24
+usb_xhci_slot_disable slotid 25
+usb_xhci_slot_disable slotid 26
+usb_xhci_slot_disable slotid 27
+usb_xhci_slot_disable slotid 28
+usb_xhci_slot_disable slotid 29
+usb_xhci_slot_disable slotid 30
+usb_xhci_slot_disable slotid 31
+usb_xhci_slot_disable slotid 32
+usb_xhci_slot_disable slotid 33
+usb_xhci_slot_disable slotid 34
+usb_xhci_slot_disable slotid 35
+usb_xhci_slot_disable slotid 36
+usb_xhci_slot_disable slotid 37
+usb_xhci_slot_disable slotid 38
+usb_xhci_slot_disable slotid 39
+usb_xhci_slot_disable slotid 40
+usb_xhci_slot_disable slotid 41
+usb_xhci_slot_disable slotid 42
+usb_xhci_slot_disable slotid 43
+usb_xhci_slot_disable slotid 44
+usb_xhci_slot_disable slotid 45
+usb_xhci_slot_disable slotid 46
+usb_xhci_slot_disable slotid 47
+usb_xhci_slot_disable slotid 48
+usb_xhci_slot_disable slotid 49
+usb_xhci_slot_disable slotid 50
+usb_xhci_slot_disable slotid 51
+usb_xhci_slot_disable slotid 52
+usb_xhci_slot_disable slotid 53
+usb_xhci_slot_disable slotid 54
+usb_xhci_slot_disable slotid 55
+usb_xhci_slot_disable slotid 56
+usb_xhci_slot_disable slotid 57
+usb_xhci_slot_disable slotid 58
+usb_xhci_slot_disable slotid 59
+usb_xhci_slot_disable slotid 60
+usb_xhci_slot_disable slotid 61
+usb_xhci_slot_disable slotid 62
+usb_xhci_slot_disable slotid 63
+usb_xhci_slot_disable slotid 64
+usb_xhci_port_link port 1, pls 5
+usb_xhci_port_notify port 1, bits 0x20000
+usb_xhci_port_link port 2, pls 5
+usb_xhci_port_notify port 2, bits 0x20000
+usb_xhci_port_link port 3, pls 5
+usb_xhci_port_notify port 3, bits 0x20000
+usb_xhci_port_link port 4, pls 5
+usb_xhci_port_notify port 4, bits 0x20000
+usb_xhci_port_link port 5, pls 7
+usb_xhci_port_notify port 5, bits 0x20000
+usb_xhci_port_link port 6, pls 5
+usb_xhci_port_notify port 6, bits 0x20000
+usb_xhci_port_link port 7, pls 5
+usb_xhci_port_notify port 7, bits 0x20000
+usb_xhci_port_link port 8, pls 5
+usb_xhci_port_notify port 8, bits 0x20000
+usb_xhci_oper_read off 0x0004, ret 0x00000001
+usb_xhci_oper_read off 0x0004, ret 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_write off 0x0000, val 0x00000000
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_write off 0x0000, val 0x00000000
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000001
+usb_xhci_oper_write off 0x0030, val 0x7ea64000
+usb_xhci_oper_write off 0x0034, val 0x00000001
+usb_xhci_oper_write off 0x0018, val 0x7ea25001
+usb_xhci_oper_write off 0x001c, val 0x00000001
+usb_xhci_runtime_write off 0x0028, val 0x00000001
+usb_xhci_runtime_read off 0x0020, ret 0x00000000
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_read off 0x0024, ret 0x00000000
+usb_xhci_runtime_write off 0x0024, val 0x00000000
+usb_xhci_oper_read off 0x0000, ret 0x00000000
+usb_xhci_runtime_write off 0x0030, val 0x7ea20000
+usb_xhci_runtime_write off 0x0034, val 0x00000001
+usb_xhci_oper_write off 0x0000, val 0x00000004
+usb_xhci_oper_read off 0x0004, ret 0x00000001
+usb_xhci_oper_write off 0x0004, val 0x00000009
+usb_xhci_irq_msix_use nr 0
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21008
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_cap_read off 0x0020, ret 0x02000402
+usb_xhci_unimplemented cap read (0x21)
+usb_xhci_cap_read off 0x0021, ret 0x00000000
+usb_xhci_cap_read off 0x0004, ret 0x08001040
+usb_xhci_oper_read off 0x0000, ret 0x00000004
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_run 
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000017ea25000, CR_NOOP, p 0x0000000000000000, s 0x00000000, c 0x00005c21
+usb_xhci_queue_event v 0, idx 0, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000017ea25000, s 0x01000000, c 0x00008401
+usb_xhci_fetch_trb addr 0x000000017ea25010, CR_NOOP, p 0x0000000000000000, s 0x00000000, c 0x00005c21
+usb_xhci_queue_event v 0, idx 1, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000017ea25010, s 0x01000000, c 0x00008401
+usb_xhci_fetch_trb addr 0x000000017ea25020, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21018
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21028
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_port_read port 1, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 2, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 3, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 4, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00020ee1
+usb_xhci_port_read port 5, off 0x0000, ret 0x00020ee1
+usb_xhci_port_write port 5, off 0x0000, val 0x00020ef1
+usb_xhci_port_reset port 5, warm 0
+usb_xhci_port_link port 5, pls 0
+usb_xhci_port_notify port 5, bits 0x200000
+usb_xhci_queue_event v 0, idx 2, ER_PORT_STATUS_CHANGE, CC_SUCCESS, p 0x0000000005000000, s 0x01000000, c 0x00008801
+usb_xhci_port_read port 5, off 0x0000, ret 0x00220e03
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21038
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_cap_read off 0x0010, ret 0x00087001
+usb_xhci_port_read port 5, off 0x0000, ret 0x00220e03
+usb_xhci_port_write port 5, off 0x0000, val 0x00220e13
+usb_xhci_port_reset port 5, warm 0
+usb_xhci_port_link port 5, pls 0
+usb_xhci_port_read port 5, off 0x0000, ret 0x00220e03
+usb_xhci_port_write port 5, off 0x0000, val 0x00220e03
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_port_write port 5, off 0x0000, val 0x00000e03
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000017ea25020, CR_ENABLE_SLOT, p 0x0000000000000000, s 0x00000000, c 0x00002401
+usb_xhci_slot_enable slotid 1
+usb_xhci_queue_event v 0, idx 3, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000017ea25020, s 0x01000000, c 0x01008401
+usb_xhci_fetch_trb addr 0x000000017ea25030, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21048
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000017ea25030, CR_ADDRESS_DEVICE, p 0x000000017ea1f000, s 0x00000000, c 0x01002c01
+usb_xhci_slot_address slotid 1, port 1
+usb_xhci_ep_enable slotid 1, epid 1
+usb_xhci_queue_event v 0, idx 4, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000017ea25030, s 0x01000000, c 0x01008401
+usb_xhci_fetch_trb addr 0x000000017ea25040, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21058
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea1d000, TR_SETUP, p 0x0012000001000680, s 0x01000008, c 0x000308c1
+usb_xhci_fetch_trb addr 0x000000017ea1d010, TR_DATA, p 0x000000007fb365d0, s 0x00000012, c 0x00010c01
+usb_xhci_fetch_trb addr 0x000000017ea1d020, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 18
+usb_xhci_queue_event v 0, idx 5, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea1d020, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21068
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea1d030, TR_SETUP, p 0x0809000002000680, s 0x01000008, c 0x000308c1
+usb_xhci_fetch_trb addr 0x000000017ea1d040, TR_DATA, p 0x000000017ea1b000, s 0x00000809, c 0x00010c01
+usb_xhci_fetch_trb addr 0x000000017ea1d050, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 34
+usb_xhci_queue_event v 0, idx 6, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea1d050, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21078
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea1d060, TR_SETUP, p 0x0000000000010900, s 0x01000008, c 0x00000841
+usb_xhci_fetch_trb addr 0x000000017ea1d070, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00011021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 0
+usb_xhci_queue_event v 0, idx 7, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea1d070, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21088
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea1d080, TR_SETUP, p 0x00ff000003010680, s 0x01000008, c 0x000308c1
+usb_xhci_fetch_trb addr 0x000000017ea1d090, TR_DATA, p 0x000000007fb364c0, s 0x000000ff, c 0x00010c01
+usb_xhci_fetch_trb addr 0x000000017ea1d0a0, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 10
+usb_xhci_queue_event v 0, idx 8, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea1d0a0, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21098
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea1d0b0, TR_SETUP, p 0x00ff000003040680, s 0x01000008, c 0x000308c1
+usb_xhci_fetch_trb addr 0x000000017ea1d0c0, TR_DATA, p 0x000000007fb363c0, s 0x000000ff, c 0x00010c01
+usb_xhci_fetch_trb addr 0x000000017ea1d0d0, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 36
+usb_xhci_queue_event v 0, idx 9, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea1d0d0, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea210a8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea1d0e0, TR_SETUP, p 0x00ff0000030b0680, s 0x01000008, c 0x000308c1
+usb_xhci_fetch_trb addr 0x000000017ea1d0f0, TR_DATA, p 0x000000007fb362c0, s 0x000000ff, c 0x00010c01
+usb_xhci_fetch_trb addr 0x000000017ea1d100, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00001021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 42
+usb_xhci_queue_event v 0, idx 10, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea1d100, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea210b8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000017ea25040, CR_EVALUATE_CONTEXT, p 0x000000017ea1f000, s 0x00000000, c 0x01003401
+usb_xhci_slot_evaluate slotid 1
+usb_xhci_queue_event v 0, idx 11, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000017ea25040, s 0x01000000, c 0x01008401
+usb_xhci_fetch_trb addr 0x000000017ea25050, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea210c8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000017ea25050, CR_CONFIGURE_ENDPOINT, p 0x000000017ea1f000, s 0x00000000, c 0x01003001
+usb_xhci_slot_configure slotid 1
+usb_xhci_ep_disable slotid 1, epid 3
+usb_xhci_ep_enable slotid 1, epid 3
+usb_xhci_queue_event v 0, idx 12, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000017ea25050, s 0x01000000, c 0x01008401
+usb_xhci_fetch_trb addr 0x000000017ea25060, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea210d8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea1d110, TR_SETUP, p 0x0000000000000b01, s 0x01000008, c 0x000008c1
+usb_xhci_fetch_trb addr 0x000000017ea1d120, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00011021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 1, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 0
+usb_xhci_queue_event v 0, idx 13, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea1d120, s 0x01000000, c 0x01018001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea210e8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0000, val 0x00000000
+usb_xhci_fetch_trb addr 0x000000017ea25060, CR_CONFIGURE_ENDPOINT, p 0x000000017ea1f000, s 0x00000000, c 0x01003001
+usb_xhci_slot_configure slotid 1
+usb_xhci_ep_disable slotid 1, epid 2
+usb_xhci_ep_enable slotid 1, epid 2
+usb_xhci_queue_event v 0, idx 14, ER_COMMAND_COMPLETE, CC_SUCCESS, p 0x000000017ea25060, s 0x01000000, c 0x01008401
+usb_xhci_fetch_trb addr 0x000000017ea25070, TRB_RESERVED, p 0x0000000000000000, s 0x00000000, c 0x00000000
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea210f8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0004, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 1, streamid 0
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea17000, TR_SETUP, p 0x0000000000000b01, s 0x01000008, c 0x000008c1
+usb_xhci_fetch_trb addr 0x000000017ea17010, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00011021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 0
+usb_xhci_queue_event v 0, idx 15, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17010, s 0x01000000, c 0x01038001
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21108
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000000
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea17000, TR_SETUP, p 0x0000000000000b01, s 0x01000008, c 0x000008c1
+usb_xhci_fetch_trb addr 0x000000017ea17010, TR_STATUS, p 0x0000000000000000, s 0x00000000, c 0x00011021
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 2, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 0
+usb_xhci_queue_event v 0, idx 16, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17010, s 0x01000000, c 0x01028001
+usb_xhci_fetch_trb addr 0x000000017ea17020, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 2, streamid 0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21118
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_xfer_success 0x99f98b500: len 8
+usb_xhci_queue_event v 0, idx 17, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17020, s 0x01000000, c 0x01028001
+usb_xhci_port_write port 5, off 0x0000, val 0x007e0e03
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea17030, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 2, streamid 0
+usb_xhci_xfer_nak 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21128
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_port_read port 5, off 0x0000, ret 0x00000e03
+usb_xhci_port_write port 5, off 0x0000, val 0x00000e03
+usb_xhci_port_read port 6, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 7, off 0x0000, ret 0x000202a0
+usb_xhci_port_read port 8, off 0x0000, ret 0x000202a0
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea17020, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 18, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17020, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17030, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21138
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 19, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17030, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17040, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21148
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 20, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17040, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17050, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21158
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 21, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17050, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17060, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21168
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 22, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17060, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17070, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21178
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 23, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17070, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17080, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21188
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 24, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17080, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17090, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21198
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 25, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17090, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea170a0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea211a8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 26, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea170a0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea170b0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea211b8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 27, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea170b0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea170c0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea211c8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 28, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea170c0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea170d0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea211d8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 29, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea170d0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea170e0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea211e8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 30, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea170e0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea170f0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea211f8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 31, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea170f0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17100, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21208
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 32, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17100, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17110, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21218
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 33, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17110, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17120, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21228
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 34, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17120, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17130, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21238
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 35, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17130, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17140, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 36, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17140, s 0x01000000, c 0x01038001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21248
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21258
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea17150, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 37, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17150, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17160, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21268
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 38, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17160, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17170, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21278
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 39, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17170, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17180, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21288
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 40, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17180, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17190, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21298
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 41, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17190, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea171a0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea212a8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 42, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea171a0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea171b0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 43, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea171b0, s 0x01000000, c 0x01038001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea171c0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 44, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea171c0, s 0x01000000, c 0x01038001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea212b8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_xfer_success 0x99f98b500: len 8
+usb_xhci_queue_event v 0, idx 45, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17030, s 0x01000000, c 0x01028001
+usb_xhci_fetch_trb addr 0x000000017ea17040, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 2, streamid 0
+usb_xhci_xfer_success 0x99f98b500: len 8
+usb_xhci_queue_event v 0, idx 46, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17040, s 0x01000000, c 0x01028001
+usb_xhci_fetch_trb addr 0x000000017ea17050, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 2, streamid 0
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea212c8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_xfer_success 0x99f98b500: len 8
+usb_xhci_queue_event v 0, idx 47, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17050, s 0x01000000, c 0x01028001
+usb_xhci_fetch_trb addr 0x000000017ea17060, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b500: slotid 1, epid 2, streamid 0
+usb_xhci_xfer_nak 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea212d8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea212e8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea212f8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21308
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_fetch_trb addr 0x000000017ea171d0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 48, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea171d0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea171e0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21318
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 49, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea171e0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea171f0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21328
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 50, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea171f0, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17200, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21338
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 51, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17200, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17210, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21348
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 52, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17210, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17220, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21358
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 53, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17220, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17230, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 54, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17230, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17240, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21368
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21378
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 55, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17240, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17250, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21388
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 56, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17250, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17260, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea21398
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 57, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17260, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17270, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea213a8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 58, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17270, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17280, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea213b8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 59, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17280, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea17290, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea213c8
+usb_xhci_runtime_write off 0x003c, val 0x00000001
+usb_xhci_ep_kick slotid 1, epid 3, streamid 0
+usb_xhci_xfer_retry 0x99f98b800
+usb_xhci_xfer_success 0x99f98b800: len 8
+usb_xhci_queue_event v 0, idx 60, ER_TRANSFER, CC_SUCCESS, p 0x000000017ea17290, s 0x01000000, c 0x01038001
+usb_xhci_fetch_trb addr 0x000000017ea172a0, TR_NORMAL, p 0x000000007db02a18, s 0x00000008, c 0x00010425
+usb_xhci_xfer_start 0x99f98b800: slotid 1, epid 3, streamid 0
+usb_xhci_xfer_nak 0x99f98b800
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_write off 0x0000, val 0x00000005
+usb_xhci_oper_read off 0x0000, ret 0x00000005
+usb_xhci_oper_read off 0x0004, ret 0x00000008
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_doorbell_write off 0x0004, val 0x00000002
+usb_xhci_ep_kick slotid 1, epid 2, streamid 0
+usb_xhci_xfer_retry 0x99f98b500
+usb_xhci_oper_read off 0x0004, ret 0x00000000
+usb_xhci_oper_write off 0x0004, val 0x00000008
+usb_xhci_runtime_read off 0x0020, ret 0x00000002
+usb_xhci_runtime_write off 0x0020, val 0x00000003
+usb_xhci_runtime_write off 0x0038, val 0x7ea213d8
+usb_xhci_runtime_write off 0x003c, val 0x00000001

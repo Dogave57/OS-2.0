@@ -45,6 +45,7 @@ struct bootloader_driveInfo{
 	uint64_t driveType;
 	uint64_t espNumber;
 	uint8_t port;
+	uint8_t interfaceNumber;
 };
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;

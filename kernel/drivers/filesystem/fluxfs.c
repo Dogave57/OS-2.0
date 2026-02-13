@@ -278,7 +278,7 @@ int fluxfs_format(uint64_t drive_id, uint64_t partition_id){
 	if (gpt_get_partition(drive_id, partition_id, &partition)!=0)
 		return -1;
 	uint64_t bytesPerCluster = 0x1000;
-	uint64_t driveSize = driveInfo.sector_count*DRIVE_SECTOR_SIZE;
+	uint64_t driveSize = driveInfo.sectorCount*DRIVE_SECTOR_SIZE;
 	uint64_t partitionSize = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
 	uint64_t partitionClusters = partitionSize/bytesPerCluster;
 	uint64_t freeStackSize = partitionClusters*sizeof(uint64_t);

@@ -199,7 +199,7 @@ int pcie_get_subclass(struct pcie_location location, uint8_t* pSubclass){
 		return -1;
 	return pcie_read_byte(location, 0x0A, pSubclass);
 }
-int pcie_device_exists(struct pcie_location location){
+int pcie_function_exists(struct pcie_location location){
 	uint16_t vendor_id = 0;
 	if (pcie_get_vendor_id(location, &vendor_id)!=0)
 		return -1;
@@ -207,7 +207,7 @@ int pcie_device_exists(struct pcie_location location){
 		return 0;
 	return -1;
 }
-int pcie_get_device_by_class(uint8_t class, uint8_t subclass, struct pcie_location* pLocation){
+int pcie_get_function_by_class(uint8_t class, uint8_t subclass, struct pcie_location* pLocation){
 	if (!pLocation)
 		return -1;
 	for (uint8_t bus = pcie_info.startBus;bus<pcie_info.endBus;bus++){
@@ -219,7 +219,7 @@ int pcie_get_device_by_class(uint8_t class, uint8_t subclass, struct pcie_locati
 				location.bus = bus;
 				location.dev = dev;
 				location.func = func;
-				if (pcie_device_exists(location)!=0)
+				if (pcie_function_exists(location)!=0)
 					continue;
 				if (pcie_get_class(location, &dev_class)!=0)
 					continue;
@@ -234,7 +234,7 @@ int pcie_get_device_by_class(uint8_t class, uint8_t subclass, struct pcie_locati
 	}
 	return -1;
 }
-int pcie_get_device_by_id(uint16_t vendor_id, uint16_t device_id, struct pcie_location* pLocation){
+int pcie_get_function_by_id(uint16_t vendor_id, uint16_t device_id, struct pcie_location* pLocation){
 	if (!pLocation)
 		return -1;
 	for (uint8_t bus = pcie_info.startBus;bus<pcie_info.endBus;bus++){
@@ -246,7 +246,7 @@ int pcie_get_device_by_id(uint16_t vendor_id, uint16_t device_id, struct pcie_lo
 				location.bus = bus;
 				location.dev = dev;
 				location.func = func;
-				if (pcie_device_exists(location)!=0)
+				if (pcie_function_exists(location)!=0)
 					continue;
 				if (pcie_get_vendor_id(location, &dev_vendor_id)!=0)
 					continue;
@@ -307,7 +307,6 @@ int pcie_msix_get_table_base(struct pcie_location location, volatile struct pcie
 	if (pcie_get_bar(location, tableBar, &bar_base)!=0)
 		return -1;
 	pTableBase = (volatile struct pcie_msix_table_entry*)((bar_base&~0xF)+tableOffset);
-	printf("BAR%d table offset: %d\r\n", msgControl.table_bar, tableOffset);
 	*ppTableBase = pTableBase;
 	return 0;
 }
@@ -321,8 +320,6 @@ int pcie_msix_get_pba_base(struct pcie_location location, volatile struct pcie_m
 	uint64_t bar_base = 0;
 	if (pcie_get_bar(location, tableBar, &bar_base)!=0)
 		return -1;
-	printf("PBA bar: %d\r\n", tableBar);
-	printf("PBA offset: %d\r\n", tableOffset);
 	pPba = (uint8_t*)(bar_base+tableOffset);
 	*ppPba = pPba;
 	return 0;
@@ -368,7 +365,6 @@ int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	printf("LAPIC id: %d\r\n", lapic_id);
 	uint64_t msgAddress = lapic_base|(lapic_id<<12);
 	pEntry->msg_addr_low = (uint32_t)(msgAddress&0xFFFFFFFF);
 	pEntry->msg_addr_high = (uint32_t)((msgAddress>>32)&0xFFFFFFFF);
@@ -406,6 +402,8 @@ int pcie_msix_enable_entry(struct pcie_location location, volatile struct pcie_m
 		return -1;
 	volatile struct pcie_msix_table_entry* pMsixEntry = (volatile struct pcie_msix_table_entry*)0x0;
 	if (pcie_get_msix_entry(location, &pMsixEntry, pMsgControl, msix_vector)!=0)
+		return -1;
+	if (virtualMapPage((uint64_t)pMsixEntry, (uint64_t)pMsixEntry, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
 	union pcie_msix_table_entry_vector_ctrl vectorCtrl = {0};
 	vectorCtrl.raw = 0;

@@ -7,7 +7,7 @@ PROGRAMLD='sudo x86_64-elf-ld'
 AS='sudo nasm'
 BOOT_CFLAGS='-O0 -ffreestanding -fno-stack-protector -fshort-wchar -Wno-address-of-packed-member -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64'
 KERNEL_CFLAGS='-O0 -mabi=ms -ffreestanding -fno-stack-protector -fno-plt -Wno-multichar -fshort-wchar -Wno-address-of-packed-member -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64 -fmax-errors=1 -fno-plt'
-KERNEL_LINKFLAGS='build/objects/drivers/elf.o build/objects/kernel.o build/objects/drivers/gpu/framebuffer.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o build/objects/drivers/filesystem/fat32.o build/objects/crypto/guid.o build/objects/crypto/random.o build/objects/panic.o build/objects/drivers/filesystem/exfat.o build/objects/subsystem/filesystem.o build/objects/drivers/filesystem/fluxfs.o build/objects/kexts/loader.o build/objects/cpu/thread.o build/objects/cpu/thread_asm.o build/objects/drivers/hpet.o build/objects/drivers/gpu/virtio.o build/objects/cpu/mutex.o build/objects/drivers/usb/xhci.o'
+KERNEL_LINKFLAGS='build/objects/drivers/elf.o build/objects/kernel.o build/objects/drivers/gpu/framebuffer.o build/objects/kernel_stub.o build/objects/cpu/interrupt.o build/objects/cpu/isrs.o build/objects/cpu/gdt_asm.o build/objects/cpu/gdt.o build/objects/cpu/idt_asm.o build/objects/cpu/port.o build/objects/drivers/filesystem.o build/objects/stdlib/stdlib.o build/objects/cpu/msr.o build/objects/drivers/apic.o build/objects/cpu/cpuid.o build/objects/drivers/pit.o build/objects/drivers/pic.o build/objects/drivers/timer.o build/objects/drivers/thermal.o build/objects/drivers/acpi.o build/objects/drivers/keyboard.o build/objects/mem/pmm.o build/objects/mem/vmm_asm.o build/objects/drivers/serial.o build/objects/drivers/smbios.o build/objects/mem/vmm.o build/objects/drivers/smp.o build/objects/mem/heap.o build/objects/drivers/ahci.o build/objects/drivers/pcie.o build/objects/drivers/nvme.o build/objects/subsystem/subsystem.o build/objects/subsystem/drive.o build/objects/drivers/gpt.o build/objects/crypto/crc.o build/objects/drivers/filesystem/fat32.o build/objects/crypto/guid.o build/objects/crypto/random.o build/objects/panic.o build/objects/drivers/filesystem/exfat.o build/objects/subsystem/filesystem.o build/objects/drivers/filesystem/fluxfs.o build/objects/kexts/loader.o build/objects/cpu/thread.o build/objects/cpu/thread_asm.o build/objects/drivers/hpet.o build/objects/drivers/gpu/virtio.o build/objects/cpu/mutex.o build/objects/drivers/usb/xhci.o build/objects/drivers/usb/usb-kbd.o build/objects/subsystem/usb.o build/objects/drivers/usb/usb-bot.o build/objects/subsystem/pcie.o'
 PROGRAM_CFLAGS='-O0 -mabi=ms -ffreestanding -fno-plt -Ikernel/include -Iuefi-headers/Include -Iuefi-headers/Include/X64 -Wno-builtin-declaration-mismatch'
 OS=$(uname -s)
 bash clean.sh
@@ -67,6 +67,10 @@ $KERNELCC $KERNEL_CFLAGS -fPIC -c kernel/drivers/hpet.c -o build/objects/drivers
 $KERNELCC $KERNEL_CFLAGS -fPIC -c kernel/drivers/gpu/virtio.c -o build/objects/drivers/gpu/virtio.o
 $KERNELCC $KERNEL_CFLAGS -fpic -c kernel/cpu/mutex.c -o build/objects/cpu/mutex.o
 $KERNELCC $KERNEL_CFLAGS -fpic -c kernel/drivers/usb/xhci.c -o build/objects/drivers/usb/xhci.o
+$KERNELCC $KERNEL_CFLAGS -fpic -c kernel/drivers/usb/usb-kbd.c -o build/objects/drivers/usb/usb-kbd.o
+$KERNELCC $KERNEL_CFLAGS -fpic -c kernel/subsystem/usb.c -o build/objects/subsystem/usb.o
+$KERNELCC $KERNEL_CFLAGS -fpic -c kernel/drivers/usb/usb-bot.c -o build/objects/drivers/usb/usb-bot.o
+$KERNELCC $KERNEL_CFLAGS -fpic -c kernel/subsystem/pcie.c -o build/objects/subsystem/pcie.o
 echo compiling kernel extensions
 $PROGRAMCC -fPIC $PROGRAM_CFLAGS -c kernel/kexts/test.c -o build/objects/kexts/test.o
 $AS -f elf64 kernel/stub.asm -o build/objects/kernel_stub.o
@@ -83,6 +87,7 @@ echo linking base kernel
 $KERNELLD -shared -fPIC -Bsymbolic -hash-style=both -fno-plt -z now $KERNEL_LINKFLAGS -e kernel_stub -o build/build/kernel.elf
 $PROGRAMLD -pic -z now -Lbuild/build -l:kernel.elf -e kext_entry build/objects/kexts/test.o -o build/build/kexts/test.elf
 echo done
+sudo dd if=/dev/urandom of=nvme_drive.img bs=1M count=256
 case "$OS" in
 "Linux")
 sudo rm drive.img

@@ -1,288 +1,378 @@
-#include <stdint.h>
 #include "mem/vmm.h"
 #include "mem/heap.h"
 #include "stdlib/stdlib.h"
-#include "align.h"
-#include "drivers/timer.h"
+#include "cpu/mutex.h"
+#include "cpu/idt.h"
+#include "drivers/apic.h"
 #include "drivers/pcie.h"
+#include "drivers/timer.h"
+#include "subsystem/pcie.h"
 #include "drivers/nvme.h"
-struct nvme_queue submissionQueue = {0};
-struct nvme_queue completionQueue = {0};
-int nvme_init(void){
-	if (virtualAllocPage(&submissionQueue.queue, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+static struct nvme_driver_info driverInfo = {0};
+int nvme_driver_init(void){
+	if (nvme_driver_init_drive_desc_mapping_table()!=0){
+		printf("failed to initialize drive descriptor mapping table\r\n");
+		return -1;
+	}	
+	struct pcie_driver_vtable pcieDriverVtable = {0};
+	memset((void*)&pcieDriverVtable, 0, sizeof(struct pcie_driver_vtable));
+	pcieDriverVtable.registerFunction = nvme_subsystem_function_register;
+	pcieDriverVtable.unregisterFunction = nvme_subsystem_function_unregister;
+	if (pcie_subsystem_driver_register(pcieDriverVtable, NVME_DRIVE_PCIE_CLASS, NVME_DRIVE_PCIE_SUBCLASS, &driverInfo.driverId)!=0){
+		printf("failed to register PCIe NVMe protocol driver\r\n");
+		return -1;
+	}
+	return 0;
+}
+int nvme_driver_init_drive_desc_mapping_table(void){
+	struct nvme_drive_desc** pDriveDescList = (struct nvme_drive_desc**)0x0;
+	uint64_t driveDescListSize = sizeof(struct nvme_drive_desc*)*IDT_MAX_ENTRIES;	
+	if (virtualAlloc((uint64_t*)&pDriveDescList, driveDescListSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate drive descriptor list\r\n");
+		return -1;
+	}	
+	memset((void*)pDriveDescList, 0, driveDescListSize);
+	driverInfo.pDriveDescMappingTable = pDriveDescList;
+	driverInfo.driveDescMappingTableSize = driveDescListSize;	
+	return 0;
+}
+int nvme_enable(struct nvme_drive_desc* pDriveDesc){
+	if (!pDriveDesc)
+		return -1;
+	struct nvme_controller_status controllerStatus = pDriveDesc->pBaseRegisters->controller_status;
+	struct nvme_controller_config controllerConfig = pDriveDesc->pBaseRegisters->controller_config;
+	if (controllerStatus.ready||controllerConfig.enable){
+		return 0;
+	}
+	controllerConfig.enable = 1;
+	pDriveDesc->pBaseRegisters->controller_config = controllerConfig;
+	while (!controllerStatus.ready){
+		controllerStatus = pDriveDesc->pBaseRegisters->controller_status;
+	}
+	return 0;
+}
+int nvme_disable(struct nvme_drive_desc* pDriveDesc){
+	if (!pDriveDesc)
+		return -1;
+	struct nvme_controller_status controllerStatus = pDriveDesc->pBaseRegisters->controller_status;
+	if (!controllerStatus.ready)
+		return 0;
+	struct nvme_controller_config controllerConfig = pDriveDesc->pBaseRegisters->controller_config;
+	controllerConfig.enable = 0;
+	pDriveDesc->pBaseRegisters->controller_config = controllerConfig;
+	while (controllerStatus.ready){
+		controllerStatus = pDriveDesc->pBaseRegisters->controller_status;
+	}
+	return 0;
+}
+int nvme_enabled(struct nvme_drive_desc* pDriveDesc){
+	if (!pDriveDesc)
+		return -1;
+	struct nvme_controller_config controllerConfig = pDriveDesc->pBaseRegisters->controller_config;
+	return controllerConfig.enable ? 0 : -1;
+}
+int nvme_ring_doorbell(struct nvme_drive_desc* pDriveDesc, uint64_t queueId, uint16_t tail){
+	if (!pDriveDesc)
+		return -1;
+	struct nvme_capabilities_register capabilities = pDriveDesc->pBaseRegisters->capabilities;	
+	uint16_t* pDoorbell = (uint16_t*)(((uint64_t)pDriveDesc->pDoorbellBase)+(2*queueId*capabilities.doorbell_stride));
+	*pDoorbell = tail;	
+	return 0;
+}
+int nvme_run_submission_queue(struct nvme_submission_queue_desc* pSubmissionQueueDesc){
+	if (!pSubmissionQueueDesc)
+		return -1;
+	if (!pSubmissionQueueDesc->submissionEntry)
+		return -1;
+	if (nvme_enable(pSubmissionQueueDesc->pDriveDesc)!=0)
+		return -1;	
+	if (nvme_ring_doorbell(pSubmissionQueueDesc->pDriveDesc, pSubmissionQueueDesc->queueId, pSubmissionQueueDesc->submissionEntry)!=0)
+		return -1;
+	return 0;
+}
+int nvme_alloc_completion_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, struct nvme_completion_queue_desc* pCompletionQueueDesc){
+	if (!pDriveDesc||!pCompletionQueueDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	if (maxEntryCount>NVME_MAX_CQE_COUNT)
+		maxEntryCount = NVME_DEFAULT_CQE_COUNT;
+	uint64_t completionQueueSize = maxEntryCount*sizeof(struct nvme_completion_qe);
+	struct nvme_completion_qe* pCompletionQueue = (struct nvme_completion_qe*)0x0;
+	uint64_t pCompletionQueue_phys = 0;
+	if (virtualAlloc((uint64_t*)&pCompletionQueue, completionQueueSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}	
+	if (virtualToPhysical((uint64_t)pCompletionQueue, &pCompletionQueue_phys)!=0){
+		virtualFree((uint64_t)pCompletionQueue, completionQueueSize);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pCompletionQueue, 0, completionQueueSize);
+	struct nvme_completion_queue_desc completionQueueDesc = {0};
+	memset((void*)&completionQueueDesc, 0, sizeof(struct nvme_completion_queue_desc));
+	completionQueueDesc.pCompletionQueue = pCompletionQueue;
+	completionQueueDesc.pCompletionQueue_phys = pCompletionQueue_phys;
+	completionQueueDesc.maxCompletionEntryCount = maxEntryCount;
+	*pCompletionQueueDesc = completionQueueDesc;
+	mutex_unlock(&mutex);	
+	return 0;
+}
+int nvme_free_completion_queue(struct nvme_completion_queue_desc* pCompletionQueueDesc){
+	if (!pCompletionQueueDesc)
+		return -1;
+	if (virtualFree((uint64_t)pCompletionQueueDesc->pCompletionQueue, pCompletionQueueDesc->maxCompletionEntryCount*sizeof(struct nvme_completion_qe))!=0)
+		return -1;
+	struct nvme_completion_queue_desc completionQueueDesc = {0};
+	memset((void*)&completionQueueDesc, 0, sizeof(struct nvme_completion_queue_desc));
+	*pCompletionQueueDesc = completionQueueDesc;
+	return 0;
+}
+int nvme_get_current_completion_qe(struct nvme_completion_queue_desc* pCompletionQueueDesc, volatile struct nvme_completion_qe** ppCompletionQe){
+	if (!pCompletionQueueDesc||!ppCompletionQe)
+		return -1;
+	volatile struct nvme_completion_qe* pCompletionQe = pCompletionQueueDesc->pCompletionQueue+pCompletionQueueDesc->completionEntry;
+	*ppCompletionQe = pCompletionQe;	
+	return 0;
+}
+int nvme_acknowledge_completion_qe(struct nvme_completion_queue_desc* pCompletionQueueDesc){
+	if (!pCompletionQueueDesc)
+		return -1;
+	pCompletionQueueDesc->completionEntry++;
+	return 0;
+}
+int nvme_alloc_submission_qe(struct nvme_submission_queue_desc* pSubmissionQueueDesc, struct nvme_submission_qe entry, struct nvme_submission_qe_desc* pSubmissionQeDesc){
+	if (!pSubmissionQueueDesc||!pSubmissionQeDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	if (pSubmissionQueueDesc->submissionEntry>=pSubmissionQueueDesc->maxSubmissionEntryCount){
+		pSubmissionQueueDesc->submissionEntry = 0;
+	}	
+	uint64_t submissionQeIndex = pSubmissionQueueDesc->submissionEntry;
+	volatile struct nvme_submission_qe* pEntry = pSubmissionQueueDesc->pSubmissionQueue+submissionQeIndex;
+	*pEntry = entry;
+	pSubmissionQueueDesc->submissionEntry++;
+	struct nvme_submission_qe_desc submissionQeDesc = {0};
+	memset((void*)&submissionQeDesc, 0, sizeof(struct nvme_submission_qe_desc));
+	submissionQeDesc.qeIndex = submissionQeIndex;
+	submissionQeDesc.pSubmissionQueueDesc = pSubmissionQueueDesc;
+	*pSubmissionQeDesc = submissionQeDesc;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int nvme_alloc_submission_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, uint64_t queueId, struct nvme_submission_queue_desc* pSubmissionQueueDesc, struct nvme_completion_queue_desc* pCompletionQueueDesc){
+	if (!pDriveDesc||!pSubmissionQueueDesc||!pCompletionQueueDesc)
+		return -1;
+	if (maxEntryCount>NVME_MAX_SQE_COUNT)
+		return -1;
+	if (!maxEntryCount)
+		maxEntryCount = NVME_DEFAULT_SQE_COUNT;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	uint64_t submissionQueueSize = maxEntryCount*sizeof(struct nvme_submission_qe);
+	volatile struct nvme_submission_qe* pSubmissionQueue = (volatile struct nvme_submission_qe*)0x0;
+	uint64_t pSubmissionQueue_phys = 0;
+	if (virtualAlloc((uint64_t*)&pSubmissionQueue, submissionQueueSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate submission queue\r\n");
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (virtualAllocPage(&completionQueue.queue, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
-		printf("failed to allocate completion queue\r\n");
+	if (virtualToPhysical((uint64_t)pSubmissionQueue, &pSubmissionQueue_phys)!=0){
+		printf("failed to get physical address of submission queue\r\n");
+		virtualFree((uint64_t)pSubmissionQueue, submissionQueueSize);
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	memset((void*)submissionQueue.queue, 0, PAGE_SIZE);
-	memset((void*)completionQueue.queue, 0, PAGE_SIZE);
-	for (uint8_t bus = 0;bus<255;bus++){
-	for (uint8_t dev = 0;dev<32;dev++){
-		for (uint8_t func = 0;func<8;func++){
-			struct pcie_location location = {0};
-			location.bus = bus;
-			location.dev = dev;
-			location.func = func;
-			if (nvme_drive_exists(location)!=0)
-				continue;
-			printf("NVME drive at bus %d, dev %d, func %d\r\n", bus, dev, func);
-			struct nvme_driveinfo driveInfo = {0};
-			struct nvme_controller_ident controllerIdent = {0};
-			if (nvme_get_drive_info(location, &driveInfo)!=0){
-				printf("failed to get NVME drive info\r\n");
-				continue;
-			}
-			if (nvme_init_drive(driveInfo)!=0){
-				printf("failed to initialize drive\r\n");
-				continue;
-			}
-			if (nvme_get_controller_ident(driveInfo, &controllerIdent)!=0){
-				printf("failed to get controller identification\r\n");
-				continue;
-			}
-			printf("drive MMIO base: %p\r\n", (void*)driveInfo.mmio_base);
-			printf("drive vendor: 0x%x\r\n", controllerIdent.vendorId);
-			for (uint64_t i = 0;i<20;i++){
-				printf("%c,", controllerIdent.serial[i]);
-			}
-			putchar(L'\n');
-			continue;
-			uint64_t sectorData[64] = {0};
-			memset((void*)sectorData, 0, sizeof(sectorData));
-			if (nvme_read_sectors(driveInfo, 1, 1, sectorData)!=0){
-				printf("failed to read first sector\r\n");
-				continue;
-			}
-			for (uint64_t i = 0;i<sizeof(sectorData)/sizeof(uint64_t);i++){
-				printf("{0x%x},", sectorData[i]);
-			}
-			putchar('\n');
-			continue;
-		}
-	}
-	}
+	memset((void*)pSubmissionQueue, 0, submissionQueueSize);	
+	struct nvme_submission_queue_desc submissionQueueDesc = {0};
+	memset((void*)&submissionQueueDesc, 0, sizeof(struct nvme_submission_queue_desc));	
+	submissionQueueDesc.pSubmissionQueue = pSubmissionQueue;
+	submissionQueueDesc.pSubmissionQueue_phys = pSubmissionQueue_phys;	
+	submissionQueueDesc.maxSubmissionEntryCount = maxEntryCount;
+	submissionQueueDesc.queueId = queueId;
+	submissionQueueDesc.pCompletionQueueDesc = pCompletionQueueDesc;	
+	submissionQueueDesc.pDriveDesc = pDriveDesc;
+	*pSubmissionQueueDesc = submissionQueueDesc;
+	mutex_unlock(&mutex);
 	return 0;
 }
-int nvme_drive_exists(struct pcie_location location){
-	if (pcie_device_exists(location)!=0)
+int nvme_free_submission_queue(struct nvme_submission_queue_desc* pSubmissionQueueDesc){
+	if (!pSubmissionQueueDesc)
 		return -1;
-	uint8_t class = 0;
-	uint8_t subclass = 0;
-	if (pcie_get_class(location, &class)!=0)
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	if (virtualFree((uint64_t)pSubmissionQueueDesc->pSubmissionQueue, pSubmissionQueueDesc->maxSubmissionEntryCount*sizeof(struct nvme_submission_qe))!=0){
+		printf("failed to free submission queue\r\n");
+		mutex_unlock(&mutex);
 		return -1;
-	if (class!=PCIE_CLASS_DRIVE_CONTROLLER)
-		return -1;
-	if (pcie_get_subclass(location, &subclass)!=0)
-		return -1;
-	if (subclass!=PCIE_SUBCLASS_NVME_CONTROLLER)
-		return -1;
+	}	
+	struct nvme_submission_queue_desc submissionQueueDesc = {0};
+	memset((void*)&submissionQueueDesc, 0, sizeof(struct nvme_submission_queue_desc));
+	*pSubmissionQueueDesc = submissionQueueDesc;	
+	mutex_unlock(&mutex);
 	return 0;
 }
-int nvme_write_dword(uint64_t mmio_base, uint64_t reg, uint32_t value){
-	if (!mmio_base)
+int nvme_init_admin_submission_queue(struct nvme_drive_desc* pDriveDesc){
+	if (!pDriveDesc)
 		return -1;
-	uint64_t mmio_base_page = align_down(mmio_base+reg, PAGE_SIZE);
-	if (virtualMapPage(mmio_base_page, mmio_base_page, PTE_RW, 1, 0, PAGE_TYPE_MMIO)!=0)
+	uint64_t lapic_id = 0;
+	if (lapic_get_id(&lapic_id)!=0)
 		return -1;
-	*((uint32_t*)(mmio_base+reg)) = value;
-	return 0;
-}
-int nvme_read_dword(uint64_t mmio_base, uint64_t reg, uint32_t* pValue){
-	if (!mmio_base||!pValue)
+	struct nvme_completion_queue_desc completionQueueDesc = {0};
+	memset((void*)&completionQueueDesc, 0, sizeof(struct nvme_completion_queue_desc));
+	struct nvme_submission_queue_desc submissionQueueDesc = {0};
+	memset((void*)&submissionQueueDesc, 0, sizeof(struct nvme_submission_queue_desc));
+	if (nvme_alloc_completion_queue(pDriveDesc, NVME_MAX_CQE_COUNT, &completionQueueDesc)!=0)
 		return -1;
-	uint64_t mmio_base_page = align_down(mmio_base+reg, PAGE_SIZE);
-	if (virtualMapPage(mmio_base_page, mmio_base_page, PTE_RW, 1, 0, PAGE_TYPE_MMIO)!=0)
-		return -1;
-	*pValue = *((uint32_t*)(mmio_base+reg));
-	return 0;
-}
-int nvme_write_qword(uint64_t mmio_base, uint64_t reg, uint64_t value){
-	if (!mmio_base)
-		return -1;
-	uint64_t mmio_base_page = align_down(mmio_base+reg, PAGE_SIZE);
-	if (virtualMapPage(mmio_base_page, mmio_base_page, PTE_RW, 1, 0, PAGE_TYPE_MMIO)!=0)
-		return -1;
-	*((uint64_t*)(mmio_base+reg)) = value;
-	return 0;	
-}
-int nvme_read_qword(uint64_t mmio_base, uint64_t reg, uint64_t* pValue){
-	if (!mmio_base||!pValue)
-		return -1;
-	uint64_t mmio_base_page = align_down(mmio_base+reg, PAGE_SIZE);
-	if (virtualMapPage(mmio_base_page, mmio_base_page, PTE_RW, 1, 0, PAGE_TYPE_MMIO)!=0)
-		return -1;
-	*pValue = *((uint64_t*)(mmio_base+reg));
-	return 0;
-}
-int nvme_push_sq(struct nvme_queue* pQueue, struct nvme_submission_qe** ppCmdEntry){
-	if (!pQueue)
-		return -1;
-	if (pQueue->currentEntry>=MAX_SQ_ENTRIES)
-		return -1;
-	struct nvme_submission_qe* pCmdEntry = ((struct nvme_submission_qe*)pQueue->queue)+pQueue->currentEntry;
-	*ppCmdEntry = pCmdEntry;
-	pQueue->currentEntry++;
-	return 0;
-}
-int nvme_pop_sq(struct nvme_queue* pQueue){
-	if (!pQueue)
-		return -1;
-	if (!pQueue->currentEntry)
-		return -1;
-	pQueue->currentEntry--;
-	return 0;
-}
-int nvme_push_cq(struct nvme_queue* pQueue, struct nvme_completion_qe** ppCompletionEntry){
-	if (!pQueue)
-		return -1;
-	if (pQueue->currentEntry>=MAX_SQ_ENTRIES)
-		return -1;
-	struct nvme_completion_qe* pCompletionEntry = ((struct nvme_completion_qe*)pQueue->queue)+pQueue->currentEntry;
-	*ppCompletionEntry = pCompletionEntry;
-	pQueue->currentEntry++;
-	return 0;
-}
-int nvme_pop_cq(struct nvme_queue* pQueue){
-	if (!pQueue)
-		return -1;
-	if (!pQueue->currentEntry)
-		return -1;
-	pQueue->currentEntry--;
-	return 0;
-}
-int nvme_send_admin_cmd(uint64_t mmio_base, struct nvme_submission_qe cmdEntry){
-	if (!mmio_base)
-		return -1;
-	while (1){
-		uint32_t status =0;
-		nvme_read_dword(mmio_base, 0x1C, &status);
-		if (status&(1<<0))
-			break;
-		continue;
-	}
-	struct nvme_base_registers* pBase = (struct nvme_base_registers*)mmio_base;
-	struct nvme_submission_qe* pSe = (struct nvme_submission_qe*)0x0;
-	struct nvme_completion_qe* pCe = (struct nvme_completion_qe*)0x0;
-	uint64_t seIndex = submissionQueue.currentEntry;
-	uint64_t ceIndex = completionQueue.currentEntry;
-	uint64_t cmd_ident = seIndex;
-	while (submissionQueue.currentEntry>=MAX_SQ_ENTRIES&&completionQueue.currentEntry>=MAX_CQ_ENTRIES){};
-	if (nvme_push_sq(&submissionQueue, &pSe)!=0){
-		printf("failed to push submission queue entry\r\n");
+	if (nvme_alloc_submission_queue(pDriveDesc, NVME_MAX_SQE_COUNT, 0x0, &submissionQueueDesc, &completionQueueDesc)!=0){
+		nvme_free_completion_queue(&completionQueueDesc);	
 		return -1;
 	}
-	if (nvme_push_cq(&completionQueue, &pCe)!=0){
-		printf("failed to push completion queue entry\r\n");
+	pDriveDesc->adminSubmissionQueueDesc = submissionQueueDesc;
+	pDriveDesc->adminCompletionQueueDesc = completionQueueDesc;
+	uint8_t freeVector = 0;
+	if (idt_get_free_vector(&freeVector)!=0){
+		nvme_free_completion_queue(&completionQueueDesc);
+		nvme_free_submission_queue(&submissionQueueDesc);
 		return -1;
 	}
-	*pSe = cmdEntry;
-	pSe->cmd_ident = cmd_ident;
-	pCe->phase_bit = 0;
-	uint64_t nvme_cap_strd = (mmio_base>>12)&0xF;
-	nvme_write_dword(mmio_base, 0x1000, submissionQueue.currentEntry);
-	sleep(100);
-	nvme_write_dword(mmio_base, 0x1004, completionQueue.currentEntry);
-	while (pCe->phase_bit!=0){};
-	sleep(100);
-	if (nvme_pop_sq(&submissionQueue)!=0){
-		printf("failed to pop submission queue entry\r\n");
+	if (idt_add_entry(freeVector, (uint64_t)nvme_admin_completion_queue_isr, 0x8E, 0x0, 0x0)!=0){
+		nvme_free_completion_queue(&completionQueueDesc);
+		nvme_free_submission_queue(&submissionQueueDesc);
+		return -1;
+	}	
+	volatile struct pcie_msix_msg_ctrl* pMsgControl = (volatile struct pcie_msix_msg_ctrl*)0x0;
+	if (pcie_msix_get_msg_ctrl(pDriveDesc->location, &pMsgControl)!=0){
+		printf("failed to get drive MSI-X msg control\r\n");
+		nvme_free_submission_queue(&submissionQueueDesc);
+		nvme_free_completion_queue(&completionQueueDesc);
+		return -1;
+	}	
+	if (pcie_msix_enable(pMsgControl)!=0){
+		printf("failed to enable MSI-X for drive\r\n");
+		nvme_free_submission_queue(&submissionQueueDesc);
+		nvme_free_completion_queue(&completionQueueDesc);
 		return -1;
 	}
-	if (nvme_pop_cq(&completionQueue)!=0){
-		printf("failed to pop completion queue entry\r\n");
+	if (pcie_set_msix_entry(pDriveDesc->location, pMsgControl, 0x0, lapic_id, freeVector)!=0){
+		printf("failed to set MSI-X entry for admin completion queue ISR\r\n");
+		nvme_free_submission_queue(&submissionQueueDesc);
+		nvme_free_completion_queue(&completionQueueDesc);
+		return -1;
+	}	
+	if (pcie_msix_enable_entry(pDriveDesc->location, pMsgControl, 0x0)!=0){
+		printf("failed to enable MSI-X entry for admin completion queue ISR\r\n");
+		nvme_free_submission_queue(&submissionQueueDesc);	
+		nvme_free_completion_queue(&completionQueueDesc);
 		return -1;
 	}
-	completionQueue.currentEntry--;
-	if (pCe->status!=0)
+	struct nvme_admin_queue_attribs adminQueueAttribs = {0};
+	memset((void*)&adminQueueAttribs, 0, sizeof(struct nvme_admin_queue_attribs));
+	adminQueueAttribs.admin_submission_queue_size = NVME_MAX_SQE_COUNT-1;
+	adminQueueAttribs.admin_completion_queue_size = NVME_MAX_CQE_COUNT-1;
+	pDriveDesc->pBaseRegisters->admin_queue_attribs = adminQueueAttribs;	
+	pDriveDesc->pBaseRegisters->admin_submission_queue_base = submissionQueueDesc.pSubmissionQueue_phys;
+	pDriveDesc->pBaseRegisters->admin_completion_queue_base = completionQueueDesc.pCompletionQueue_phys;	
+	driverInfo.pDriveDescMappingTable[freeVector] = pDriveDesc;	
+	return 0;
+}
+int nvme_deinit_admin_submission_queue(struct nvme_drive_desc* pDriveDesc){
+	if (!pDriveDesc)
+		return -1;
+	if (nvme_free_completion_queue(&pDriveDesc->adminCompletionQueueDesc)!=0){
+		nvme_free_submission_queue(&pDriveDesc->adminSubmissionQueueDesc);
+		return -1;
+	}
+	if (nvme_free_submission_queue(&pDriveDesc->adminSubmissionQueueDesc)!=0)
 		return -1;
 	return 0;
 }
-int nvme_get_drive_info(struct pcie_location location, struct nvme_driveinfo* pInfo){
-	if (!pInfo)
+int nvme_admin_completion_queue_interrupt(uint8_t vector){
+	struct nvme_drive_desc* pDriveDesc = driverInfo.pDriveDescMappingTable[vector];	
+	if (!pDriveDesc){
+		printf("invalid drive descriptor linked with admin completion queue ISR\r\n");
 		return -1;
-	if (nvme_drive_exists(location)!=0)
+	}
+	volatile struct nvme_completion_qe* pCompletionQe = (volatile struct nvme_completion_qe*)0x0;
+	if (nvme_get_current_completion_qe(&pDriveDesc->adminCompletionQueueDesc, &pCompletionQe)!=0){
+		printf("failed to get current completion queue entry\r\n");
 		return -1;
-	uint64_t base_low = 0;
-	uint64_t base_high = 0;
-	if (pcie_get_bar(location, 0, &base_low)!=0){
+	}	
+	printf("admin completion queue ISR at vector: %d\r\n", vector);	
+	printf("admin completion queue entry status: 0x%x\r\n", pCompletionQe->status);	
+	if (nvme_acknowledge_completion_qe(&pDriveDesc->adminCompletionQueueDesc)!=0){
+		printf("failed to acknowledge current completion queue entry\r\n");
+		return -1;
+	}	
+	return 0;
+}
+int nvme_io_completion_queue_interrupt(uint8_t vector){
+	printf("I/O completion queue ISR at vector %d\r\n", vector);
+	return 0;
+}
+int nvme_drive_init(struct pcie_location location){
+	if (pcie_function_exists(location)!=0){
+		printf("attempted to initialize non-existent drive that follows NVMe protocol\r\n");
+		return -1;	
+	}	
+	uint8_t progIf = 0;
+	if (pcie_get_progif(location, &progIf)!=0){
+		printf("failed to get drive programming interface\r\n");
+		return -1;
+	}	
+	if (progIf!=NVME_DRIVE_PCIE_PROGIF){
+		printf("PCIe non-volatile memory device does not follow NVMe protocol\r\n");
+		return -1;
+	}
+	printf("initializing NVMe drive at bus %d, dev %d, func %d\r\n", location.bus, location.dev, location.func);
+	uint64_t pBaseRegisters_phys = 0;
+	if (pcie_get_bar(location, 0x0, (uint64_t*)&pBaseRegisters_phys)!=0){
 		printf("failed to get BAR0\r\n");
 		return -1;
 	}
-	if (pcie_get_bar(location, 1, &base_high)!=0){
-		printf("failed to get BAR1\r\n");
+	volatile struct nvme_base_mmio* pBaseRegisters = (volatile struct nvme_base_mmio*)0x0;
+	if (virtualGetSpace((uint64_t*)&pBaseRegisters, MEM_MB/PAGE_SIZE)!=0){
+		printf("failed to get virtual addressing space for NVMe drive base registers\r\n");
+		return -1;
+	}	
+	if (virtualMapPages((uint64_t)pBaseRegisters_phys, (uint64_t)pBaseRegisters, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, MEM_MB/PAGE_SIZE, 0, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to map NVMe drive registers\r\n");
 		return -1;
 	}
-	uint64_t mmio_base = ((base_high<<32)|(base_low&0xFFFFFFF0));
-	pInfo->location = location;
-	pInfo->mmio_base = mmio_base;
-	if (virtualMapPage(mmio_base, mmio_base, PTE_RW, 1, 0, PAGE_TYPE_MMIO)!=0)
+	struct nvme_drive_desc* pDriveDesc = (struct nvme_drive_desc*)kmalloc(sizeof(struct nvme_drive_desc));
+	if (!pDriveDesc){
+		return -1;
+	}	
+	memset((void*)pDriveDesc, 0, sizeof(struct nvme_drive_desc));
+	pDriveDesc->pBaseRegisters_phys = pBaseRegisters_phys;
+	pDriveDesc->pBaseRegisters = pBaseRegisters;	
+	pDriveDesc->pDoorbellBase = (uint16_t*)((uint64_t)pBaseRegisters+NVME_DOORBELL_LIST_OFFSET);	
+	pDriveDesc->location = location;
+	if (nvme_disable(pDriveDesc)!=0){
+		printf("failed to disable NVMe drive controller\r\n");
+		kfree((void*)pDriveDesc);
+		return -1;
+	}	
+	if (nvme_init_admin_submission_queue(pDriveDesc)!=0){
+		printf("failed to initialize admin submission and completion queue\r\n");
+		kfree((void*)pDriveDesc);
+		return -1;
+	}
+	return 0;
+}
+int nvme_drive_deinit(struct pcie_location location){
+
+	return 0;
+}
+int nvme_subsystem_function_register(struct pcie_location location){
+	if (nvme_drive_init(location)!=0)
 		return -1;
 	return 0;
 }
-int nvme_get_controller_ident(struct nvme_driveinfo driveInfo, struct nvme_controller_ident* pIdent){
-	if (!pIdent)
-		return -1;
-	struct nvme_controller_ident* pIdentPage = (struct nvme_controller_ident*)0x0;
-	if (virtualAllocPage((uint64_t*)&pIdentPage, PTE_RW, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate drive identification page\r\n");
-		return -1;
-	}
-	uint64_t pIdent_pa = 0;
-	if (virtualToPhysical((uint64_t)pIdentPage, &pIdent_pa)!=0){
-		printf("failed to get PA of ident page\r\n");
-		return -1;
-	}
-	struct nvme_submission_qe identEntry = {0};
-	memset((void*)&identEntry, 0, sizeof(struct nvme_submission_qe));
-	identEntry.opcode = 0x06;
-	identEntry.nsid = 0;
-	identEntry.prp0 = (uint64_t)pIdent_pa;
-	identEntry.cmd_specific[0] = 1;
-	if (nvme_send_admin_cmd(driveInfo.mmio_base, identEntry)!=0){
-		printf("failed to send drive ident cmd\r\n");
-		return -1;
-	}
-	struct nvme_controller_ident ident = *pIdentPage;
-	if (virtualFreePage((uint64_t)pIdentPage, 0)!=0){
-		printf("failed to free drive ident page\r\n");
-		return-1;
-	}
-	*pIdent = ident;
-	return 0;
-}
-int nvme_init_drive(struct nvme_driveinfo driveInfo){
-	uint64_t submissionQueue_pa = 0;
-	uint64_t completionQueue_pa = 0;
-	uint32_t init_conf = 0;
-	struct nvme_base_registers* pBase = (struct nvme_base_registers*)driveInfo.mmio_base;
-	if (virtualToPhysical(submissionQueue.queue, &submissionQueue_pa)!=0)
-		return -1;
-	if (virtualToPhysical(completionQueue.queue, &completionQueue_pa)!=0)
-		return -1;
-	pBase->controller_status&=~(1<<0);
-	pBase->admin_queue_attribs = ((64-1)<<16)|(32-1);
-	pBase->admin_submission_queue = submissionQueue_pa;
-	pBase->admin_completion_queue = completionQueue_pa;
-	pBase->controller_status|=(1<<0);
-	printf("version: 0x%x\r\n", pBase->version);
-	return 0;
-}
-int nvme_read_sectors(struct nvme_driveinfo driveInfo, uint64_t sector, uint64_t sectorCnt, uint64_t* pBuffer){
-	if (!pBuffer||!sectorCnt)
-		return -1;
-	uint64_t buffer_pa = 0;
-	if (virtualToPhysical((uint64_t)pBuffer, &buffer_pa)!=0)
-		return -1;
-	return 0;
-}
-int nvme_write_sectors(struct nvme_driveinfo driveInfo, uint64_t sector, uint64_t sectorCnt, uint64_t* pBuffer){
-	if (!pBuffer)
-		return -1;
-	uint64_t buffer_pa = 0;
-	if (virtualToPhysical((uint64_t)pBuffer, &buffer_pa)!=0)
+int nvme_subsystem_function_unregister(struct pcie_location location){
+	if (nvme_drive_deinit(location)!=0)
 		return -1;
 	return 0;
 }

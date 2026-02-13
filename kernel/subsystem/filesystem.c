@@ -19,12 +19,12 @@ KAPI int fs_mount(uint64_t drive_id, uint64_t partition_id, uint64_t* pId){
 	if (!pId)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	uint64_t id = 0;
 	struct fs_mount* pMount = (struct fs_mount*)kmalloc(sizeof(struct fs_mount));
 	if (subsystem_alloc_entry(pMountSubsystem, (unsigned char*)pMount, &id)!=0){
 		kfree((void*)pMount);
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	pMount->drive_id = drive_id;
@@ -43,370 +43,370 @@ KAPI int fs_mount(uint64_t drive_id, uint64_t partition_id, uint64_t* pId){
 		}
 		pMount->pDriver = pCurrentDriver;
 		*pId = id;
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return 0;
 	}
 	kfree((void*)pMount);
 	if (subsystem_free_entry(pMountSubsystem, id)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return -1;
 }
 KAPI int fs_unmount(uint64_t id){
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.unmount){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	pMount->pDriver->vtable.unmount(pMount);
 	kfree((void*)pMount);
 	if (subsystem_free_entry(pMountSubsystem, id)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_verify(uint64_t id){
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.verify){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (pMount->pDriver->vtable.verify(pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_open(uint64_t id, unsigned char* filename, uint64_t flags, uint64_t* pFileId){
 	if (!pFileId)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.open){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	void* pHandle = (void*)0x0;
 	if (pMount->pDriver->vtable.open(pMount, filename, &pHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	uint64_t fileId = 0;
 	if (fs_handle_register(pHandle, &fileId)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	*pFileId = fileId;
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_close(uint64_t mount_id, uint64_t file_id){
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	void* pFileHandle = (void*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.close){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (pMount->pDriver->vtable.close((void*)pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_read(uint64_t mount_id, uint64_t file_id, unsigned char* pBuffer, uint64_t size){
 	if (!pBuffer)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	void* pFileHandle = (void*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.read){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (pMount->pDriver->vtable.read(pMount, pFileHandle, pBuffer, size)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_write(uint64_t mount_id, uint64_t file_id, unsigned char* pBuffer, uint64_t size){
 	if (!pBuffer)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	void* pFileHandle = (void*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.write){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (pMount->pDriver->vtable.write(pMount, pFileHandle, pBuffer, size)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_getFileInfo(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo){
 	if (!pFileInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	void* pFileHandle = (void*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.getFileInfo){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	struct fs_file_info fileInfo = {0};
 	if (pMount->pDriver->vtable.getFileInfo(pMount, pFileHandle, &fileInfo)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	*pFileInfo = fileInfo;
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_create(uint64_t mount_id, unsigned char* filename, uint64_t fileAttribs){
 	if (!filename)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.create){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (pMount->pDriver->vtable.create(pMount, filename, fileAttribs)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_delete(uint64_t mount_id, uint64_t file_id){
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	void* pFileHandle = (void*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.delete){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (pMount->pDriver->vtable.delete(pMount, pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_opendir(uint64_t mount_id, unsigned char* filename, uint64_t* pFileId){
 	if (!filename||!pFileId)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.opendir){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	void* pFileHandle = (void*)0x0;
 	uint64_t fileId = 0;
 	if (pMount->pDriver->vtable.opendir(pMount, filename, &pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (fs_handle_register(pFileHandle, &fileId)!=0){
 		if (pMount->pDriver->vtable.closedir)
 			pMount->pDriver->vtable.closedir(pFileHandle);
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	*pFileId = fileId;
-	mutex_unlock(&mutex);	
+	mutex_unlock_isr_safe(&mutex);	
 	return 0;
 }
 KAPI int fs_read_dir(uint64_t mount_id, uint64_t file_id, struct fs_file_info* pFileInfo){
 	if (!pFileInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	void* pFileHandle = (void*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.readDir){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	struct fs_file_info fileInfo = {0};
 	if (pMount->pDriver->vtable.readDir(pMount, pFileHandle, &fileInfo)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	*pFileInfo = fileInfo;
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_rewind_dir(uint64_t mount_id, uint64_t file_id){
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	void* pFileHandle = (void*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.rewindDir){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (pMount->pDriver->vtable.rewindDir(pMount, pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_closedir(uint64_t mount_id, uint64_t file_id){
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_mount* pMount = (struct fs_mount*)0x0;
 	void* pFileHandle = (void*)0x0;
 	if (subsystem_get_entry(pMountSubsystem, mount_id, (uint64_t*)&pMount)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (subsystem_get_entry(pFileHandleSubsystem, file_id, (uint64_t*)&pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pMount->pDriver->vtable.closedir){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (pMount->pDriver->vtable.closedir(pFileHandle)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_handle_register(void* pHandle, uint64_t* pHandleId){
 	if (!pHandle||!pHandleId)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	uint64_t handleId = 0;
 	if (subsystem_alloc_entry(pFileHandleSubsystem, (unsigned char*)pHandle, &handleId)!=0){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	*pHandleId = handleId;
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_handle_unregister(uint64_t handleId){
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	if (subsystem_free_entry(pFileHandleSubsystem, handleId)!=0)
 		return -1;
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_driver_register(struct fs_driver_vtable vtable, struct fs_driver_desc** ppDriverDesc){
 	if (!ppDriverDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	struct fs_driver_desc* pDriverDesc = (struct fs_driver_desc*)kmalloc(sizeof(struct fs_driver_desc));
 	if (!pDriverDesc){
-		mutex_unlock(&mutex);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	memset((void*)pDriverDesc, 0, sizeof(struct fs_driver_desc));
@@ -419,14 +419,14 @@ KAPI int fs_driver_register(struct fs_driver_vtable vtable, struct fs_driver_des
 		pDriverDesc->pBlink = driverListDesc.pLastDriver;
 	}
 	driverListDesc.pLastDriver = pDriverDesc;
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int fs_driver_unregister(struct fs_driver_desc* pDriverDesc){
 	if (!pDriverDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	if (driverListDesc.pLastDriver==pDriverDesc){
 		driverListDesc.pLastDriver = pDriverDesc->pBlink;
 	}
@@ -437,6 +437,6 @@ KAPI int fs_driver_unregister(struct fs_driver_desc* pDriverDesc){
 		pDriverDesc->pFlink->pBlink = pDriverDesc->pBlink;
 	if (pDriverDesc->pBlink)
 		pDriverDesc->pBlink->pFlink = pDriverDesc->pFlink;
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }

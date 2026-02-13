@@ -1,11 +1,14 @@
 #ifndef _PCIE
 #define _PCIE
-#define PCIE_CLASS_DRIVE_CONTROLLER 0x01
-#define PCIE_SUBCLASS_NVME_CONTROLLER 0x08
-#define PCIE_CLASS_USB_HCI (0x0C)
+#define PCIE_CLASS_DRIVE_CONTROLLER (0x01)
+#define PCIE_SUBCLASS_NVME_CONTROLLER (0x08)
+#define PCIE_CLASS_USB_HC (0x0C)
 #define PCIE_SUBCLASS_USB (0x03)
-#define PCIE_PROGIF_XHCI (0x30)
-#define PCIE_CAP_ID_PM 0x04
+#define PCIE_PROGIF_XHC (0x30)
+#define PCIE_CAP_ID_PM (0x04)
+#define PCIE_MAX_BUS_COUNT (256)
+#define PCIE_MAX_DEVICE_COUNT (PCIE_MAX_BUS_COUNT*32)
+#define PCIE_MAX_FUNCTION_COUNT (PCIE_MAX_DEVICE_COUNT*8)
 struct pcie_info{
 	uint64_t pBase;
 	uint64_t pBase_phys;
@@ -100,9 +103,9 @@ int pcie_get_bar(struct pcie_location location, uint64_t barType, uint64_t* pBar
 int pcie_get_bar_flags(struct pcie_location location, uint64_t barType, uint8_t* pFlags);
 int pcie_get_class(struct pcie_location location, uint8_t* pClass);
 int pcie_get_subclass(struct pcie_location location, uint8_t* pSubclass);
-int pcie_device_exists(struct pcie_location location);
-int pcie_get_device_by_class(uint8_t class, uint8_t subclass, struct pcie_location* pLocation);
-int pcie_get_device_by_id(uint16_t vendor_id, uint16_t device_id, struct pcie_location* pLocation);
+int pcie_function_exists(struct pcie_location location);
+int pcie_get_function_by_class(uint8_t class, uint8_t subclass, struct pcie_location* pLocation);
+int pcie_get_function_by_id(uint16_t vendor_id, uint16_t device_id, struct pcie_location* pLocation);
 int pcie_msix_get_msg_ctrl(struct pcie_location location, volatile struct pcie_msix_msg_ctrl** ppMsgControl);
 int pcie_msi_get_msg_ctrl(struct pcie_location location, volatile struct pcie_msi_msg_ctrl** ppMsgControl);
 int pcie_msi_enable(volatile struct pcie_msi_msg_ctrl* pMsgControl);

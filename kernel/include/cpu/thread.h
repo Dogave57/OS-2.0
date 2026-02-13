@@ -11,6 +11,7 @@
 #define THREAD_PRIORITY_NORMAL 0x1
 #define THREAD_PRIORITY_HIGH 0x2 
 extern uint64_t ctx_switch_time;
+extern unsigned char schedulerHalt;
 struct thread_context_t{
 	uint64_t rax;	// 0
 	uint64_t rbx;	// 8
@@ -58,6 +59,8 @@ KAPI int thread_set_priority(uint64_t tid, uint64_t priority);
 KAPI int thread_yield(void);
 KAPI int get_current_thread(uint64_t* pTid);
 KAPI int thread_exists(uint64_t tid);
+int scheduler_halt(void);
+int scheduler_resume(void);
 __attribute__((ms_abi)) uint64_t get_rflags(void);
 __attribute__((ms_abi)) int set_rflags(uint64_t rflags);
 __attribute__((ms_abi)) int thread_destroy_safe(uint64_t tid);

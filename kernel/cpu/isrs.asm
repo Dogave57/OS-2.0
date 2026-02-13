@@ -34,12 +34,39 @@ pop rbx
 pop rax
 pop rbp
 %endmacro
-%macro pushar 0
-pushaq
+%macro ISR_STUB 1
+global isr_stub_%+%1
+isr_stub_%+%1:
+cli
+push rbx
+push rcx
+mov qword rbx, isr_stub_target_list
+add qword rbx, (%1*8)
+mov qword rbx, [rbx]
+mov qword rcx, %1
+sub qword rsp, 32
+call rbx
+add qword rsp, 32
+pop rcx
+pop rbx
+iretq
 %endmacro
-%macro popar 0
-popaq
-%endmacro
+section .data
+target_isr_msg db "target ISR: %p", 10, 0
+isr_stub_target_list:
+%rep 256
+dq 0
+%endrep
+isr_stub_target_list_end:
+isr_stub_list:
+%assign isr_stub_list_index 0
+%rep 256
+dq isr_stub_%+isr_stub_list_index
+%assign isr_stub_list_index isr_stub_list_index+1
+%endrep
+isr_stub_list_end:
+global isr_stub_target_list
+global isr_stub_list
 exception_names:
 de_name db "divide by zero", 10, 0
 db_name db "debug", 10, 0
@@ -215,6 +242,8 @@ global isr19
 global isr20
 global ctx_switch_time
 global xhci_interrupter_isr
+global nvme_admin_completion_queue_isr
+global nvme_io_completion_queue_isr
 extern print
 extern lprint
 extern printf
@@ -237,6 +266,9 @@ extern physicalAllocPage
 extern virtualGetPageFlags
 extern lapic_tick_count
 extern xhci_interrupter
+extern nvme_admin_completion_queue_interrupt
+extern nvme_io_completion_queue_interrupt
+extern schedulerHalt
 exception_fg:
 db 255, 255, 255, 0
 exception_bg:
@@ -452,6 +484,9 @@ ctx_no_rip_msg db "invalid RIP", 10, 0
 current_thread_msg db "current thread ID: %d", 10, 0
 rflags_msg db "RFLAGS: %p", 10, 0
 ctx_switch:
+mov qword rax, [rel schedulerHalt]
+cmp rax, 0
+jne ctx_switch_end
 mov qword rax, [rel pFirstThread]
 cmp rax, 0
 je ctx_switch_end
@@ -544,37 +579,74 @@ pushaq
 add qword [rel lapic_tick_count], 10
 jmp ctx_switch
 timer_isr_end:
+mov qword rbp, rsp
+and rsp, -16
+sub rsp, 32
+call entropy_shuffle
+add rsp, 32
 sub rsp, 32
 call lapic_send_eoi
 add rsp, 32
+mov qword rsp, rbp
 popaq
 iretq
 thermal_isr:
 cli
+mov qword rbp, rsp
+and rsp, -16
 sub rsp, 32
 call lapic_send_eoi
 add rsp, 32
+mov qword rsp, rbp
 sti
 iretq
 ps2_kbd_isr:
 cli
 pushaq
+mov qword rbp, rsp
+and rsp, -16
 sub rsp, 32
 call ps2_keyboard_handler
 call entropy_shuffle
 call lapic_send_eoi
 add rsp, 32
+mov qword rsp, rbp
 popaq
 iretq
 xhci_interrupter_isr:
 cli
 pushaq
+mov qword rbp, rsp
+and rsp, -16
 sub qword rsp, 32
 call xhci_interrupter
+add qword rsp, 32
+sub qword rsp, 32
+call entropy_shuffle
+add qword rsp, 32
+sub qword rsp, 32
 call lapic_send_eoi
 add qword rsp, 32
+mov qword rsp, rbp
 popaq
 iretq
+nvme_admin_completion_queue_isr:
+cli
+pushaq
+mov qword rbp, rsp
+and rsp, -16
+sub qword rsp, 32
+call nvme_admin_completion_queue_interrupt
+add qword rsp, 32
+sub qword rsp, 32
+call entropy_shuffle
+add qword rsp, 32
+sub qword rsp, 32
+call lapic_send_eoi
+add qword rsp, 32
+mov qword rsp, rbp
+popaq	
+ret
 isr0_msg db "divide by zero ISR triggered", 10, 0
 exception_handler_entry:
 mov qword [rel exception_args+16], rax
@@ -855,3 +927,8 @@ sub rsp, 8
 mov qword [rsp], 20
 jmp exception_handler_entry
 hlt
+%assign isr_stub_index 0
+%rep 256
+ISR_STUB isr_stub_index
+%assign isr_stub_index isr_stub_index+1
+%endrep

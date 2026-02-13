@@ -1,4 +1,6 @@
 drive.img
+usb_drive.img
+nvme_drive.img
 drivemnt
 build
 *.swp

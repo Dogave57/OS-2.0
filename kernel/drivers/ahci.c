@@ -1,13 +1,26 @@
 #include "mem/vmm.h"
 #include "mem/heap.h"
 #include "stdlib/stdlib.h"
+#include "cpu/mutex.h"
 #include "drivers/pcie.h"
 #include "drivers/timer.h"
+#include "subsystem/pcie.h"
 #include "subsystem/drive.h"
 #include "align.h"
 #include "drivers/ahci.h"
+struct pcie_location ahciLocation = {0};
 struct ahci_info ahciInfo = {0};
 struct ahci_cmd_list_desc cmdListDesc = {0};
+static uint64_t driverId = 0;
+int ahci_driver_init(void){
+	struct pcie_driver_vtable vtable = {0};
+	memset((void*)&vtable, 0, sizeof(struct pcie_driver_vtable));
+	vtable.registerFunction = ahci_subsystem_register_function;
+	vtable.unregisterFunction = ahci_subsystem_unregister_function;	
+	if (pcie_subsystem_driver_register(vtable, 0x01, 0x06, &driverId)!=0)
+		return -1;	
+	return 0;
+}
 int ahci_init(void){
 	if (ahci_get_info(&ahciInfo)!=0)
 		return -1;
@@ -38,17 +51,31 @@ int ahci_init(void){
 	}
 	uint32_t ahci_version = 0;
 	ahci_read_dword(0x10, &ahci_version);
-	printf("AHCI controller version: 0x%x\r\n", ahci_version);
-	for (uint32_t i = 0;i<AHCI_MAX_PORTS;i++){
-		if (ahci_drive_exists(i)!=0)
-			continue;
-		printf("AHCI device at port: %d\r\n", i);
-		struct ahci_drive_info driveInfo = {0};
-		if (ahci_get_drive_info(i, &driveInfo)!=0){
-			printf("failed to get drive info\r\n");
-			continue;
+	struct drive_driver_vtable vtable = {0};
+	memset((void*)&vtable, 0, sizeof(struct drive_driver_vtable));
+	vtable.readSectors = ahci_subsystem_read;
+	vtable.writeSectors = ahci_subsystem_write;
+	vtable.getDriveInfo = ahci_subsystem_get_drive_info;
+	vtable.driveRegister = ahci_subsystem_register_drive;
+	vtable.driveUnregister = ahci_subsystem_unregister_drive;
+	if (drive_driver_register(vtable, &driverId)!=0){
+		printf("failed to register AHC driver\r\n");
+		return -1;
+	}	
+	if (pbootargs->driveInfo.driveType==DRIVE_TYPE_SATA){
+		if (drive_register_boot_drive(driverId, pbootargs->driveInfo.port)!=0){
+			printf("failed to register boot drive at port %d\r\n", pbootargs->driveInfo.port);
+			return -1;
 		}
-		printf("drive size: %dMB\r\n", (driveInfo.sector_count*DRIVE_SECTOR_SIZE)/MEM_MB);
+	}
+	for (uint32_t i = 0;i<AHCI_MAX_PORTS;i++){
+		if (ahci_drive_exists(i)!=0||i==pbootargs->driveInfo.port)
+			continue;
+		uint64_t driveId = 0;
+		if (drive_register(driverId, i, &driveId)!=0){
+			printf("failed to register AHC controlled drive at port %d\r\n", i);
+			continue;
+		}	
 	}
 	return 0;
 }
@@ -60,12 +87,7 @@ int ahci_get_info(struct ahci_info* pInfo){
 		return 0;
 	}
 	uint64_t pBase = 0;
-	struct pcie_location location = {0};
-	if (pcie_get_device_by_class(0x01, 0x06, &location)!=0){
-		printf("failed to get AHCI controller\r\n");
-		return -1;
-	}
-	if (pcie_get_bar(location, 5, &pBase)!=0){
+	if (pcie_get_bar(ahciLocation, 5, &pBase)!=0){
 		printf("failed to get AHCI base\r\n");
 		return -1;
 	}
@@ -73,7 +95,7 @@ int ahci_get_info(struct ahci_info* pInfo){
 		printf("invalid AHCI base\r\n");
 		return -1;
 	}
-	ahciInfo.location = location;
+	ahciInfo.location = ahciLocation;
 	ahciInfo.pBase = pBase;
 	return 0;
 }
@@ -170,7 +192,6 @@ int ahci_init_cmd_list(struct ahci_cmd_list_desc* pCmdListDesc){
 	uint64_t cmdTableListSize = maxTableSize*AHCI_MAX_CMD_ENTRIES;
 	uint64_t cmdTableListPages = align_up(cmdTableListSize, PAGE_SIZE)/PAGE_SIZE;
 	volatile struct ahci_cmd_table* pCmdTableList = (volatile struct ahci_cmd_table*)0x0;
-	printf("cmd list pages: %d\r\n", cmdTableListPages);
 	if (virtualAllocPages((uint64_t*)&pCmdTableList, cmdTableListPages, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
 	memset((void*)pCmdList, 0, sizeof(struct ahci_cmd_hdr)*AHCI_MAX_CMD_ENTRIES);
@@ -211,7 +232,7 @@ int ahci_push_cmd_table(struct ahci_cmd_list_desc* pCmdListDesc, uint64_t prdt_c
 	memset((void*)pCmdTable, 0, cmdTableSize);
 	uint64_t pCmdTable_pa = 0;
 	if (virtualToPhysical((uint64_t)pCmdTable, &pCmdTable_pa)!=0){
-		printf("faileld to convert cmd table VA to PA\r\n");
+		printf("failed to get cmd table physical address\r\n");
 		return -1;
 	}
 	pCmdHdr->cmd_table_base = (uint64_t)pCmdTable_pa;
@@ -239,7 +260,6 @@ int ahci_write_prdt(volatile struct ahci_cmd_table* pCmdTable, uint64_t prdt_ind
 	if (virtualToPhysical(va, &pa)!=0)
 		return -1;
 	if (!pa){
-		printf("unmapped page\r\n");
 		return -1;
 	}
 	pPrdtEntry->base = pa;
@@ -517,31 +537,96 @@ int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_c
 	}
 	return 0;
 }
-int ahci_subsystem_read(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
-	if (!pHdr||!pBuffer)
+int ahci_subsystem_read(uint64_t driveId, uint64_t lba, uint64_t sector_count, unsigned char* pBuffer){
+	if (!pBuffer)
 		return -1;
-	if (pHdr->type!=DRIVE_TYPE_AHCI)
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0){
+		mutex_unlock(&mutex);
 		return -1;
-	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
-	return ahci_read(pDev->driveInfo, lba, sector_count, pBuffer);
+	}
+	struct ahci_drive_info ahciDriveInfo = {0};
+	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (ahci_read(ahciDriveInfo, lba, sector_count, pBuffer)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
 }
-int ahci_subsystem_write(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer){
-	if (!pHdr||!pBuffer)
+int ahci_subsystem_write(uint64_t driveId, uint64_t lba, uint64_t sector_count, unsigned char* pBuffer){
+	if (!pBuffer)
 		return -1;
-	if (pHdr->type!=DRIVE_TYPE_AHCI)
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0){
+		mutex_unlock(&mutex);
+		return -1;	
+	}
+	struct ahci_drive_info ahciDriveInfo = {0};
+	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0){
+		mutex_unlock(&mutex);
 		return -1;
-	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
-	return ahci_write(pDev->driveInfo, lba, sector_count, pBuffer);
+	}
+	if (ahci_write(ahciDriveInfo, lba, sector_count, pBuffer)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
 }
-int ahci_subsystem_get_drive_info(struct drive_dev_hdr* pHdr, struct drive_info* pDriveInfo){
-	if (!pHdr||!pDriveInfo)
+int ahci_subsystem_get_drive_info(uint64_t driveId, struct drive_info* pDriveInfo){
+	if (!pDriveInfo)
 		return -1;
-	if (pHdr->type!=DRIVE_TYPE_AHCI)
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0){
+		mutex_unlock(&mutex);
 		return -1;
-	struct drive_dev_ahci* pDev = (struct drive_dev_ahci*)pHdr;
+	}
+	struct ahci_drive_info ahciDriveInfo = {0};
+	if (ahci_get_drive_info(pDriveDesc->port, &ahciDriveInfo)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	struct drive_info driveInfo = {0};
-	driveInfo.driveType = DRIVE_TYPE_AHCI;
-	driveInfo.sector_count = pDev->driveInfo.sector_count;
+	driveInfo.driveType = DRIVE_TYPE_SATA;
+	driveInfo.sectorCount = ahciDriveInfo.sector_count;
 	*pDriveInfo = driveInfo;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ahci_subsystem_register_drive(uint64_t driveId){
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0)
+		return -1;
+	struct drive_info driveInfo = {0};
+	if (ahci_subsystem_get_drive_info(driveId, &driveInfo)!=0)
+		return -1;
+	pDriveDesc->driveInfo = driveInfo;
+	return 0;
+}
+int ahci_subsystem_unregister_drive(uint64_t driveId){
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
+	if (drive_get_desc(driveId, &pDriveDesc)!=0)
+		return -1;
+
+	return 0;
+}
+int ahci_subsystem_register_function(struct pcie_location location){
+	ahciLocation = location;
+	if (ahci_init()!=0)
+		return -1;	
+	return 0;
+}
+int ahci_subsystem_unregister_function(struct pcie_location location){
+
 	return 0;
 }

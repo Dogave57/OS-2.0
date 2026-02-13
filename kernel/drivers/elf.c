@@ -9,9 +9,12 @@
 int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppHandle){
 	if (!filename||!ppHandle)
 		return -1;
+	uint64_t time_us = get_time_us();
 	uint64_t fileId = 0;
-	if (fs_open(mount_id, filename, 0, &fileId)!=0)
+	if (fs_open(mount_id, filename, 0, &fileId)!=0){
+		printf("failed to open kext\r\n");
 		return -1;
+	}
 	struct fs_file_info fileInfo = {0};
 	if (fs_getFileInfo(mount_id, fileId, &fileInfo)!=0){
 		fs_close(mount_id, fileId);
@@ -28,7 +31,7 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 		return -1;
 	}
 	fs_close(mount_id, fileId);
-	uint64_t time_us = get_time_us();
+	time_us = get_time_us();
 	struct elf64_header* pHeader = (struct elf64_header*)pFileBuffer;
 	if (!ELF_VALID_SIGNATURE(pFileBuffer)){
 		printf("invalid ELF signature\r\n");

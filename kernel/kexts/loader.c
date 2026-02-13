@@ -30,11 +30,13 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 	}
 	struct kext_desc_t* pKextDesc = (struct kext_desc_t*)kmalloc(sizeof(struct kext_desc_t));
 	if (!pKextDesc){
+		printf("failed to allocate kext descriptor\r\n");
 		elf_unload(pHandle);
 		return -1;
 	}
 	struct kext_bootstrap_args_t* pArgs = (struct kext_bootstrap_args_t*)kmalloc(sizeof(struct kext_bootstrap_args_t));
 	if (!pArgs){
+		printf("failed to allocate bootstrap arguments\r\n");
 		elf_unload(pHandle);
 		kfree((void*)pKextDesc);
 		return -1;

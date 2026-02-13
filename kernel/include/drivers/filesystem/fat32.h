@@ -104,7 +104,7 @@ struct fat32_file_entry_lfn{
 struct fat32_cache_info{
 	struct fat32_bpb bpb_cache;
 	struct fat32_fsinfo fsinfo_cache;
-	unsigned char lastSectorCache[512];
+	unsigned char lastSectorCache[DRIVE_SECTOR_SIZE];
 	uint32_t last_sector;
 	uint8_t bpb_cached;
 	uint8_t fsinfo_cached;

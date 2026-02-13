@@ -24,6 +24,7 @@ long long uefi_stoi(CHAR16* buf);
 int uefi_putchar(CHAR16 ch);
 int uefi_puthex(unsigned char hex, unsigned char upper);
 int uefi_printf(const CHAR16* fmt, ...);
+int uefi_dprintf(const CHAR16* fmt, ...);
 int getConfTableEntry(EFI_GUID guid, void** ppEntry);
 int compareGuid(EFI_GUID guid1, EFI_GUID guid2);
 int uefi_strlen(CHAR16* pStr, uint64_t* pLen);
@@ -58,6 +59,11 @@ struct efi_sata_dev_path{
 	uint16_t port;
 	uint16_t portMulti;
 	uint64_t logicalUnitNumber;
+};
+struct efi_usb_dev_path{
+	EFI_DEVICE_PATH_PROTOCOL hdr;
+	uint8_t portNumber;
+	uint8_t interfaceNumber;
 };
 struct efi_gpt_partition_path{
 	EFI_DEVICE_PATH_PROTOCOL hdr;
@@ -302,8 +308,14 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 		uint64_t len = (uint64_t)((*(uint16_t*)pCurrentNode->Length));
 		if (pCurrentNode->Type==0x3&&pCurrentNode->SubType==0x12){
 			struct efi_sata_dev_path* pSataPath = (struct efi_sata_dev_path*)pCurrentNode;
-			blargs->driveInfo.driveType = DRIVE_TYPE_AHCI;
+			blargs->driveInfo.driveType = DRIVE_TYPE_SATA;
 			blargs->driveInfo.port = pSataPath->port;
+		}
+		if (pCurrentNode->Type==0x3&&pCurrentNode->SubType==0x05){
+			struct efi_usb_dev_path* pUsbPath = (struct efi_usb_dev_path*)pCurrentNode;
+			blargs->driveInfo.driveType = DRIVE_TYPE_USB;
+			blargs->driveInfo.port = pUsbPath->portNumber;
+			blargs->driveInfo.interfaceNumber = pUsbPath->interfaceNumber;
 		}
 		if (pCurrentNode->Type==0x4&&pCurrentNode->SubType==0x1){
 			struct efi_gpt_partition_path* pGptPath = (struct efi_gpt_partition_path*)pCurrentNode;
@@ -346,10 +358,10 @@ int uefi_execute_kernel(void* pFileData, uint64_t fileDataSize){
 		return -1;
 	if (pHeader->e_type!=ELF_TYPE_DYNAMIC)
 		return -1;
-	uefi_printf(L"version: 0x%x\r\n", pHeader->e_version);
-	uefi_printf(L"program header offset: 0x%x\r\n", pHeader->e_phoff);
-	uefi_printf(L"section header offset: 0x%x\r\n", pHeader->e_shoff);
-	uefi_printf(L"section header count: %d\r\n", pHeader->e_shnum);
+	uefi_dprintf(L"version: 0x%x\r\n", pHeader->e_version);
+	uefi_dprintf(L"program header offset: 0x%x\r\n", pHeader->e_phoff);
+	uefi_dprintf(L"section header offset: 0x%x\r\n", pHeader->e_shoff);
+	uefi_dprintf(L"section header count: %d\r\n", pHeader->e_shnum);
 	struct elf64_pheader* pFirstPh = (struct elf64_pheader*)(pFileData+pHeader->e_phoff);
 	struct elf64_sheader* pFirstSh = (struct elf64_sheader*)(pFileData+pHeader->e_shoff);
 	struct elf64_pheader* pCurrentPh = pFirstPh;
@@ -387,7 +399,7 @@ int uefi_execute_kernel(void* pFileData, uint64_t fileDataSize){
 		}
 	}
 	int64_t imageDelta = ((int64_t)pImage)-virtualBase;
-	uefi_printf(L"section header count: %d\r\n", pHeader->e_shnum);
+	uefi_dprintf(L"section header count: %d\r\n", pHeader->e_shnum);
 	struct elf64_sym* pSymtab = (struct elf64_sym*)0x0;
 	for (uint64_t i = 0;i<pHeader->e_shnum;i++,pCurrentSh++){
 		uint64_t sectionData = (uint64_t)(pFileData+pCurrentSh->sh_offset);
@@ -407,7 +419,7 @@ int uefi_execute_kernel(void* pFileData, uint64_t fileDataSize){
 		uint64_t entryCount = pCurrentSh->sh_size/entrySize;
 		unsigned char* pFirstEntry = pFileData+pCurrentSh->sh_offset;
 		unsigned char* pCurrentEntry = pFirstEntry;
-		uefi_printf(L"reloc section at va: %p\r\n", (uint64_t)pFirstEntry);
+		uefi_dprintf(L"reloc section at va: %p\r\n", (uint64_t)pFirstEntry);
 		for (uint64_t reloc = 0;reloc<entryCount;reloc++,pCurrentEntry+=entrySize){
 			if (!pSymtab){
 				conout->OutputString(conout, L"kernel has no symbol table!\r\n");
@@ -416,15 +428,15 @@ int uefi_execute_kernel(void* pFileData, uint64_t fileDataSize){
 			struct elf64_rela* pEntry = (struct elf64_rela*)pCurrentEntry;
 			uint64_t patchOffset = pEntry->r_offset;
 			uint64_t type = ELF64_R_TYPE(pEntry->r_info);
-			uefi_printf(L"type: %d\r\n", type);
-			uefi_printf(L"relocation: %d\r\n", reloc);
+			uefi_dprintf(L"type: %d\r\n", type);
+			uefi_dprintf(L"relocation: %d\r\n", reloc);
 			switch (type){
 			case ELF_RELOC_GLOB_DAT_X64:{	
 			case ELF_RELOC_ABS_X64:
 				struct elf64_sym* pSymbol = pSymtab+ELF64_R_INDEX(pEntry->r_info);
 				uint64_t symbolAddress = (uint64_t)(pImage+pSymbol->st_value);
 				int64_t addend = pCurrentSh->sh_type==ELF_SHT_RELA ? pEntry->r_addend : *(uint64_t*)(pImage+pEntry->r_offset);
-				uefi_printf(L"symbol address: %d\r\n", symbolAddress);
+				uefi_dprintf(L"symbol address: %d\r\n", symbolAddress);
 				uint64_t patch = (type==ELF_RELOC_ABS_X64) ? symbolAddress+addend : symbolAddress;
 				*(uint64_t*)(pImage+pEntry->r_offset) = patch;
 				break;
@@ -433,7 +445,7 @@ int uefi_execute_kernel(void* pFileData, uint64_t fileDataSize){
 				uint64_t* pPatch = (uint64_t*)(pImage+patchOffset);
 				uint64_t addend = pCurrentSh->sh_type==ELF_SHT_RELA ? pEntry->r_addend : 0;
 				*pPatch = (uint64_t)pImage+addend;
-				uefi_printf(L"applied x64 relocation relocation with patch %d\r\n", *pPatch);
+				uefi_dprintf(L"applied x64 relocation relocation with patch %d\r\n", *pPatch);
 				break;
 			}	    
 			}
@@ -442,7 +454,7 @@ int uefi_execute_kernel(void* pFileData, uint64_t fileDataSize){
 		}
 	}
 	unsigned char* pStack = (unsigned char*)0x0;
-	uint64_t stackSize = 4096*16;
+	uint64_t stackSize = 4096*64;
 	status = BS->AllocatePool(EfiReservedMemoryType, stackSize, (void**)&pStack);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate kernel stack\r\n");
@@ -457,7 +469,7 @@ int uefi_execute_kernel(void* pFileData, uint64_t fileDataSize){
 	blargs->kernelInfo.kernelStackSize = stackSize;
 	blargs->kernelInfo.pKernelFileData = (uint64_t)pFileData;
 	blargs->kernelInfo.kernelFileDataSize = fileDataSize;	
-	uefi_printf(L"kernel entry offset: %d\r\n", entryOffset);
+	uefi_dprintf(L"kernel entry offset: %d\r\n", entryOffset);
 	if (entry(pStack+stackSize, blargs)!=0)
 		return -1;
 	while (1){};
@@ -721,6 +733,12 @@ int uefi_printf(const CHAR16* fmt, ...){
 		}
 	}
 	return 0;	
+}
+int uefi_dprintf(const CHAR16* fmt, ...){
+#ifdef _BOOTLOADER_DEBUG
+	uefi_printf(fmt);
+#endif
+	return 0;
 }
 int getConfTableEntry(EFI_GUID guid, void** ppEntry){
 	EFI_CONFIGURATION_TABLE* pConfigTable = ST->ConfigurationTable;

@@ -766,7 +766,7 @@ int fat32_writecluster(struct fat32_mount_handle* pMountHandle, uint32_t cluster
 	uint64_t cluster_offset = cluster_byte_offset%DRIVE_SECTOR_SIZE;
 	uint64_t cluster_sector = fatSector+cluster_sector_offset;
 	uint64_t cluster_backup_sector = backupFatSector+cluster_sector_offset;
-	unsigned char sectorData[512] = {0};
+	unsigned char sectorData[DRIVE_SECTOR_SIZE] = {0};
 	if (partition_read_sectors(pMountHandle->drive_id, pMountHandle->partition_id, cluster_sector, 1, (unsigned char*)sectorData)!=0)
 		return -1;
 	*(uint32_t*)(sectorData+cluster_offset) = *(uint32_t*)(&clusterEntry);
@@ -791,7 +791,7 @@ int fat32_read_cluster_data(struct fat32_mount_handle* pMountHandle, uint32_t cl
 	uint64_t bytes_per_cluster = 0;
 	if (fat32_get_bytes_per_cluster(pMountHandle, &bytes_per_cluster)!=0)
 		return -1;
-	uint64_t sectors_per_cluster = bytes_per_cluster/DRIVE_SECTOR_SIZE;
+	uint64_t sectors_per_cluster = (bytes_per_cluster>=DRIVE_SECTOR_SIZE) ? bytes_per_cluster/DRIVE_SECTOR_SIZE : 1;
 	uint64_t cluster_data_start_sector = 0;
 	if (fat32_get_cluster_data_sector(pMountHandle, &cluster_data_start_sector)!=0)
 		return -1;
@@ -810,11 +810,11 @@ int fat32_write_cluster_data(struct fat32_mount_handle* pMountHandle, uint32_t c
 	uint64_t bytes_per_cluster = 0;
 	if (fat32_get_bytes_per_cluster(pMountHandle, &bytes_per_cluster)!=0)
 		return -1;
-	uint64_t sectors_per_cluster = bytes_per_cluster/DRIVE_SECTOR_SIZE;
+	uint64_t sectors_per_cluster = (bytes_per_cluster>=DRIVE_SECTOR_SIZE) ? bytes_per_cluster/DRIVE_SECTOR_SIZE : 1;
 	uint64_t cluster_data_start_sector = 0;
 	if (fat32_get_cluster_data_sector(pMountHandle, &cluster_data_start_sector)!=0)
 		return -1;
-	uint64_t cluster_sector_offset = ((cluster_id-2)*bytes_per_cluster)/DRIVE_SECTOR_SIZE;
+	uint64_t cluster_sector_offset = (((cluster_id-2)*bytes_per_cluster)/DRIVE_SECTOR_SIZE);
 	uint64_t cluster_data_sector = cluster_data_start_sector+cluster_sector_offset;
 	if (partition_write_sectors(pMountHandle->drive_id, pMountHandle->partition_id, cluster_data_sector, sectors_per_cluster, pClusterData)!=0)
 		return -1;
@@ -839,7 +839,7 @@ int fat32_get_bytes_per_cluster(struct fat32_mount_handle* pMountHandle, uint64_
 	struct fat32_bpb bpb = {0};
 	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
-	uint64_t bytesPerCluster = ((uint64_t)bpb.sectors_per_cluster)*DRIVE_SECTOR_SIZE;
+	uint64_t bytesPerCluster = ((uint64_t)bpb.sectors_per_cluster)*bpb.bytes_per_sector;
 	*pBytesPerCluster = bytesPerCluster;
 	return 0;
 }
@@ -951,7 +951,7 @@ int fat32_get_fsinfo(struct fat32_mount_handle* pMountHandle, struct fat32_fsinf
 	struct fat32_ebr ebr = {0};
 	if (fat32_get_ebr(pMountHandle, &ebr)!=0)
 		return -1;
-	if (partition_read_sectors(pMountHandle->drive_id, pMountHandle->partition_id, ebr.fsinfo_sector, 1,(unsigned char*)pFsinfo)!=0)
+	if (partition_read_sectors(pMountHandle->drive_id, pMountHandle->partition_id, ebr.fsinfo_sector, 1, (unsigned char*)pFsinfo)!=0)
 		return -1;
 	return 0;
 }

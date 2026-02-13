@@ -1,6 +1,7 @@
 #ifndef _AHCI
 #define _AHCI
 #include "drivers/pcie.h"
+#include "subsystem/pcie.h"
 #include "subsystem/drive.h"
 #define AHCI_DRIVE_MMIO_OFFSET 0x100
 #define AHCI_SATA_SIGNATURE 0x101
@@ -128,6 +129,10 @@ struct ahci_cmd_table{
 	uint8_t reserved0[48];
 	struct ahci_prdt_entry prdt_list[];
 }__attribute__((packed));
+struct ahci_drive_info{
+	uint64_t sector_count;
+	uint8_t port;
+};
 struct ahci_cmd_list_desc{
 	volatile struct ahci_cmd_hdr* pCmdList;
 	volatile struct ahci_cmd_table* pCmdTableList;
@@ -136,6 +141,7 @@ struct ahci_cmd_list_desc{
 	uint64_t pCmdList_pa;
 	uint64_t pCmdTableList_pa;
 };
+int ahci_driver_init(void);
 int ahci_init(void);
 int ahci_get_info(struct ahci_info* pInfo);
 int ahci_write_byte(uint64_t offset, uint8_t value);
@@ -161,7 +167,11 @@ int ahci_drive_error(uint8_t port);
 int ahci_get_drive_info(uint8_t drive_port, struct ahci_drive_info* pInfo);
 int ahci_read(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
 int ahci_write(struct ahci_drive_info driveInfo, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
-int ahci_subsystem_read(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
-int ahci_subsystem_write(struct drive_dev_hdr* pHdr, uint64_t lba, uint16_t sector_count, unsigned char* pBuffer);
-int ahci_subsystem_get_drive_info(struct drive_dev_hdr* pHdr, struct drive_info* pDriveInfo);
+int ahci_subsystem_read(uint64_t drive_id, uint64_t lba, uint64_t sector_count, unsigned char* pBuffer);
+int ahci_subsystem_write(uint64_t drive_id, uint64_t lba, uint64_t sector_count, unsigned char* pBuffer);
+int ahci_subsystem_get_drive_info(uint64_t drive_id, struct drive_info* pDriveInfo);
+int ahci_subsystem_register_drive(uint64_t drive_id);
+int ahci_subsystem_unregister_drive(uint64_t drive_id);
+int ahci_subsystem_register_function(struct pcie_location location);
+int ahci_subsystem_unregister_function(struct pcie_location location);
 #endif
