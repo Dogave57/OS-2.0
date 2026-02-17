@@ -5,9 +5,9 @@
 #define NVME_DRIVE_PCIE_PROGIF (0x02)
 #define NVME_DOORBELL_LIST_OFFSET (0x1000)
 #define NVME_DEFAULT_SQE_COUNT (64)
-#define NVME_DEFAULT_CQE_COUNT (256)
+#define NVME_DEFAULT_CQE_COUNT (64)
 #define NVME_MAX_SQE_COUNT (64)
-#define NVME_MAX_CQE_COUNT (256)
+#define NVME_MAX_CQE_COUNT (64)
 #define NVME_ADMIN_DELETE_IO_SUBMISSION_QUEUE_OPCODE (0x00)
 #define NVME_ADMIN_CREATE_IO_SUBMISSION_QUEUE_OPCODE (0x01)
 #define NVME_ADMIN_GET_LOG_PAGE_OPCODE (0x02)
@@ -35,44 +35,96 @@
 #define NVME_ADMIN_SECURITY_SEND_OPCODE (0x81)
 #define NVME_ADMIN_SECURITY_RECEIVE_OPCODE (0x82)
 #define NVME_ADMIN_SANITIZE_OPCODE (0x84)
-#define NVME_COMPLETION_STATUS_SUCCESS (0x00)
-#define NVME_COMPLETION_STATUS_INVALID_OPCODE (0x01)
-#define NVME_COMPLETION_STATUS_INVALID_FIELD (0x02)
-#define NVME_COMPLETION_STATUS_CMD_ID_CONFLICT (0x03)
-#define NVME_COMPLETION_STATUS_DATA_TRANSFER_ERROR (0x04)
-#define NVME_COMPLETION_STATUS_ABORTED_POWER_LOSS (0x05)
-#define NVME_COMPLETION_STATUS_INTERNAL_ERROR (0x06)
-#define NVME_COMPLETION_STATUS_ABORT_REQUESTED (0x07)
-#define NVME_COMPLETION_STATUS_ABORT_SQ_DELETION (0x08)
-#define NVME_COMPLETION_STATUS_ABORT_FAILED_FUSED (0x09)
-#define NVME_COMPLETION_STATUS_ABORT_MISSING_FUED (0x0A)
-#define NVME_COMPLETION_STATUS_INVALID_NAMESPACE (0x0B)
-#define NVME_COMPLETION_STATUS_COMMAND_SEQUENCE_ERROR (0x0C)
-#define NVME_COMPLETION_STATUS_INVALID_SGL_SEGMENT_DESC (0x0D)
-#define NVME_COMPLETION_STATUS_INVALID_SGL_DESC_COUNT (0x0E)
-#define NVME_COMPLETION_STATUS_INVALID_DATA_SGL_LENGTH (0x0F)
-#define NVME_COMPLETION_STATUS_INVALID_METADATA_SGL_LENGTH (0x10)
-#define NVME_COMPLETION_STATUS_INVALID_SGL_DESC_TYPE (0x11)
-#define NVME_COMPLETION_STATUS_INVALID_CMB_USE (0x12)
-#define NVME_COMPLETION_STATUS_INVALID_PRP_OFFSET (0x13)
-#define NVME_COMPLETION_STATUS_ATOMIC_WRITE_UNIT_EXCEEDED (0x14)
-#define NVME_COMPLETION_STATUS_OPERATION_DENIED (0x15)
-#define NVME_COMPLETION_STATUS_INVALID_SGL_OFFSET (0x16)
-#define NVME_COMPLETION_STATUS_HOST_IDENT_INCONSISTENT (0x18)
-#define NVME_COMPLETION_STATUS_KEEP_ALIVE_TIMEOUT_EXPIRED (0x19)
-#define NVME_COMPLETION_STATUS_INVALID_IO_CONTROLLER_STATE (0x1A)
-#define NVME_COMPLETION_STATUS_ABORTED_TRIGGERED (0x1B)
-#define NVME_COMPLETION_STATUS_SANITIZE_OPERATION_FAILURE (0x1C)
-#define NVME_COMPLETION_STATUS_SANATIZE_IN_PROGRESS (0x1D)
-#define NVME_COMPLETION_STATUS_INVALID_SGL_GRANULARITY (0x1E)
-#define NVME_COMPLETION_STATUS_CMD_NOT_SUPPORTED (0x1F)
-#define NVME_COMPLETION_STATUS_NAMESPACE_WRITE_PROTECTED (0x20)
-#define NVME_COMPLETION_STATUS_CMD_INTERRUPTED (0x21)
-#define NVME_COMPLETION_STATUS_TRANSPORT_ERROR (0x22)
-#define NVME_COMPLETION_STATUS_LOCKDOWN_VIOLATION (0x23)
-#define NVME_COMPLETION_STATUS_ADMIN_CMD_MEDIA_NOT_READY (0x24)
-#define NVME_COMPLETION_STATUS_LBA_OUT_OF_RANGE (0x80)
-#define NVME_COMPLETION_STATUS_CAPACITY_EXCEEDED (0x81)
+#define NVME_STATUS_CODE_SUCCESS (0x00)
+#define NVME_STATUS_CODE_INVALID_OPCODE (0x01)
+#define NVME_STATUS_CODE_INVALID_FIELD (0x02)
+#define NVME_STATUS_CODE_CMD_ID_CONFLICT (0x03)
+#define NVME_STATUS_CODE_DATA_TRANSFER_ERROR (0x04)
+#define NVME_STATUS_CODE_ABORTED_POWER_LOSS (0x05)
+#define NVME_STATUS_CODE_INTERNAL_ERROR (0x06)
+#define NVME_STATUS_CODE_ABORT_REQUESTED (0x07)
+#define NVME_STATUS_CODE_ABORT_SQ_DELETION (0x08)
+#define NVME_STATUS_CODE_ABORT_FAILED_FUSED (0x09)
+#define NVME_STATUS_CODE_ABORT_MISSING_FUSED (0x0A)
+#define NVME_STATUS_CODE_INVALID_FORMAT (0x0B)
+#define NVME_STATUS_CODE_COMMAND_SEQUENCE_ERROR (0x0C)
+#define NVME_STATUS_CODE_INVALID_SGL_SEGMENT_DESC (0x0D)
+#define NVME_STATUS_CODE_INVALID_SGL_DESC_COUNT (0x0E)
+#define NVME_STATUS_CODE_INVALID_DATA_SGL_LENGTH (0x0F)
+#define NVME_STATUS_CODE_INVALID_METADATA_SGL_LENGTH (0x10)
+#define NVME_STATUS_CODE_INVALID_SGL_DESC_TYPE (0x11)
+#define NVME_STATUS_CODE_INVALID_CMB_USE (0x12)
+#define NVME_STATUS_CODE_INVALID_PRP_OFFSET (0x13)
+#define NVME_STATUS_CODE_ATOMIC_WRITE_UNIT_EXCEEDED (0x14)
+#define NVME_STATUS_CODE_OPERATION_DENIED (0x15)
+#define NVME_STATUS_CODE_INVALID_SGL_OFFSET (0x16)
+#define NVME_STATUS_CODE_HOST_IDENT_INCONSISTENT (0x18)
+#define NVME_STATUS_CODE_KEEP_ALIVE_TIMEOUT_EXPIRED (0x19)
+#define NVME_STATUS_CODE_INVALID_IO_CONTROLLER_STATE (0x1A)
+#define NVME_STATUS_CODE_ABORT_TRIGGERED (0x1B)
+#define NVME_STATUS_CODE_SANITIZE_OPERATION_FAILURE (0x1C)
+#define NVME_STATUS_CODE_SANITIZE_IN_PROGRESS (0x1D)
+#define NVME_STATUS_CODE_INVALID_SGL_GRANULARITY (0x1E)
+#define NVME_STATUS_CODE_CMD_NOT_SUPPORTED (0x1F)
+#define NVME_STATUS_CODE_NAMESPACE_WRITE_PROTECTED (0x20)
+#define NVME_STATUS_CODE_CMD_INTERRUPTED (0x21)
+#define NVME_STATUS_CODE_TRANSPORT_ERROR (0x22)
+#define NVME_STATUS_CODE_LOCKDOWN_VIOLATION (0x23)
+#define NVME_STATUS_CODE_ADMIN_CMD_MEDIA_NOT_READY (0x24)
+#define NVME_STATUS_CODE_LBA_OUT_OF_RANGE (0x80)
+#define NVME_STATUS_CODE_CAPACITY_EXCEEDED (0x81)
+#define NVME_STATUS_CODE_TYPE_GENERIC_CMD (0x00)
+#define NVME_STATUS_CODE_TYPE_CMD_SPECIFIC (0x01)
+#define NVME_STATUS_CODE_TYPE_MEDIA_DATA_INTEGRITY (0x02)
+#define NVME_STATUS_CODE_TYPE_PATH_RELATED (0x03)
+#define NVME_DOORBELL_TYPE_SUBMISSION_QUEUE (0x00)
+#define NVME_DOORBELL_TYPE_COMPLETION_QUEUE (0x01)
+static const unsigned char* statusCodeNameMap[]={
+	[NVME_STATUS_CODE_SUCCESS]="Success",
+	[NVME_STATUS_CODE_INVALID_OPCODE]="Invalid opcode",
+	[NVME_STATUS_CODE_INVALID_FIELD]="Invalid field",
+	[NVME_STATUS_CODE_CMD_ID_CONFLICT]="Command ID conflict",
+	[NVME_STATUS_CODE_DATA_TRANSFER_ERROR]="Data transfer error",
+	[NVME_STATUS_CODE_ABORTED_POWER_LOSS]="Aborted due to power loss",
+	[NVME_STATUS_CODE_INTERNAL_ERROR]="Internal error",
+	[NVME_STATUS_CODE_ABORT_REQUESTED]="Abort requesteded",	
+	[NVME_STATUS_CODE_ABORT_SQ_DELETION]="Abort due to I/O Submission queue deletion",
+	[NVME_STATUS_CODE_ABORT_FAILED_FUSED]="Abort due to failed fused",
+	[NVME_STATUS_CODE_ABORT_MISSING_FUSED]="Abort due to missing fused",
+	[NVME_STATUS_CODE_INVALID_FORMAT]="Invalid format",
+	[NVME_STATUS_CODE_COMMAND_SEQUENCE_ERROR]="Command sequence error",
+	[NVME_STATUS_CODE_INVALID_SGL_SEGMENT_DESC]="Invalid SGL segment descriptor",
+	[NVME_STATUS_CODE_INVALID_SGL_DESC_COUNT]="Invalid SGL descriptor count",
+	[NVME_STATUS_CODE_INVALID_DATA_SGL_LENGTH]="Invalid data SGL length",
+	[NVME_STATUS_CODE_INVALID_METADATA_SGL_LENGTH]="Invalid metadata SGL length",
+	[NVME_STATUS_CODE_INVALID_SGL_DESC_TYPE]="Invalid SGL descriptor type",
+	[NVME_STATUS_CODE_INVALID_CMB_USE]="Invalid controller memory buffer use",
+	[NVME_STATUS_CODE_INVALID_PRP_OFFSET]="Invalid PRP offset",
+	[NVME_STATUS_CODE_ATOMIC_WRITE_UNIT_EXCEEDED]="Atomic write unit exceeded",	
+	[NVME_STATUS_CODE_OPERATION_DENIED]="Operation denied",
+	[NVME_STATUS_CODE_INVALID_SGL_OFFSET]="Invalid SGL offset",
+	[NVME_STATUS_CODE_HOST_IDENT_INCONSISTENT]="Host identification inconsistent",
+	[NVME_STATUS_CODE_KEEP_ALIVE_TIMEOUT_EXPIRED]="Keep alive timeout expired",
+	[NVME_STATUS_CODE_INVALID_IO_CONTROLLER_STATE]="Invalid I/O controller state",
+	[NVME_STATUS_CODE_ABORT_TRIGGERED]="Abort triggered",	
+	[NVME_STATUS_CODE_SANITIZE_OPERATION_FAILURE]="Sanitize operation failure",
+	[NVME_STATUS_CODE_SANITIZE_IN_PROGRESS]="Sanitize in progress",
+	[NVME_STATUS_CODE_INVALID_SGL_GRANULARITY]="Invalid SGL granularity",
+	[NVME_STATUS_CODE_CMD_NOT_SUPPORTED]="Command not supported",
+	[NVME_STATUS_CODE_NAMESPACE_WRITE_PROTECTED]="Write protected namespace",
+	[NVME_STATUS_CODE_CMD_INTERRUPTED]="Command interrupted",
+	[NVME_STATUS_CODE_TRANSPORT_ERROR]="Transport error",
+	[NVME_STATUS_CODE_LOCKDOWN_VIOLATION]="Lockdown restriction violation",
+	[NVME_STATUS_CODE_ADMIN_CMD_MEDIA_NOT_READY]="Admin command media not ready",
+	[NVME_STATUS_CODE_LBA_OUT_OF_RANGE]="LBA out of namespace range",
+	[NVME_STATUS_CODE_CAPACITY_EXCEEDED]="Capacity exceeded",
+};
+static const unsigned char* statusCodeTypeNameMap[]={
+	[NVME_STATUS_CODE_TYPE_GENERIC_CMD]="Generic command",
+	[NVME_STATUS_CODE_TYPE_CMD_SPECIFIC]="Command specific",
+	[NVME_STATUS_CODE_TYPE_MEDIA_DATA_INTEGRITY]="Media and data integrity",
+	[NVME_STATUS_CODE_TYPE_PATH_RELATED]="Path related",
+};
 struct nvme_capabilities_register{
 	volatile uint64_t max_queue_entry_count:16;
 	volatile uint64_t contiguous_queues_required:1;
@@ -144,12 +196,24 @@ struct nvme_base_mmio{
 	volatile uint64_t controller_buffer_space_ctrl;
 	volatile uint32_t controller_buffer_status;
 }__attribute__((packed));
+struct nvme_completion_qe_status{
+	uint16_t phase_bit:1;
+	uint16_t status_code:8;
+	uint16_t status_code_type:3;
+	uint16_t cmd_retry_delay:2;
+	uint16_t extra_info_available:1;
+	uint16_t do_not_retry:1;
+}__attribute__((packed));
+struct nvme_cid{
+	uint16_t submissionQueueIndex:4;
+	uint16_t submissionQeIndex:12;	
+}__attribute__((packed));
 struct nvme_submission_qe{
 	uint8_t opcode;
 	uint8_t fused:2;
 	uint8_t reserved0:4;
 	uint8_t data_transfer_type:2;
-	uint16_t cmd_ident;
+	struct nvme_cid cmd_ident;	
 	uint32_t nsid;
 	uint64_t reserved1;
 	uint64_t metadata_ptr;
@@ -162,9 +226,8 @@ struct nvme_completion_qe{
 	uint32_t reserved0;
 	uint16_t submission_queue_head;
 	uint16_t submission_queue_id;
-	uint16_t cmd_ident;
-	uint16_t phase:1;
-	uint16_t status:15;
+	struct nvme_cid cmd_ident;	
+	struct nvme_completion_qe_status status;
 }__attribute__((packed));
 struct nvme_admin_queue_info{
 	volatile struct nvme_submission_qe* pSubmissionQueue;
@@ -177,10 +240,13 @@ struct nvme_completion_queue_desc{
 	uint64_t pCompletionQueue_phys;	
 	uint64_t completionEntry;	
 	uint64_t maxCompletionEntryCount;
+	uint8_t phase;	
+	uint64_t queueId;
 	struct nvme_drive_desc* pDriveDesc;
 };
 struct nvme_completion_qe_desc{
-	struct nvme_completion_qe completionQueueEntry;
+	struct nvme_completion_qe completionQe;
+	uint64_t qeIndex;
 };
 struct nvme_submission_qe_desc{
 	uint64_t qeIndex;
@@ -191,19 +257,22 @@ struct nvme_submission_qe_desc{
 struct nvme_submission_queue_desc{
 	volatile struct nvme_submission_qe* pSubmissionQueue;
 	uint64_t pSubmissionQueue_phys;
+	struct nvme_submission_qe_desc** ppSubmissionQeDescList;	
 	uint64_t submissionEntry;
 	uint64_t maxSubmissionEntryCount;
-	uint64_t queueId;
+	uint8_t queueId;
+	uint8_t queueIndex;
 	struct nvme_completion_queue_desc* pCompletionQueueDesc;
 	struct nvme_drive_desc* pDriveDesc;
 };
 struct nvme_drive_desc{
 	struct pcie_location location;
+	struct nvme_submission_queue_desc submissionQueueList[16];	
+	uint8_t submissionQueueCount;	
 	struct nvme_completion_queue_desc adminCompletionQueueDesc;
-	struct nvme_submission_queue_desc adminSubmissionQueueDesc;	
 	volatile struct nvme_base_mmio* pBaseRegisters;
 	uint64_t pBaseRegisters_phys;
-	volatile uint16_t* pDoorbellBase;
+	volatile uint32_t* pDoorbellBase;
 };
 struct nvme_driver_info{
 	uint64_t driverId;
@@ -215,14 +284,17 @@ int nvme_driver_init_drive_desc_mapping_table(void);
 int nvme_enable(struct nvme_drive_desc* pDriveDesc);
 int nvme_disable(struct nvme_drive_desc* pDriveDesc);
 int nvme_enabled(struct nvme_drive_desc* pDriveDesc);
-int nvme_ring_doorbell(struct nvme_drive_desc* pDriveDesc, uint64_t queueId, uint16_t tail);
+int nvme_ring_doorbell(struct nvme_drive_desc* pDriveDesc, uint64_t queueId, uint8_t type, uint16_t tail);
 int nvme_run_submission_queue(struct nvme_submission_queue_desc* pSubmissionQueueDesc);
-int nvme_alloc_completion_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, struct nvme_completion_queue_desc* pCompletionQueueDesc);
+int nvme_alloc_completion_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, uint64_t queueId, struct nvme_completion_queue_desc* pCompletionQueueDesc);
 int nvme_free_completion_queue(struct nvme_completion_queue_desc* pCompletionQueueDesc);
 int nvme_get_current_completion_qe(struct nvme_completion_queue_desc* pCompletionQueueDesc, volatile struct nvme_completion_qe** ppCompletionQe);
 int nvme_acknowledge_completion_qe(struct nvme_completion_queue_desc* pCompletionQueueDesc);
+int nvme_get_status_code_name(uint8_t statusCode, const unsigned char** ppName);
+int nvme_get_status_code_type_name(uint8_t statusCodeType, const unsigned char** ppName);
+int nvme_get_submission_queue_desc(struct nvme_submission_queue_desc* pSubmissionQueueDesc, uint64_t qeIndex, struct nvme_submission_qe_desc** ppSubmisionQeDesc);
 int nvme_alloc_submission_qe(struct nvme_submission_queue_desc* pSubmissionQueueDesc, struct nvme_submission_qe entry, struct nvme_submission_qe_desc* pSubmissionQeDesc);
-int nvme_alloc_submission_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, uint64_t queueId, struct nvme_submission_queue_desc* pSubmissionQueueDesc, struct nvme_completion_queue_desc* pCompletionQueueDesc);
+int nvme_alloc_submission_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, uint64_t queueId, struct nvme_submission_queue_desc** ppSubmissionQueueDesc, struct nvme_completion_queue_desc* pCompletionQueueDesc);
 int nvme_free_submission_queue(struct nvme_submission_queue_desc* pSubmissionQueueDesc);
 int nvme_init_admin_submission_queue(struct nvme_drive_desc* pDriveDesc);
 int nvme_deinit_admin_submission_queue(struct nvme_drive_desc* pDriveDesc);

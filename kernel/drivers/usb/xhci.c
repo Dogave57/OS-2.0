@@ -173,8 +173,8 @@ int xhci_write_qword(volatile uint64_t* pQword, uint64_t value){
 	mutex_lock(&mutex);
 	uint32_t low = (uint32_t)(value&0xFFFFFFFF);
 	uint32_t high = (uint32_t)((value>>32)&0xFFFFFFFF);
-	*(uint32_t*)pQword = low;
-	*(((uint32_t*)pQword)+1) = high;
+	*(volatile uint32_t*)pQword = low;
+	*(((volatile uint32_t*)pQword)+1) = high;
 	mutex_unlock(&mutex);
 	return 0;
 }
