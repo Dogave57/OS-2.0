@@ -100,6 +100,7 @@ sudo parted drive.img set 1 boot on
 sudo losetup -Pf drive.img
 sudo mkfs.fat -F 32 -s 8 /dev/loop0p1
 sudo mkdir efimnt
+sudo umount /dev/loop0
 sudo mount /dev/loop0p1 efimnt
 sudo mkdir -p efimnt/EFI/BOOT
 sudo cp build/build/bootloader.efi efimnt/EFI/BOOT/BOOTX64.EFI

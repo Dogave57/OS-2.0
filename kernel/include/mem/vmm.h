@@ -42,7 +42,7 @@ KAPI int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int s
 KAPI int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared, uint64_t map_flags, uint32_t pageType);
 KAPI int virtualUnmapPage(uint64_t va, uint64_t map_flags);
 KAPI int virtualUnmapPages(uint64_t va, uint64_t page_cnt, uint64_t map_flags);
-KAPI int virtualToPhysical(uint64_t va, uint64_t* pVa);
+KAPI int virtualToPhysical(uint64_t va, uint64_t* pPa);
 KAPI int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t pageType);
 KAPI int virtualFreePage(uint64_t va, uint64_t map_flags);
 KAPI int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType);

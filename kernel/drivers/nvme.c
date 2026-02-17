@@ -282,7 +282,7 @@ int nvme_init_admin_submission_queue(struct nvme_drive_desc* pDriveDesc){
 	uint64_t lapic_id = 0;
 	if (lapic_get_id(&lapic_id)!=0)
 		return -1;
-	struct nvme_completion_queue_desc* pCompletionQueueDesc = &pDriveDesc->adminCompletionQueueDesc;
+	struct nvme_completion_queue_desc* pCompletionQueueDesc = &pDriveDesc->completionQueueList[0];
 	struct nvme_submission_queue_desc* pSubmissionQueueDesc = (struct nvme_submission_queue_desc*)0x0;	
 	if (nvme_alloc_completion_queue(pDriveDesc, NVME_MAX_CQE_COUNT, 0x0, pCompletionQueueDesc)!=0)
 		return -1;
@@ -339,7 +339,7 @@ int nvme_init_admin_submission_queue(struct nvme_drive_desc* pDriveDesc){
 int nvme_deinit_admin_submission_queue(struct nvme_drive_desc* pDriveDesc){
 	if (!pDriveDesc)
 		return -1;
-	if (nvme_free_completion_queue(&pDriveDesc->adminCompletionQueueDesc)!=0){
+	if (nvme_free_completion_queue(&pDriveDesc->completionQueueList[0])!=0){
 		nvme_free_submission_queue(&pDriveDesc->submissionQueueList[0]);	
 		return -1;
 	}
@@ -354,9 +354,9 @@ int nvme_admin_completion_queue_interrupt(uint8_t vector){
 		return -1;
 	}
 	volatile struct nvme_completion_qe* pCompletionQe = (volatile struct nvme_completion_qe*)0x0;
-	struct nvme_completion_queue_desc* pCompletionQueueDesc = &pDriveDesc->adminCompletionQueueDesc;
+	struct nvme_completion_queue_desc* pCompletionQueueDesc = &pDriveDesc->completionQueueList[0];	
 	uint64_t processedCount = 0;
-	while (!nvme_get_current_completion_qe(&pDriveDesc->adminCompletionQueueDesc, &pCompletionQe)&&processedCount<pCompletionQueueDesc->maxCompletionEntryCount){
+	while (!nvme_get_current_completion_qe(pCompletionQueueDesc, &pCompletionQe)&&processedCount<pCompletionQueueDesc->maxCompletionEntryCount){
 		if (!pCompletionQe){
 			printf("invalid completion QE\r\n");
 			break;
@@ -402,6 +402,32 @@ int nvme_admin_completion_queue_interrupt(uint8_t vector){
 }
 int nvme_io_completion_queue_interrupt(uint8_t vector){
 	printf("I/O completion queue ISR at vector %d\r\n", vector);
+	return 0;
+}
+int nvme_identify(struct nvme_drive_desc* pDriveDesc, uint32_t namespace_id, uint32_t identify_type, unsigned char* pBuffer, struct nvme_completion_qe_desc* pCompletionQeDesc){
+	if (!pDriveDesc||!pBuffer||!pCompletionQeDesc)
+		return -1;
+	uint64_t pBuffer_phys = 0;
+	if (virtualToPhysical((uint64_t)pBuffer, &pBuffer_phys)!=0)
+		return -1;
+	struct nvme_submission_qe_desc submissionQeDesc = {0};
+	memset((void*)&submissionQeDesc, 0, sizeof(struct nvme_submission_qe_desc));
+	struct nvme_submission_qe submissionQe = {0};
+	memset((void*)&submissionQe, 0, sizeof(struct nvme_submission_qe));
+	submissionQe.opcode = NVME_ADMIN_IDENTIFY_OPCODE;
+	submissionQe.namespace_id = namespace_id;
+	submissionQe.prp1 = pBuffer_phys;
+	submissionQe.cmd_specific[0] = identify_type;
+	if (nvme_alloc_submission_qe(&pDriveDesc->submissionQueueList[0], submissionQe, &submissionQeDesc)!=0){
+		printf("failed to allocate submission QE\r\n");
+		return -1;
+	}
+	if (nvme_run_submission_queue(&pDriveDesc->submissionQueueList[0])!=0){
+		printf("failed to run submission queue\r\n");
+		return -1;
+	}	
+	while (!submissionQeDesc.cmdComplete){};
+	*pCompletionQeDesc = submissionQeDesc.completionQeDesc;	
 	return 0;
 }
 int nvme_drive_init(struct pcie_location location){
@@ -452,13 +478,128 @@ int nvme_drive_init(struct pcie_location location){
 		kfree((void*)pDriveDesc);
 		return -1;
 	}
-	struct nvme_submission_qe submissionQe = {0};
-	memset((void*)&submissionQe, 0, sizeof(struct nvme_submission_qe));
-	submissionQe.opcode = NVME_ADMIN_IDENTIFY_OPCODE;	
+	struct nvme_controller_info* pControllerInfo = (struct nvme_controller_info*)0x0;
+	if (virtualAllocPage((uint64_t*)&pControllerInfo, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate NVMe controller info page\r\n");	
+		nvme_drive_deinit(pDriveDesc);	
+		return -1;
+	}	
+	memset((void*)pControllerInfo, 0, PAGE_SIZE);	
+	pDriveDesc->pControllerInfo = pControllerInfo;
+	struct nvme_completion_qe_desc completionQeDesc = {0};
+	memset((void*)&completionQeDesc, 0, sizeof(struct nvme_completion_qe_desc));
+	struct nvme_completion_qe* pCompletionQe = &completionQeDesc.completionQe;
+	if (nvme_identify(pDriveDesc, 0x0, NVME_IDENTIFY_CODE_CONTROLLER, (unsigned char*)pControllerInfo, &completionQeDesc)!=0){
+		printf("failed to identify host controller\r\n");
+		nvme_drive_deinit(pDriveDesc);	
+		return -1;
+	}	
+	if (pCompletionQe->status.status_code!=NVME_STATUS_CODE_SUCCESS){
+		const unsigned char* statusCodeName = "Unknown status code";
+		nvme_get_status_code_name(pCompletionQe->status.status_code, &statusCodeName);
+		printf("failed to get NVMe controller info (%s)\r\n", statusCodeName);	
+		nvme_drive_deinit(pDriveDesc);	
+		return -1;
+	}
+	printf("vendor ID: 0x%x\r\n", pControllerInfo->vendor_id);
+	printf("model name: ");
+	for (uint64_t i = 0;i<sizeof(pControllerInfo->model_number);i++){
+		putchar(pControllerInfo->model_number[i]);
+	}
+	putchar('\n');	
+	printf("serial: ");
+	for (uint64_t i = 0;i<sizeof(pControllerInfo->serial)&&pControllerInfo->serial[i];i++){
+		putchar(pControllerInfo->serial[i]);	
+	}
+	putchar('\n');
+	printf("namespace count: %d\r\n", pControllerInfo->namespace_count);
+	uint32_t* pActiveNamespaceList = (uint32_t*)0x0;
+	if (virtualAllocPage((uint64_t*)&pActiveNamespaceList, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate active namespace list\r\n");
+		nvme_drive_deinit(pDriveDesc);	
+		return -1;
+	}
+	memset((void*)pActiveNamespaceList, 0, PAGE_SIZE);
+	if (nvme_identify(pDriveDesc, 0x0, NVME_IDENTIFY_CODE_GET_ACTIVE_NAMESPACE_LIST, (unsigned char*)pActiveNamespaceList, &completionQeDesc)!=0){
+		printf("failed to get active namespace list\r\n");
+		nvme_drive_deinit(pDriveDesc);
+		virtualFreePage((uint64_t)pActiveNamespaceList, 0);
+		return -1;
+	}	
+	if (pCompletionQe->status.status_code!=NVME_STATUS_CODE_SUCCESS){
+		const unsigned char* statusCodeName = "Unknown status code";
+		const unsigned char* statusCodeTypeName = "Unknown status code type";
+		nvme_get_status_code_name(pCompletionQe->status.status_code, &statusCodeName);
+		nvme_get_status_code_type_name(pCompletionQe->status.status_code_type, &statusCodeTypeName);
+		printf("failed to get active namespace list\r\n");
+		printf("status code (%s)\r\n", statusCodeName);
+		printf("status code type (%s)\r\n", statusCodeTypeName);
+		nvme_drive_deinit(pDriveDesc);
+		virtualFreePage((uint64_t)pActiveNamespaceList, 0);
+		return -1;
+	}	
+	struct nvme_namespace_info* pNamespaceInfo = (struct nvme_namespace_info*)0x0;
+	if (virtualAllocPage((uint64_t*)&pNamespaceInfo, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate namespace info\r\n");
+		nvme_drive_deinit(pDriveDesc);
+		virtualFreePage((uint64_t)pActiveNamespaceList, 0);
+		return -1;
+	}	
+	memset((void*)pNamespaceInfo, 0, PAGE_SIZE);
+	for (uint64_t i = 0;i<PAGE_SIZE/sizeof(uint32_t)&&pActiveNamespaceList[i];i++){
+		uint32_t namespaceId = pActiveNamespaceList[i];
+		if (nvme_identify(pDriveDesc, namespaceId, NVME_IDENTIFY_CODE_GET_ALLOCATED_NAMESPACE_INFO_LEGACY, (unsigned char*)pNamespaceInfo, &completionQeDesc)!=0){
+			printf("failed to get namespace info\r\n");
+			nvme_drive_deinit(pDriveDesc);
+			virtualFreePage((uint64_t)pActiveNamespaceList, 0);
+			virtualFreePage((uint64_t)pNamespaceInfo, 0);
+			return -1;
+		}	
+		if (pCompletionQe->status.status_code!=NVME_STATUS_CODE_SUCCESS){
+			const unsigned char* statusCodeName = "Unknown status code";
+			const unsigned char* statusCodeTypeName = "Unknown status code type";
+			nvme_get_status_code_name(pCompletionQe->status.status_code, &statusCodeName);
+			nvme_get_status_code_type_name(pCompletionQe->status.status_code_type, &statusCodeTypeName);
+			printf("failed to get namespace info\r\n");
+			printf("status code (%s)\r\n", statusCodeName);
+			printf("status code type (%s)\r\n", statusCodeTypeName);
+			nvme_drive_deinit(pDriveDesc);
+			virtualFreePage((uint64_t)pActiveNamespaceList, 0);
+			virtualFreePage((uint64_t)pNamespaceInfo, 0);
+			return -1;
+		}
+		struct nvme_lba_format currentFormat = pNamespaceInfo->lbaFormatList[pNamespaceInfo->active_lba_format_index];
+		uint64_t lbaSize = 1<<((uint64_t)currentFormat.lba_data_size);	
+		uint64_t namespaceSize = pNamespaceInfo->namespace_lba_count*lbaSize;	
+		printf("active namespace with ID: %d\r\n", namespaceId);
+		printf("LBA size: %d\r\n", lbaSize);
+		printf("LBA count: %d\r\n", pNamespaceInfo->namespace_lba_count);
+		printf("namespace size: %dMB\r\n", namespaceSize/MEM_MB);
+	}
+	virtualFreePage((uint64_t)pNamespaceInfo, 0);
+	pDriveDesc->pControllerInfo = pControllerInfo;	
 	return 0;
 }
-int nvme_drive_deinit(struct pcie_location location){
-
+int nvme_drive_deinit(struct nvme_drive_desc* pDriveDesc){
+	if (!pDriveDesc)
+		return -1;
+	for (uint64_t i = 0;i<pDriveDesc->submissionQueueCount;i++){
+		struct nvme_submission_queue_desc* pSubmissionQueueDesc = &pDriveDesc->submissionQueueList[i];
+		if (!pSubmissionQueueDesc->pSubmissionQueue)
+			break;
+		nvme_free_submission_queue(pSubmissionQueueDesc);	
+	}
+	for (uint64_t i = 0;i<pDriveDesc->completionQueueCount;i++){
+		struct nvme_completion_queue_desc* pCompletionQueueDesc = &pDriveDesc->completionQueueList[i];
+		if (!pCompletionQueueDesc->pCompletionQueue)
+			break;
+		nvme_free_completion_queue(pCompletionQueueDesc);
+	}
+	if (pDriveDesc->pActiveNamespaceDescList)
+		virtualFreePage((uint64_t)pDriveDesc->pActiveNamespaceDescList, 0);
+	if (pDriveDesc->pControllerInfo)
+		virtualFreePage((uint64_t)pDriveDesc->pControllerInfo, 0);
+	kfree((void*)pDriveDesc);
 	return 0;
 }
 int nvme_subsystem_function_register(struct pcie_location location){
@@ -467,7 +608,5 @@ int nvme_subsystem_function_register(struct pcie_location location){
 	return 0;
 }
 int nvme_subsystem_function_unregister(struct pcie_location location){
-	if (nvme_drive_deinit(location)!=0)
-		return -1;
 	return 0;
 }
