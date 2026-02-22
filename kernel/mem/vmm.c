@@ -22,7 +22,7 @@ int vmm_init(void){
 	uint64_t fb_size = fb_pages*PAGE_SIZE;
 	uint64_t pPhysicalFrameBuffer = (uint64_t)pbootargs->graphicsInfo.physicalFrameBuffer;
 	uint64_t pFrameBuffer_va = pPhysicalFrameBuffer;
-	if (virtualMapPages(pPhysicalFrameBuffer, pFrameBuffer_va, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, fb_pages, 0, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualMapPages(pPhysicalFrameBuffer, pFrameBuffer_va, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, fb_pages, 1, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to map framebuffer\r\n");
 		return -1;
 	}
@@ -55,12 +55,12 @@ int vmm_init(void){
 		return -1;
 	}
 	uint64_t fontPages = align_up(pbootargs->graphicsInfo.fontDataSize, PAGE_SIZE)/PAGE_SIZE;
-	if (virtualMapPages((uint64_t)pbootargs->graphicsInfo.fontData, (uint64_t)pbootargs->graphicsInfo.fontData, PTE_RW, fontPages, 1, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualMapPages((uint64_t)pbootargs->graphicsInfo.fontData, (uint64_t)pbootargs->graphicsInfo.fontData, PTE_RW|PTE_NX, fontPages, 1, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to map font\r\n");
 		return -1;
 	}
 	uint64_t memoryMapPages = align_up(pbootargs->memoryInfo.memoryMapSize, PAGE_SIZE)/PAGE_SIZE;
-	if (virtualMapPages((uint64_t)pbootargs->memoryInfo.pMemoryMap, (uint64_t)pbootargs->memoryInfo.pMemoryMap, PTE_RW, memoryMapPages, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
+	if (virtualMapPages((uint64_t)pbootargs->memoryInfo.pMemoryMap, (uint64_t)pbootargs->memoryInfo.pMemoryMap, PTE_RW|PTE_NX, memoryMapPages, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
 		printf("failed to map memory map\r\n");
 		return -1;
 	}
@@ -71,11 +71,11 @@ int vmm_init(void){
 		return -1;
 	}
 	uint64_t physicalPageTablePages = align_up(physicalPageTableSize, PAGE_SIZE)/PAGE_SIZE;
-	if (virtualMapPages((uint64_t)pPhysicalPageTable, (uint64_t)pPhysicalPageTable, PTE_RW, physicalPageTablePages, 1, 0, PAGE_TYPE_PMM)!=0){
+	if (virtualMapPages((uint64_t)pPhysicalPageTable, (uint64_t)pPhysicalPageTable, PTE_RW|PTE_NX, physicalPageTablePages, 1, 0, PAGE_TYPE_PMM)!=0){
 		printf("failed to map physical page table\r\n");
 		return -1;
 	}
-	if (virtualMapPage((uint64_t)pbootargs->driveInfo.devicePathStr, (uint64_t)pbootargs->driveInfo.devicePathStr, PTE_RW, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
+	if (virtualMapPage((uint64_t)pbootargs->driveInfo.devicePathStr, (uint64_t)pbootargs->driveInfo.devicePathStr, PTE_RW|PTE_NX, 1, 0, PAGE_TYPE_FIRMWARE_DATA)!=0){
 		printf("failed to map drive device path string\r\n");
 		return -1;
 	}
@@ -118,6 +118,8 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 	uint64_t* pNextLevel = (uint64_t*)*(((uint64_t**)pCurrentLevel)+index);
 	if (PTE_IS_PRESENT(pNextLevel)){
 		*ppNextLevel = (uint64_t*)PTE_GET_ADDR(pNextLevel);
+		if (!pt_loaded()&&0)	
+			printf("got PTE address\r\n");
 		return 0;
 	}
 	if (physicalAllocPage((uint64_t*)&pNextLevel, PAGE_TYPE_VMM)!=0){
@@ -185,6 +187,7 @@ KAPI int virtualUnmapPage(uint64_t va, uint64_t map_flags){
 		va = align_down(va, PAGE_SIZE);
 	uint64_t* pentry = (uint64_t*)0x0;
 	if (vmm_getPageTableEntry(va, &pentry)!=0){
+		printf("failed to get PTE\r\n");
 		return -1;
 	}
 	if (!PTE_IS_MAPPED(*pentry)){
@@ -196,8 +199,9 @@ KAPI int virtualUnmapPage(uint64_t va, uint64_t map_flags){
 			return -1;
 	}
 	*pentry = 0;
-	if (get_pt()!=(uint64_t)pml4)
+	if (get_pt()!=(uint64_t)pml4){
 		return 0;
+	}
 	flush_tlb(va);
 	return 0;
 }

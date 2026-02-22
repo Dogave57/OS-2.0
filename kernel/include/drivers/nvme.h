@@ -35,6 +35,19 @@
 #define NVME_ADMIN_SECURITY_SEND_OPCODE (0x81)
 #define NVME_ADMIN_SECURITY_RECEIVE_OPCODE (0x82)
 #define NVME_ADMIN_SANITIZE_OPCODE (0x84)
+#define NVME_IO_FLUSH_OPCODE (0x00)
+#define NVME_IO_WRITE_OPCODE (0x01)
+#define NVME_IO_READ_OPCODE (0x02)
+#define NVME_IO_WRITE_INVALID_OPCODE (0x04)
+#define NVME_IO_COMPARE_OPCODE (0x05)
+#define NVME_IO_ZERO_OUT_OPCODE (0x08)
+#define NVME_IO_DATASET_MANAGEMENT_OPCODE (0x09)
+#define NVME_IO_VERIFY_OPCODE (0x0C)
+#define NVME_IO_RESERVATION_REGISTER_OPCODE (0x0D)
+#define NVME_IO_RESERVATION_REPORT_OPCODE (0x0E)
+#define NVME_IO_RESERVATION_ACQUIRE_OPCODE (0x11)
+#define NVME_IO_RESERVATION_RELEASE_OPCODE (0x15)
+#define NVME_IO_COPY_OPCODE (0x19)
 #define NVME_STATUS_CODE_SUCCESS (0x00)
 #define NVME_STATUS_CODE_INVALID_OPCODE (0x01)
 #define NVME_STATUS_CODE_INVALID_FIELD (0x02)
@@ -77,8 +90,6 @@
 #define NVME_STATUS_CODE_TYPE_CMD_SPECIFIC (0x01)
 #define NVME_STATUS_CODE_TYPE_MEDIA_DATA_INTEGRITY (0x02)
 #define NVME_STATUS_CODE_TYPE_PATH_RELATED (0x03)
-#define NVME_DOORBELL_TYPE_SUBMISSION_QUEUE (0x00)
-#define NVME_DOORBELL_TYPE_COMPLETION_QUEUE (0x01)
 #define NVME_IDENTIFY_CODE_NAMESPACE (0x00)
 #define NVME_IDENTIFY_CODE_CONTROLLER (0x01)
 #define NVME_IDENTIFY_CODE_GET_ACTIVE_NAMESPACE_LIST (0x02)
@@ -100,6 +111,20 @@
 #define NVME_IDENTIFY_CODE_GET_SECONDARY_CONTROLLER_LIST (0x15)
 #define NVME_IDENTIFY_CODE_GET_NAMESPACE_GRANULARITY (0x16)
 #define NVME_IDENTIFY_CODE_GET_UUID_LIST (0x17)
+#define NVME_DATA_TRANSFER_TYPE_PRP (0b)
+#define NVME_DATA_TRANSFER_TYPE_SGL_SEPARATE_METADATA (01b)
+#define NVME_DATA_TRANSFER_TYPE_SGL (10b)
+#define NVME_IO_SQ_PRIORITY_URGENT (0x00)
+#define NVME_IO_SQ_PRIORITY_HIGH (0x01)
+#define NVME_IO_SQ_PRIORITY_MEDIUM (0x02)
+#define NVME_IO_SQ_PRIORITY_LOW (0x03)
+#define NVME_DOORBELL_TYPE_SQ (0x00)
+#define NVME_DOORBELL_TYPE_CQ (0x01)
+#define NVME_QUEUE_TYPE_INVALID (0x00)
+#define NVME_QUEUE_TYPE_ADMIN_SQ (0x01)
+#define NVME_QUEUE_TYPE_ADMIN_CQ (0x02)
+#define NVME_QUEUE_TYPE_IO_SQ (0x03)
+#define NVME_QUEUE_TYPE_IO_CQ (0x04)
 static const unsigned char* statusCodeNameMap[]={
 	[NVME_STATUS_CODE_SUCCESS]="Success",
 	[NVME_STATUS_CODE_INVALID_OPCODE]="Invalid opcode",
@@ -366,17 +391,133 @@ struct nvme_cid{
 	uint16_t submissionQeIndex:12;	
 }__attribute__((packed));
 struct nvme_submission_qe{
-	uint8_t opcode;
-	uint8_t fused:2;
-	uint8_t reserved0:4;
-	uint8_t data_transfer_type:2;
-	struct nvme_cid cmd_ident;	
-	uint32_t namespace_id;
-	uint64_t reserved1;
-	uint64_t metadata_ptr;
-	uint64_t prp1;
-	uint64_t prp2;
-	uint32_t cmd_specific[6];	
+	union{
+		struct{
+			uint8_t opcode;
+			uint8_t fused:2;
+			uint8_t reserved0:4;
+			uint8_t data_transfer_type:2;
+			struct nvme_cid cmd_ident;	
+			uint32_t namespace_id;
+			uint64_t reserved1;
+			uint64_t metadata_ptr;
+			uint64_t prp1;
+			uint64_t prp2;
+			uint32_t cmd_specific[6];
+		}generic;	
+		struct{
+			uint8_t opcode;
+			uint8_t fused:2;
+			uint8_t reserved0:4;
+			uint8_t reserved1:2;
+			struct nvme_cid cmd_ident;
+			uint32_t namespace_id;
+			uint64_t reserved2;
+			uint64_t metadata_ptr;
+			uint64_t prp1;
+			uint64_t prp2;
+			uint32_t identify_type;
+			uint32_t reserved3[5];
+		}identify;
+		struct{
+			uint8_t opcode;
+			uint8_t fused:2;
+			uint8_t reserved0:4;
+			uint8_t reserved1:2;
+			struct nvme_cid cmd_ident;
+			uint32_t namespace_id;
+			uint64_t reserved2;
+			uint64_t metadata_ptr;
+			uint64_t prp0;
+			uint64_t prp1;
+			uint32_t queue_id:16;
+			uint32_t queue_size:16;
+			uint32_t physically_contiguous:1;
+			uint32_t queue_priority:2;
+			uint32_t reserved3:13;
+			uint32_t completion_queue_id:16;
+			uint32_t reserved4[4];
+		}create_io_sq;
+		struct{
+			uint8_t opcode;
+			uint8_t fused:2;
+			uint8_t reserved0:4;
+			uint8_t reserved1:2;
+			struct nvme_cid cmd_ident;
+			uint32_t namespace_id;
+			uint64_t reserved2;
+			uint64_t metadata_ptr;
+			uint64_t prp0;
+			uint64_t prp1;
+			uint32_t queue_id:16;
+			uint32_t reserved3:16;
+			uint32_t reserved4[5];	
+		}delete_io_sq;
+		struct{
+			uint8_t opcode;
+			uint8_t fused:2;
+			uint8_t reserved0:4;
+			uint8_t reserved1:2;
+			struct nvme_cid cmd_ident;
+			uint32_t namespace_id;
+			uint64_t reserved2;
+			uint64_t metadata_ptr;
+			uint64_t prp0;	
+			uint64_t prp1;
+			uint32_t queue_id:16;
+			uint32_t queue_size:16;
+			uint32_t physically_contiguous:1;
+			uint32_t interrupt_enable:1;
+			uint32_t reserved3:14;
+			uint32_t msix_vector:16;
+			uint32_t reserved4[4];
+		}create_io_cq;
+		struct{
+			uint8_t opcode;
+			uint8_t fused:2;
+			uint8_t reserved0:4;
+			uint8_t reserved1:2;
+			struct nvme_cid cmd_ident;
+			uint32_t namespace_id;
+			uint64_t reserved2;
+			uint64_t metadata_ptr;
+			uint64_t prp0;
+			uint64_t prp1;
+			uint32_t queue_id:16;
+			uint32_t reserved3:16;
+			uint32_t reserved4[5];
+		}delete_io_cq;
+		struct{
+			uint8_t opcode;
+			uint8_t fused:2;
+			uint8_t reserved0:4;
+			uint8_t data_transfer_type:2;	
+			struct nvme_cid cmd_ident;
+			uint32_t namespace_id;
+			uint64_t reserved1;
+			uint64_t metadata_ptr;
+			uint64_t prp0;
+			uint64_t prp1;
+			uint64_t lba;
+			uint32_t sector_count;
+			uint32_t reserved2[3];
+		}read_sectors;
+		struct{
+			uint8_t opcode;
+			uint8_t fused:2;
+			uint8_t reserved0:4;
+			uint8_t data_transfer_type:2;
+			struct nvme_cid cmd_ident;
+			uint32_t namespace_id;
+			uint64_t reserved1;
+			uint64_t metadata_ptr;
+			uint64_t prp0;
+			uint64_t prp1;
+			uint64_t lba;
+			uint32_t sector_count;
+			uint32_t reserved2[3];
+		}write_sectors;
+	};
 }__attribute__((packed));
 struct nvme_completion_qe{
 	uint32_t cmd_specific;
@@ -398,7 +539,10 @@ struct nvme_completion_queue_desc{
 	uint64_t completionEntry;	
 	uint64_t maxCompletionEntryCount;
 	uint8_t phase;	
+	uint8_t queueType;
+	uint8_t queueIndex;	
 	uint64_t queueId;
+	uint64_t msixVector;	
 	struct nvme_drive_desc* pDriveDesc;
 };
 struct nvme_completion_qe_desc{
@@ -417,14 +561,61 @@ struct nvme_submission_queue_desc{
 	struct nvme_submission_qe_desc** ppSubmissionQeDescList;	
 	uint64_t submissionEntry;
 	uint64_t maxSubmissionEntryCount;
-	uint8_t queueId;
 	uint8_t queueIndex;
+	uint8_t queueId;
+	uint8_t queueType;
 	struct nvme_completion_queue_desc* pCompletionQueueDesc;
 	struct nvme_drive_desc* pDriveDesc;
 };
 struct nvme_namespace_desc{
-	uint32_t namespaceCount;
 	uint64_t lbaCount;
+	uint64_t sectorSize;
+	uint64_t namespaceSize;
+	unsigned char guid[16];
+};
+struct nvme_alloc_queue_packet{
+	uint8_t queueType;
+	union{
+		struct{
+			uint64_t maxEntryCount;
+			struct nvme_submission_queue_desc* pSubmissionQueueDesc;
+			struct nvme_completion_queue_desc* pCompletionQueueDesc;	
+		}admin_sq;
+		struct{
+			uint64_t maxEntryCount;
+			struct nvme_completion_queue_desc* pCompletionQueueDesc;
+		}admin_cq;
+		struct{
+			uint64_t maxEntryCount;
+			struct nvme_submission_queue_desc* pSubmissionQueueDesc;
+			struct nvme_completion_queue_desc* pCompletionQueueDesc;
+		}io_sq;
+		struct{
+			uint64_t maxEntryCount;
+			struct nvme_completion_queue_desc* pCompletionQueueDesc;
+		}io_cq;
+	};
+};
+struct nvme_free_queue_packet{
+	uint8_t queueType;
+	union{
+		struct{
+			struct nvme_submission_queue_desc* pSubmissionQueueDesc;
+		}admin_sq;
+		struct{
+			struct nvme_completion_queue_desc* pCompletionQueueDesc;
+		}admin_cq;
+		struct{
+			struct nvme_submission_queue_desc* pSubmissionQueueDesc;
+		}io_sq;
+		struct{
+			struct nvme_completion_queue_desc* pCompletionQueueDesc;
+		}io_cq;
+	};
+};
+struct nvme_isr_mapping_table_entry{
+	struct nvme_drive_desc* pDriveDesc;
+	struct nvme_completion_queue_desc* pCompletionQueueDesc;
 };
 struct nvme_drive_desc{
 	struct pcie_location location;
@@ -436,39 +627,53 @@ struct nvme_drive_desc{
 	uint64_t pBaseRegisters_phys;
 	struct nvme_controller_info* pControllerInfo;
 	struct nvme_namespace_desc* pActiveNamespaceDescList;
+	uint64_t activeNamespaceDescListSize;
 	uint32_t activeNamespaceCount;	
+	uint64_t maxTransferLength;	
+	volatile struct pcie_msix_msg_ctrl* pMsgControl;
 	volatile uint32_t* pDoorbellBase;
 };
 struct nvme_driver_info{
 	uint64_t driverId;
-	struct nvme_drive_desc** pDriveDescMappingTable;
-	uint64_t driveDescMappingTableSize;
+	struct nvme_isr_mapping_table_entry* pIsrMappingTable;
+	uint64_t isrMappingTableSize;
 };
 int nvme_driver_init(void);
-int nvme_driver_init_drive_desc_mapping_table(void);
+int nvme_driver_init_isr_mapping_table(void);
 int nvme_enable(struct nvme_drive_desc* pDriveDesc);
 int nvme_disable(struct nvme_drive_desc* pDriveDesc);
 int nvme_enabled(struct nvme_drive_desc* pDriveDesc);
-int nvme_ring_doorbell(struct nvme_drive_desc* pDriveDesc, uint64_t queueId, uint8_t type, uint16_t tail);
+int nvme_ring_doorbell(struct nvme_drive_desc* pDriveDesc, uint64_t doorbellId, uint8_t doorbellType, uint16_t tail);
 int nvme_run_submission_queue(struct nvme_submission_queue_desc* pSubmissionQueueDesc);
-int nvme_alloc_completion_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, uint64_t queueId, struct nvme_completion_queue_desc* pCompletionQueueDesc);
+int nvme_alloc_completion_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, uint8_t queueType, struct nvme_completion_queue_desc** ppCompletionQueueDesc);
 int nvme_free_completion_queue(struct nvme_completion_queue_desc* pCompletionQueueDesc);
+int nvme_get_completion_queue_desc(struct nvme_drive_desc* pDriveDesc, uint8_t queueId, struct nvme_completion_queue_desc** ppCompletionQueueDesc);
+int nvme_alloc_io_completion_queue(struct nvme_drive_desc* pDriveDesc, struct nvme_alloc_queue_packet* pPacket, struct nvme_completion_qe_desc* pCompletionQeDesc);
+int nvme_free_io_completion_queue(struct nvme_free_queue_packet* pPacket);
 int nvme_get_current_completion_qe(struct nvme_completion_queue_desc* pCompletionQueueDesc, volatile struct nvme_completion_qe** ppCompletionQe);
 int nvme_acknowledge_completion_qe(struct nvme_completion_queue_desc* pCompletionQueueDesc);
 int nvme_get_status_code_name(uint8_t statusCode, const unsigned char** ppName);
 int nvme_get_status_code_type_name(uint8_t statusCodeType, const unsigned char** ppName);
-int nvme_get_submission_queue_desc(struct nvme_submission_queue_desc* pSubmissionQueueDesc, uint64_t qeIndex, struct nvme_submission_qe_desc** ppSubmisionQeDesc);
+int nvme_get_submission_qe_desc(struct nvme_submission_queue_desc* pSubmissionQueueDesc, uint64_t qeIndex, struct nvme_submission_qe_desc** ppSubmisionQeDesc);
 int nvme_alloc_submission_qe(struct nvme_submission_queue_desc* pSubmissionQueueDesc, struct nvme_submission_qe entry, struct nvme_submission_qe_desc* pSubmissionQeDesc);
-int nvme_alloc_submission_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, uint64_t queueId, struct nvme_submission_queue_desc** ppSubmissionQueueDesc, struct nvme_completion_queue_desc* pCompletionQueueDesc);
+int nvme_alloc_submission_queue(struct nvme_drive_desc* pDriveDesc, uint64_t maxEntryCount, uint8_t queueType, struct nvme_submission_queue_desc** ppSubmissionQueueDesc, struct nvme_completion_queue_desc* pCompletionQueueDesc);
 int nvme_free_submission_queue(struct nvme_submission_queue_desc* pSubmissionQueueDesc);
-int nvme_init_admin_submission_queue(struct nvme_drive_desc* pDriveDesc);
-int nvme_deinit_admin_submission_queue(struct nvme_drive_desc* pDriveDesc);
-int nvme_admin_completion_queue_interrupt(uint8_t vector);
-int nvme_io_completion_queue_interrupt(uint8_t vector);
-int nvme_identify(struct nvme_drive_desc* pDriveDesc, uint32_t namespace_id, uint32_t identify_type, unsigned char* pBuffer, struct nvme_completion_qe_desc* pCompletionQeDesc);
+int nvme_get_submission_queue_desc(struct nvme_drive_desc* pDriveDesc, uint8_t queueId, struct nvme_submission_queue_desc** ppSubmissionQueueDesc);
+int nvme_alloc_io_submission_queue(struct nvme_drive_desc* pDriveDesc, struct nvme_alloc_queue_packet* pPacket, struct nvme_completion_qe_desc* pCompletionQeDesc);
+int nvme_free_io_submission_queue(struct nvme_free_queue_packet* pPacket);
+int nvme_alloc_admin_submission_queue(struct nvme_drive_desc* pDriveDesc, struct nvme_alloc_queue_packet* pPacket);
+int nvme_free_admin_submission_queue(struct nvme_free_queue_packet* pPacket);
+int nvme_alloc_admin_completion_queue(struct nvme_drive_desc* pDriveDesc, struct nvme_alloc_queue_packet* pPacket);
+int nvme_free_admin_completion_queue(struct nvme_free_queue_packet* pPacket);
+int nvme_completion_queue_interrupt(uint8_t vector);
+int nvme_identify(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint32_t identifyType, unsigned char* pBuffer, struct nvme_completion_qe_desc* pCompletionQeDesc);
+int nvme_get_namespace_desc(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, struct nvme_namespace_desc** ppnamespaceDesc);
+int nvme_read(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint64_t lba, uint32_t sectorCount, unsigned char* pBuffer, struct nvme_completion_qe_desc* pCompletionQeDesc);
+int nvme_write(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint64_t lba, uint32_t sectorCount, unsigned char* pBuffer, struct nvme_completion_qe_desc* pComlpetionQeDesc);
+int nvme_namespace_init(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, struct nvme_namespace_desc** ppNamespaceDesc);
 int nvme_drive_init(struct pcie_location location);
 int nvme_drive_deinit(struct nvme_drive_desc* pDriveDesc);
 int nvme_subsystem_function_register(struct pcie_location location);
 int nvme_subsystem_function_unregister(struct pcie_location location);
-int nvme_admin_completion_queue_isr(void);
+int nvme_completion_queue_isr(void);
 #endif

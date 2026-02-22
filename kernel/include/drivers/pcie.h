@@ -67,7 +67,7 @@ union pcie_msix_table_entry_msg_data{
 		uint32_t reserved0:3;
 		uint32_t level:1;
 		uint32_t trigger:1;
-		uint32_t reserved1:26;
+		uint32_t reserved1:16;
 	};
 	uint32_t raw;
 }__attribute__((packed));

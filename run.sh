@@ -8,7 +8,7 @@ case "$OS" in
 sudo qemu-system-x86_64 $LINUX_FLAGS -trace "pci_nvme_*" -m 4G -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive file=nvme_drive.img,if=none,id=nvme_drive,format=raw -device nvme,drive=nvme_drive,serial=serial -serial $SERIAL_PATH -smp cores=4 -machine q35
 ;;
 "Darwin")
-sudo qemu-system-x86_64 $MACOS_FLAGS -trace "pci_nvme_*" -m 4G -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive file=nvme_drive.img,if=none,id=nvme_drive,format=raw -device nvme,drive=nvme_drive,serial=deadbeef -serial $SERIAL_PATH -smp cores=4 -machine q35
+sudo qemu-system-x86_64 $MACOS_FLAGS -trace "pci_nvme_*" -m 4G -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive file=nvme_drive.img,if=none,id=nvme_drive,format=raw -device nvme,drive=nvme_drive,serial=deadbeef -smp cores=4 -machine q35
 ;;
 *)
 esac

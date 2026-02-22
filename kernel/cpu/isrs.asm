@@ -242,8 +242,7 @@ global isr19
 global isr20
 global ctx_switch_time
 global xhci_interrupter_isr
-global nvme_admin_completion_queue_isr
-global nvme_io_completion_queue_isr
+global nvme_completion_queue_isr
 extern print
 extern lprint
 extern printf
@@ -266,8 +265,7 @@ extern physicalAllocPage
 extern virtualGetPageFlags
 extern lapic_tick_count
 extern xhci_interrupter
-extern nvme_admin_completion_queue_interrupt
-extern nvme_io_completion_queue_interrupt
+extern nvme_completion_queue_interrupt
 extern schedulerHalt
 exception_fg:
 db 255, 255, 255, 0
@@ -630,13 +628,13 @@ add qword rsp, 32
 mov qword rsp, rbp
 popaq
 iretq
-nvme_admin_completion_queue_isr:
+nvme_completion_queue_isr:
 cli
 pushaq
 mov qword rbp, rsp
 and rsp, -16
 sub qword rsp, 32
-call nvme_admin_completion_queue_interrupt
+call nvme_completion_queue_interrupt
 add qword rsp, 32
 sub qword rsp, 32
 call entropy_shuffle

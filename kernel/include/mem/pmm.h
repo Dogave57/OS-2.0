@@ -24,7 +24,7 @@ struct p_page{
 	uint8_t status;
 	uint8_t pageType;
 	uint64_t virtualAddress;
-	uint8_t padding[6];
+	uint8_t padding0[6];
 }__attribute__((packed));
 struct p_pt_info{
 	uint64_t pt_size;
