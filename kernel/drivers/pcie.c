@@ -138,7 +138,7 @@ int pcie_get_cap_ptr(struct pcie_location location, uint8_t cap_id, struct pcie_
 	uint8_t newOffset = 0;
 	pcie_read_byte(location, currentOffset, &newOffset);
 	currentOffset = (uint64_t)newOffset;
-	while (currentOffset&&currentOffset<0xFF){
+	while (currentOffset){
 		pcie_read_word(location, currentOffset, (uint16_t*)&currentLink);
 		if (currentLink.cap_id!=cap_id){
 			currentOffset = (uint64_t)currentLink.next_offset;
@@ -153,6 +153,31 @@ int pcie_get_cap_ptr(struct pcie_location location, uint8_t cap_id, struct pcie_
 		return 0;
 	}
 	return -1;
+}
+int pcie_get_first_cap_ptr(struct pcie_location location, struct pcie_cap_link** ppCapLink){
+	if (!ppCapLink)
+		return -1;
+	uint64_t ecamBase = 0;
+	if (pcie_get_ecam_base(location, &ecamBase)!=0)
+		return -1;
+	uint8_t offset = 0;
+	pcie_read_byte(location, 0x34, &offset);
+	struct pcie_cap_link* pCapLink = (struct pcie_cap_link*)(ecamBase+offset);
+	*ppCapLink = pCapLink;
+	return 0;
+}
+int pcie_get_next_cap_ptr(struct pcie_location location, struct pcie_cap_link* pCurrentCapLink, struct pcie_cap_link** ppNextCapLink){
+	if (!pCurrentCapLink|!ppNextCapLink)
+		return -1;
+	uint64_t ecamBase = 0;
+	if (pcie_get_ecam_base(location, &ecamBase)!=0)
+		return -1;
+	uint8_t nextOffset = pCurrentCapLink->next_offset;
+	if (!nextOffset)
+		return -1;	
+	struct pcie_cap_link* pNextCapLink = (struct pcie_cap_link*)(ecamBase+nextOffset);	
+	*ppNextCapLink = pNextCapLink;
+	return 0;	
 }
 int pcie_get_vendor_id(struct pcie_location location, uint16_t* pVendorId){
 	if (!pVendorId)

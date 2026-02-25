@@ -81,6 +81,76 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	EFI_DEVICE_PATH_PROTOCOL* pCurrentPathNode = pbootargs->pDevicePathProtocol;
+	if (virtualMapPages((uint64_t)pCurrentPathNode, (uint64_t)pCurrentPathNode, PTE_RW|PTE_NX, align_up(pbootargs->devicePathProtocolSize, PAGE_SIZE)/PAGE_SIZE, 1, 0, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to map device path protocol chain\r\n");
+		while (1){};
+		return -1;
+	}	
+	uint8_t currentBus = 0;
+	struct pcie_location currentLocation = {0};
+	memset((void*)&currentLocation, 0, sizeof(struct pcie_location));	
+	while (pCurrentPathNode->Type!=0x7F){
+		uint64_t nodeLength = (uint64_t)(*(uint16_t*)pCurrentPathNode->Length);
+		if (pCurrentPathNode->Type==0x03&&pCurrentPathNode->SubType==0x12){
+			struct efi_sata_dev_path* pSataDevicePath = (struct efi_sata_dev_path*)pCurrentPathNode;
+			pbootargs->driveInfo.driveType = DRIVE_TYPE_SATA;
+			pbootargs->driveInfo.port = pSataDevicePath->port;
+		}
+		if (pCurrentPathNode->Type==0x03&&pCurrentPathNode->SubType==0x05){
+			struct efi_usb_dev_path* pUsbDevicePath = (struct efi_usb_dev_path*)pCurrentPathNode;
+			pbootargs->driveInfo.driveType = DRIVE_TYPE_USB;
+			pbootargs->driveInfo.port = pUsbDevicePath->portNumber;
+			pbootargs->driveInfo.extra = pUsbDevicePath->interfaceNumber;
+		}
+		if (pCurrentPathNode->Type==0x03&&pCurrentPathNode->SubType==0x17){
+			struct efi_nvme_dev_path* pNvmeDevicePath = (struct efi_nvme_dev_path*)pCurrentPathNode;
+			struct pcie_location location = currentLocation;
+			currentLocation.bus = currentBus;
+			pbootargs->driveInfo.driveType = DRIVE_TYPE_NVME;
+			pbootargs->driveInfo.port = pNvmeDevicePath->namespaceId;	
+			*(uint32_t*)&pbootargs->driveInfo.extra = *(uint32_t*)&location;	
+		}
+		if (pCurrentPathNode->Type==0x01&&pCurrentPathNode->SubType==0x01){
+			struct efi_pcie_path* pPciePath = (struct efi_pcie_path*)pCurrentPathNode;
+			currentLocation.dev = pPciePath->device;
+			currentLocation.func = pPciePath->function;	
+			struct pcie_location location = {0};
+			memset((void*)&location, 0, sizeof(struct pcie_location));
+			location.bus = currentBus;
+			location.dev = pPciePath->device;
+			location.func = pPciePath->function;	
+			uint8_t headerType = 0;
+			pcie_read_byte(location, 0x0E, &headerType);
+			uint8_t functionCount = (headerType&(1<<7)) ? 8 : 0;
+			headerType&=0x3F;
+			if (headerType==0x01){
+				pcie_read_byte(location, 0x19, &currentBus);
+			}
+			for (uint64_t i = 1;i<functionCount;i++){
+				location.func = i;	
+				pcie_read_byte(location, 0x8E, &headerType);
+				headerType&=0x3F;
+				if (headerType==0x1)
+					pcie_read_byte(location, 0x19, &currentBus);	
+			}	
+		}
+		if (pCurrentPathNode->Type==0x04&&pCurrentPathNode->SubType==0x01){
+			struct efi_gpt_partition_path* pGptPath = (struct efi_gpt_partition_path*)pCurrentPathNode;
+			pbootargs->driveInfo.espNumber = pGptPath->partitionNumber-1;	
+		}
+		pCurrentPathNode = (EFI_DEVICE_PATH_PROTOCOL*)(((uint64_t)pCurrentPathNode)+nodeLength);	
+	}
+	if (pbootargs->driveInfo.driveType==DRIVE_TYPE_INVALID){
+		printf("unsupported boot device\r\n");
+		while (1){};
+		return -1;
+	}
+	if (pbootargs->driveInfo.espNumber==0xFFFFFFFFFFFFFFFF){
+		printf("failed to get boot device EFI system partition\r\n");
+		while (1){};
+		return -1;
+	}	
 	if (heap_init()!=0){
 		printf("failed to initialize heap\r\n");
 		while (1){};

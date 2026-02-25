@@ -572,7 +572,7 @@ int usb_bot_interface_register(uint8_t port, uint8_t interfaceId){
 		return -1;
 	}	
 	uint64_t driveId = 0;
-	uint64_t isBootDrive = pbootargs->driveInfo.driveType==DRIVE_TYPE_USB&&pbootargs->driveInfo.port==port&&pbootargs->driveInfo.interfaceNumber==pInterfaceDesc->usbInterfaceDesc.interfaceNumber;	
+	uint64_t isBootDrive = pbootargs->driveInfo.driveType==DRIVE_TYPE_USB&&pbootargs->driveInfo.port==port&&pbootargs->driveInfo.extra==pInterfaceDesc->usbInterfaceDesc.interfaceNumber;	
 	if ((isBootDrive ? drive_register_boot_drive(driveDriverId, port) : drive_register(driveDriverId, port, &driveId))!=0){
 		printf("failed to register USB interface following BOT at port %d interface %d\r\n", port, interfaceId);
 		mutex_unlock_isr_safe(&mutex);
@@ -719,6 +719,7 @@ int usb_bot_subsystem_get_drive_info(uint64_t driveId, struct drive_info* pDrive
 	memset((void*)&driveInfo, 0, sizeof(struct drive_info));
 	driveInfo.driveType = DRIVE_TYPE_USB;
 	driveInfo.sectorCount = pBotDesc->capacityDesc.sectorCount;
+	driveInfo.sectorSize = pBotDesc->capacityDesc.blockSize;	
 	*pDriveInfo = driveInfo;
 	mutex_unlock_isr_safe(&mutex);
 	return 0;

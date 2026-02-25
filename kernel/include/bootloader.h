@@ -44,13 +44,46 @@ struct bootloader_driveInfo{
 	CHAR16* devicePathStr;
 	uint64_t driveType;
 	uint64_t espNumber;
-	uint8_t port;
-	uint8_t interfaceNumber;
+	uint64_t port;
+	uint64_t extra;
 };
+struct efi_sata_dev_path{
+	EFI_DEVICE_PATH_PROTOCOL header;
+	uint16_t port;
+	uint16_t portMultiplier;
+	uint64_t logicalUnitNumber;
+}__attribute__((packed));
+struct efi_usb_dev_path{
+	EFI_DEVICE_PATH_PROTOCOL header;
+	uint8_t portNumber;
+	uint8_t interfaceNumber;
+}__attribute__((packed));
+struct efi_nvme_dev_path{
+	EFI_DEVICE_PATH_PROTOCOL header;
+	uint32_t namespaceId;
+	uint8_t ieee[8];
+}__attribute__((packed));
+struct efi_pcie_path{
+	EFI_DEVICE_PATH_PROTOCOL header;
+	uint8_t function;
+	uint8_t device;
+}__attribute__((packed));
+struct efi_gpt_partition_path{
+	EFI_DEVICE_PATH_PROTOCOL header;
+	uint32_t partitionNumber;
+	uint64_t partitionLba;
+	uint64_t partitionSize;
+	EFI_GUID partitionTypeGuid;
+	uint8_t signature[16];
+	uint8_t mbrType;
+	uint8_t signatureType;
+}__attribute__((packed));
 struct bootloader_args{
 	EFI_HANDLE bootloaderHandle;
 	EFI_SYSTEM_TABLE* systable;
 	EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* filesystemProtocol;
+	EFI_DEVICE_PATH_PROTOCOL* pDevicePathProtocol;
+	uint64_t devicePathProtocolSize;
 	struct bootloader_memoryInfo memoryInfo;	
 	struct bootloader_graphicsInfo graphicsInfo;
 	struct bootloader_acpiInfo acpiInfo;

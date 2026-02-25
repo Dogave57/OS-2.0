@@ -29,7 +29,6 @@ int xhci_init(void){
 	memset((void*)&xhciInfo, 0, sizeof(struct xhci_info));
 	if (xhci_get_info(&xhciInfo)!=0)
 		return -1;
-	printf("XHCI controller bus: %d, dev: %d, func: %d\r\n", xhciInfo.location.bus, xhciInfo.location.dev, xhciInfo.location.func);
 	uint32_t pcie_cmd_reg = 0;
 	pcie_read_dword(xhciInfo.location, 0x4, &pcie_cmd_reg);
 	pcie_cmd_reg|=(1<<0);
@@ -1539,7 +1538,6 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 			struct xhci_endpoint_desc* pEndpointDesc = pInterfaceDesc->pEndpointDescList+endpoint_id;
 			struct xhci_endpoint_context32* pEndpointContext = pEndpointDesc->pEndpointContext;
 			printf("    endpoint type: 0x%x\r\n", pEndpointContext->type);
-			printf("    endpoint state: 0x%x\r\n", pEndpointContext->state);
 		}
 		struct usb_driver_desc* pCurrentDriverDesc = (struct usb_driver_desc*)0x0;
 		while (!usb_get_next_driver_desc(pCurrentDriverDesc, &pCurrentDriverDesc)){

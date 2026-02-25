@@ -599,6 +599,7 @@ int ahci_subsystem_get_drive_info(uint64_t driveId, struct drive_info* pDriveInf
 	struct drive_info driveInfo = {0};
 	driveInfo.driveType = DRIVE_TYPE_SATA;
 	driveInfo.sectorCount = ahciDriveInfo.sector_count;
+	driveInfo.sectorSize = 512;
 	*pDriveInfo = driveInfo;
 	mutex_unlock(&mutex);
 	return 0;

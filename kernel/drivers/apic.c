@@ -34,7 +34,6 @@ int apic_init(void){
 	else
 		lapic_base_reg|=0x800;
 	write_msr(LAPIC_BASE_MSR, lapic_base_reg);
-	printf("LAPIC base: %p\r\n", lapic_base);
 	uint64_t base = 0;
 	uint64_t value = 0;
 	uint64_t div_conf = 0x07;
@@ -83,7 +82,6 @@ int apic_init(void){
 	ioapic_get_version(&ioapic_version);
 	ioapic_get_id(&ioapic_id);
 	ioapic_get_max_redirs(&ioapic_max_redirs);
-	printf("IOAPIC max redirection entries: %d\r\n", ioapic_max_redirs);
 	ioapic_enable_irq(1, 0x40, (uint8_t)main_lapic_id);
 	inb(0x60);
 	lapic_send_eoi();

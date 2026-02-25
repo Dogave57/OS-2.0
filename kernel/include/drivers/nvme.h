@@ -568,10 +568,15 @@ struct nvme_submission_queue_desc{
 	struct nvme_drive_desc* pDriveDesc;
 };
 struct nvme_namespace_desc{
+	struct nvme_drive_desc* pDriveDesc;	
+	uint64_t namespaceId;
+	uint64_t driveSubsystemId;
 	uint64_t lbaCount;
 	uint64_t sectorSize;
 	uint64_t namespaceSize;
 	unsigned char guid[16];
+	struct nvme_namespace_desc* pFlink;
+	struct nvme_namespace_desc* pBlink;
 };
 struct nvme_alloc_queue_packet{
 	uint8_t queueType;
@@ -629,17 +634,21 @@ struct nvme_drive_desc{
 	struct nvme_namespace_desc* pActiveNamespaceDescList;
 	uint64_t activeNamespaceDescListSize;
 	uint32_t activeNamespaceCount;	
+	struct nvme_namespace_desc* pFirstActiveNamespace;
+	struct nvme_namespace_desc* pLastActiveNamespace;	
 	uint64_t maxTransferLength;	
 	volatile struct pcie_msix_msg_ctrl* pMsgControl;
 	volatile uint32_t* pDoorbellBase;
 };
 struct nvme_driver_info{
-	uint64_t driverId;
+	uint64_t pcieDriverId;
+	uint64_t driveDriverId;
 	struct nvme_isr_mapping_table_entry* pIsrMappingTable;
 	uint64_t isrMappingTableSize;
 };
 int nvme_driver_init(void);
 int nvme_driver_init_isr_mapping_table(void);
+int nvme_driver_deinit_isr_mapping_table(void);
 int nvme_enable(struct nvme_drive_desc* pDriveDesc);
 int nvme_disable(struct nvme_drive_desc* pDriveDesc);
 int nvme_enabled(struct nvme_drive_desc* pDriveDesc);
@@ -673,7 +682,12 @@ int nvme_write(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint64_
 int nvme_namespace_init(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, struct nvme_namespace_desc** ppNamespaceDesc);
 int nvme_drive_init(struct pcie_location location);
 int nvme_drive_deinit(struct nvme_drive_desc* pDriveDesc);
-int nvme_subsystem_function_register(struct pcie_location location);
-int nvme_subsystem_function_unregister(struct pcie_location location);
+int nvme_pcie_subsystem_function_register(struct pcie_location location);
+int nvme_pcie_subsystem_function_unregister(struct pcie_location location);
+int nvme_drive_subsystem_get_drive_info(uint64_t drive_id, struct drive_info* pDriveInfo);
+int nvme_drive_subsystem_read(uint64_t drive_id, uint64_t lba, uint64_t sectorCount, unsigned char* pBuffer);
+int nvme_drive_subsystem_write(uint64_t drive_id, uint64_t lba, uint64_t sectorCount, unsigned char* pBuffer);
+int nvme_drive_subsystem_register_drive(uint64_t drive_id);
+int nvme_drive_subsystem_unregister_drive(uint64_t drive_id);
 int nvme_completion_queue_isr(void);
 #endif

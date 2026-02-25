@@ -50,7 +50,7 @@ int vmm_init(void){
 		printf("failed to map kernel stack\r\n");
 		return -1;
 	}
-	if (virtualMapPage((uint64_t)pbootargs, (uint64_t)pbootargs, PTE_RW, 1, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualMapPage((uint64_t)pbootargs, (uint64_t)pbootargs, PTE_RW|PTE_NX, 1, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to map boot args\r\n");
 		return -1;
 	}

@@ -97,7 +97,7 @@ KAPI int drive_driver_get_desc(uint64_t driverId, struct drive_driver_desc** ppD
 	mutex_unlock(&mutex);	
 	return 0;
 }
-KAPI int drive_register(uint64_t driverId, uint8_t port, uint64_t* pDriveId){
+KAPI int drive_register(uint64_t driverId, uint64_t port, uint64_t* pDriveId){
 	if (!pDriveId)
 		return -1;
 	static struct mutex_t mutex = {0};

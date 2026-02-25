@@ -12,6 +12,7 @@
 #include <Guid/GlobalVariable.h>
 #include "align.h"
 #include "elf.h"
+#include "drivers/pcie.h"
 #include "bootloader.h"
 int uefi_execute_kernel(void* pfiledata, uint64_t fileDataSize);
 int uefi_memset(void* mem, unsigned long long value, unsigned long long size);
@@ -54,27 +55,6 @@ UINTN memoryMapKey = 0;
 UINTN memoryMapDescSize = 0;
 uint32_t memoryMapDescVersion = 0;
 struct bootloader_args* blargs = (struct bootloader_args*)0x0;
-struct efi_sata_dev_path{
-	EFI_DEVICE_PATH_PROTOCOL hdr;
-	uint16_t port;
-	uint16_t portMulti;
-	uint64_t logicalUnitNumber;
-};
-struct efi_usb_dev_path{
-	EFI_DEVICE_PATH_PROTOCOL hdr;
-	uint8_t portNumber;
-	uint8_t interfaceNumber;
-};
-struct efi_gpt_partition_path{
-	EFI_DEVICE_PATH_PROTOCOL hdr;
-	uint32_t partitionNumber;
-	uint64_t partitionlba;
-	uint64_t partitionSize;
-	EFI_GUID partitionTypeGuid;
-	uint8_t signature[16];
-	uint8_t mbrType;
-	uint8_t signatureType;
-};
 EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab){
 	EFI_STATUS status = {0};
 	ST = systab;
@@ -304,37 +284,35 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* systab
 	conout->ClearScreen(conout);
 	EFI_DEVICE_PATH_PROTOCOL* pCurrentNode = devicePathProtocol;
 	blargs->driveInfo.espNumber = 0xFFFFFFFFFFFFFFFF;
+	struct efi_pcie_path currentPciePath = {0};
+	uint64_t devicePathProtocolLength = 0;
 	while (pCurrentNode->Type!=0x7F){
 		uint64_t len = (uint64_t)((*(uint16_t*)pCurrentNode->Length));
-		if (pCurrentNode->Type==0x3&&pCurrentNode->SubType==0x12){
-			struct efi_sata_dev_path* pSataPath = (struct efi_sata_dev_path*)pCurrentNode;
-			blargs->driveInfo.driveType = DRIVE_TYPE_SATA;
-			blargs->driveInfo.port = pSataPath->port;
-		}
-		if (pCurrentNode->Type==0x3&&pCurrentNode->SubType==0x05){
-			struct efi_usb_dev_path* pUsbPath = (struct efi_usb_dev_path*)pCurrentNode;
-			blargs->driveInfo.driveType = DRIVE_TYPE_USB;
-			blargs->driveInfo.port = pUsbPath->portNumber;
-			blargs->driveInfo.interfaceNumber = pUsbPath->interfaceNumber;
-		}
-		if (pCurrentNode->Type==0x4&&pCurrentNode->SubType==0x1){
-			struct efi_gpt_partition_path* pGptPath = (struct efi_gpt_partition_path*)pCurrentNode;
-			blargs->driveInfo.espNumber = pGptPath->partitionNumber-1;
-		}
+		devicePathProtocolLength+=len;	
 		pCurrentNode = (EFI_DEVICE_PATH_PROTOCOL*)(((unsigned char*)pCurrentNode)+len);
 	}
-	if (blargs->driveInfo.driveType==DRIVE_TYPE_INVALID){
-		conout->OutputString(conout, L"unsupported boot device\r\n");
+	devicePathProtocolLength+=(uint64_t)(*(uint16_t*)pCurrentNode->Length);
+	EFI_DEVICE_PATH_PROTOCOL* pDevicePathProtocolCopy = (EFI_DEVICE_PATH_PROTOCOL*)0x0;
+	status = BS->AllocatePool(EfiReservedMemoryType, devicePathProtocolLength, (void**)&pDevicePathProtocolCopy);
+	if (status!=EFI_SUCCESS){
+		uefi_printf(L"failed to allocate device path protocol copy (0x%x)\r\n", status);	
 		BS->FreePool((void*)pbuffer);
 		while (1){};
 		return EFI_ABORTED;
+	}	
+	for (uint64_t i = 0;i<devicePathProtocolLength/sizeof(uint64_t);i++){
+		uint64_t* pSource = (((uint64_t*)devicePathProtocol)+i);
+		uint64_t* pTarget = (((uint64_t*)pDevicePathProtocolCopy)+i);
+		*pTarget = *pSource;
+	}	
+	for (uint64_t i = 0;i<devicePathProtocolLength%sizeof(uint64_t);i++){
+		uint64_t offset = devicePathProtocolLength-(devicePathProtocolLength%sizeof(uint64_t))+i;
+		unsigned char* pSource = ((unsigned char*)devicePathProtocol)+offset;
+		unsigned char* pTarget = ((unsigned char*)pDevicePathProtocolCopy)+offset;
+		*pTarget = *pSource;	
 	}
-	if (blargs->driveInfo.espNumber==0xFFFFFFFFFFFFFFFF){
-		conout->OutputString(conout, L"failed to get ESP partiton number\r\n");
-		BS->FreePool((void*)pbuffer);
-		while (1){};
-		return EFI_ABORTED;
-	}
+	blargs->pDevicePathProtocol = pDevicePathProtocolCopy;
+	blargs->devicePathProtocolSize = devicePathProtocolLength;	
 	if (uefi_execute_kernel((void*)pbuffer, (uint64_t)size)!=0){
 		conout->OutputString(conout, L"failed to execute kernel!\r\n");
 		BS->FreePool((void*)pbuffer);

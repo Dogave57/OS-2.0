@@ -19,6 +19,7 @@ struct pcie_location{
 	uint8_t bus;
 	uint8_t dev;
 	uint8_t func;	
+	uint8_t padding0;
 };
 struct pcie_cap_link{
 	uint8_t cap_id;
@@ -96,6 +97,8 @@ int pcie_write_dword(struct pcie_location location, uint64_t dword_offset, uint3
 int pcie_read_qword(struct pcie_location location, uint64_t qword_offset, uint64_t* pValue);
 int pcie_write_qword(struct pcie_location location, uint64_t qword_offset, uint64_t value);
 int pcie_get_cap_ptr(struct pcie_location location, uint8_t cap_id, struct pcie_cap_link** ppCapLink);
+int pcie_get_first_cap_ptr(struct pcie_location location, struct pcie_cap_link** ppFirstCapLink);
+int pcie_get_next_cap_ptr(struct pcie_location location, struct pcie_cap_link* pCapLink, struct pcie_cap_link** ppNextCapLink);
 int pcie_get_vendor_id(struct pcie_location location, uint16_t* pVendorId);
 int pcie_get_device_id(struct pcie_location location, uint16_t* pDeviceId);
 int pcie_get_progif(struct pcie_location location, uint8_t* pProgIf);
