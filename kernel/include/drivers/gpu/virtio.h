@@ -57,6 +57,9 @@
 #define VIRTIO_GPU_MAX_MEMORY_DESC_COUNT (256)
 #define VIRTIO_GPU_MAX_COMMAND_COUNT (128)
 #define VIRTIO_GPU_MAX_RESPONSE_COUNT (128)
+#define VIRTIO_GPU_MEMORY_DESC_FLAG_NEXT (0x0001)
+#define VIRTIO_GPU_MEMORY_DESC_FLAG_WRITE (0x0002)
+#define VIRTIO_GPU_MEMORY_DESC_FLAG_INDIRECT (0x0004)
 struct virtio_gpu_pcie_config_cap{
 	struct pcie_cap_link link;
 	uint8_t cap_size;
@@ -155,6 +158,12 @@ struct virtio_gpu_response_header{
 	uint32_t context_id;
 	uint32_t padding0;
 }__attribute__((packed));
+struct virtio_gpu_command_desc{
+	struct virtio_gpu_queue_info* pQueueInfo;
+	uint64_t commandIndex;
+	struct virtio_gpu_command_header commandHeader;
+	struct virtio_gpu_response_header responseHeader;
+};
 struct virtio_gpu_queue_info{
 	struct virtio_gpu_memory_desc* pMemoryDescList;
 	struct virtio_gpu_command_header* pCommandList;
@@ -165,6 +174,9 @@ struct virtio_gpu_queue_info{
 	uint64_t maxMemoryDescCount;
 	uint64_t maxCommandCount;
 	uint64_t maxResponseCount;
+	uint64_t memoryDescCount;
+	uint64_t commandCount;
+	uint64_t responseCount;
 }__attribute__((packed));
 struct virtio_gpu_info{
 	struct pcie_location location;
@@ -182,4 +194,7 @@ int virtio_gpu_reset(void);
 int virtio_gpu_acknowledge(void);
 int virtio_gpu_queue_init(struct virtio_gpu_queue_info* pQueueInfo);
 int virtio_gpu_queue_deinit(struct virtio_gpu_queue_info* pQueueInfo);
+int virtio_gpu_queue_run_cmd(struct virtio_gpu_command_desc* pCommandDesc);
+int virtio_gpu_alloc_memory_desc(struct virtio_gpu_queue_info* pQueueInfo, uint64_t physicalAddress, uint32_t size, uint16_t flags, uint64_t* pMemoryDescIndex);
+int virtio_gpu_alloc_cmd(struct virtio_gpu_queue_info* pQueueInfo, struct virtio_gpu_command_header commandHeader, struct virtio_gpu_command_desc* pCommandDesc);
 #endif

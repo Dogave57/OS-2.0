@@ -228,3 +228,31 @@ int virtio_gpu_queue_deinit(struct virtio_gpu_queue_info* pQueueInfo){
 	}
 	return 0;
 }
+int virtio_gpu_queue_run_cmd(struct virtio_gpu_command_desc* pCommandDesc){
+	if (!pCommandDesc)
+		return -1;
+
+	return 0;
+}
+int virtio_gpu_alloc_memory_desc(struct virtio_gpu_queue_info* pQueueInfo, uint64_t physicalAddress, uint32_t size, uint16_t flags, uint64_t* pMemoryDescIndex){
+	if (!pQueueInfo||!physicalAddress||!size||!pMemoryDescIndex)
+		return -1;
+	uint64_t memoryDescIndex = pQueueInfo->memoryDescCount;
+	if (memoryDescIndex>pQueueInfo->maxMemoryDescCount-1){
+		pQueueInfo->memoryDescCount = 0;	
+		memoryDescIndex = 0;
+	}
+	struct virtio_gpu_memory_desc* pMemoryDesc = &pQueueInfo->pMemoryDescList[memoryDescIndex];	
+	memset((void*)pMemoryDesc, 0, sizeof(struct virtio_gpu_memory_desc));
+	pMemoryDesc->physical_address = physicalAddress;
+	pMemoryDesc->length = size;	
+	pMemoryDesc->flags = flags;
+	*pMemoryDescIndex = memoryDescIndex;	
+	return 0;
+}
+int virtio_gpu_queue_alloc_cmd(struct virtio_gpu_queue_info* pQueueInfo, struct virtio_gpu_command_header commandHeader, struct virtio_gpu_command_desc* pCommandDesc){
+	if (!pQueueInfo||!pCommandDesc)
+		return -1;
+
+	return 0;
+}
