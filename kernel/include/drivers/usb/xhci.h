@@ -163,11 +163,32 @@ struct xhci_extended_cap_hdr{
 	uint8_t next_offset;
 	uint16_t reserved0;
 }__attribute__((packed));
-struct xhci_usb_legacy_support{
+struct xhci_usb_legacy_support_ctrl{
+	uint32_t usb_smi_enable:1;
+	uint32_t smi_host_error_enable:1;	
+	uint32_t smi_os_ownership_enable:1;
+	uint32_t smi_pci_command_enable:1;
+	uint32_t smi_bar_enable:1;
+	uint32_t reserved0:8;
+	uint32_t smi_os_own_change_enable:1;
+	uint32_t smi_pci_command_register_enable:1;
+	uint32_t smi_bar_register_enable:1;
+	uint32_t reserved1:5;
+	uint32_t smi_hc_error_status:1;
+	uint32_t smi_pci_command_status:1;
+	uint32_t smi_bar_status:1;
+	uint32_t reserved2:5;
+	uint32_t os_ownership_change_status:1;
+	uint32_t host_system_error_smi_status:1;
+	uint32_t usb_smi_status:1;
+}__attribute__((packed));
+struct xhci_usb_legacy_support_cap{
 	struct xhci_extended_cap_hdr* pCapHeader;
 	uint32_t firmware_owned:1;
+	uint32_t reserved0:7;
 	uint32_t os_owned:1;
-	uint32_t reserved0:30;
+	uint32_t resreved1:7;
+	struct xhci_usb_legacy_support_ctrl control;
 }__attribute__((packed));
 struct xhci_protocol_cap{
 	uint8_t id;
@@ -309,7 +330,7 @@ struct xhci_port_status{
 }__attribute__((packed));
 struct xhci_port{
 	struct xhci_port_status port_status;
-	uint32_t port_power_ctrl;
+	uint32_t port_power_control;	
 	uint32_t port_link_info;
 	uint32_t reserved0;
 }__attribute__((packed));
@@ -540,7 +561,7 @@ struct xhci_slot_context64{
 struct xhci_endpoint_context32{
 	uint32_t state:3;
 	uint32_t reserved0:5;
-	uint32_t mult:2;
+	uint32_t multi:2;	
 	uint32_t max_primary_streams:5;
 	uint32_t linear_stream_array:1;
 	uint32_t interval:8;
@@ -733,7 +754,7 @@ struct xhci_device_context_desc{
 	uint64_t slotId;
 };
 struct xhci_endpoint_desc{
-	struct xhci_endpoint_context32* pEndpointContext;
+	volatile struct xhci_endpoint_context32* pEndpointContext;
 	struct xhci_transfer_ring_info* pTransferRingInfo;
 	uint8_t endpointIndex;
 	uint8_t endpointDirection;
@@ -747,6 +768,7 @@ struct xhci_interface_desc{
 };
 struct xhci_device{
 	uint8_t port;
+	uint8_t deviceInitialized;
 	struct xhci_device_context_desc deviceContext;
 	struct xhci_transfer_ring_info* pControlTransferRingInfo;
 	struct xhci_usb_config_desc* pConfigDescriptor;
@@ -786,8 +808,7 @@ int xhci_get_port(uint8_t port, volatile struct xhci_port** ppPort);
 int xhci_get_port_speed(uint8_t port, uint8_t* pSpeed);
 int xhci_device_exists(uint8_t port);
 int xhci_reset_port(uint8_t port);
-int xhci_enable_port(uint8_t port);
-int xhci_disable_port(uint8_t port);
+int xhci_enable_port_power(uint8_t port);
 int xhci_get_port_count(uint8_t* pPortCount);
 int xhci_get_device(uint8_t port, struct xhci_device** ppDevice);
 int xhci_init_device_desc_list(void);
@@ -820,6 +841,8 @@ int xhci_get_cmd_ring_running(void);
 int xhci_get_interrupter_base(uint64_t interrupter_id, volatile struct xhci_interrupter** ppBase);
 int xhci_init_trb_event_list(struct xhci_event_trb_ring_info* pRingInfo);
 int xhci_deinit_trb_event_list(struct xhci_event_trb_ring_info* pRingInfo);
+int xhci_init_scratchpad_list(void);
+int xhci_init_firmware_handoff(void);
 int xhci_init_interrupter(void);
 int xhci_send_ack(uint64_t interrupter_id);
 int xhci_get_dequeue_trb_phys(uint64_t* ppTrbEntry);

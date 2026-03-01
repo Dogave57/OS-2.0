@@ -57,6 +57,10 @@ int usb_driver_register(struct usb_driver_vtable vtable, uint8_t interfaceClass,
 	struct xhci_device* pCurrentDevice = xhciInfo.pFirstDevice;
 	uint64_t resolvedInterfaceCount = 0;
 	while (pCurrentDevice){
+		if (!pCurrentDevice->deviceInitialized){
+			pCurrentDevice = pCurrentDevice->pFlink;
+			continue;
+		}	
 		for (uint64_t i = 0;i<pCurrentDevice->interfaceCount&&pCurrentDevice->unresolvedInterfaceCount;i++){
 			struct xhci_interface_desc* pCurrentInterfaceDesc = pCurrentDevice->pInterfaceDescList+i;
 			if (pCurrentInterfaceDesc->driverId!=0xFFFFFFFFFFFFFFFF){

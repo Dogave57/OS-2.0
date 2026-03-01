@@ -22,7 +22,7 @@ int vmm_init(void){
 	uint64_t fb_size = fb_pages*PAGE_SIZE;
 	uint64_t pPhysicalFrameBuffer = (uint64_t)pbootargs->graphicsInfo.physicalFrameBuffer;
 	uint64_t pFrameBuffer_va = pPhysicalFrameBuffer;
-	if (virtualMapPages(pPhysicalFrameBuffer, pFrameBuffer_va, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, fb_pages, 1, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualMapPages(pPhysicalFrameBuffer, pPhysicalFrameBuffer, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, fb_pages, 1, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to map framebuffer\r\n");
 		return -1;
 	}
@@ -79,7 +79,7 @@ int vmm_init(void){
 		printf("failed to map drive device path string\r\n");
 		return -1;
 	}
-	pbootargs->graphicsInfo.virtualFrameBuffer = (struct uvec4_8*)pFrameBuffer_va;
+	pbootargs->graphicsInfo.virtualFrameBuffer = (struct uvec4_8*)pPhysicalFrameBuffer;
 	load_pt((uint64_t)pml4);
 	virtualUnmapPage(0x0, 0);
 	return 0;
@@ -118,15 +118,17 @@ int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t i
 	uint64_t* pNextLevel = (uint64_t*)*(((uint64_t**)pCurrentLevel)+index);
 	if (PTE_IS_PRESENT(pNextLevel)){
 		*ppNextLevel = (uint64_t*)PTE_GET_ADDR(pNextLevel);
-		if (!pt_loaded()&&0)	
-			printf("got PTE address\r\n");
 		return 0;
 	}
 	if (physicalAllocPage((uint64_t*)&pNextLevel, PAGE_TYPE_VMM)!=0){
 		printf("failed to allocate physical page\r\n");
 		return -1;
 	}
-	memset((void*)pNextLevel, 0, PAGE_SIZE);
+/*	if (virtualMapPage((uint64_t)pNextLevel, (uint64_t)pNextLevel, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_VMM)!=0){
+		printf("failed to map next page tree level\r\n");
+		return -1;
+	}	
+*/	memset((void*)pNextLevel, 0, PAGE_SIZE);
 	*((uint64_t*)(pCurrentLevel)+index) = (uint64_t)(((uint64_t)(pNextLevel))|PTE_RW|PTE_PRESENT);
 	*ppNextLevel = (uint64_t*)pNextLevel;
 	return 0;
@@ -344,5 +346,5 @@ KAPI int virtualGetSpace(uint64_t* pVa, uint64_t pageCount){
 	return 0;
 }
 KAPI int pt_loaded(void){
-	return (get_pt()==(uint64_t)pml4) ? 0 : -1;
+	return (get_pt()==(uint64_t)pml4) ? 0 : 1;
 }

@@ -307,6 +307,7 @@ int pcie_msi_enable(volatile struct pcie_msi_msg_ctrl* pMsgControl){
 		return -1;
 	struct pcie_msi_msg_ctrl msgControl = *pMsgControl;
 	msgControl.msi_enable = 1;
+	__asm__ volatile("mfence" ::: "memory");
 	*pMsgControl = msgControl;
 	return 0;
 }
@@ -315,6 +316,7 @@ int pcie_msi_disable(volatile struct pcie_msi_msg_ctrl* pMsgControl){
 		return -1;
 	struct pcie_msi_msg_ctrl msgControl = *pMsgControl;
 	msgControl.msi_enable = 0;
+	__asm__ volatile("mfence" ::: "memory");
 	*pMsgControl = msgControl;
 	return 0;
 }
@@ -400,6 +402,7 @@ int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix
 	pEntry->vector_ctrl.raw = 0;
 	msgControl = *pMsgControl;
 	msgControl.msix_enable = oldStatus;
+	__asm__ volatile("mfence" ::: "memory");	
 	*pMsgControl = msgControl;
 	mutex_unlock(&mutex);
 	return 0;

@@ -243,6 +243,7 @@ global isr20
 global ctx_switch_time
 global xhci_interrupter_isr
 global nvme_completion_queue_isr
+global virtio_gpu_response_queue_isr
 extern print
 extern lprint
 extern printf
@@ -266,6 +267,7 @@ extern virtualGetPageFlags
 extern lapic_tick_count
 extern xhci_interrupter
 extern nvme_completion_queue_interrupt
+extern virtio_gpu_response_queue_interrupt
 extern schedulerHalt
 exception_fg:
 db 255, 255, 255, 0
@@ -276,7 +278,7 @@ sub rsp, 32
 mov qword rcx, exception_fg
 mov qword rdx, exception_bg
 call set_text_color
-call clear
+;call clear
 add rsp, 32
 mov qword rax, [rel exception_args]
 push rax
@@ -644,6 +646,20 @@ call lapic_send_eoi
 add qword rsp, 32
 mov qword rsp, rbp
 popaq	
+ret
+virtio_gpu_response_queue_isr:
+cli
+pushaq
+mov qword rbp, rsp
+and rsp, -16
+sub qword rsp, 32
+call virtio_gpu_response_queue_interrupt
+add qword rsp, 32
+sub qword rsp, 32
+call entropy_shuffle
+add qword rsp, 32
+mov qword rsp, rbp
+popaq
 ret
 isr0_msg db "divide by zero ISR triggered", 10, 0
 exception_handler_entry:

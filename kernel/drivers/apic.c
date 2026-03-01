@@ -26,7 +26,7 @@ int apic_init(void){
 	}
 	uint64_t lapic_base_reg = read_msr(LAPIC_BASE_MSR);
 	lapic_base = lapic_base_reg&0xFFFFF000;
-	uint64_t lapicPages = 16;
+	uint64_t lapicPages = 4;
 	if (virtualMapPages((uint64_t)lapic_base, (uint64_t)lapic_base, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, lapicPages, 1, 0, PAGE_TYPE_MMIO)!=0)
 		return -1;
 	if (x2lapic_supported)
@@ -36,7 +36,7 @@ int apic_init(void){
 	write_msr(LAPIC_BASE_MSR, lapic_base_reg);
 	uint64_t base = 0;
 	uint64_t value = 0;
-	uint64_t div_conf = 0x07;
+	uint64_t div_conf = 0x08;
 	lapic_get_version(&lapic_version);
 	lapic_get_id(&main_lapic_id);
 	if (hpet_init()!=0){
@@ -75,7 +75,7 @@ int apic_init(void){
 		printf("failed to get IOAPIC base\r\n");
 		return -1;
 	}
-	if (virtualMapPages(ioapic_base, ioapic_base, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 1, 1, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualMapPages(ioapic_base, ioapic_base, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 4, 1, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to map IOAPIC\r\n");
 		return -1;
 	}
@@ -147,7 +147,7 @@ int x2lapic_is_supported(unsigned int* psupported){
 }
 int lapic_set_tick_us(uint64_t tick_us){
 	uint64_t tpus = timer_get_tpus();
-	lapic_write_reg(LAPIC_REG_DIV_CONFIG, 0x07);
+	lapic_write_reg(LAPIC_REG_DIV_CONFIG, 0x08);	
 	lapic_write_reg(LAPIC_REG_INIT_COUNT, tpus*tick_us);
 	return 0;
 }
