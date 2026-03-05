@@ -658,6 +658,9 @@ add qword rsp, 32
 sub qword rsp, 32
 call entropy_shuffle
 add qword rsp, 32
+sub qword rsp, 32
+call lapic_send_eoi
+add qword rsp, 32
 mov qword rsp, rbp
 popaq
 ret

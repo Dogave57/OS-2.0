@@ -692,10 +692,8 @@ int xhci_init_scratchpad_list(void){
 	uint8_t scratchpadPagesLow = param.scratchpad_pages_low;
 	uint8_t scratchpadPagesHigh = param.scratchpad_pages_high;
 	uint16_t scratchpadPages = ((scratchpadPagesHigh<<5)|scratchpadPagesLow);
-	printf("scratchpad pages: %d\r\n", scratchpadPages);
 	if (!scratchpadPages)
 		return 0;
-	printf("scratchpad pages: %d\r\n", scratchpadPages);
 	uint64_t* pScratchpadList = (uint64_t*)0x0;
 	uint64_t pScratchpadList_phys = 0;
 	if (virtualAllocPage((uint64_t*)&pScratchpadList, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
@@ -734,7 +732,6 @@ int xhci_init_firmware_handoff(void){
 		printf("no firmware handoff capability\r\n");
 		return 0;
 	}	
-	printf("firmware handoff capability\r\n");
 	struct xhci_usb_legacy_support_cap firmwareHandoffCap = *pFirmwareHandoffCap;
 	firmwareHandoffCap.os_owned = 1;	
 	firmwareHandoffCap.control.smi_os_ownership_enable = 1;	
