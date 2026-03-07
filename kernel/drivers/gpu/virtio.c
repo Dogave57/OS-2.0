@@ -1,9 +1,12 @@
 #include "stdlib/stdlib.h"
 #include "subsystem/subsystem.h"
 #include "mem/vmm.h"
+#include "mem/heap.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
 #include "align.h"
+#include "math/vector.h"
+#include "subsystem/subsystem.h"
 #include "drivers/timer.h"
 #include "drivers/apic.h"
 #include "drivers/pcie.h"
@@ -32,6 +35,10 @@ int virtio_gpu_init(void){
 	}
 	if (virtio_gpu_init_isr_mapping_table()!=0){
 		printf("failed to initialize ISR mapping table\r\n");
+		return -1;
+	}	
+	if (virtio_gpu_init_resource_subsystem()!=0){
+		printf("failed to initialize resource subsystem\r\n");
 		return -1;
 	}	
 	printf("VIRTIO GPU driver bus: %d, dev: %d, func: %d\r\n", gpuInfo.location.bus, gpuInfo.location.dev, gpuInfo.location.func);
@@ -108,53 +115,86 @@ int virtio_gpu_init(void){
 	gpuInfo.pBaseRegisters->queue_response_ring_base_low = (uint32_t)(gpuInfo.controlQueueInfo.pResponseRing_phys&0xFFFFFFFF);
 	gpuInfo.pBaseRegisters->queue_response_ring_base_high = (uint32_t)((gpuInfo.controlQueueInfo.pResponseRing_phys>>32)&0xFFFFFFFF);
 	gpuInfo.pBaseRegisters->queue_enable = 0x01;
-	struct virtio_gpu_display_info* pDisplayInfo = (struct virtio_gpu_display_info*)0x0;
+	struct virtio_gpu_display_info_response* pDisplayInfo = (struct virtio_gpu_display_info_response*)0x0;
 	if (virtualAllocPage((uint64_t*)&pDisplayInfo, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate physical page for display info\r\n");
 		virtio_gpu_queue_deinit(&gpuInfo.controlQueueInfo);
 		return -1;
-	}	
-	struct virtio_gpu_command_desc commandDesc = {0};
-	memset((void*)&commandDesc, 0, sizeof(struct virtio_gpu_command_desc));
-	struct virtio_gpu_alloc_cmd_info allocCmdInfo = {0};
-	memset((void*)&allocCmdInfo, 0, sizeof(struct virtio_gpu_alloc_cmd_info));
-	allocCmdInfo.pResponseBuffer = (unsigned char*)pDisplayInfo;
-	allocCmdInfo.responseBufferSize = sizeof(struct virtio_gpu_display_info);
-	memset((void*)pDisplayInfo, 0, sizeof(struct virtio_gpu_display_info));	
-	struct virtio_gpu_command_header* pCommandHeader = &allocCmdInfo.commandHeader;	
-	pCommandHeader->type = VIRTIO_GPU_CMD_GET_DISPLAY_INFO;	
-	if (virtio_gpu_queue_alloc_cmd(&gpuInfo.controlQueueInfo, allocCmdInfo, &commandDesc)!=0){
-		printf("failed to allocate virtual I/O GPU command\r\n");
-		virtualFreePage((uint64_t)pDisplayInfo, 0);
+	}
+	uint64_t time_us = get_time_us();	
+	if (virtio_gpu_get_display_info(pDisplayInfo)!=0){
+		printf("failed to get display info\r\n");
 		virtio_gpu_queue_deinit(&gpuInfo.controlQueueInfo);
 		return -1;
 	}	
-	if (virtio_gpu_run_queue(&gpuInfo.controlQueueInfo)!=0){
-		printf("failed to run virtual I/O GPU command ring\r\n");
+	if (pDisplayInfo->responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_DISPLAY_INFO){
+		const unsigned char* responseTypeName = "Unknown response type";
+		virtio_gpu_get_response_type_name(pDisplayInfo->responseHeader.type, &responseTypeName);
+		printf("failed to get display info (%s)\r\n", responseTypeName);	
 		virtualFreePage((uint64_t)pDisplayInfo, 0);
-		virtio_gpu_queue_deinit(&gpuInfo.controlQueueInfo);	
 		return -1;
-	}
-	printf("running display info command\r\n");
-	sleep(250);
-	printf("response ring index: %d\r\n", gpuInfo.controlQueueInfo.pResponseRing->index);	
-	printf("response ring flags: %d\r\n", gpuInfo.controlQueueInfo.pResponseRing->flags);
-	while (!commandDesc.responseDesc.responseComplete){};	
-	printf("finished display info command\r\n");
+	}	
+	printf("took %dus to get display info\r\n", get_time_us()-time_us);	
 	for (uint64_t i = 0;i<VIRTIO_GPU_MAX_SCANOUT_COUNT;i++){
 		struct virtio_gpu_scanout_info* pScanoutInfo = pDisplayInfo->scanoutList+i;
-		if (!pScanoutInfo->enabled)
+			if (!pScanoutInfo->enabled)
 			continue;	
-		printf("scanout %d has resolution %d:%d\r\n", i, pScanoutInfo->resolution.width, pScanoutInfo->resolution.height);
-	}	
-	if (virtio_gpu_queue_free_cmd(&commandDesc)!=0){
-		printf("failed to free virtual I/O GPU command\r\n");
-		virtualFreePage((uint64_t)pDisplayInfo, 0);
-		virtio_gpu_queue_deinit(&gpuInfo.controlQueueInfo);
-		return -1;
+		printf("scanout %d resolution: %d:%d\r\n", i, pScanoutInfo->resolution.width, pScanoutInfo->resolution.height);	
+		unsigned char* pFramebuffer = (unsigned char*)0x0;
+		uint64_t framebufferSize = pScanoutInfo->resolution.width*pScanoutInfo->resolution.height*sizeof(struct uvec4_8);
+		if (virtualAlloc((uint64_t*)&pFramebuffer, framebufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
+			printf("failed to allocate framebuffer\r\n");
+			continue;	
+		}	
+		struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
+		struct virtio_gpu_response_header responseHeader = {0};
+		memset((void*)&responseHeader, 0, sizeof(struct virtio_gpu_response_header));
+		struct virtio_gpu_create_resource_info createResourceInfo = {0};
+		memset((void*)&createResourceInfo, 0, sizeof(struct virtio_gpu_create_resource_info));
+		createResourceInfo.format = 0x01;
+		createResourceInfo.width = pScanoutInfo->resolution.width;
+		createResourceInfo.height = pScanoutInfo->resolution.height;
+		if (virtio_gpu_create_resource(createResourceInfo, &pResourceDesc, &responseHeader)!=0){
+			printf("failed to create framebuffer resource\r\n");
+			virtualFree((uint64_t)pFramebuffer, framebufferSize);
+			continue;
+		}
+		if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
+			const unsigned char* responseTypeName = "Unknown response type";
+			virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
+			printf("failed to create framebuffer resource (%s)\r\n", responseTypeName);
+			virtualFree((uint64_t)pFramebuffer, framebufferSize);
+			continue;
+		}	
+		if (virtio_gpu_attach_resource_backing(pResourceDesc, pFramebuffer, framebufferSize, &responseHeader)!=0){
+			printf("failled to attach resource backing\r\n");
+			virtio_gpu_delete_resource(pResourceDesc, &responseHeader);	
+			virtualFree((uint64_t)pFramebuffer, framebufferSize);
+			continue;
+		}	
+		if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
+			const unsigned char* responseTypeName = "Unknown response type";
+			virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
+			printf("failed to attach resource backing (%s)\r\n", responseTypeName);	
+			virtio_gpu_delete_resource(pResourceDesc, &responseHeader);
+			virtualFree((uint64_t)pFramebuffer, framebufferSize);
+			continue;
+		}
+		if (virtio_gpu_delete_resource(pResourceDesc, &responseHeader)!=0){
+			printf("failed to delete resourcer\r\n");	
+			virtualFree((uint64_t)pFramebuffer, framebufferSize);	
+			continue;
+		}	
+		if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
+			const unsigned char* responseTypeName = "Unknown response type";
+			virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
+			printf("failed to free resource (%s)\r\n", responseTypeName);	
+			virtualFree((uint64_t)pFramebuffer, framebufferSize);
+			continue;
+		}
+		virtualFree((uint64_t)pFramebuffer, framebufferSize);
 	}	
 	virtualFreePage((uint64_t)pDisplayInfo, 0);
-//	while (1){};
 	return 0;
 }
 int virtio_gpu_get_info(struct virtio_gpu_info* pInfo){
@@ -234,6 +274,54 @@ int virtio_gpu_deinit_isr_mapping_table(void){
 		return -1;	
 	return 0;
 }
+int virtio_gpu_init_resource_subsystem(void){
+	struct subsystem_desc* pResourceSubsystemDesc = (struct subsystem_desc*)0x0;
+	if (subsystem_init(&pResourceSubsystemDesc, VIRTIO_GPU_MAX_RESOURCE_COUNT)!=0){
+		printf("failed to initialize resource subsystem\r\n");
+		return -1;
+	}
+	gpuInfo.pResourceSubsystemDesc = pResourceSubsystemDesc;	
+	return 0;
+}
+int virtio_gpu_deinit_resource_subsystem(void){
+	if (subsystem_deinit(gpuInfo.pResourceSubsystemDesc)!=0){
+		printf("failed to deinitialize resource subsystem\r\n");
+		return -1;
+	}	
+	return 0;
+}
+int virtio_gpu_get_response_type_name(uint16_t responseType, const unsigned char** ppResponseTypeName){
+	if (!ppResponseTypeName)
+		return -1;
+	static const unsigned char* pSuccessMappingTable[]={
+		[0x00] = "No data success",
+		[0x01] = "Display info success",
+		[0x02] = "Capset info success",
+		[0x03] = "Capset success",
+		[0x04] = "Monitor identification success", 
+		[0x05] = "Resource plane info success",
+		[0x06] = "Map info success",
+	};
+	static const unsigned char* pErrorMappingTable[]={
+		[0x00] = "Unknown error",
+		[0x01] = "Out of VRAM",
+		[0x02] = "Invalid scanout",
+		[0x03] = "Invalid resource ID",
+		[0x04] = "Invalid context ID",
+		[0x05] = "Invalid parameter",
+	};
+	const unsigned char* pResponseTypeName = (const unsigned char*)0x0;
+	if (responseType>=0x1100&&responseType<=0x1106){
+		pResponseTypeName = pSuccessMappingTable[responseType-0x1100];	
+	}	
+	if (responseType>=0x1200&&responseType<=0x1206){
+		pResponseTypeName = pErrorMappingTable[responseType-0x1200];	
+	}
+	if (!pResponseTypeName)
+		return -1;
+	*ppResponseTypeName = pResponseTypeName;
+	return 0;
+}
 int virtio_gpu_reset(void){
 	*(uint32_t*)&gpuInfo.pBaseRegisters->device_status = 0;
 	return 0;
@@ -253,6 +341,228 @@ int virtio_gpu_validate_driver(void){
 	memset((void*)&deviceStatus, 0, sizeof(struct virtio_gpu_device_status));	
 	deviceStatus.driver_ok = 1;
 	gpuInfo.pBaseRegisters->device_status = deviceStatus;
+	return 0;
+}
+int virtio_gpu_get_display_info(struct virtio_gpu_display_info_response* pDisplayInfo){
+	if (!pDisplayInfo)
+		return -1;
+	struct virtio_gpu_command_desc commandDesc = {0};
+	memset((void*)&commandDesc, 0, sizeof(struct virtio_gpu_command_desc));
+	struct virtio_gpu_alloc_cmd_info allocCmdInfo = {0};
+	memset((void*)&allocCmdInfo, 0, sizeof(struct virtio_gpu_alloc_cmd_info));
+	struct virtio_gpu_command_header* pCommandBuffer = (struct virtio_gpu_command_header*)0x0;
+	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate physical page for command buffer\r\n");
+		return -1;
+	}	
+	pCommandBuffer->type = VIRTIO_GPU_CMD_GET_DISPLAY_INFO;	
+	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
+	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_command_header);	
+	allocCmdInfo.pResponseBuffer = (unsigned char*)pDisplayInfo;
+	allocCmdInfo.responseBufferSize = sizeof(struct virtio_gpu_display_info_response);
+	if (virtio_gpu_queue_alloc_cmd(&gpuInfo.controlQueueInfo, allocCmdInfo, &commandDesc)!=0){
+		printf("failed to allocate virtual I/O GPU command\r\n");
+		return -1;
+	}
+	if (virtio_gpu_run_queue(&gpuInfo.controlQueueInfo)!=0){
+		printf("failed to run virtual I/O GPU control queue\r\n");
+		return -1;
+	}	
+	while (!commandDesc.responseDesc.responseComplete){};	
+	if (virtualFreePage((uint64_t)pCommandBuffer, 0)!=0){
+		printf("failed to free command buffer\r\n");
+		return -1;
+	}	
+	return 0;
+}
+int virtio_gpu_create_resource(struct virtio_gpu_create_resource_info createResourceInfo, struct virtio_gpu_resource_desc** ppResourceDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!ppResourceDesc||!pResponseHeader)
+		return -1;
+	uint64_t resourceId = 0;
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)kmalloc(sizeof(struct virtio_gpu_resource_desc));
+	if (!pResourceDesc){
+		printf("failed to allocate resource descriptor\r\n");
+		return -1;
+	}
+	memset((void*)pResourceDesc, 0, sizeof(struct virtio_gpu_resource_desc));
+	if (subsystem_alloc_entry(gpuInfo.pResourceSubsystemDesc, (unsigned char*)pResourceDesc, &resourceId)!=0){
+		printf("failed to allocate resource subsystem entry\r\n");	
+		kfree((void*)pResourceDesc);
+		return -1;
+	}	
+	pResourceDesc->resourceId = resourceId;
+	struct virtio_gpu_command_desc commandDesc = {0};
+	memset((void*)&commandDesc, 0, sizeof(struct virtio_gpu_command_desc));
+	struct virtio_gpu_alloc_cmd_info allocCmdInfo = {0};
+	memset((void*)&allocCmdInfo, 0, sizeof(struct virtio_gpu_alloc_cmd_info));
+	struct virtio_gpu_create_resource_2d_command* pCommandBuffer = (struct virtio_gpu_create_resource_2d_command*)0x0;
+	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate command buffer physical page\r\n");	
+		kfree((void*)pResourceDesc);
+		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);
+		return -1;
+	}	
+
+	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_create_resource_2d_command));
+	struct virtio_gpu_response_header* pResponseBuffer = (struct virtio_gpu_response_header*)0x0;
+	if (virtualAllocPage((uint64_t*)&pResponseBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate response buffer physical page\r\n");
+		virtualFreePage((uint64_t)pCommandBuffer, 0);
+		kfree((void*)pResourceDesc);
+		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);
+		return -1;
+	}	
+	memset((void*)pResponseBuffer, 0, sizeof(struct virtio_gpu_response_header));
+	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD_RESOURCE_CREATE_2D;	
+	pCommandBuffer->resourceId = resourceId+1;	
+	pCommandBuffer->format = createResourceInfo.format;
+	pCommandBuffer->width = createResourceInfo.width;
+	pCommandBuffer->height = createResourceInfo.height;
+	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;	
+	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_create_resource_2d_command);
+	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
+	allocCmdInfo.responseBufferSize = sizeof(struct virtio_gpu_response_header);
+	if (virtio_gpu_queue_alloc_cmd(&gpuInfo.controlQueueInfo, allocCmdInfo, &commandDesc)!=0){
+		printf("failed to allocate create resource command\r\n");
+		virtualFreePage((uint64_t)pCommandBuffer, 0);	
+		virtualFreePage((uint64_t)pResponseBuffer, 0);	
+		kfree((void*)pResourceDesc);
+		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);	
+		return -1;
+	}	
+	if (virtio_gpu_run_queue(&gpuInfo.controlQueueInfo)!=0){
+		printf("failed to run virtual I/O GPU control queue\r\n");
+		virtualFreePage((uint64_t)pCommandBuffer, 0);
+		virtualFreePage((uint64_t)pResponseBuffer, 0);
+		kfree((void*)pResourceDesc);
+		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);
+		return -1;
+	}	
+	while (!commandDesc.responseDesc.responseComplete){};
+	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;
+	virtualFreePage((uint64_t)pCommandBuffer, 0);
+	virtualFreePage((uint64_t)pResponseBuffer, 0);	
+	*ppResourceDesc = pResourceDesc;
+	*pResponseHeader = responseHeader;	
+	return 0;
+}
+int virtio_gpu_delete_resource(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pResourceDesc||!pResponseHeader)
+		return -1;
+	struct virtio_gpu_command_desc commandDesc = {0};
+	memset((void*)&commandDesc, 0, sizeof(struct virtio_gpu_command_desc));
+	struct virtio_gpu_alloc_cmd_info allocCmdInfo = {0};
+	memset((void*)&allocCmdInfo, 0, sizeof(struct virtio_gpu_alloc_cmd_info));
+	struct virtio_gpu_delete_resource_command* pCommandBuffer = (struct virtio_gpu_delete_resource_command*)0x0;
+	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate physical page for command buffer\r\n");
+		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId);
+		kfree((void*)pResourceDesc);
+		return -1;
+	}
+	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_delete_resource_command));
+	struct virtio_gpu_response_header* pResponseBuffer = (struct virtio_gpu_response_header*)0x0;
+	if (virtualAllocPage((uint64_t*)&pResponseBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate physical page for response buffer\r\n");
+		virtualFreePage((uint64_t)pCommandBuffer, 0);
+		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId);
+		kfree((void*)pResourceDesc);
+		return -1;
+	}	
+	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD_RESOURCE_FREE;
+	pCommandBuffer->resourceId = pResourceDesc->resourceId+1;
+	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
+	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_delete_resource_command);
+	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
+	allocCmdInfo.responseBufferSize = sizeof(struct virtio_gpu_response_header);	
+	if (virtio_gpu_queue_alloc_cmd(&gpuInfo.controlQueueInfo, allocCmdInfo, &commandDesc)!=0){
+		printf("failed to allocate virtual I/O GPU delete resource command\r\n");	
+		virtualFreePage((uint64_t)pCommandBuffer, 0);
+		virtualFreePage((uint64_t)pResponseBuffer, 0);	
+		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId);
+		kfree((void*)pResourceDesc);	
+		return -1;
+	}	
+	if (virtio_gpu_run_queue(&gpuInfo.controlQueueInfo)!=0){
+		printf("failed to run virtual I/O GPU control queue\r\n");
+		virtualFreePage((uint64_t)pCommandBuffer, 0);
+		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId);
+		kfree((void*)pResourceDesc);
+		return -1;
+	}
+	while (!commandDesc.responseDesc.responseComplete){};
+	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;	
+	virtualFreePage((uint64_t)pCommandBuffer, 0);
+	virtualFreePage((uint64_t)pResponseBuffer, 0);	
+	if (subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId)!=0){
+		printf("failed to free resource subsystem entry\r\n");
+		return -1;
+	}	
+	kfree((void*)pResourceDesc);
+	*pResponseHeader = responseHeader;
+	return 0;
+}
+int virtio_gpu_attach_resource_backing(struct virtio_gpu_resource_desc* pResourceDesc, unsigned char* pBuffer, uint64_t bufferSize, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pResourceDesc||!pBuffer||!bufferSize||!pResponseHeader)
+		return -1;
+	uint64_t physicalPageCount = align_up(bufferSize, PAGE_SIZE)/PAGE_SIZE;	
+	struct virtio_gpu_command_desc commandDesc = {0};
+	memset((void*)&commandDesc, 0, sizeof(struct virtio_gpu_command_desc));
+	struct virtio_gpu_alloc_cmd_info allocCmdInfo = {0};
+	memset((void*)&allocCmdInfo, 0, sizeof(struct virtio_gpu_alloc_cmd_info));
+	uint64_t commandBufferSize = sizeof(struct virtio_gpu_attach_backing_command)+(sizeof(struct virtio_gpu_memory_entry)*physicalPageCount);
+	struct virtio_gpu_attach_backing_command* pCommandBuffer = (struct virtio_gpu_attach_backing_command*)0x0;
+	if (virtualAlloc((uint64_t*)&pCommandBuffer, commandBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate physical pages for command buffer\r\n");
+		return -1;
+	}	
+	struct virtio_gpu_response_header* pResponseBuffer = (struct virtio_gpu_response_header*)0x0;
+	if (virtualAllocPage((uint64_t*)&pResponseBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate physical page for response buffer\r\n");
+		virtualFree((uint64_t)pCommandBuffer, commandBufferSize);	
+		return -1;
+	}
+	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_attach_backing_command));
+	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD_RESOURCE_ATTACH_BACKING;	
+	pCommandBuffer->resourceId = pResourceDesc->resourceId+1;
+	pCommandBuffer->memoryEntryCount = physicalPageCount;	
+	printf("physical page count: %d\r\n", physicalPageCount);
+	for (uint64_t i = 0;i<physicalPageCount;i++){
+		struct virtio_gpu_memory_entry* pMemoryEntry = pCommandBuffer->memoryEntryList+i;
+		uint64_t segmentSize = (i==physicalPageCount-1&&bufferSize%PAGE_SIZE) ? bufferSize%PAGE_SIZE : PAGE_SIZE;
+		unsigned char* pSegment = pBuffer+(i*PAGE_SIZE);
+		uint64_t pSegment_phys = 0;
+		if (virtualToPhysical((uint64_t)pSegment, &pSegment_phys)!=0){
+			printf("failed to get physical address of segment\r\n");	
+			virtualFree((uint64_t)pCommandBuffer, commandBufferSize);
+			virtualFreePage((uint64_t)pResponseBuffer, 0);
+			return -1;
+		}
+		pMemoryEntry->physicalAddress = pSegment_phys;
+		pMemoryEntry->length = segmentSize;	
+		pMemoryEntry->padding0 = 0;
+	}	
+	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
+	allocCmdInfo.commandBufferSize = commandBufferSize;
+	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
+	allocCmdInfo.responseBufferSize = sizeof(struct virtio_gpu_response_header);	
+	if (virtio_gpu_queue_alloc_cmd(&gpuInfo.controlQueueInfo, allocCmdInfo, &commandDesc)!=0){
+		printf("failed to allocate virtual I/O GPU attach backing command\r\n");
+		virtualFree((uint64_t)pCommandBuffer, commandBufferSize);
+		virtualFreePage((uint64_t)pResponseBuffer, 0);
+		return -1;
+	}	
+	if (virtio_gpu_run_queue(&gpuInfo.controlQueueInfo)!=0){
+		printf("failed to run virtual I/O GPU control queue\r\n");
+		virtualFree((uint64_t)pCommandBuffer, commandBufferSize);	
+		virtualFreePage((uint64_t)pResponseBuffer, 0);
+		return -1;
+	}
+	while (!commandDesc.responseDesc.responseComplete){};
+	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;
+	virtualFree((uint64_t)pCommandBuffer, commandBufferSize);
+	virtualFreePage((uint64_t)pResponseBuffer, 0);	
+	*pResponseHeader = responseHeader;
 	return 0;
 }
 int virtio_gpu_queue_init(struct virtio_gpu_queue_info* pQueueInfo){
@@ -439,7 +749,6 @@ int virtio_gpu_run_queue(struct virtio_gpu_queue_info* pQueueInfo){
 int virtio_gpu_response_queue_interrupt(uint8_t interruptVector){
 	struct virtio_gpu_isr_mapping_table_entry* pIsrMappingTableEntry = gpuInfo.pIsrMappingTable+interruptVector;
 	struct virtio_gpu_queue_info* pQueueInfo = pIsrMappingTableEntry->pQueueInfo;
-	printf("virtaul I/O GPU queue ISR\r\n");
 	if (!pQueueInfo){
 		return -1;
 	}	
@@ -447,14 +756,11 @@ int virtio_gpu_response_queue_interrupt(uint8_t interruptVector){
 	for (uint64_t i = 0;i<responseCount;i++){	
 		uint64_t currentResponse = pQueueInfo->currentResponse;	
 		volatile struct virtio_gpu_response_list_entry* pResponseListEntry = &pQueueInfo->pResponseRing->responseList[currentResponse];
-		printf("response list entry index: %d\r\n", pResponseListEntry->index);	
 		struct virtio_gpu_response_desc* pResponseDesc = pQueueInfo->ppResponseDescList[pQueueInfo->currentResponse];	
 		pResponseDesc->responseComplete = 1;	
 		gpuInfo.controlQueueInfo.currentResponse++;
 		if (gpuInfo.controlQueueInfo.currentResponse>gpuInfo.controlQueueInfo.maxResponseCount)
 			gpuInfo.controlQueueInfo.currentResponse = 0;	
-		printf("ring index: %d\r\n", pQueueInfo->pResponseRing->index);
-		printf("MSI-X vector: %d\r\n", pQueueInfo->msixVector);	
 	}
 	pQueueInfo->oldResponseRingIndex = pQueueInfo->pResponseRing->index;
 	if (pcie_msix_enable(gpuInfo.pMsgControl)!=0){
@@ -497,46 +803,53 @@ int virtio_gpu_queue_alloc_cmd(struct virtio_gpu_queue_info* pQueueInfo, struct 
 		pQueueInfo->currentCommand = 0;
 		commandIndex = 0;
 	}
-	volatile struct virtio_gpu_command_header* pCommandHeader = (struct virtio_gpu_command_header*)0x0;	
-	uint64_t pCommandHeader_phys = 0;
-	if (virtualAllocPage((uint64_t*)&pCommandHeader, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate command header physical page\r\n");
+	uint64_t pCommandBuffer_phys = 0;
+	if (virtualToPhysical((uint64_t)allocCmdInfo.pCommandBuffer, &pCommandBuffer_phys)!=0){
+		printf("failed to get command buffer physical address\r\n");
 		return -1;
-	}
-	if (virtualToPhysical((uint64_t)pCommandHeader, &pCommandHeader_phys)!=0){
-		printf("failed to get physical address of command header\r\n");
-		virtualFreePage((uint64_t)pCommandHeader, 0);	
-		return -1;
-	}
+	}	
 	uint64_t pResponseBuffer_phys = 0;
 	if (virtualToPhysical((uint64_t)allocCmdInfo.pResponseBuffer, &pResponseBuffer_phys)!=0){
 		printf("failed to get response buffer physical address\r\n");
-		virtualFreePage((uint64_t)pCommandHeader, 0);
 		return -1;
 	}	
-	*pCommandHeader = allocCmdInfo.commandHeader;	
+	uint64_t commandBufferPageCount = align_up(allocCmdInfo.commandBufferSize, PAGE_SIZE)/PAGE_SIZE;
 	uint64_t bufferPageCount = align_up(allocCmdInfo.bufferSize, PAGE_SIZE)/PAGE_SIZE;
 	struct virtio_gpu_memory_desc_info commandMemoryDescInfo = {0};
-	struct virtio_gpu_memory_desc_info responseMemoryDescInfo = {0};	
-	if (virtio_gpu_alloc_memory_desc(pQueueInfo, pCommandHeader_phys, sizeof(struct virtio_gpu_command_header), VIRTIO_GPU_MEMORY_DESC_FLAG_NEXT, &commandMemoryDescInfo)!=0){
-		printf("failed to allocate virtual I/O memory descriptor for command header\r\n");
-		virtualFreePage((uint64_t)pCommandHeader, 0);	
-		return -1;
+	struct virtio_gpu_memory_desc_info responseMemoryDescInfo = {0};
+	struct virtio_gpu_memory_desc_info lastMemoryDescInfo = {0};	
+	for (uint64_t i = 0;i<commandBufferPageCount;i++){	
+		unsigned char* pSegment = allocCmdInfo.pCommandBuffer+(i*PAGE_SIZE);
+		uint64_t segmentSize = (i==commandBufferPageCount-1&&allocCmdInfo.commandBufferSize%PAGE_SIZE) ? allocCmdInfo.commandBufferSize%PAGE_SIZE : PAGE_SIZE;
+		uint64_t pSegment_phys = 0;
+		if (virtualToPhysical((uint64_t)pSegment, &pSegment_phys)!=0){
+			printf("failed to get physical address of command buffer segment\r\n");
+			return -1;
+		}
+		struct virtio_gpu_memory_desc_info memoryDescInfo = {0};
+		if (virtio_gpu_alloc_memory_desc(pQueueInfo, pSegment_phys, segmentSize, VIRTIO_GPU_MEMORY_DESC_FLAG_NEXT, &memoryDescInfo)!=0){
+			printf("failed to allocate virtual I/O memory descriptor for command header\r\n");
+			return -1;
+		}
+		if (!i){
+			commandMemoryDescInfo = memoryDescInfo;
+			lastMemoryDescInfo = memoryDescInfo;
+			continue;
+		}
+		lastMemoryDescInfo.pMemoryDesc->next = memoryDescInfo.memoryDescIndex;
+		lastMemoryDescInfo = memoryDescInfo;	
 	}
-	struct virtio_gpu_memory_desc_info lastMemoryDescInfo = commandMemoryDescInfo;	
 	for (uint64_t i = 0;i<bufferPageCount;i++){
 		unsigned char* pSegment = allocCmdInfo.pBuffer+(i*PAGE_SIZE);	
 		uint64_t segmentSize = (i==bufferPageCount-1&&allocCmdInfo.bufferSize%PAGE_SIZE) ? allocCmdInfo.bufferSize%PAGE_SIZE : PAGE_SIZE;
 		uint64_t pSegment_phys = 0;
 		if (virtualToPhysical((uint64_t)pSegment, &pSegment_phys)!=0){
 			printf("failed to get physical address of buffer segment\r\n");
-			virtualFreePage((uint64_t)pCommandHeader, 0);
 			return -1;
 		}
 		struct virtio_gpu_memory_desc_info segmentMemoryDescInfo = {0};	
 		if (virtio_gpu_alloc_memory_desc(pQueueInfo, pSegment_phys, segmentSize, VIRTIO_GPU_MEMORY_DESC_FLAG_NEXT, &segmentMemoryDescInfo)!=0){
 			printf("failed to allocate memory desc for segment\r\n");
-			virtualFreePage((uint64_t)pCommandHeader, 0);
 			return -1;
 		}	
 		lastMemoryDescInfo.pMemoryDesc->next = segmentMemoryDescInfo.memoryDescIndex;	
@@ -544,7 +857,6 @@ int virtio_gpu_queue_alloc_cmd(struct virtio_gpu_queue_info* pQueueInfo, struct 
 	}	
 	if (virtio_gpu_alloc_memory_desc(pQueueInfo, pResponseBuffer_phys, allocCmdInfo.responseBufferSize, VIRTIO_GPU_MEMORY_DESC_FLAG_WRITE, &responseMemoryDescInfo)!=0){
 		printf("failed to allocate virtuall I/O memory descriptor for response header\r\n");
-		virtualFreePage((uint64_t)pCommandHeader, 0);
 		return -1;
 	}
 	lastMemoryDescInfo.pMemoryDesc->next = responseMemoryDescInfo.memoryDescIndex;	
@@ -555,23 +867,16 @@ int virtio_gpu_queue_alloc_cmd(struct virtio_gpu_queue_info* pQueueInfo, struct 
 	memset((void*)&commandDesc, 0, sizeof(struct virtio_gpu_command_desc));
 	commandDesc.pQueueInfo = pQueueInfo;	
 	commandDesc.commandIndex = commandIndex;
-	commandDesc.pCommandHeader = pCommandHeader;
+	commandDesc.pCommandBuffer = allocCmdInfo.pCommandBuffer;
+	commandDesc.pCommandBuffer_phys = pCommandBuffer_phys;
+	commandDesc.commandBufferSize = allocCmdInfo.commandBufferSize;	
 	commandDesc.pResponseBuffer = allocCmdInfo.pResponseBuffer;
 	commandDesc.pResponseBuffer_phys = pResponseBuffer_phys;	
 	commandDesc.responseBufferSize = allocCmdInfo.responseBufferSize;	
-	commandDesc.pCommandHeader_phys = pCommandHeader_phys;
 	*pCommandDesc = commandDesc;	
 	pQueueInfo->ppResponseDescList[pQueueInfo->currentResponse] = &pCommandDesc->responseDesc;	
 	pQueueInfo->currentCommand++;	
 	pQueueInfo->pCommandRing->index = (pQueueInfo->pCommandRing->index>=65534) ? 0 : pQueueInfo->pCommandRing->index+1;
 	*ppCommandDesc = pCommandDesc;	
-	return 0;
-}
-int virtio_gpu_queue_free_cmd(struct virtio_gpu_command_desc* pCommandDesc){
-	if (!pCommandDesc)
-		return -1;
-	if (virtualFreePage((uint64_t)pCommandDesc->pCommandHeader, 0)!=0){
-		return -1;
-	}	
 	return 0;
 }
