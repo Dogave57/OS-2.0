@@ -426,13 +426,18 @@ int uefi_execute_kernel(void* pFileData, uint64_t fileDataSize){
 				uefi_dprintf(L"applied x64 relocation relocation with patch %d\r\n", *pPatch);
 				break;
 			}	    
+			default:{
+				uefi_printf(L"unknown relocation type: %d\r\n", type);	
+				while (1){};
+				break;	
+			}
 			}
 		}
 		break;
 		}
 	}
 	unsigned char* pStack = (unsigned char*)0x0;
-	uint64_t stackSize = 4096*64;
+	uint64_t stackSize = 4096*256;
 	status = BS->AllocatePool(EfiReservedMemoryType, stackSize, (void**)&pStack);
 	if (status!=EFI_SUCCESS){
 		uefi_printf(L"failed to allocate kernel stack\r\n");

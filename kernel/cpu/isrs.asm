@@ -269,18 +269,26 @@ extern xhci_interrupter
 extern nvme_completion_queue_interrupt
 extern virtio_gpu_response_queue_interrupt
 extern schedulerHalt
+extern gpu_panic
 exception_fg:
 db 255, 255, 255, 0
 exception_bg:
 db 0, 0, 0, 0
 deadly_exception:
+and rsp, -16
 sub rsp, 32
-mov qword rcx, exception_fg
-mov qword rdx, exception_bg
+call gpu_panic
+add rsp, 32
+sub rsp, 32
+mov qword rcx, [rel exception_fg]
+mov qword rdx, [rel exception_bg]
 call set_text_color
-;call clear
+add rsp, 32
+sub rsp, 32
+call clear
 add rsp, 32
 mov qword rax, [rel exception_args]
+sub qword rsp, 8
 push rax
 mov qword rcx, exceptionmsg
 mov qword rdx, rax
@@ -288,6 +296,7 @@ sub rsp, 32
 call printf
 add rsp, 32
 pop rax
+add qword rsp, 8
 mov qword rbx, exception_name_map
 imul rax, 8
 add qword rbx, rax
@@ -332,91 +341,112 @@ cmp rax, 14
 jne pf_special_handler_end
 pf_special_handler:
 dump_pf_addr:
+sub qword rsp, 8
+push rax
 mov qword rcx, pf_dump_msg
 mov qword rdx, cr2
 sub rsp, 32
+mov qword [rsp], rcx
 call printf
 add rsp, 32
+pop rax
+add qword rsp, 8
 dump_pf_addr_end:
 dump_pf_error_code:
 mov qword rax, [rel exception_args+200]
 test rax, (1<<0)
 jnz dump_pf_pv
 dump_pf_np:
-mov qword rcx, pf_np_msg
+sub rsp, 8
 push rax
+mov qword rcx, pf_np_msg
 sub rsp, 32
 call print
 add rsp, 32
 pop rax
+add rsp, 8
 jmp dump_pf_pv_end
 dump_pf_np_end:
 dump_pf_pv:
-mov qword rcx, pf_pv_msg
+sub qword rsp, 8
 push rax
+mov qword rcx, pf_pv_msg
 sub rsp, 32
 call print
 add rsp, 32
 pop rax
+add rsp, 8
 dump_pf_pv_end:
 test rax, (1<<1)
 jnz dump_pf_wf
 dump_pf_rf:
+sub rsp, 8
 push rax
 mov qword rcx, pf_rf_msg
 sub rsp, 32
 call print
 add rsp, 32
 pop rax
+add rsp, 8
 jmp dump_pf_wf_end
 dump_pf_rf_end:
 dump_pf_wf:
+sub rsp, 8
 push rax
 mov qword rcx, pf_wf_msg
 sub rsp, 32
 call print
 add rsp, 32
 pop rax
+add qword rsp, 8
 dump_pf_wf_end:
 test rax, (1<<4)
 jz dump_pf_if_end
 dump_pf_if:
+sub rsp, 8
 push rax
 mov qword rcx, pf_if_msg
 sub rsp, 32
 call print
 add rsp, 32
 pop rax
+add rsp, 8
 dump_pf_if_end:
 test rax, (1<<2)
 jnz dump_pf_uv
 dump_pf_kv:
+sub rsp, 8
 push rax
 mov qword rcx, pf_kv_msg
 sub rsp, 32
 call printf
 add rsp, 32
 pop rax
+add rsp, 8
 jmp dump_pf_uv_end
 dump_pf_kv_end:
 dump_pf_uv:
+sub rsp, 8
 push rax
 mov qword rcx, pf_uv_msg
 sub rsp, 32
 call print
 add rsp, 32
 pop rax
+add rsp, 8
 dump_pf_uv_end:
 test rax, (1<<3)
 jnz dump_pf_rs
 jmp dump_pf_rs_end
 dump_pf_rs:
+sub rsp, 8
 push rax
 mov qword rcx, pf_rs_msg
 sub rsp, 32
 call print
 add rsp, 32
 pop rax
+add rsp, 8
 dump_pf_rs_end:
 dump_pf_error_code_end:
 pf_special_handler_end:
@@ -436,25 +466,31 @@ cmp rax, 0
 je dump_thread_info_end
 mov qword rcx, tid_dump_msg
 mov qword rdx, [rax+160]
+sub rsp, 8
 push rax
 sub qword rsp, 32
 call printf
 add qword rsp, 32
 pop rax
+add rsp, 8
 mov qword rcx, thread_rip_dump_msg
 mov qword rdx, [rax+168]
+sub rsp, 8
 push rax
 sub qword rsp, 32
 call printf
 add qword rsp, 32
 pop rax
+add rsp, 8
 mov qword rcx, thread_rsp_dump_msg
 mov qword rdx, [rax+176]
+sub rsp, 8
 push rax
 sub qword rsp, 32
 call printf
 add qword rsp, 32
 pop rax
+add rsp, 8
 dump_thread_info_end:
 b:
 jmp b
@@ -623,9 +659,6 @@ call xhci_interrupter
 add qword rsp, 32
 sub qword rsp, 32
 call entropy_shuffle
-add qword rsp, 32
-sub qword rsp, 32
-call lapic_send_eoi
 add qword rsp, 32
 mov qword rsp, rbp
 popaq

@@ -35,7 +35,7 @@ KAPI int printf(unsigned char* fmt, ...){
 	if (!fmt)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
@@ -96,14 +96,14 @@ KAPI int printf(unsigned char* fmt, ...){
 		}
 	}
 	va_end(args);
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int lprintf(uint16_t* fmt, ...){
 	if (!fmt)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
+	mutex_lock_isr_safe(&mutex);
 	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
@@ -164,7 +164,7 @@ KAPI int lprintf(uint16_t* fmt, ...){
 		}
 	}
 	va_end(args);
-	mutex_unlock(&mutex);
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int memset(uint64_t* mem, uint64_t value, uint64_t size){

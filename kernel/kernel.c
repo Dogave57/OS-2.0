@@ -20,6 +20,7 @@
 #include "subsystem/subsystem.h"
 #include "subsystem/filesystem.h"
 #include "subsystem/pcie.h"
+#include "subsystem/gpu.h"
 #include "drivers/gpt.h"
 #include "drivers/gpu/virtio.h"
 #include "drivers/filesystem/fat32.h"
@@ -61,16 +62,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	if (gdt_init()!=0){
-		print("failed to load gdt\r\n");
-		while (1){};
-		return -1;
-	}
-	if (idt_init()!=0){
-		print("failed to load idt\r\n");
-		while (1){};
-		return -1;
-	}
 	if (pmm_init()!=0){
 		printf("failed to initiallize pmm\r\n");
 		while (1){};
@@ -78,6 +69,16 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	if (vmm_init()!=0){
 		printf("failed to initialize vmm\r\n");
+		while (1){};
+		return -1;
+	}
+	if (gdt_init()!=0){
+		printf("failed to initialize GDT\r\n");
+		while (1){};
+		return -1;
+	}
+	if (idt_init()!=0){
+		printf("failed to initialize IDT\r\n");
 		while (1){};
 		return -1;
 	}
@@ -212,6 +213,11 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	if (gpu_subsystem_init()!=0){
+		printf("failed to initialize GPU subsystem\r\n");
+		while (1){};
+		return -1;
+	}
 	if (virtio_gpu_init()!=0){
 		printf("failed to initialize virtual I/O GPU driver\r\n");
 	}
@@ -265,10 +271,10 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	printf("--page info--\r\n");
-	struct uvec3_8 green = {0, 255, 0};
-	struct uvec3_8 red = {255, 0, 0};
-	struct uvec3_8 old_fg = {0,0,0};
-	struct uvec3_8 old_bg = {0,0,0};
+	struct uvec4_8 green = {0, 255, 0, 0};
+	struct uvec4_8 red = {255, 0, 0, 0};
+	struct uvec4_8 old_fg = {0,0,0,0};
+	struct uvec4_8 old_bg = {0,0,0,0};
 	get_text_color(&old_fg, &old_bg);
 	set_text_color(red, old_bg);
 	printf("used pages: %d\r\n", usedPages);

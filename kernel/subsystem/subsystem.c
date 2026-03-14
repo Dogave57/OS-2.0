@@ -18,6 +18,7 @@ int subsystem_init(struct subsystem_desc** ppSubsystemDesc, uint64_t max_entries
 		return -1;
 	if (virtualAllocPages((uint64_t*)&pFreeEntries, entryPages, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0)
 		return -1;
+	memset((void*)pEntries, 0, entryPages*PAGE_SIZE);
 	pSubsystemDesc->pEntries = pEntries;
 	pSubsystemDesc->pFreeEntries = pFreeEntries;
 	pSubsystemDesc->maxEntries = max_entries;
@@ -55,6 +56,12 @@ int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, unsigned char* 
 	if (id>=pSubsystemDesc->maxEntries){
 		mutex_unlock(&mutex);
 		return -1;
+	}
+	if (id>pSubsystemDesc->lastEntry){
+		pSubsystemDesc->lastEntry = id;
+		if (!(pSubsystemDesc->lastEntry%(PAGE_SIZE/sizeof(uint64_t)))){
+			memset((void*)(pSubsystemDesc->pEntries+id), 0, PAGE_SIZE);
+		}
 	}
 	pSubsystemDesc->pEntries[id] = (uint64_t)pEntry;
 	pSubsystemDesc->freeEntries--;

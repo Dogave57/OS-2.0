@@ -4,7 +4,7 @@
 #define THREAD_STATUS_INVALID ((uint64_t)0)
 #define THREAD_STATUS_HALTED ((uint64_t)1)
 #define THREAD_STATUS_RUNNING ((uint64_t)2)
-#define THREAD_DEFAULT_STACK_COMMIT (MEM_KB*8)
+#define THREAD_DEFAULT_STACK_COMMIT (MEM_KB*32)
 #define THREAD_DEFAULT_STACK_RESERVE (MEM_MB)
 #define THREAD_DEFAULT_STACK_GUARD_SIZE (MEM_MB)
 #define THREAD_PRIORITY_LOW 0x0
@@ -59,8 +59,9 @@ KAPI int thread_set_priority(uint64_t tid, uint64_t priority);
 KAPI int thread_yield(void);
 KAPI int get_current_thread(uint64_t* pTid);
 KAPI int thread_exists(uint64_t tid);
-int scheduler_halt(void);
-int scheduler_resume(void);
+KAPI int scheduler_halt(void);
+KAPI int scheduler_resume(void);
+KAPI int scheduler_halted(void);
 __attribute__((ms_abi)) uint64_t get_rflags(void);
 __attribute__((ms_abi)) int set_rflags(uint64_t rflags);
 __attribute__((ms_abi)) int thread_destroy_safe(uint64_t tid);

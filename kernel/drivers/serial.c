@@ -10,7 +10,7 @@ static unsigned int serial_portmap[]={
 	[6] = 0x5E8,
 	[7] = 0x4E8,
 };
-unsigned int isInitialized = 0;
+static unsigned int isInitialized = 0;
 int serial_init_port(unsigned int port){
 	unsigned int serial = serial_portmap[port];
 	outb(port+1, 0x00);
@@ -43,7 +43,7 @@ int serial_init(void){
 unsigned int serial_initialized(void){
 	return isInitialized;
 }
-int serial_putchar(unsigned int port, unsigned char ch){
+KAPI int serial_putchar(unsigned int port, unsigned char ch){
 	if (!isInitialized)
 		return -1;
 	unsigned int serial = serial_portmap[port];
@@ -51,7 +51,7 @@ int serial_putchar(unsigned int port, unsigned char ch){
 	outb(serial, ch);
 	return 0;
 }
-int serial_print(unsigned int port, CHAR16* msg){
+KAPI int serial_print(unsigned int port, unsigned char* msg){
 	if (!msg)
 		return -1;
 	if (port>7)

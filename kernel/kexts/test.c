@@ -1,6 +1,7 @@
 #include "kernel_api.h"
 #include "stdlib/stdlib.h"
 #include "cpu/thread.h"
+#include "drivers/serial.h"
 #include "drivers/timer.h"
 #include "drivers/gpu/framebuffer.h"
 int thread_entry(uint64_t tid, uint64_t arg);
@@ -12,7 +13,6 @@ int kext_entry(uint64_t pid){
 	printf("timer start\r\n");
 	sleep(5000);
 	printf("timer end\r\n");
-	while (1){};
 	for (uint64_t i = 0;i<32;i++){
 		uint64_t tid = 0;
 		if (thread_create((uint64_t)thread_entry, 0, 0, &tid, 0)!=0){

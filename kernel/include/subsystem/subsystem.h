@@ -7,6 +7,7 @@ struct subsystem_desc{
 	uint64_t* pEntries;
 	uint64_t* pFreeEntries;
 	uint64_t entryPages;
+	uint64_t lastEntry;
 };
 int subsystem_init(struct subsystem_desc** ppSubsystemDesc, uint64_t max_entries);
 int subsystem_deinit(struct subsystem_desc* pSubsystemDesc);

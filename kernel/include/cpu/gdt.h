@@ -35,5 +35,6 @@ struct tss_entry_t{
 int gdt_add_entry(struct gdt_entry_t* pTarget, uint32_t base, uint32_t limit, uint8_t access, uint16_t flags);
 int gdt_add_long_entry(struct gdt_entry_long_t* pTarget, uint64_t base, uint32_t limit, uint8_t access, uint16_t flags);
 int gdt_init(void);
+int gdt_tss_init(void);
 int load_gdt(struct gdt_ptr* pgdt);
 #endif

@@ -3,8 +3,7 @@
 #include "bootloader.h"
 #include "math/vector.h"
 #include "kernel_include.h"
-KAPI int write_pixel_coord(struct uvec2 coord, struct uvec3_8 color);
-KAPI int write_pixel(unsigned int pixel, struct uvec3_8 color);
+KAPI int write_pixel(struct uvec2 position, struct uvec4_8 color);
 KAPI int clear(void);
 KAPI int writechar(unsigned int position, unsigned char ch);
 KAPI int putchar(unsigned char ch);
@@ -13,8 +12,8 @@ KAPI int puthex(unsigned char hex, unsigned char isUpper);
 KAPI int print(unsigned char* string);
 KAPI int lprint(uint16_t* lstring);
 int init_fonts(void);
-KAPI int set_text_color(struct uvec3_8 fg, struct uvec3_8 bg);
-KAPI int get_text_color(struct uvec3_8* pFg, struct uvec3_8* pBg);
+KAPI int set_text_color(struct uvec4_8 fg, struct uvec4_8 bg);
+KAPI int get_text_color(struct uvec4_8* pFg, struct uvec4_8* pBg);
 static unsigned char mainfont_data[255][16]={
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x00 
         { 0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD, 0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00  },       //0x01 

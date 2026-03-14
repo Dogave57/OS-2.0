@@ -5,6 +5,6 @@
 int serial_init_port(unsigned int port);
 int serial_init(void);
 unsigned int serial_initialized(void);
-int serial_putchar(unsigned int port, unsigned char ch);
-int serial_print(unsigned int port, CHAR16* str);
+KAPI int serial_putchar(unsigned int port, unsigned char ch);
+KAPI int serial_print(unsigned int port, unsigned char* msg);
 #endif

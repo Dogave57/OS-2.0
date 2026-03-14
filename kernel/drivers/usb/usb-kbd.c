@@ -27,7 +27,6 @@ int usb_kbd_init(uint8_t port, uint8_t interfaceId){
 	if (xhci_get_interface_desc(pDevice, interfaceId, &pInterfaceDesc)!=0)
 		return -1;
 	if (pInterfaceDesc->usbInterfaceDesc.interfaceClass!=0x3||pInterfaceDesc->usbInterfaceDesc.interfaceSubClass!=0x1||pInterfaceDesc->usbInterfaceDesc.interfaceProtocol!=0x1){
-		printf("not a valid USB HID keyboard\r\n");
 		return -1;
 	}
 	struct xhci_endpoint_desc* pEndpointDesc = (struct xhci_endpoint_desc*)0x0;
@@ -121,8 +120,9 @@ int usb_kbd_handle_boot_report(void){
 		if (lastPressed){
 			continue;
 		}
-		if (character<128&&character)
+		if (character<128&&character){
 			putchar((!key_pressed(KEY_LSHIFT)||!key_pressed(KEY_RSHIFT)||!key_pressed(KEY_CAPSLOCK)) ? toUpper(character) : character);
+		}
 		if (spamAllowed)
 			spam = 1;
 		if (character)

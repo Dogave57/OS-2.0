@@ -36,7 +36,7 @@ int vmm_init(void){
 		}
 	}
 	uint64_t kernel_pages = align_up(pbootargs->kernelInfo.kernelSize, PAGE_SIZE)/PAGE_SIZE;
-	if (virtualMapPages(pbootargs->kernelInfo.pKernel, pbootargs->kernelInfo.pKernel, PTE_RW, kernel_pages, 1, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualMapPages(pbootargs->kernelInfo.pKernel, pbootargs->kernelInfo.pKernel, PTE_RW, kernel_pages+1024, 1, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to map kernel\r\n");
 		return -1;
 	}

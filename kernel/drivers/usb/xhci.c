@@ -137,7 +137,6 @@ int xhci_init(void){
 		printf("failed to initialize USB BOT interface protocol driver\r\n");
 		return -1;
 	}
-	while (1){};
 	return 0;
 }
 int xhci_get_info(struct xhci_info* pInfo){
@@ -868,7 +867,7 @@ int xhci_update_dequeue_trb(void){
 	if (xhci_get_interrupter_base(0, &pInt)!=0)
 		return -1;
 
-	if (!xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase||(xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb)>xhciInfo.interrupterInfo.eventRingInfo.maxEntries-1){
+	if (!xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase||(xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb)>=xhciInfo.interrupterInfo.eventRingInfo.maxEntries-1){
 		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase_phys = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer_phys;
 		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer;
 		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb = 0;
@@ -876,12 +875,12 @@ int xhci_update_dequeue_trb(void){
 	else{
 		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase_phys+=sizeof(struct xhci_trb);
 		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase++;
+		xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb++;
 	}
 	uint64_t dequeue_ring_ptr = xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase_phys;
 	dequeue_ring_ptr|=(1<<3);
-	__asm__ volatile("mfence" ::: "memory");	
-	xhci_write_qword((uint64_t*)&pInt->dequeue_ring_ptr, dequeue_ring_ptr);
-	xhciInfo.interrupterInfo.eventRingInfo.dequeueTrb++;
+	__asm__ volatile("mfence" ::: "memory");
+	*(volatile uint64_t*)&pInt->dequeue_ring_ptr = dequeue_ring_ptr;
 	return 0;
 }
 int xhci_get_event_trb(volatile struct xhci_trb** ppTrbEntry){
@@ -993,6 +992,7 @@ int xhci_interrupter(void){
 		printf("failed to get current event TRB\r\n");
 		xhci_send_ack(0);
 		xhci_update_dequeue_trb();
+		lapic_send_eoi();
 		return -1;
 	}
 	struct xhci_trb eventTrb = *pEventTrb;
@@ -1001,6 +1001,7 @@ int xhci_interrupter(void){
 		printf("event TRB not linked to TRB\r\n");
 		xhci_send_ack(0);
 		xhci_update_dequeue_trb();
+		lapic_send_eoi();
 		return -1;
 	}
 	uint64_t pEventTrb_phys = 0;
@@ -1008,6 +1009,7 @@ int xhci_interrupter(void){
 		printf("failed to get event TRB physical address\r\n");
 		xhci_send_ack(0);
 		xhci_update_dequeue_trb();
+		lapic_send_eoi();
 		return -1;
 	}
 	uint8_t acknowledged = 0;
@@ -1040,9 +1042,10 @@ int xhci_interrupter(void){
 			pTransferDesc->eventTrb = eventTrb;
 			pTransferDesc->transferComplete = 1;
 			if (pTransferDesc->completionFunc){
-				pTransferDesc->completionFunc(pTransferDesc);
 				xhci_send_ack(0);
 				xhci_update_dequeue_trb();
+				lapic_send_eoi();
+				pTransferDesc->completionFunc(pTransferDesc);
 				return 0;
 			}
 			break;				       
@@ -1138,6 +1141,7 @@ int xhci_interrupter(void){
 		xhci_send_ack(0);
 		xhci_update_dequeue_trb();
 	}
+	lapic_send_eoi();
 	return 0;
 }
 int xhci_dump_interrupter(uint64_t interrupter_id){
@@ -1642,7 +1646,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 				pEndpointContext->type = endpointType;
 				pEndpointContext->error_count = 3;
 				pEndpointContext->max_packet_size = pDesc->maxPacketSize&0x7FF;
-				pEndpointContext->average_trb_len = pDesc->maxPacketSize;
+				pEndpointContext->average_trb_len = pDesc->maxPacketSize&0x7FF;
 				uint32_t maxEsitPayload = 0x0;
 				uint8_t maxBurstSize = (pDesc->maxPacketSize&0x7FF);
 				uint8_t multi = ((pDesc->maxPacketSize>>1)&0x03)+1;	
@@ -2159,25 +2163,33 @@ KAPI int xhci_reset_endpoint(struct xhci_device* pDevice, uint8_t interfaceId, u
 KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packet_request request, struct xhci_trb* pEventTrb){
 	if (!pDevice)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock_isr_safe(&mutex);
 	uint64_t pBuffer_phys = 0;
 	if (virtualToPhysical((uint64_t)request.pBuffer, &pBuffer_phys)!=0){
+		mutex_unlock_isr_safe(&mutex);
 		return -1;	
 	}
 	uint64_t physicalPageCount = request.bufferSize/PAGE_SIZE;
-	if (physicalPageCount>255)
+	if (physicalPageCount>255){
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
+	}
 	struct xhci_endpoint_desc* pEndpointDesc = (struct xhci_endpoint_desc*)0x0;
 	if (xhci_get_endpoint_desc(pDevice, request.interfaceId, request.endpointId, &pEndpointDesc)!=0){
 		printf("failed to get endpoint descriptor\r\n");
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	struct xhci_transfer_ring_info* pTransferRingInfo = (struct xhci_transfer_ring_info*)0x0;
 	if (xhci_get_endpoint_transfer_ring(pDevice, request.interfaceId, request.endpointId, &pTransferRingInfo)!=0){
 		printf("failed to get endpoint transfer ring\r\n");
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pTransferRingInfo){
 		printf("no transfer ring linked with endpoint! port: %d interface ID: %d endpoint ID: %d\r\n", pDevice->port, request.interfaceId, request.endpointId);
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	uint8_t endpointIndex = pEndpointDesc->endpointIndex;
@@ -2193,12 +2205,14 @@ KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packe
 	normalTrb.normal_transfer.dir = pEndpointDesc->endpointDirection ? 1 : 0;
 	if (xhci_alloc_transfer(pTransferRingInfo, normalTrb, &pTransferDesc, (physicalPageCount>1) ? (xhciTransferCompletionFunc)0x0 : request.completionFunc)!=0){
 		printf("failed to allocate transfer TRB\r\n");
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	for (uint64_t i = 0;i<physicalPageCount-1&&physicalPageCount>1&&request.chainAllowed;i++){
 		unsigned char* pVirtualPage = request.pBuffer+PAGE_SIZE+(i*PAGE_SIZE);
 		if (virtualToPhysical((uint64_t)pVirtualPage, &pBuffer_phys)!=0){
 			printf("failed to get physical address of page\r\n");
+			mutex_unlock_isr_safe(&mutex);
 			return -1;
 		}
 		normalTrb.normal_transfer.ioc = (i==physicalPageCount-2) ? 1 : 0;
@@ -2207,12 +2221,14 @@ KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packe
 		normalTrb.normal_transfer.transfer_len = (i==physicalPageCount-2&&(request.bufferSize%PAGE_SIZE)) ? (request.bufferSize%PAGE_SIZE) : PAGE_SIZE;
 		if (xhci_alloc_transfer(pTransferRingInfo, normalTrb, &pTransferDesc, (i==physicalPageCount-2) ? request.completionFunc : (xhciTransferCompletionFunc)0x0)!=0){
 			printf("failed to allocate transfer\r\n");
+			mutex_unlock_isr_safe(&mutex);
 			return -1;
 		}
 	}	
 	xhci_start();
 	xhci_ring_endpoint(pDevice->deviceContext.slotId, endpointIndex, 0);
 	if (request.completionFunc){
+		mutex_unlock_isr_safe(&mutex);
 		return 0;
 	}
 	while (!pTransferDesc->transferComplete){};	
@@ -2220,8 +2236,10 @@ KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packe
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
+		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}	
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 int xhci_subsystem_register_function(struct pcie_location location){
