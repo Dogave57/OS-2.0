@@ -4,6 +4,8 @@
 typedef int(*gpuReadPixelFunc)(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel);
 typedef int(*gpuWritePixelFunc)(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel);
 typedef int(*gpuSyncFunc)(uint64_t monitorId, struct uvec4 rect);
+typedef int(*gpuCommitFunc)(uint64_t monitorId, struct uvec4 rect);
+typedef int(*gpuPushFunc)(uint64_t monitorId, struct uvec4 rect);
 typedef int(*gpuPanicFunc)(uint64_t driverId);
 struct gpu_resolution{
 	uint32_t width;
@@ -20,6 +22,8 @@ struct gpu_driver_vtable{
 	gpuReadPixelFunc readPixel;
 	gpuWritePixelFunc writePixel;
 	gpuSyncFunc sync;
+	gpuCommitFunc commit;
+	gpuPushFunc push;
 	gpuPanicFunc panic;
 };
 struct gpu_driver_desc{
@@ -77,5 +81,7 @@ int gpu_monitor_exists(uint64_t monitorId);
 int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel);
 int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel);
 int gpu_sync(uint64_t monitorId, struct uvec4 rect);
+int gpu_commit(uint64_t monitorId, struct uvec4 rect);
+int gpu_push(uint64_t monitorId, struct uvec4 rect);
 int gpu_panic(void);
 #endif

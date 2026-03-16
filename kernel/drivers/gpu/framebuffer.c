@@ -95,7 +95,6 @@ int writechar(unsigned int position, unsigned char ch){
 	unsigned int position_x = position%resolution.width;
 	unsigned int position_y = position/resolution.width;
 	position_y*=16;
-//	serial_print(0, "writing raw pixel data to framebuffer\r\n");
 	for (unsigned int x = 0;x<8;x++){
 		for (unsigned int y = 0;y<16;y++){
 			unsigned int pixelX = position_x+x;
@@ -113,22 +112,18 @@ int writechar(unsigned int position, unsigned char ch){
 				write_pixel(position, text_bg);
 		}
 	}	
-//	serial_print(0, "done writing raw pixel data to framebuffer\r\n");
 	if (!gpu_monitor_exists(0)){
 		struct uvec4 syncRect = {0};
 		syncRect.x = position_x;
 		syncRect.y = position_y;
 		syncRect.z = 8;
 		syncRect.w = 16;
-		serial_print(0, "syncing framebuffer\r\n");
 		if (gpu_sync(0, syncRect)!=0){
 			serial_print(0, "failed to sync framebuffer\r\n");
 			mutex_unlock(&mutex);
 			return -1;
 		}
-		serial_print(0, "done syncing framebuffer\r\n");
 	}
-//	serial_print(0, "done\r\n");
 	serial_putchar(SERIAL_DEBUG_PORT, (unsigned char)ch);
 	mutex_unlock(&mutex);
 	return 0;

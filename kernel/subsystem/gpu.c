@@ -273,6 +273,50 @@ int gpu_sync(uint64_t monitorId, struct uvec4 rect){
 	mutex_unlock(&mutex);
 	return 0;
 }
+int gpu_commit(uint64_t monitorId, struct uvec4 rect){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
+	if (gpu_monitor_get_desc(monitorId, &pMonitorDesc)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
+	if (gpu_driver_get_desc(pMonitorDesc->driverId, &pDriverDesc)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (!pDriverDesc->vtable.commit){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pDriverDesc->vtable.commit(monitorId, rect)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int gpu_push(uint64_t monitorId, struct uvec4 rect){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
+	if (gpu_monitor_get_desc(monitorId, &pMonitorDesc)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
+	if (gpu_driver_get_desc(pMonitorDesc->driverId, &pDriverDesc)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pDriverDesc->vtable.push(monitorId, rect)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
 int gpu_panic(void){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);

@@ -34,6 +34,42 @@ pop rbx
 pop rax
 pop rbp
 %endmacro
+%macro pushax 0
+push xmm0
+push xmm1
+push xmm2
+push xmm3
+push xmm4
+push xmm5
+push xmm6
+push xmm7
+push xmm8
+push xmm9
+push xmm10
+push xmm11
+push xmm12
+push xmm13
+push xmm14
+push xmm15
+%endmacro
+%macro popax 0
+pop xmm15
+pop xmm14
+pop xmm13
+pop xmm12
+pop xmm11
+pop xmm10
+pop xmm9
+pop xmm8
+pop xmm7
+pop xmm6
+pop xmm5
+pop xmm4
+pop xmm3
+pop xmm2
+pop xmm1
+pop xmm0
+%endmacro
 %macro ISR_STUB 1
 global isr_stub_%+%1
 isr_stub_%+%1:
@@ -283,6 +319,7 @@ sub rsp, 32
 mov qword rcx, [rel exception_fg]
 mov qword rdx, [rel exception_bg]
 call set_text_color
+call clear
 add rsp, 32
 sub rsp, 32
 call clear
@@ -465,7 +502,7 @@ mov qword rax, [rel pCurrentThread]
 cmp rax, 0
 je dump_thread_info_end
 mov qword rcx, tid_dump_msg
-mov qword rdx, [rax+160]
+mov qword rdx, [rax+432]
 sub rsp, 8
 push rax
 sub qword rsp, 32
@@ -474,7 +511,7 @@ add qword rsp, 32
 pop rax
 add rsp, 8
 mov qword rcx, thread_rip_dump_msg
-mov qword rdx, [rax+168]
+mov qword rdx, [rax+448]
 sub rsp, 8
 push rax
 sub qword rsp, 32
@@ -483,7 +520,7 @@ add qword rsp, 32
 pop rax
 add rsp, 8
 mov qword rcx, thread_rsp_dump_msg
-mov qword rdx, [rax+176]
+mov qword rdx, [rax+464]
 sub rsp, 8
 push rax
 sub qword rsp, 32
@@ -551,19 +588,35 @@ mov qword [rax+104], r15
 mov qword rbx, [rsp+24]
 mov qword [rax+112], rbx
 mov qword [rax+120], rbp
+movdqu [rax+144], xmm0
+movdqu [rax+160], xmm1
+movdqu [rax+176], xmm2
+movdqu [rax+192], xmm3
+movdqu [rax+208], xmm4
+movdqu [rax+224], xmm5
+movdqu [rax+240], xmm6
+movdqu [rax+256], xmm7
+movdqu [rax+272], xmm8
+movdqu [rax+288], xmm9
+movdqu [rax+304], xmm10
+movdqu [rax+320], xmm11
+movdqu [rax+336], xmm12
+movdqu [rax+352], xmm13
+movdqu [rax+368], xmm14
+movdqu [rax+384], xmm15
 mov qword rbx, [rsp]
 mov qword [rax+128], rbx
 mov qword rbx, [rel ctx_switch_args]
 mov qword [rax], rbx
 mov qword rbx, [rsp+16]
 mov qword [rax+136], rbx
-mov qword rax, [rax+208]
+mov qword rax, [rax+528]
 cmp rax, 0
 je ctx_switch_first_thread
 ctx_switch_next_thread_end:
 mov qword [rel pCurrentThread], rax
 priority_check:
-mov qword rbx, [rax+152]
+mov qword rbx, [rax+416]
 cmp rbx, 0
 je priority_case_low
 cmp rbx, 2
@@ -604,6 +657,22 @@ mov qword r13, [rax+88]
 mov qword r14, [rax+96]
 mov qword r15, [rax+104]
 mov qword rbp, [rax+120]
+movdqu xmm0, [rax+144]
+movdqu xmm1, [rax+160]
+movdqu xmm2, [rax+176]
+movdqu xmm3, [rax+192]
+movdqu xmm4, [rax+208]
+movdqu xmm5, [rax+224]
+movdqu xmm6, [rax+240]
+movdqu xmm7, [rax+256]
+movdqu xmm8, [rax+272]
+movdqu xmm9, [rax+288]
+movdqu xmm10, [rax+304]
+movdqu xmm11, [rax+320]
+movdqu xmm12, [rax+336]
+movdqu xmm13, [rax+352]
+movdqu xmm14, [rax+368]
+movdqu xmm15, [rax+384]
 mov qword rax, [rax]
 pushaq
 ctx_switch_end:

@@ -37,4 +37,13 @@ struct vec3_8{
 struct vec4_8{
 	char x, y, z, w;
 }__attribute__((packed));
+struct fvec2_32{
+	float x, y;
+}__attribute__((packed));
+struct fvec3_32{
+	float x, y, z;
+}__attribute__((packed));
+struct fvec4_32{
+	float x, y, z, w;
+}__attribute__((packed));
 #endif

@@ -31,19 +31,35 @@ struct thread_context_t{
 	uint64_t rbp;	// 120
 	uint64_t rip;	// 128
 	uint64_t rflags; // 136
+	uint8_t xmm0[16]; // 144
+	uint8_t xmm1[16]; // 160
+	uint8_t xmm2[16]; // 176
+	uint8_t xmm3[16]; // 192
+	uint8_t xmm4[16]; // 208
+	uint8_t xmm5[16]; // 224
+	uint8_t xmm6[16]; // 240
+	uint8_t xmm7[16]; // 256
+	uint8_t xmm8[16]; // 272
+	uint8_t xmm9[16]; // 288
+	uint8_t xmm10[16]; // 304
+	uint8_t xmm11[16]; // 320
+	uint8_t xmm12[16]; // 336
+	uint8_t xmm13[16]; // 352
+	uint8_t xmm14[16]; // 368
+	uint8_t xmm15[16]; // 384
 }__attribute__((packed));
 struct thread_t{
 	struct thread_context_t context; // 0
-	uint64_t status; // 144
-	uint64_t priority; // 152
-	uint64_t tid; // 160
-	uint64_t start_rip; // 168
-	uint64_t pStack; // 176
-	uint64_t stackGuardSize; // 184
-	uint64_t stackReserve; // 192
-	uint64_t stackCommit; // 200
-	struct thread_t* pFlink; // 208
-	struct thread_t* pBlink; // 216
+	uint64_t status; // 144 400
+	uint64_t priority; // 152 416
+	uint64_t tid; // 160 432
+	uint64_t start_rip; // 168 448
+	uint64_t pStack; // 176 464
+	uint64_t stackGuardSize; // 184 480
+	uint64_t stackReserve; // 192 496
+	uint64_t stackCommit; // 200 512
+	struct thread_t* pFlink; // 208 528
+	struct thread_t* pBlink; // 216 544
 }__attribute__((packed));
 int threads_init(void);
 int thread_link(struct thread_t* pThread, struct thread_t* pLink);
