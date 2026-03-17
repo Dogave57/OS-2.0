@@ -18,6 +18,12 @@ struct gpu_monitor_info{
 	struct gpu_resolution resolution;
 	volatile struct uvec4_8* pFramebuffer;
 };
+struct gpu_resource_desc{
+	uint64_t resourceId;
+	uint64_t resourceType;
+	unsigned char* pBuffer;
+	uint64_t bufferSize;
+};
 struct gpu_driver_vtable{
 	gpuReadPixelFunc readPixel;
 	gpuWritePixelFunc writePixel;
