@@ -46,7 +46,6 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 	pKextDesc->pElfHandle = pHandle;
 	pArgs->pKextDesc = pKextDesc;
 	uint64_t tid = 0;
-	printf("creating thread\r\n");
 	if (thread_create((uint64_t)kext_bootstrap, 0, 0, &tid, (uint64_t)pArgs)!=0){
 		printf("failed to create thread\r\n");
 		kfree((void*)pArgs);

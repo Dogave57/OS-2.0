@@ -6,6 +6,7 @@ typedef int(*gpuWritePixelFunc)(uint64_t monitorId, struct uvec2 position, struc
 typedef int(*gpuSyncFunc)(uint64_t monitorId, struct uvec4 rect);
 typedef int(*gpuCommitFunc)(uint64_t monitorId, struct uvec4 rect);
 typedef int(*gpuPushFunc)(uint64_t monitorId, struct uvec4 rect);
+typedef int(*gpuClearFunc)(uint64_t monitorId, struct fvec4_32 color);
 typedef int(*gpuPanicFunc)(uint64_t driverId);
 struct gpu_resolution{
 	uint32_t width;
@@ -30,10 +31,19 @@ struct gpu_driver_vtable{
 	gpuSyncFunc sync;
 	gpuCommitFunc commit;
 	gpuPushFunc push;
+	gpuClearFunc clear;
 	gpuPanicFunc panic;
+};
+struct gpu_driver_features{
+	uint64_t acceleration:1;
+	uint64_t reserved0:63;
+};
+struct gpu_driver_info{
+	struct gpu_driver_features features;
 };
 struct gpu_driver_desc{
 	struct gpu_driver_vtable vtable;
+	struct gpu_driver_info driverInfo;
 	uint64_t driverId;
 	uint64_t extra;
 	struct gpu_driver_desc* pFlink;
@@ -72,7 +82,7 @@ struct gpu_monitor_subsystem_info{
 	struct gpu_monitor_desc* pLastMonitorDesc;
 };
 int gpu_subsystem_init(void);
-int gpu_driver_register(struct gpu_driver_vtable vtable, uint64_t* pDriverId);
+int gpu_driver_register(struct gpu_driver_vtable vtable, struct gpu_driver_info driverInfo, uint64_t* pDriverId);
 int gpu_driver_unregister(uint64_t driverId);
 int gpu_driver_get_desc(uint64_t driverId, struct gpu_driver_desc** ppDriverDesc);
 int gpu_driver_get_first_desc(struct gpu_driver_desc** ppDriverDesc);
@@ -89,5 +99,6 @@ int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pi
 int gpu_sync(uint64_t monitorId, struct uvec4 rect);
 int gpu_commit(uint64_t monitorId, struct uvec4 rect);
 int gpu_push(uint64_t monitorId, struct uvec4 rect);
+int gpu_clear(uint64_t monitorId, struct fvec4_32 color);
 int gpu_panic(void);
 #endif

@@ -418,6 +418,15 @@ int xhci_read_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struc
 	*pTrbEntry = *(pRingInfo->pRingBuffer+trbIndex);
 	return 0;
 }
+int xhci_yield_until_cmd_complete(struct xhci_cmd_desc* pCmdDesc){
+	if (!pCmdDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock_isr_safe(&mutex);
+	while (!pCmdDesc->cmdComplete){};
+	mutex_unlock_isr_safe(&mutex);
+	return 0;
+}
 int xhci_init_transfer_ring_list(void){
 	uint64_t listSize = sizeof(struct xhci_transfer_ring_info)*XHCI_MAX_SLOT_COUNT*XHCI_MAX_ENDPOINT_COUNT;
 	struct xhci_transfer_ring_info* pTransferRingList = (struct xhci_transfer_ring_info*)0x0;
@@ -548,6 +557,15 @@ int xhci_read_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64
 	if (!pTransferRingInfo||!pTrbEntry)
 		return -1;
 	*pTrbEntry = *(pTransferRingInfo->pRingBuffer+trbIndex);
+	return 0;
+}
+int xhci_yield_until_transfer_complete(struct xhci_transfer_desc* pTransferDesc){
+	if (!pTransferDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock_isr_safe(&mutex);
+	while (!pTransferDesc->transferComplete){};
+	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 int xhci_ring(uint64_t doorbell_vector){
@@ -1069,12 +1087,10 @@ int xhci_interrupter(void){
 				xhci_update_dequeue_trb();
 				acknowledged = 1;
 				lapic_send_eoi();
-				__asm__ volatile("sti");
 				if (xhci_reset_port(portIndex)!=0){
 					printf("failed to reset port\r\n");
 					break;
 				}	
-				__asm__ volatile("cli");
 				return 0;
 			}
 			if (portStatus.connection_status_change&&!portStatus.connection_status){
@@ -1083,12 +1099,10 @@ int xhci_interrupter(void){
 				xhci_update_dequeue_trb();
 				acknowledged = 1;
 				lapic_send_eoi();
-				__asm__ volatile("sti");
 				if (xhci_deinit_device(pDevice)!=0){
 					printf("failed to deinitialize device\r\n");
 					break;
 				}
-				__asm__ volatile("cli");
 				return 0;
 			}
 			if (portStatus.port_reset_change){
@@ -1097,12 +1111,10 @@ int xhci_interrupter(void){
 				xhci_update_dequeue_trb();
 				acknowledged = 1;
 				lapic_send_eoi();
-				__asm__ volatile("sti");
 				if (xhci_init_device(portIndex, &pNewDevice)!=0){
 					printf("failed to intialize device at port %d\r\n", portIndex);
 					break;
 				}	
-				__asm__ volatile("cli");
 				printf("device at port %d reset\r\n", portIndex);
 				return 0;
 			}
@@ -1115,12 +1127,10 @@ int xhci_interrupter(void){
 				acknowledged = 1;
 				lapic_send_eoi();
 				pPort->port_status = portStatus;
-				__asm__ volatile("sti");
 				if (xhci_deinit_device(pDevice)!=0){
 					printf("failed to deintialize device\r\n");
 					break;
 				}
-				__asm__ volatile("cli");
 				printf("device at port %d over current\r\n", portIndex);
 				return 0;	
 			}
@@ -1239,66 +1249,78 @@ int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr*
 int xhci_enable_slot(uint64_t* pSlotId){
 	if (!pSlotId)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
 	struct xhci_trb cmdTrb = {0};
 	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
 	cmdTrb.command.control.type = XHCI_TRB_TYPE_ENABLE_SLOT;
-	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0)
+	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
+		mutex_unlock(&mutex);
 		return -1;
+	}
 	xhci_start();
 	xhci_ring(0);
-	while (!pCmdDesc->cmdComplete){};
+	xhci_yield_until_cmd_complete(pCmdDesc);
 	struct xhci_trb eventTrb = pCmdDesc->eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
 		const unsigned char* errorName = "Unknown error";
 		xhci_get_error_name((uint64_t)eventTrb.event.completion_code, &errorName);
 		printf("failed to enable slot (%s)\r\n", errorName);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	*pSlotId = (uint64_t)eventTrb.enable_slot_event.slot_id;
+	mutex_unlock(&mutex);
 	return 0;
 }
 int xhci_disable_slot(uint64_t slotId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
 	struct xhci_trb cmdTrb = {0};
 	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
 	cmdTrb.disable_slot_cmd.type = XHCI_TRB_TYPE_DISABLE_SLOT;
 	cmdTrb.disable_slot_cmd.slot_id = (uint8_t)slotId;
-	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0)
+	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
+		mutex_unlock(&mutex);
 		return -1;
+	}
 	xhci_start();
 	xhci_ring(0);
-	while (!pCmdDesc->cmdComplete){};
+	xhci_yield_until_cmd_complete(pCmdDesc);
 	struct xhci_trb eventTrb = pCmdDesc->eventTrb;	
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
 		const unsigned char* errorName = "Unknown error";
 		xhci_get_error_name((uint64_t)eventTrb.event.completion_code, &errorName);
 		printf("failed to disable slot (%s)\r\n", errorName);
+		mutex_unlock(&mutex);
 		return -1;
 	}
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 	if (!ppDevice)
 		return -1;
 	static struct mutex_t mutex = {0};
-//	mutex_lock_isr_safe(&mutex);
+	mutex_lock(&mutex);
 	printf("initializing device at port: %d\r\n", port);
 	struct xhci_device* pDevice = (struct xhci_device*)0x0;
 	if (xhci_get_device(port, &pDevice)!=0){
 		printf("failed to get device descriptor\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (pDevice->deviceInitialized){
 		printf("device already initialized\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	pDevice->deviceInitialized = 1;	
 	if (xhci_enable_port_power(port)!=0){
 		printf("failed to enable port power\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	volatile struct xhci_cap_mmio* pCapRegisters = xhciInfo.pCapabilities;
@@ -1307,18 +1329,17 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 	uint8_t portSpeed = 0;
 	xhci_get_port_speed(port, &portSpeed);
 	printf("port speed: 0x%x\r\n", portSpeed);
-//	mutex_unlock_isr_safe(&mutex);
 	uint64_t pDeviceContext = 0;	
 	uint64_t pDeviceContext_phys = 0;
 	if (virtualAllocPage((uint64_t*)&pDeviceContext, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate device context\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (virtualToPhysical((uint64_t)pDeviceContext, &pDeviceContext_phys)!=0){
 		printf("failed to get physical address of device context\r\n");
 		virtualFreePage((uint64_t)pDeviceContext, 0);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset((void*)pDeviceContext, 0, PAGE_SIZE);
@@ -1334,7 +1355,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 	if (xhci_enable_slot(&slotId)!=0){
 		printf("failed to enable slot\r\n");
 		virtualFreePage((uint64_t)pDeviceContext, 0);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	pDevice->deviceContext.slotId = slotId;
@@ -1342,7 +1363,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		printf("failed to initialize transfer ring\r\n");
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		xhci_disable_slot(slotId);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	pDevice->pControlTransferRingInfo = pTransferRingInfo;
@@ -1383,7 +1404,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		xhci_disable_slot(slotId);
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	struct xhci_usb_device_desc* pDeviceDescriptor = (struct xhci_usb_device_desc*)0x0;
@@ -1392,7 +1413,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		xhci_disable_slot(slotId);
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	struct xhci_usb_config_desc* pConfigDescriptor = (struct xhci_usb_config_desc*)0x0;
@@ -1402,7 +1423,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		virtualFreePage((uint64_t)pDeviceDescriptor, 0);	
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	if (xhci_get_descriptor(pDevice, pTransferRingInfo, XHCI_USB_DESC_DEVICE, 0x0, (unsigned char*)pDeviceDescriptor, 8, &eventTrb)!=0){
@@ -1414,7 +1435,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceDescriptor, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return-1;
 	}
 	pControlContext->max_packet_size = pDeviceDescriptor->maxPacketSize;	
@@ -1429,7 +1450,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceDescriptor, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	*pSlotContext = oldSlotContext;
@@ -1443,7 +1464,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		xhci_disable_slot(slotId);
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	if (xhci_get_descriptor(pDevice, pTransferRingInfo, XHCI_USB_DESC_DEVICE, 0x0, (unsigned char*)pDeviceDescriptor, 18, &eventTrb)!=0){
@@ -1455,7 +1476,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceDescriptor, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);	
 		xhci_deinit_transfer_ring(pTransferRingInfo);	
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct xhci_usb_device_desc deviceDescriptor = *pDeviceDescriptor;
@@ -1467,7 +1488,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		xhci_disable_slot(slotId);
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (xhci_set_configuration(pDevice, pTransferRingInfo, pConfigDescriptor->configValue, &eventTrb)!=0){
@@ -1476,7 +1497,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		xhci_disable_slot(slotId);
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct xhci_usb_string_desc manufacturerName = {0};
@@ -1488,7 +1509,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (xhci_get_descriptor(pDevice, pTransferRingInfo, XHCI_USB_DESC_STRING, deviceDescriptor.productIndex, (unsigned char*)&productName, 255, &eventTrb)!=0){
@@ -1498,7 +1519,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return-1;
 	}
 	if (xhci_get_descriptor(pDevice, pTransferRingInfo, XHCI_USB_DESC_STRING, deviceDescriptor.serialIndex, (unsigned char*)&serialName, 255, &eventTrb)!=0){
@@ -1508,7 +1529,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	lprintf(L"manufacturer name: %s\r\n", manufacturerName.string);
@@ -1525,7 +1546,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	uint64_t configOffset = 0;
@@ -1536,7 +1557,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct xhci_interface_desc* pInterfaceDescList = (struct xhci_interface_desc*)0x0;
@@ -1546,7 +1567,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pDeviceContext, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	uint32_t add_flags = (1<<0);	
@@ -1568,7 +1589,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 					virtualFreePage((uint64_t)pInterfaceDescList, 0);
 					virtualFreePage((uint64_t)pConfigDescriptor, 0);
 					xhci_deinit_transfer_ring(pTransferRingInfo);
-					mutex_unlock_isr_safe(&mutex);
+					mutex_unlock(&mutex);
 					return -1;
 				}
 				memset((void*)&interfaceDesc, 0, sizeof(struct xhci_interface_desc));
@@ -1588,7 +1609,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 					virtualFreePage((uint64_t)pInterfaceDescList, 0);
 					virtualFreePage((uint64_t)pConfigDescriptor, 0);
 					xhci_deinit_transfer_ring(pTransferRingInfo);
-					mutex_unlock_isr_safe(&mutex);
+					mutex_unlock(&mutex);
 					return -1;
 				}
 				struct xhci_usb_endpoint_desc* pDesc = (struct xhci_usb_endpoint_desc*)pDescHeader;
@@ -1621,7 +1642,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 					virtualFreePage((uint64_t)pInterfaceDescList, 0);
 					virtualFreePage((uint64_t)pConfigDescriptor, 0);
 					xhci_deinit_transfer_ring(pTransferRingInfo);
-					mutex_unlock_isr_safe(&mutex);
+					mutex_unlock(&mutex);
 					return -1;
 				}
 				struct xhci_transfer_ring_info* pEndpointTransferRingInfo = (struct xhci_transfer_ring_info*)0x0;
@@ -1632,7 +1653,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 					virtualFreePage((uint64_t)pInterfaceDescList, 0);
 					virtualFreePage((uint64_t)pConfigDescriptor, 0);
 					xhci_deinit_transfer_ring(pTransferRingInfo);
-					mutex_unlock_isr_safe(&mutex);
+					mutex_unlock(&mutex);
 					return -1;
 				}
 				struct xhci_endpoint_desc* pEndpointDesc = (struct xhci_endpoint_desc*)(pCurrentInterface->pEndpointDescList+pCurrentInterface->endpointCount);
@@ -1699,7 +1720,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		virtualFreePage((uint64_t)pInterfaceDescList, 0);
 		virtualFreePage((uint64_t)pConfigDescriptor, 0);
 		xhci_deinit_transfer_ring(pTransferRingInfo);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	for (uint64_t i = 0;i<pDevice->interfaceCount;i++){
@@ -1751,7 +1772,7 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 	}
 	pDevice->deviceInitialized = 1;
 	*ppDevice = pDevice;	
-//	mutex_unlock_isr_safe(&mutex);
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int xhci_deinit_device(struct xhci_device* pDevice){
@@ -1809,7 +1830,7 @@ KAPI int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_addr
 	if (!pDevice)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
+	mutex_lock(&mutex);
 	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
 	struct xhci_trb cmdTrb = {0};
 	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
@@ -1819,12 +1840,12 @@ KAPI int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_addr
 	cmdTrb.address_device_cmd.block_set_address = block_set_address ? 1 : 0;
 	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
 		printf("failed to push address device TRB to cmd ring\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	xhci_start();
 	xhci_ring(0);
-	while (!pCmdDesc->cmdComplete){};
+	xhci_yield_until_cmd_complete(pCmdDesc);
 	struct xhci_trb eventTrb = pCmdDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
@@ -1832,7 +1853,7 @@ KAPI int xhci_address_device(struct xhci_device* pDevice, uint8_t block_set_addr
 		const unsigned char* errorName = "Unknown error";
 		xhci_get_error_name(eventTrb.event.completion_code, &errorName);
 		printf("failed to address device (%s)\r\n", errorName);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	mutex_unlock_isr_safe(&mutex);
@@ -1842,7 +1863,7 @@ KAPI int xhci_evaluate_context(struct xhci_device* pDevice, struct xhci_trb* pEv
 	if (!pDevice)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
+	mutex_lock(&mutex);
 	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
 	struct xhci_trb cmdTrb = {0};
 	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
@@ -1850,31 +1871,31 @@ KAPI int xhci_evaluate_context(struct xhci_device* pDevice, struct xhci_trb* pEv
 	cmdTrb.evaluate_context_cmd.slot_id = pDevice->deviceContext.slotId;
 	cmdTrb.evaluate_context_cmd.input_context_ptr = (uint64_t)pDevice->deviceContext.pDeviceContext_phys;
 	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	xhci_start();
 	xhci_ring(0);
-	while (!pCmdDesc->cmdComplete){};
+	xhci_yield_until_cmd_complete(pCmdDesc);
 	struct xhci_trb eventTrb = pCmdDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
 		printf("failed to evaluate context\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
-	mutex_unlock_isr_safe(&mutex);
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int xhci_get_descriptor(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t type, uint8_t index, unsigned char* pBuffer, uint64_t len, struct xhci_trb* pEventTrb){
 	if (!pDevice||!pTransferRingInfo||!pBuffer)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
+	mutex_lock(&mutex);
 	uint64_t pBuffer_phys = 0;
 	if (virtualToPhysical((uint64_t)pBuffer, &pBuffer_phys)!=0){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct xhci_trb setupTrb = {0};
@@ -1904,38 +1925,38 @@ KAPI int xhci_get_descriptor(struct xhci_device* pDevice, struct xhci_transfer_r
 	struct xhci_transfer_desc* pTransferDesc = (struct xhci_transfer_desc*)0x0;
 	if (xhci_alloc_transfer(pTransferRingInfo, setupTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
 		printf("failed to allocate transfer setup TRB\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	if (xhci_alloc_transfer(pTransferRingInfo, dataTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
 		printf("failed to allocate transfer data TRB\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (xhci_alloc_transfer(pTransferRingInfo, statusTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
 		printf("failed to allocate transfer status TRB\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	xhci_start();
 	xhci_ring_endpoint(pDevice->deviceContext.slotId, 1, 0);
-	while (!pTransferDesc->transferComplete){};
+	xhci_yield_until_transfer_complete(pTransferDesc);
 	struct xhci_trb eventTrb = pTransferDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
 		printf("failed to get descriptor\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	mutex_unlock_isr_safe(&mutex);
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int xhci_configure_endpoint(struct xhci_device* pDevice, struct xhci_trb* pEventTrb){
 	if (!pDevice)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
+	mutex_lock(&mutex);
 	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
 	struct xhci_trb cmdTrb = {0};
 	memset((void*)&cmdTrb, 0, sizeof(struct xhci_trb));
@@ -1944,27 +1965,27 @@ KAPI int xhci_configure_endpoint(struct xhci_device* pDevice, struct xhci_trb* p
 	cmdTrb.configure_endpoint_cmd.slot_id = pDevice->deviceContext.slotId;	
 	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
 		printf("failed to allocate configure endpoint command\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	xhci_start();
 	xhci_ring(0);
-	while (!pCmdDesc->cmdComplete){};
+	xhci_yield_until_cmd_complete(pCmdDesc);
 	struct xhci_trb eventTrb = pCmdDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	mutex_unlock_isr_safe(&mutex);
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int xhci_set_configuration(struct xhci_device* pDevice, struct xhci_transfer_ring_info* pTransferRingInfo, uint8_t configValue, struct xhci_trb* pEventTrb){
 	if (!pDevice||!pTransferRingInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
+	mutex_lock(&mutex);
 	struct xhci_transfer_desc* pTransferDesc = (struct xhci_transfer_desc*)0x0;
 	struct xhci_trb setupTrb = {0};
 	memset((void*)&setupTrb, 0, sizeof(struct xhci_trb));
@@ -1984,25 +2005,25 @@ KAPI int xhci_set_configuration(struct xhci_device* pDevice, struct xhci_transfe
 	statusTrb.status_stage_cmd.dir = 1;
 	if (xhci_alloc_transfer(pTransferRingInfo, setupTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
 		printf("failed to allocate setup transfer TRB\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (xhci_alloc_transfer(pTransferRingInfo, statusTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
 		printf("failed to allocate status transfer TRB\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	xhci_start();
 	xhci_ring_endpoint(pDevice->deviceContext.slotId, 1, 0);
-	while (!pTransferDesc->transferComplete){};
+	xhci_yield_until_transfer_complete(pTransferDesc);
 	struct xhci_trb eventTrb = pTransferDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	mutex_unlock_isr_safe(&mutex);
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int xhci_get_interface_desc(struct xhci_device* pDevice, uint64_t interfaceId, struct xhci_interface_desc** ppInterfaceDesc){
@@ -2037,10 +2058,10 @@ KAPI int xhci_set_protocol(struct xhci_device* pDevice, struct xhci_transfer_rin
 	if (!pDevice||!pTransferRingInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
+	mutex_lock(&mutex);
 	struct xhci_interface_desc* pInterfaceDesc = (struct xhci_interface_desc*)0x0;
 	if (xhci_get_interface_desc(pDevice, interfaceId, &pInterfaceDesc)!=0){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;	
 	}
 	uint16_t interfaceNumber = pInterfaceDesc->usbInterfaceDesc.interfaceNumber;
@@ -2064,29 +2085,31 @@ KAPI int xhci_set_protocol(struct xhci_device* pDevice, struct xhci_transfer_rin
 	statusTrb.status_stage_cmd.dir = 1;
 	struct xhci_transfer_desc* pTransferDesc = (struct xhci_transfer_desc*)0x0;
 	if (xhci_alloc_transfer(pTransferRingInfo, setupTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (xhci_alloc_transfer(pTransferRingInfo, statusTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	xhci_start();
 	xhci_ring_endpoint(pDevice->deviceContext.slotId, 1, 0);
-	while (!pTransferDesc->transferComplete){};
+	xhci_yield_until_transfer_complete(pTransferDesc);
 	struct xhci_trb eventTrb = pTransferDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;	
 	}
-	mutex_unlock_isr_safe(&mutex);
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int xhci_clear_feature(struct xhci_device* pDevice, uint8_t endpointIndex, uint8_t featureId, struct xhci_trb* pEventTrb){
 	if (!pDevice)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	uint8_t endpointNumber = (endpointIndex/2)|((endpointIndex%2)<<7);
 	struct xhci_trb setupTrb = {0};
 	memset((void*)&setupTrb, 0, sizeof(struct xhci_trb));
@@ -2106,33 +2129,37 @@ KAPI int xhci_clear_feature(struct xhci_device* pDevice, uint8_t endpointIndex, 
 	struct xhci_transfer_desc* pTransferDesc = (struct xhci_transfer_desc*)0x0;
 	if (xhci_alloc_transfer(pDevice->pControlTransferRingInfo, setupTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
 		printf("failed to allocate setup transfer TRB\r\n");
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	if (xhci_alloc_transfer(pDevice->pControlTransferRingInfo, statusTrb, &pTransferDesc, (xhciTransferCompletionFunc)0x0)!=0){
 		printf("failed to allocate status transfer TRB\r\n");
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	xhci_start();
 	xhci_ring_endpoint(pDevice->deviceContext.slotId, 1, 0);
-	while (!pTransferDesc->transferComplete){};	
+	xhci_yield_until_transfer_complete(pTransferDesc);
 	struct xhci_trb eventTrb = pTransferDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
 		printf("failed to clear feature\r\n");
+		mutex_unlock(&mutex);
 		return -1;
 	}
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int xhci_reset_endpoint(struct xhci_device* pDevice, uint8_t interfaceId, uint8_t endpointId, struct xhci_trb* pEventTrb){
 	if (!pDevice)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
+	mutex_lock(&mutex);
 	struct xhci_endpoint_desc* pEndpointDesc = (struct xhci_endpoint_desc*)0x0;
 	if (xhci_get_endpoint_desc(pDevice, interfaceId, endpointId, &pEndpointDesc)!=0){
 		printf("failed to get endpoint descriptor\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	struct xhci_trb cmdTrb = {0};
@@ -2144,52 +2171,52 @@ KAPI int xhci_reset_endpoint(struct xhci_device* pDevice, uint8_t interfaceId, u
 	struct xhci_cmd_desc* pCmdDesc = (struct xhci_cmd_desc*)0x0;
 	if (xhci_alloc_cmd(xhciInfo.pCmdRingInfo, cmdTrb, &pCmdDesc)!=0){
 		printf("failed to push reset endpoint cmd TRB\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
 	xhci_start();
 	xhci_ring(0);
-	while (!pCmdDesc->cmdComplete){};
+	xhci_yield_until_cmd_complete(pCmdDesc);
 	struct xhci_trb eventTrb = pCmdDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	mutex_unlock_isr_safe(&mutex);	
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packet_request request, struct xhci_trb* pEventTrb){
 	if (!pDevice)
 		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
+	mutex_lock(&mutex);
 	uint64_t pBuffer_phys = 0;
 	if (virtualToPhysical((uint64_t)request.pBuffer, &pBuffer_phys)!=0){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;	
 	}
 	uint64_t physicalPageCount = request.bufferSize/PAGE_SIZE;
 	if (physicalPageCount>255){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct xhci_endpoint_desc* pEndpointDesc = (struct xhci_endpoint_desc*)0x0;
 	if (xhci_get_endpoint_desc(pDevice, request.interfaceId, request.endpointId, &pEndpointDesc)!=0){
 		printf("failed to get endpoint descriptor\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct xhci_transfer_ring_info* pTransferRingInfo = (struct xhci_transfer_ring_info*)0x0;
 	if (xhci_get_endpoint_transfer_ring(pDevice, request.interfaceId, request.endpointId, &pTransferRingInfo)!=0){
 		printf("failed to get endpoint transfer ring\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (!pTransferRingInfo){
 		printf("no transfer ring linked with endpoint! port: %d interface ID: %d endpoint ID: %d\r\n", pDevice->port, request.interfaceId, request.endpointId);
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	uint8_t endpointIndex = pEndpointDesc->endpointIndex;
@@ -2205,14 +2232,14 @@ KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packe
 	normalTrb.normal_transfer.dir = pEndpointDesc->endpointDirection ? 1 : 0;
 	if (xhci_alloc_transfer(pTransferRingInfo, normalTrb, &pTransferDesc, (physicalPageCount>1) ? (xhciTransferCompletionFunc)0x0 : request.completionFunc)!=0){
 		printf("failed to allocate transfer TRB\r\n");
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	for (uint64_t i = 0;i<physicalPageCount-1&&physicalPageCount>1&&request.chainAllowed;i++){
 		unsigned char* pVirtualPage = request.pBuffer+PAGE_SIZE+(i*PAGE_SIZE);
 		if (virtualToPhysical((uint64_t)pVirtualPage, &pBuffer_phys)!=0){
 			printf("failed to get physical address of page\r\n");
-			mutex_unlock_isr_safe(&mutex);
+			mutex_unlock(&mutex);
 			return -1;
 		}
 		normalTrb.normal_transfer.ioc = (i==physicalPageCount-2) ? 1 : 0;
@@ -2221,25 +2248,25 @@ KAPI int xhci_send_usb_packet(struct xhci_device* pDevice, struct xhci_usb_packe
 		normalTrb.normal_transfer.transfer_len = (i==physicalPageCount-2&&(request.bufferSize%PAGE_SIZE)) ? (request.bufferSize%PAGE_SIZE) : PAGE_SIZE;
 		if (xhci_alloc_transfer(pTransferRingInfo, normalTrb, &pTransferDesc, (i==physicalPageCount-2) ? request.completionFunc : (xhciTransferCompletionFunc)0x0)!=0){
 			printf("failed to allocate transfer\r\n");
-			mutex_unlock_isr_safe(&mutex);
+			mutex_unlock(&mutex);
 			return -1;
 		}
 	}	
 	xhci_start();
 	xhci_ring_endpoint(pDevice->deviceContext.slotId, endpointIndex, 0);
 	if (request.completionFunc){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return 0;
 	}
-	while (!pTransferDesc->transferComplete){};	
+	xhci_yield_until_transfer_complete(pTransferDesc);
 	struct xhci_trb eventTrb = pTransferDesc->eventTrb;
 	if (pEventTrb)
 		*pEventTrb = eventTrb;
 	if (eventTrb.event.completion_code!=XHCI_COMPLETION_CODE_SUCCESS){
-		mutex_unlock_isr_safe(&mutex);
+		mutex_unlock(&mutex);
 		return -1;
 	}	
-	mutex_unlock_isr_safe(&mutex);
+	mutex_unlock(&mutex);
 	return 0;
 }
 int xhci_subsystem_register_function(struct pcie_location location){

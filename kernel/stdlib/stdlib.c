@@ -167,10 +167,34 @@ KAPI int lprintf(uint16_t* fmt, ...){
 	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
-KAPI int memset(uint64_t* mem, uint64_t value, uint64_t size){
+KAPI int memset(uint8_t* mem, uint8_t value, uint64_t size){
 	if (!mem)
 		return -1;
-	for (uint64_t i = 0;i<size/8;i++){
+	for (uint64_t i = 0;i<size;i++){
+		mem[i] = value;
+	}
+	return 0;
+}
+KAPI int memset_16(uint16_t* mem, uint16_t value, uint64_t size){
+	if (!mem)
+		return -1;
+	for (uint64_t i = 0;i<size/sizeof(uint16_t);i++){
+		mem[i] = value;
+	}
+	return 0;
+}
+KAPI int memset_32(uint32_t* mem, uint32_t value, uint64_t size){
+	if (!mem)
+		return -1;
+	for (uint64_t i = 0;i<size/sizeof(uint32_t);i++){
+		mem[i] = value;
+	}
+	return 0;
+}
+KAPI int memset_64(uint64_t* mem, uint64_t value, uint64_t size){
+	if (!mem)
+		return -1;
+	for (uint64_t i = 0;i<size/sizeof(uint64_t);i++){
 		mem[i] = value;
 	}
 	return 0;

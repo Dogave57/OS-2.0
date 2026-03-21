@@ -319,10 +319,9 @@ sub rsp, 32
 mov qword rcx, [rel exception_fg]
 mov qword rdx, [rel exception_bg]
 call set_text_color
-call clear
 add rsp, 32
 sub rsp, 32
-call clear
+;call clear
 add rsp, 32
 mov qword rax, [rel exception_args]
 sub qword rsp, 8
@@ -563,6 +562,9 @@ jne ctx_switch_end
 mov qword rax, [rel pFirstThread]
 cmp rax, 0
 je ctx_switch_end
+sub qword rsp, 32
+call lapic_send_eoi
+add qword rsp, 32
 popaq
 mov qword [rel ctx_switch_args], rax
 mov qword rax, [rel pCurrentThread]
@@ -674,6 +676,8 @@ movdqu xmm13, [rax+352]
 movdqu xmm14, [rax+368]
 movdqu xmm15, [rax+384]
 mov qword rax, [rax]
+mov qword [rel schedulerHalt], 1
+iretq
 pushaq
 ctx_switch_end:
 jmp timer_isr_end

@@ -23,6 +23,7 @@
 #include "subsystem/gpu.h"
 #include "drivers/gpt.h"
 #include "drivers/gpu/virtio.h"
+#include "drivers/gpu/tgsi.h"
 #include "drivers/filesystem/fat32.h"
 #include "drivers/filesystem/exfat.h"
 #include "drivers/filesystem/fluxfs.h"
@@ -218,6 +219,11 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	if (tgsi_driver_init()!=0){
+		printf("failed to initialize TGSI driver\r\n");
+		while (1){};
+		return -1;
+	}
 	if (virtio_gpu_init()!=0){
 		printf("failed to initialize virtual I/O GPU driver\r\n");
 	}
@@ -242,7 +248,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	uint64_t va = 0;
-	uint64_t pagecnt = (MEM_MB*64)/PAGE_SIZE;
+	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
 	uint64_t before_us = get_time_us();
 	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0x0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate %d pages\r\n", pagecnt);	
@@ -360,6 +366,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	while (1){};
 	uint64_t pid = 0;
 	if (kext_load(mountId, "KEXTS/TEST.ELF", &pid)!=0){
 		printf("failed to load kext\r\n");

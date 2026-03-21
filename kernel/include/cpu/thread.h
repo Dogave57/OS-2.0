@@ -81,4 +81,5 @@ KAPI int scheduler_halted(void);
 __attribute__((ms_abi)) uint64_t get_rflags(void);
 __attribute__((ms_abi)) int set_rflags(uint64_t rflags);
 __attribute__((ms_abi)) int thread_destroy_safe(uint64_t tid);
+int thread_exit_safe(void);
 #endif

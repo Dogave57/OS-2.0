@@ -7,12 +7,13 @@
 int thread_entry(uint64_t tid, uint64_t arg);
 int kext_entry(uint64_t pid){
 	uint64_t time_us = get_time_us();
-	printf("pid: %d\r\n", pid);
+	serial_print(0, "test\r\n");
+	printf("test kext\r\n");
 	while (1){};
-	return 0;
-	printf("timer start\r\n");
+	printf("pid: %d\r\n", pid);
+	printf(0, "timer start\r\n");
 	sleep(5000);
-	printf("timer end\r\n");
+	printf(0, "timer end\r\n");
 	for (uint64_t i = 0;i<32;i++){
 		uint64_t tid = 0;
 		if (thread_create((uint64_t)thread_entry, 0, 0, &tid, 0)!=0){

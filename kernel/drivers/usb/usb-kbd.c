@@ -77,6 +77,8 @@ int usb_kbd_interrupt(struct xhci_transfer_desc* pTransferDesc){
 	return 0;
 }
 int usb_kbd_handle_boot_report(void){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	if (bootKbdReport.modifiers.left_shift)
 		key_register_press(KEY_LSHIFT);
 	else
@@ -107,26 +109,18 @@ int usb_kbd_handle_boot_report(void){
 			continue;
 		uint8_t keyCode = bootKbdReport.keys[i];
 		uint8_t character = hid_keymap[keyCode];
-		uint8_t lastPressed = 0;
 		uint64_t pressTime = 0;
 		key_get_press_time_us(character, &pressTime);
 		uint8_t spamAllowed = !(pressTime<1000000)&&!spam;
-		for (uint64_t j = 0;j<sizeof(lastBootKbdReport.keys)&&!spamAllowed;j++){
-			if (lastBootKbdReport.keys[j]!=keyCode)
-				continue;
-			lastPressed = 1;
-			break;
-		}
-		if (lastPressed){
+		if (!key_pressed(character)&&!spamAllowed)
 			continue;
-		}
 		if (character<128&&character){
 			putchar((!key_pressed(KEY_LSHIFT)||!key_pressed(KEY_RSHIFT)||!key_pressed(KEY_CAPSLOCK)) ? toUpper(character) : character);
 		}
-		if (spamAllowed)
-			spam = 1;
 		if (character)
 			key_register_press(character);
+		if (spamAllowed)
+			spam = 1;
 	}
 	for (uint64_t i = 0;i<sizeof(lastBootKbdReport.keys);i++){
 		uint64_t pressed = 0;
@@ -144,10 +138,14 @@ int usb_kbd_handle_boot_report(void){
 			key_register_release(KEY_CAPSLOCK);
 		if (character)
 			key_register_release(character);
+		key_register_release(character);
 	}
+	mutex_unlock(&mutex);
 	return 0;
 }
 int usb_kbd_request_boot_report(struct xhci_device* pDevice, uint8_t interfaceId, uint8_t endpointId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	lastBootKbdReport = bootKbdReport;
 	struct xhci_trb eventTrb = {0};
 	struct xhci_usb_packet_request packetRequest = {0};
@@ -161,6 +159,7 @@ int usb_kbd_request_boot_report(struct xhci_device* pDevice, uint8_t interfaceId
 		printf("failed to send packet\r\n");
 		return -1;
 	}
+	mutex_unlock(&mutex);
 	return 0;
 }
 int usb_kbd_register(uint8_t port, uint8_t interfaceId){

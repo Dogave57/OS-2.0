@@ -818,6 +818,7 @@ int xhci_alloc_cmd(struct xhci_cmd_ring_info* pRingInfo, struct xhci_trb trb, st
 int xhci_get_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
 int xhci_write_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry);
 int xhci_read_cmd(struct xhci_cmd_ring_info* pRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry);
+int xhci_yield_until_cmd_complete(struct xhci_cmd_desc* pCmdDesc);
 int xhci_init_transfer_ring_list(void);
 int xhci_init_transfer_desc_list(void);
 int xhci_get_transfer_ring(uint8_t slotId, uint8_t endpointIndex, struct xhci_transfer_ring_info** ppTransferRing);
@@ -828,6 +829,7 @@ int xhci_alloc_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, struc
 int xhci_get_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, volatile struct xhci_trb** ppTrbEntry);
 int xhci_write_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, struct xhci_trb trbEntry);
 int xhci_read_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry);
+int xhci_yield_until_transfer_complete(struct xhci_transfer_desc* pTransferDesc);
 int xhci_ring(uint64_t doorbell_vector);
 int xhci_ring_endpoint(uint64_t slotId, uint8_t endpoint_id, uint8_t stream_id);
 int xhci_reset(void);

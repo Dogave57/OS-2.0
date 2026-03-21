@@ -1,6 +1,6 @@
 #ifndef _MUTEX
 #define _MUTEX
-#define SPINLOCK_MAX_ATTEMPTS (10000000000)
+#define SPINLOCK_MAX_ATTEMPTS (1000000000)
 struct mutex_t{
 	uint64_t value;
 	uint64_t oldSchedulerState;

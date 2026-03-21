@@ -49,6 +49,16 @@ KAPI int clear(void){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
+	if (gpu_monitor_get_desc(0, &pMonitorDesc)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
+	if (gpu_driver_get_desc(pMonitorDesc->driverId, &pDriverDesc)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	for (uint64_t i = 0;i<monitorInfo.resolution.width*monitorInfo.resolution.height;i++){
 		struct uvec2 position = {0};
 		position.x = i%monitorInfo.resolution.width;
@@ -58,19 +68,16 @@ KAPI int clear(void){
 			return -1;
 		}
 	}
-	serial_print(0, "test\r\n");
 	struct uvec4 syncRect = {0};
 	syncRect.x = 0;
 	syncRect.y = 0;
 	syncRect.z = monitorInfo.resolution.width;
 	syncRect.w = monitorInfo.resolution.height;
-	serial_print(0, "syncing framebuffer\r\n");
 	if (gpu_sync(0, syncRect)!=0){
 		serial_print(0, "failed to flush framebuffer\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	serial_print(0, "done syncing framebuffer\r\n");
 	mutex_unlock(&mutex);
 	return 0;
 }

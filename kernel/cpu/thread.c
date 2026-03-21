@@ -157,7 +157,7 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 	pThread->stackGuardSize = stackGuardSize;
 	pThread->stackCommit = stackCommit;
 	pThread->stackReserve = stackReserve;
-	uint64_t rsp = ((uint64_t)pStack)+stackReserve-64-8;
+	uint64_t rsp = ((uint64_t)pStack)+stackReserve-40;
 	struct thread_context_t* pContext = &pThread->context;
 	uint64_t tid = 0;
 	if (thread_register(pThread, &tid)!=0){
@@ -172,7 +172,7 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 	pContext->rbp = 0x0;
 	pContext->rcx = tid;
 	pContext->rdx = argument;
-	pContext->rflags = rflags|(1<<9);
+	pContext->rflags = rflags;
 	pThread->priority = THREAD_PRIORITY_NORMAL;
 	pThread->tid = tid;
 	pThread->start_rip = pContext->rip;
@@ -182,6 +182,7 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 }
 KAPI int thread_destroy(uint64_t tid){
 	__asm__ volatile("cli");
+	printf("destroying thread with TID: %d\r\n", tid);
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	uint64_t current_tid = 0;

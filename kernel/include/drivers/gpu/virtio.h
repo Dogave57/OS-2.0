@@ -98,33 +98,18 @@
 
 #define VIRTIO_GPU_GL_BIND_TYPE_DEPTH_STENCIL (1<<0)
 #define VIRTIO_GPU_GL_BIND_TYPE_RENDER_TARGET (1<<1)
-#define VIRTIO_GPU_GL_BIND_TYPE_BLENDABLE (1<<2)
 #define VIRTIO_GPU_GL_BIND_TYPE_SAMPLER_VIEW (1<<3)
 #define VIRTIO_GPU_GL_BIND_TYPE_VERTEX_BUFFER (1<<4)
 #define VIRTIO_GPU_GL_BIND_TYPE_INDEX_BUFFER (1<<5)
 #define VIRTIO_GPU_GL_BIND_TYPE_CONSTANT_BUFFER (1<<6)
 #define VIRTIO_GPU_GL_BIND_TYPE_DISPLAY_TARGET (1<<7)
-#define VIRTIO_GPU_GL_BIND_TYPE_VERTEX_STATE (1<<8)
-#define VIRTIO_GPU_GL_BIND_TYPE_SAMPLER_VIEW_SUBOPTIMAL (1<<9)
-#define VIRTIO_GPU_GL_BIND_TYPE_STREAM_OUTPUT (1<<10)
-#define VIRTIO_GPU_GL_BIND_TYPE_CURSOR (1<<11)
-#define VIRTIO_GPU_GL_BIND_TYPE_CUSTOM (1<<12)
-#define VIRTIO_GPU_GL_BIND_TYPE_GLOBAL (1<<13)
+#define VIRTIO_GPU_GL_BIND_TYPE_COMMAND_ARGS (1<<8)
+#define VIRTIO_GPU_GL_BIND_TYPE_STREAM_OUTPUT (1<<11)
 #define VIRTIO_GPU_GL_BIND_TYPE_SHADER_BUFFER (1<<14)
-#define VIRTIO_GPU_GL_BIND_TYPE_SET_SHADER_IMAGE (1<<15)
-#define VIRTIO_GPU_GL_BIND_TYPE_OPENCL (1<<16)
-#define VIRTIO_GPU_GL_BIND_TYPE_COMMAND_ARGS_BUFFER (1<<17)
-#define VIRTIO_GPU_GL_BIND_TYPE_QUERY_BUFFER (1<<18)
-#define VIRTIO_GPU_GL_BIND_TYPE_SCANOUT (1<<19)
-#define VIRTIO_GPU_GL_BIND_TYPE_SHARED (1<<20)
-#define VIRTIO_GPU_GL_BIND_TYPE_LINEAR (1<<21)
-#define VIRTIO_GPU_GL_BIND_TYPE_PROTECTED (1<<22)
-#define VIRTIO_GPU_GL_BIND_TYPE_SAMPLER_REDUCTION_MINMAX (1<<23)
-#define VIRTIO_GPU_GL_BIND_TYPE_PRIME_BLIT_DST (1<<24)
-#define VIRTIO_GPU_GL_BIND_TYPE_USE_FRONT_RENDERING (1<<25)
-#define VIRTIO_GPU_GL_BIND_TYPE_CONST_BW (1<<26)
-#define VIRTIO_GPU_GL_BIND_TYPE_VIDEO_ENCODE_DPB (1<<27)
-#define VIRTIO_GPU_GL_BIND_TYPE_VIDEO_DECODE_DPB (1<<28)
+#define VIRTIO_GPU_GL_BIND_TYPE_QUERY_BUFFER (1<<15)
+#define VIRTIO_GPU_GL_BIND_TYPE_CURSOR (1<<16)
+#define VIRTIO_GPU_GL_BIND_TYPE_CUSTOM (1<<17)
+#define VIRTIO_GPU_GL_BIND_TYPE_SCANOUT (1<<18)
 
 #define VIRTIO_GPU_GL_CMD_NOP (0x00)
 #define VIRTIO_GPU_GL_CMD_CREATE_OBJECT (0x01)
@@ -132,7 +117,7 @@
 #define VIRTIO_GPU_GL_CMD_DELETE_OBJECT (0x03)
 #define VIRTIO_GPU_GL_CMD_SET_VIEWPORT_STATE (0x04)
 #define VIRTIO_GPU_GL_CMD_SET_FRAMEBUFFER_STATE (0x05)
-#define VIRTIO_GPU_GL_CMD_SET_VERTEX_BUFFER (0x06)
+#define VIRTIO_GPU_GL_CMD_SET_VERTEX_BUFFER_LIST (0x06)
 #define VIRTIO_GPU_GL_CMD_CLEAR (0x07)
 #define VIRTIO_GPU_GL_CMD_DRAW_VBO (0x08)
 #define VIRTIO_GPU_GL_CMD_RESOURCE_INLINE_WRITE (0x09)
@@ -165,6 +150,7 @@
 #define VIRTIO_GPU_GL_CMD_SET_SHADER_IMAGES (0x23)
 #define VIRTIO_GPU_GL_CMD_MEMORY_BARRIER (0x24)
 #define VIRTIO_GPU_GL_CMD_LAUNCH_GRID (0x25)
+
 #define VIRTIO_GPU_GL_CMD_SET_FRAMEBUFFER_STATE_NO_ATTACH (0x26)
 #define VIRTIO_GPU_GL_CMD_TEXTURE_BARRIER (0x27)
 #define VIRTIO_GPU_GL_CMD_SET_ATOMIC_BUFFRES (0x28)
@@ -205,6 +191,7 @@
 #define VIRTIO_GPU_PIXEL_FORMAT_B8G8R8A8_UNORM (0x01)
 #define VIRTIO_GPU_PIXEL_FORMAT_B8G8R8X8_UNORM (0x02)
 #define VIRTIO_GPU_PIXEL_FORMAT_R8G8B8A8_UNORM (67)
+#define VIRTIO_GPU_PIXEL_FORMAT_R32G32B32A32_FLOAT (31)
 #define VIRTIO_GPU_PIXEL_FORMAT_R32G32B32_FLOAT (30)
 #define VIRTIO_GPU_PIXEL_FORMAT_R32G32_FLOAT (29)
 
@@ -218,24 +205,39 @@
 #define VIRTIO_GPU_GL_TARGET_TEXTURE_2D_ARRAY (0x07)
 #define VIRTIO_GPU_GL_TARGET_TEXTURE_CUBE_ARRAY (0x08)
 
-#define VIRTIO_GPU_GL_RASTERIZER_FLATSHADE (1<<0)
-#define VIRTIO_GPU_GL_RASTERIZER_DEPTH_CLIP (1<<1)
-#define VIRTIO_GPU_GL_RASTIERZER_CLIP_HALFZ (1<<2)
-#define VIRTIO_GPU_GL_RASTERIZER_DISCARD (1<<3)
-#define VIRTIO_GPU_GL_RASTERIZER_FLATSHADE_FIRST (1<<4)
-#define VIRTIO_GPU_GL_RASTERIZER_LIGHT_TWOSIDE (1<<5)
-#define VIRTIO_GPU_GL_RASTERIZER_SPRITE_COORD_MODE (1<<6)
-#define VIRTIO_GPU_GL_RASTERIZER_POINT_QUAD_RASTERIZATION (1<<7)
-#define VIRTIO_GPU_GL_RASTERIZER_CULL_FACE_SHIFT (8)
-#define VIRTIO_GPU_GL_RASTERIZER_FILL_FRONT_SHIFT (10)
-#define VIRTIO_GPU_GL_RASTERIZER_FILL_BACK_SHIFT (12)
-#define VIRTIO_GPU_GL_RASTERIZER_SCISSOR (1<<14)
-#define VIRTIO_GPU_GL_RASTERIZER_FRONT_CCW (1<<15)
-#define VIRTIO_GPU_GL_RASTERIZER_HALF_PIXEL_CENTER (1<<16)
-#define VIRTIO_GPU_GL_RASTERIZER_BOTTOM_EDGE_RULE (1<<17)
-#define VIRTIO_GPU_GL_RASTERIZER_MULTISAMPLE (1<<18)
-#define VIRTIO_GPU_GL_RASTERIZER_LINE_SMOOTH (1<<19)
-#define VIRTIO_GPU_GL_RASTERIZER_LINE_STIPPLE_ENABLE (1<<20)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_FLATSHADE (1<<0)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_DEPTH_CLIP (1<<1)
+#define VIRTIO_GPU_GL_RASTIERZER_S0_CLIP_HALFZ (1<<2)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_DISCARD (1<<3)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_FLATSHADE_FIRST (1<<4)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_LIGHT_TWOSIDE (1<<5)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_SPRITE_COORD_MODE (1<<6)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_POINT_QUAD_RASTERIZATION (1<<7)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_CULL_FACE_SHIFT (8)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_FILL_FRONT_SHIFT (10)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_FILL_BACK_SHIFT (12)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_SCISSOR (1<<14)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_FRONT_CCW (1<<15)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_CLAMP_VERTEX_COLOR (1<<16)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_CLAMP_FRAGMENT_COLOR (1<<17)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_OFFSET_LINE (1<<18)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_OFFSET_POINT (1<<19)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_OFFSET_TRI (1<<20)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_POLY_SMOOTH (1<<21)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_POLY_STIPPLE_ENABLE (1<<22)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_POINT_SMOOTH (1<<23)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_POINT_SIZE_PER_VERTEX (1<<24)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_MULTISAMPLE (1<<25)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_LINE_SMOOTH (1<<26)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_LINE_STIPPLE_ENABLE (1<<27)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_LINE_LAST_PIXEL (1<<28)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_HALF_PIXEL_CENTER (1<<29)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_BOTTOM_EDGE_RULE (1<<30)
+#define VIRTIO_GPU_GL_RASTERIZER_S0_FORCE_PERSAMPLE_INTERP (1<<31)
+
+#define VIRTIO_GPU_GL_RASTERIZER_S3_LINE_STIPPLE_PATTERN_SHIFT (0)
+#define VIRTIO_GPU_GL_RASTERIZER_S3_LINE_STIPPLE_FACTOR_SHIFT (16)
+#define VIRTIO_GPU_GL_RASTERIZER_S3_CLIP_PLANE_ENABLE_SHIFT (24)
 
 #define VIRTIO_GPU_GL_FACE_INVALID (0x00)
 #define VIRTIO_GPU_GL_FACE_FRONT (0x01)
@@ -247,22 +249,58 @@
 #define VIRTIO_GPU_GL_POLYGON_MODE_POINT (0x02)
 #define VIRTIO_GPU_GL_POLYGON_MODE_FILL_RECT (0x03)
 
-#define VIRTIO_GPU_GL_DSA_DEPTH_ENABLED (1<<0)
+#define VIRTIO_GPU_GL_DSA_DEPTH_ENABLE (1<<0)
 #define VIRTIO_GPU_GL_DSA_DEPTH_WRITEMASK (1<<1)
 #define VIRTIO_GPU_GL_DSA_DEPTH_FUNC_SHIFT (2)
-#define VIRTIO_GPU_GL_DSA_DEPTH_FRONT_ENABLED (1<<5)
+#define VIRTIO_GPU_GL_DSA_DEPTH_FRONT_ENABLE (1<<5)
 #define VIRTIO_GPU_GL_DSA_STENCIL_FRONT_FUNC_SHIFT (6)
 #define VIRTIO_GPU_GL_DSA_STENCIL_FRONT_FAIL_SHIFT (9)
 #define VIRTIO_GPU_GL_DSA_STENCIL_FRONT_ZPASS_SHIFT (12)
 #define VIRTIO_GPU_GL_DSA_STENCIL_FRONT_ZFAIL_SHIFT (15)
 
-#define VIRTIO_GPU_GL_DSA_ALPHA_ENABLED (1<<0)
+#define VIRTIO_GPU_GL_DSA_ALPHA_ENABLE (1<<0)
 #define VIRTIO_GPU_GL_DSA_ALPHA_FUNC_SHIFT (1)
+
 #define VIRTIO_GPU_GL_DSA_STENCIL_BACK_ENABLED (1<<4)
 #define VIRTIO_GPU_GL_DSA_STENCIL_BACK_FUNC_SHIFT (5)
 #define VIRTIO_GPU_GL_DSA_STENCIL_BACK_FAIL_SHIFT (8)
 #define VIRTIO_GPU_GL_DSA_STENCIL_BACK_ZPASS_SHIFT (11)
 #define VIRTIO_GPU_GL_DSA_STENCIL_BACK_ZFAIL_SHIFT (14)
+
+#define VIRTIO_GPU_GL_FUNC_NEVER (0x00)
+#define VIRTIO_GPU_GL_FUNC_LESS (0x01)
+#define VIRTIO_GPU_GL_FUNC_EQUAL (0x02)
+#define VIRTIO_GPU_GL_FUNC_LEQUAL (0x03)
+#define VIRTIO_GPU_GL_FUNC_GREATER (0x04)
+#define VIRTIO_GPU_GL_FUNC_NEQUAL (0x05)
+#define VIRTIO_GPU_GL_FUNC_GEQUAL (0x06)
+#define VIRTIO_GPU_GL_FUNC_ALWAYS (0x07)
+
+#define VIRTIO_GPU_GL_BLEND_ADD (0x00)
+#define VIRTIO_GPU_GL_BLEND_SUB (0x01)
+#define VIRTIO_GPU_GL_BLEND_REVERSE_SUB (0x02)
+#define VIRTIO_GPU_GL_BLEND_MIN (0x03)
+#define VIRTIO_GPU_GL_BLEND_MAX (0x04)
+
+#define VIRTIO_GPU_GL_BLENDFACTOR_ONE (0x01)
+#define VIRTIO_GPU_GL_BLENDFACTOR_SRC_COLOR (0x02)
+#define VIRTIO_GPU_GL_BLENDFACTOR_SRC_ALPHA (0x03)
+#define VIRTIO_GPU_GL_BLENDFACTOR_DEST_ALPHA (0x04)
+#define VIRTIO_GPU_GL_BLENDFACTOR_DEST_COLOR (0x05)
+#define VIRTIO_GPU_GL_BLENDFACTOR_SRC_ALPHA_SATURATE (0x06)
+#define VIRTIO_GPU_GL_BLENDFACTOR_CONST_COLOR (0x07)
+#define VIRTIO_GPU_GL_BLENDFACTOR_CONST_ALPHA (0x08)
+#define VIRTIO_GPU_GL_BLENDFACTOR_SRC1_COLOR (0x09)
+#define VIRTIO_GPU_GL_BLENDFACTOR_SRC1_ALPHA (0x0A)
+#define VIRTIO_GPU_GL_BLENDFACTOR_ZERO (0x11)
+#define VIRTIO_GPU_GL_BLENDFACTOR_INV_SRC_COLOR (0x12)
+#define VIRTIO_GPU_GL_BLENDFACTOR_INV_SRC_ALPHA (0x13)
+#define VIRTIO_GPU_GL_BLENDFACTOR_INV_DEST_ALPHA (0x14)
+#define VIRTIO_GPU_GL_BLENDFACTOR_INV_DEST_COLOR (0x15)
+#define VIRTIO_GPU_GL_BLENDFACTOR_INV_CONST_COLOR (0x17)
+#define VIRTIO_GPU_GL_BLENDFACTOR_INV_CONST_ALPHA (0x18)
+#define VIRTIO_GPU_GL_BLENDFACTOR_INV_SRC1_COLOR (0x19)
+#define VIRTIO_GPU_GL_BLENDFACTOR_INV_SRC1_ALPHA (0x1A)
 
 #define VIRTIO_GPU_GL_BLEND_INDEPENDENT_BLEND_ENABLE (1<<0)
 #define VIRTIO_GPU_GL_BLEND_LOGICOP_ENABLE (1<<1)
@@ -277,6 +315,36 @@
 #define VIRTIO_GPU_GL_COLOR_MASK_B (0x04)
 #define VIRTIO_GPU_GL_COLOR_MASK_A (0x08)
 #define VIRTIO_GPU_GL_COLOR_MASK_RGBA (0x0F)
+
+#define VIRTIO_GPU_GL_PRIMITIVE_POINTS (0x00)
+#define VIRTIO_GPU_GL_PRIMITIVE_LINES (0x01)
+#define VIRTIO_GPU_GL_PRIMITIVE_LINES_LOOP (0x02)
+#define VIRTIO_GPU_GL_PRIMITIVE_LINES_STRIP (0x03)
+#define VIRTIO_GPU_GL_PRIMITIVE_TRIANGLES (0x04)
+#define VIRTIO_GPU_GL_PRIMITIVE_TRIANGLES_STRIP (0x05)
+#define VIRTIO_GPU_GL_PRIMITIVE_TRIANGLES_FAN (0x06)
+#define VIRTIO_GPU_GL_PRIMITIVE_QUADS (0x07)
+#define VIRTIO_GPU_GL_PRIMITIVE_QUADS_STRIP (0x08)
+#define VIRTIO_GPU_GL_PRIMITIVE_POLYGON (0x09)
+#define VIRTIO_GPU_GL_PRIMITIVE_LINES_ADJACENCY (0x0A)
+#define VIRTIO_GPU_GL_PRIMITIVE_LINE_STRIP_ADJACENCY (0x0B)
+#define VIRTIO_GPU_GL_PRIMITIVE_TRIANGLES_ADJACENCY (0x0C)
+#define VIRTIO_GPU_GL_PRIMITIVE_TRIANGLES_STRIP_ADJACENCY (0x0D)
+#define VIRTIO_GPU_GL_PRIMITIVE_PATCHES (0x0E)
+
+#define VIRTIO_GPU_GL_TRANSFER_READ (1<<0)
+#define VIRTIO_GPU_GL_TRANSFER_WRITE (1<<1)
+#define VIRTIO_GPU_GL_TRANSFER_MAP_DIRECTLY (1<<2)
+#define VIRTIO_GPU_GL_TRANSFER_DISCARD_RANGE (1<<8)
+#define VIRTIO_GPU_GL_TRANSFER_NO_BLOCK (1<<9)
+#define VIRTIO_GPU_GL_TRANSFER_UNSYNCED (1<<10)
+#define VIRTIO_GPU_GL_TRANSFER_FLUSH_EXPLICIT (1<<11)
+#define VIRTIO_GPU_GL_TRANSFER_DISCARD_FULL_RESOURCE (1<<12)
+#define VIRTIO_GPU_GL_TRANSFER_PERSISTENT (1<<13)
+#define VIRTIO_GPU_GL_TRANSFER_COHERENT (1<<14)
+
+#define VIRTIO_GPU_GL_TRANSFER_DIRECTION_H2D (0x01)
+#define VIRTIO_GPU_GL_TRANSFER_DIRECTION_D2H (0x02)
 
 struct virtio_gpu_pcie_config_cap{
 	struct pcie_cap_link link;
@@ -498,7 +566,7 @@ struct virtio_gpu_submit_3d_command{
 	struct virtio_gpu_command_header commandHeader;
 	uint32_t size;
 	uint32_t padding0;
-	unsigned char commandData[];
+	unsigned char command_data[];
 }__attribute__((packed));
 struct virtio_gpu_gl_command_header{
 	uint8_t opcode;
@@ -559,21 +627,54 @@ struct virtio_gpu_gl_create_dsa_object_command{
 	struct virtio_gpu_gl_dsa_state dsa_state;
 }__attribute__((packed));
 struct virtio_gpu_gl_blend_state{
-	uint32_t blend_enable;
-	uint32_t rgb_func;
-	uint32_t rgb_src_factor;
-	uint32_t rgb_dest_factor;
-	uint32_t alpha_func;
-	uint32_t alpha_src_factor;
-	uint32_t alpha_dest_factor;
-	uint32_t color_mask;
+	uint32_t blend_enable:1;
+	uint32_t rgb_func:3;
+	uint32_t rgb_src_factor:5;
+	uint32_t rgb_dest_factor:5;
+	uint32_t alpha_func:3;
+	uint32_t alpha_src_factor:5;
+	uint32_t alpha_dest_factor:5;
+	uint32_t color_mask:4;
 }__attribute__((packed));
 struct virtio_gpu_gl_create_blend_object_command{
 	struct virtio_gpu_gl_command_header header;
 	uint32_t object_id;
 	uint32_t s0;
-	struct fvec4_32 blendColor;
+	uint32_t s1;
 	struct virtio_gpu_gl_blend_state blend_state_list[];
+}__attribute__((packed));
+struct virtio_gpu_gl_stream_output{
+	uint32_t register_index;
+	uint32_t start_component;
+	uint32_t component_count;
+	uint32_t output_buffer;
+	uint32_t dst_offset;
+	uint32_t stream;
+}__attribute__((packed));
+struct virtio_gpu_gl_shader_object_segment_command{
+	struct virtio_gpu_gl_command_header header;
+	uint32_t object_id;
+	uint32_t offset_length;
+	unsigned char segment_data[];
+}__attribute__((packed));
+struct virtio_gpu_gl_create_shader_object_command{
+	struct virtio_gpu_gl_command_header header;
+	uint32_t object_id;
+	uint32_t shader_type;
+	uint32_t offset_length;
+	uint32_t token_count;
+	uint32_t shader_stream_output_count;
+	unsigned char segment_data[];
+}__attribute__((packed));
+struct virtio_gpu_gl_create_shader_object_so_command{
+	struct virtio_gpu_gl_command_header header;
+	uint32_t object_id;
+	uint32_t shader_type;
+	uint32_t offset_length;
+	uint32_t token_count;
+	uint32_t shader_stream_output_count;
+	uint32_t shader_stream_output_stride[4];
+	struct virtio_gpu_gl_stream_output stream_output_list[];
 }__attribute__((packed));
 struct virtio_gpu_gl_bind_object_command{
 	struct virtio_gpu_gl_command_header header;
@@ -588,11 +689,14 @@ struct virtio_gpu_gl_delete_object_command{
 	struct virtio_gpu_gl_command_header header;
 	uint32_t object_id;
 }__attribute__((packed));
-struct virtio_gpu_gl_set_viewport_state_command{
-	struct virtio_gpu_gl_command_header header;
-	uint32_t start_slot;
+struct virtio_gpu_gl_viewport_state{
 	struct fvec3_32 scale;
 	struct fvec3_32 translate;
+}__attribute__((packed));
+struct virtio_gpu_gl_set_viewport_state_list_command{
+	struct virtio_gpu_gl_command_header header;
+	uint32_t start_slot;
+	struct virtio_gpu_gl_viewport_state viewport_state_list[];
 }__attribute__((packed));
 struct virtio_gpu_gl_set_framebuffer_state_command{
 	struct virtio_gpu_gl_command_header header;
@@ -606,10 +710,34 @@ struct virtio_gpu_gl_scissor_state{
 	uint16_t maxX;
 	uint16_t maxY;
 }__attribute__((packed));
-struct virtio_gpu_gl_set_scissor_state_command{
+struct virtio_gpu_gl_set_scissor_state_list_command{
 	struct virtio_gpu_gl_command_header header;
 	uint32_t start_slot;
 	struct virtio_gpu_gl_scissor_state scissor_state_list[];
+}__attribute__((packed));
+struct virtio_gpu_gl_vertex_buffer{
+	uint32_t stride;
+	uint32_t offset;
+	uint32_t resource_id;
+}__attribute__((packed));
+struct virtio_gpu_gl_set_vertex_buffer_list_command{
+	struct virtio_gpu_gl_command_header header;
+	struct virtio_gpu_gl_vertex_buffer vertex_buffer_list[];
+}__attribute__((packed));
+struct virtio_gpu_gl_draw_vbo_command{
+	struct virtio_gpu_gl_command_header header;
+	uint32_t start;
+	uint32_t count;
+	uint32_t mode;
+	uint32_t indexed;
+	uint32_t instance_count;
+	uint32_t index_bias;
+	uint32_t start_instance;
+	uint32_t primitive_restart;
+	uint32_t restart_index;
+	uint32_t min_index;
+	uint32_t max_index;
+	uint32_t stream_output_count;
 }__attribute__((packed));
 struct virtio_gpu_gl_clear_command{
 	struct virtio_gpu_gl_command_header header;
@@ -617,6 +745,17 @@ struct virtio_gpu_gl_clear_command{
 	struct fvec4_32 color;
 	double depth;
 	uint32_t stencil;	
+}__attribute__((packed));
+struct virtio_gpu_gl_transfer_3d_command{
+	struct virtio_gpu_gl_command_header header;
+	uint32_t resource_id;
+	uint32_t level;
+	uint32_t transfer_type;
+	uint32_t stride;
+	uint32_t layer_stride;
+	struct virtio_gpu_box box_rect;
+	uint32_t offset;
+	uint32_t direction;
 }__attribute__((packed));
 struct virtio_gpu_scanout_info{
 	struct virtio_gpu_rect resolution;
@@ -659,8 +798,31 @@ struct virtio_gpu_command_desc{
 	uint64_t responseBufferSize;	
 	struct virtio_gpu_response_desc responseDesc;
 };
+struct virtio_gpu_vertex_triangle{
+	struct fvec4_32 position;
+	struct fvec4_32 color;
+}__attribute__((packed));
+struct virtio_gpu_vertex_buffer_triangle{
+	struct virtio_gpu_vertex_triangle vertex_list[3];
+}__attribute__((packed));
+struct virtio_gpu_vertex_buffer_quad{
+	struct virtio_gpu_vertex_triangle vertex_list[6];
+}__attribute__((packed));
+struct virtio_gpu_create_shader_info{
+	unsigned char* pShaderCode;
+	uint64_t shaderCodeSize;
+	uint64_t tokenCount;
+	struct virtio_gpu_gl_stream_output* pStreamOutputList;
+	uint64_t streamOutputCount;
+	uint64_t shaderType;
+};
 struct virtio_gpu_surface_object_desc{
 	struct virtio_gpu_object_desc* pObjectDesc;
+};
+struct virtio_gpu_shader_object_desc{
+	struct virtio_gpu_object_desc* pObjectDesc;
+	struct virtio_gpu_object_desc* pSurfaceObjectDesc;
+	uint64_t shaderType;
 };
 struct virtio_gpu_object_desc{
 	uint64_t objectId;
@@ -687,6 +849,7 @@ struct virtio_gpu_context_desc{
 	uint64_t resourceId;
 	struct mutex_t mutex;
 	struct virtio_gpu_resource_desc* pResourceDesc;
+	struct virtio_gpu_object_desc* pSurfaceObjectDesc;
 };
 struct virtio_gpu_create_resource_info{
 	struct virtio_gpu_context_desc* pContextDesc;
@@ -698,6 +861,8 @@ struct virtio_gpu_create_resource_info{
 	uint32_t depth;
 	uint32_t arraySize;
 	uint32_t flags;
+	unsigned char* pBackingBuffer;
+	uint64_t backingBufferSize;
 	uint8_t resourceType;
 };
 struct virtio_gpu_alloc_cmd_info{
@@ -757,9 +922,12 @@ struct virtio_gpu_info{
 	struct subsystem_desc* pContextSubsystemDesc;
 	struct subsystem_desc* pObjectSubsystemDesc;
 	struct virtio_gpu_queue_info controlQueueInfo;
+	struct tgsi_context_desc* pTgsiContextDesc;
 	uint64_t driverId;
 	struct gpu_driver_vtable driverVtable;
+	struct gpu_driver_info driverInfo;
 	uint64_t gpuId;
+	uint8_t virglSupport;
 	uint8_t panicMode;
 };
 int virtio_gpu_init(void);
@@ -777,8 +945,8 @@ int virtio_gpu_get_response_type_name(uint16_t responseType, const unsigned char
 int virtio_gpu_reset(void);
 int virtio_gpu_acknowledge(void);
 int virtio_gpu_validate_driver(void);
-int virtio_gpu_sync(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_rect rect, struct virtio_gpu_response_header* pResponseHeader);
-int virtio_gpu_commit(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_rect rect, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_sync(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_box boxRect, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_commit(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_box boxRect, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_push(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_rect rect, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_create_context_with_resource(struct virtio_gpu_context_desc** ppContextDesc, struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_get_display_info(struct virtio_gpu_display_info_response* pDisplayInfo);
@@ -801,22 +969,30 @@ int virtio_gpu_alloc_object_desc(struct virtio_gpu_context_desc* pContextDesc, s
 int virtio_gpu_free_object_desc(struct virtio_gpu_object_desc* pObjectDesc);
 int virtio_gpu_gl_create_surface_object(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_create_vertex_element_list_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint32_t vertexElementCount, struct virtio_gpu_gl_vertex_element* pVertexElementList, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_gl_set_vertex_buffer_list(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint64_t vertexBufferCount, struct virtio_gpu_gl_vertex_buffer* pVertexBufferList, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_create_rasterizer_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_gl_rasterizer_state rasterizerState, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_create_dsa_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_gl_dsa_state dsaState, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
-int virtio_gpu_gl_create_blend_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint32_t s0, struct fvec4_32 blendColor, uint32_t blendStateCount, struct virtio_gpu_gl_blend_state* pBlendStateList, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_gl_create_blend_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint32_t s0, uint32_t s1, uint32_t blendStateCount, struct virtio_gpu_gl_blend_state* pBlendStateList, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_create_shader_info createShaderInfo, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_gl_delete_shader_object(struct virtio_gpu_object_desc* pShaderObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_delete_object(struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_gl_bind_object(struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_gl_clear(struct virtio_gpu_context_desc* pContextDesc, uint32_t buffers, struct fvec4_32 color, double depth, uint32_t stencil, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_gl_transfer_3d(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_gl_transfer_3d_command command, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_write_delete_object(struct virtio_gpu_gl_delete_object_command* pCommand, uint32_t objectId);
 int virtio_gpu_gl_write_bind_object(struct virtio_gpu_gl_bind_object_command* pCommand, uint32_t objectId, uint32_t objectType);
-int virtio_gpu_gl_write_bind_shader_object(struct virtio_gpu_gl_bind_shader_object_command* pCommand, uint32_t objectId, uint32_t shaderType, uint32_t objectType);
+int virtio_gpu_gl_write_bind_shader_object(struct virtio_gpu_gl_bind_shader_object_command* pCommand, uint32_t objectId, uint32_t objectType);
 int virtio_gpu_gl_write_create_surface(struct virtio_gpu_gl_create_surface_object_command* pCommand, uint32_t objectId, uint32_t resourceId, uint32_t format, uint32_t dword0, uint32_t dword1);
 int virtio_gpu_gl_write_create_vertex_element_list(struct virtio_gpu_gl_create_vertex_element_list_object_command* pCommand, uint32_t objectId, uint32_t vertexElementCount, struct virtio_gpu_gl_vertex_element* pVertexElementList);
+int virtio_gpu_gl_write_set_vertex_buffer_list(struct virtio_gpu_gl_set_vertex_buffer_list_command* pCommand, uint64_t vertexBufferCount, struct virtio_gpu_gl_vertex_buffer* pVertexBufferList);
 int virtio_gpu_gl_write_create_rasterizer_object(struct virtio_gpu_gl_create_rasterizer_object_command* pCommand, uint32_t objectId, struct virtio_gpu_gl_rasterizer_state rasterizerState);
 int virtio_gpu_gl_write_create_dsa_object(struct virtio_gpu_gl_create_dsa_object_command* pCommand, uint32_t objectId, struct virtio_gpu_gl_dsa_state dsaState);
-int virtio_gpu_gl_write_create_blend_object(struct virtio_gpu_gl_create_blend_object_command* pCommand, uint32_t objectId, uint32_t s0, struct fvec4_32 blendColor, uint32_t blendStateCount, struct virtio_gpu_gl_blend_state* pBlendStateList);
+int virtio_gpu_gl_write_create_blend_object(struct virtio_gpu_gl_create_blend_object_command* pCommand, uint32_t objectId, uint32_t s0, uint32_t s1, uint32_t blendStateCount, struct virtio_gpu_gl_blend_state* pBlendStateList);
 int virtio_gpu_gl_write_set_framebuffer_state(struct virtio_gpu_gl_set_framebuffer_state_command* pCommand, uint32_t colorBufferCount, uint32_t depthStencilHandle, uint32_t* pColorBufferHandleList);
-int virtio_gpu_gl_write_set_viewport_state(struct virtio_gpu_gl_set_viewport_state_command* pCommand, uint32_t startSlot, struct fvec3_32 scale, struct fvec3_32 translate);
-int virtio_gpu_gl_write_set_scissor_state(struct virtio_gpu_gl_set_scissor_state_command* pCommand, uint32_t startSlot, uint32_t scissorStateCount, struct virtio_gpu_gl_scissor_state* pScissorStateList);
+int virtio_gpu_gl_write_set_viewport_state_list(struct virtio_gpu_gl_set_viewport_state_list_command* pCommand, uint32_t startSlot, uint64_t viewportStateCount, struct virtio_gpu_gl_viewport_state* pViewportStateList);
+int virtio_gpu_gl_write_set_scissor_state_list(struct virtio_gpu_gl_set_scissor_state_list_command* pCommand, uint32_t startSlot, uint32_t scissorStateCount, struct virtio_gpu_gl_scissor_state* pScissorStateList);
 int virtio_gpu_gl_write_clear(struct virtio_gpu_gl_clear_command* pCommand, uint32_t buffers, struct fvec4_32 color, double depth, uint32_t stencil);
+int virtio_gpu_gl_write_transfer_3d(struct virtio_gpu_gl_transfer_3d_command* pCommand, struct virtio_gpu_gl_transfer_3d_command command);
 int virtio_gpu_queue_init(struct virtio_gpu_queue_info* pQueueInfo);
 int virtio_gpu_queue_deinit(struct virtio_gpu_queue_info* pQueueInfo);
 int virtio_gpu_notify(uint16_t notifyId);
@@ -832,6 +1008,7 @@ int virtio_gpu_subsystem_write_pixel(uint64_t monitorId, struct uvec2 position, 
 int virtio_gpu_subsystem_sync(uint64_t monitorId, struct uvec4 rect);
 int virtio_gpu_subsystem_commit(uint64_t monitorId, struct uvec4 rect);
 int virtio_gpu_subsystem_push(uint64_t monitorId, struct uvec4 rect);
+int virtio_gpu_subsystem_clear(uint64_t monitorId, struct fvec4_32 color);
 int virtio_gpu_subsystem_panic_entry(uint64_t driverId);
 int virtio_gpu_response_queue_isr(void);
 #endif

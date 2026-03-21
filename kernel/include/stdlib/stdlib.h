@@ -6,7 +6,10 @@
 KAPI int atoi(long long num, unsigned char* buf, unsigned int bufmax);
 KAPI int printf(unsigned char* fmt, ...);
 KAPI int lprintf(uint16_t* fmt, ...);
-KAPI int memset(uint64_t* mem, uint64_t value, uint64_t size);
+KAPI int memset(uint8_t* mem, uint8_t value, uint64_t size);
+KAPI int memset_16(uint16_t* mem, uint16_t value, uint64_t size);
+KAPI int memset_32(uint32_t* mem, uint32_t value, uint64_t size);
+KAPI int memset_64(uint64_t* mem, uint64_t value, uint64_t size);
 KAPI unsigned char toUpper(unsigned char ch);
 KAPI int strcpy(unsigned char* dest, unsigned char* src);
 KAPI int strcmp(unsigned char* str1, unsigned char* str2);
