@@ -4,6 +4,8 @@
 #include "subsystem/filesystem.h"
 #include "subsystem/subsystem.h"
 #include "drivers/timer.h"
+#include "drivers/serial.h"
+#include "drivers/apic.h"
 #include "cpu/thread.h"
 #include "align.h"
 #include "elf.h"
@@ -60,6 +62,7 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 		return -1;
 	}
 	elf_unload(pHandle);
+	printf("finished kext\r\n");
 	printf("kext finished\r\n");
 	return 0;
 }
@@ -108,6 +111,10 @@ int kext_get_entry(uint64_t pid, struct kext_desc_t** ppEntry){
 	return 0;
 }
 int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
+	serial_print(0, "test\r\n");
+	lapic_send_eoi();
+	serial_print(0, "done\r\n");
+	printf("test\r\n");
 	if (!pArgs){
 		printf("invalid arguments\r\n");
 		while (1){};
@@ -134,6 +141,8 @@ int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
 		while (1){};
 		return -1;
 	}
+	printf("triggering kext entry\r\n");
+	while (1){};
 	uint64_t status = entry(pArgs->pKextDesc->pid);
 	printf("program exited with status 0x%x\r\n", status);
 	if (thread_destroy(tid)!=0){

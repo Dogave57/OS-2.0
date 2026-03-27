@@ -244,7 +244,7 @@ int nvme_alloc_io_completion_queue(struct nvme_drive_desc* pDriveDesc, struct nv
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	while (!submissionQeDesc.cmdComplete){};
+	nvme_yield_until_completion(&submissionQeDesc);
 	pPacket->io_cq.pCompletionQueueDesc = pCompletionQueueDesc;	
 	*pCompletionQeDesc = submissionQeDesc.completionQeDesc;	
 	mutex_unlock_isr_safe(&mutex);
@@ -595,6 +595,15 @@ int nvme_completion_queue_interrupt(uint8_t vector){
 	}
 	return 0;
 }
+int nvme_yield_until_completion(struct nvme_submission_qe_desc* pSubmissionQeDesc){
+	if (!pSubmissionQeDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock_isr_safe(&mutex);
+	while (!pSubmissionQeDesc->cmdComplete){};
+	mutex_unlock_isr_safe(&mutex);
+	return 0;
+}
 int nvme_identify(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint32_t identifyType, unsigned char* pBuffer, struct nvme_completion_qe_desc* pCompletionQeDesc){
 	if (!pDriveDesc||!pBuffer||!pCompletionQeDesc)
 		return -1;
@@ -617,7 +626,7 @@ int nvme_identify(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint
 		printf("failed to run submission queue\r\n");
 		return -1;
 	}	
-	while (!submissionQeDesc.cmdComplete){};
+	nvme_yield_until_completion(&submissionQeDesc);
 	*pCompletionQeDesc = submissionQeDesc.completionQeDesc;	
 	return 0;
 }
@@ -702,7 +711,7 @@ int nvme_read(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint64_t
 		printf("failed to run I/O SQ\r\n");
 		return -1;
 	}	
-	while (!submissionQeDesc.cmdComplete){};
+	nvme_yield_until_completion(&submissionQeDesc);
 	if (pPageList)
 		virtualFreePage((uint64_t)pPageList, 0);
 	*pCompletionQeDesc = submissionQeDesc.completionQeDesc;	
@@ -782,7 +791,7 @@ int nvme_write(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint64_
 		printf("failed to run I/O SQ\r\n");
 		return -1;
 	}	
-	while (!submissionQeDesc.cmdComplete){};
+	nvme_yield_until_completion(&submissionQeDesc);
 	if (pPageList)
 		virtualFreePage((uint64_t)pPageList, 0);
 	*pCompletionQeDesc = submissionQeDesc.completionQeDesc;	

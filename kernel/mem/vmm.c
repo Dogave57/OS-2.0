@@ -4,8 +4,8 @@
 #include "panic.h"
 #include "mem/pmm.h"
 #include "mem/vmm.h"
-uint64_t* pml4 = (uint64_t*)0x0;
-uint64_t last_page_va = 0;
+static uint64_t* pml4 = (uint64_t*)0x0;
+static uint64_t last_page_va = 0;
 int vmm_init(void){
 	uint64_t max_pages = installedMemory/PAGE_SIZE;
 	physicalMapPage(0x0, 0x0, PAGE_TYPE_RESERVED);

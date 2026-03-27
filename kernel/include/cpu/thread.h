@@ -11,7 +11,7 @@
 #define THREAD_PRIORITY_NORMAL 0x1
 #define THREAD_PRIORITY_HIGH 0x2 
 extern uint64_t ctx_switch_time;
-extern unsigned char schedulerHalt;
+extern uint64_t schedulerHalt;
 struct thread_context_t{
 	uint64_t rax;	// 0
 	uint64_t rbx;	// 8

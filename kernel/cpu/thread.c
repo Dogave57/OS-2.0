@@ -12,7 +12,7 @@ struct thread_t* pFirstThread = (struct thread_t*)0x0;
 struct thread_t* pLastThread = (struct thread_t*)0x0;
 struct thread_t* pCurrentThread = (struct thread_t*)0x0;
 unsigned char threadDestroySafe = 0;
-unsigned char schedulerHalt = 1;
+uint64_t schedulerHalt = 1;
 int threads_init(void){
 	if (subsystem_init(&pSubsystemDesc, MEM_KB*256)!=0)
 		return -1;
@@ -157,7 +157,7 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 	pThread->stackGuardSize = stackGuardSize;
 	pThread->stackCommit = stackCommit;
 	pThread->stackReserve = stackReserve;
-	uint64_t rsp = ((uint64_t)pStack)+stackReserve-40;
+	uint64_t rsp = ((uint64_t)pStack)+stackReserve-72;
 	struct thread_context_t* pContext = &pThread->context;
 	uint64_t tid = 0;
 	if (thread_register(pThread, &tid)!=0){
@@ -166,9 +166,10 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	uint64_t rflags = get_rflags();
+	uint64_t rflags = (1<<1)|(1<<21)|(1<<14);
 	pContext->rip = rip;
 	pContext->rsp = rsp;
+	pContext->rbp = pContext->rsp;
 	pContext->rbp = 0x0;
 	pContext->rcx = tid;
 	pContext->rdx = argument;

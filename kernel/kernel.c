@@ -23,7 +23,6 @@
 #include "subsystem/gpu.h"
 #include "drivers/gpt.h"
 #include "drivers/gpu/virtio.h"
-#include "drivers/gpu/tgsi.h"
 #include "drivers/filesystem/fat32.h"
 #include "drivers/filesystem/exfat.h"
 #include "drivers/filesystem/fluxfs.h"
@@ -216,11 +215,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	if (gpu_subsystem_init()!=0){
 		printf("failed to initialize GPU subsystem\r\n");
-		while (1){};
-		return -1;
-	}
-	if (tgsi_driver_init()!=0){
-		printf("failed to initialize TGSI driver\r\n");
 		while (1){};
 		return -1;
 	}

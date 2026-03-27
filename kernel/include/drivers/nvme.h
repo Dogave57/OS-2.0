@@ -675,6 +675,7 @@ int nvme_free_admin_submission_queue(struct nvme_free_queue_packet* pPacket);
 int nvme_alloc_admin_completion_queue(struct nvme_drive_desc* pDriveDesc, struct nvme_alloc_queue_packet* pPacket);
 int nvme_free_admin_completion_queue(struct nvme_free_queue_packet* pPacket);
 int nvme_completion_queue_interrupt(uint8_t vector);
+int nvme_yield_until_completion(struct nvme_submission_qe_desc* pSubmissionQeDesc);
 int nvme_identify(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint32_t identifyType, unsigned char* pBuffer, struct nvme_completion_qe_desc* pCompletionQeDesc);
 int nvme_get_namespace_desc(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, struct nvme_namespace_desc** ppnamespaceDesc);
 int nvme_read(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint64_t lba, uint32_t sectorCount, unsigned char* pBuffer, struct nvme_completion_qe_desc* pCompletionQeDesc);
