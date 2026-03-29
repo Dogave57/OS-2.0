@@ -4,6 +4,7 @@
 #include "kernel_include.h"
 #include "drivers/pcie.h"
 #define XHCI_PORT_LIST_OFFSET (0x400)
+
 #define XHCI_MAX_CMD_TRB_ENTRIES (256)
 #define XHCI_MAX_TRANSFER_TRB_ENTRIES (256)
 #define XHCI_MAX_EVENT_TRB_ENTRIES (256)
@@ -11,8 +12,10 @@
 #define XHCI_MAX_EVENT_SEGMENT_TABLE_ENTRIES (256)
 #define XHCI_MAX_ENDPOINT_COUNT (32)
 #define XHCI_MAX_SLOT_COUNT (256)
+
 #define XHCI_DEFAULT_PAGE_SIZE (0x0)
 #define XHCI_DEFAULT_INTERRUPTER_ID (0x0)
+
 #define XHCI_TRB_TYPE_INVALID (0x0)
 #define XHCI_TRB_TYPE_NORMAL (0x01)
 #define XHCI_TRB_TYPE_SETUP (0x02)
@@ -39,6 +42,7 @@
 #define XHCI_TRB_TYPE_NOP_CMD (0x17)
 #define XHCI_TRB_TYPE_GET_EXTENDED_CAP (0x18)
 #define XHCI_TRB_TYPE_SET_EXTENDED_CAP (0x19)
+
 #define XHCI_EVENT_TRB_TYPE_TRANSFER_EVENT (0x20)
 #define XHCI_EVENT_TRB_TYPE_CMD_COMPLETION (0x21)
 #define XHCI_EVENT_TRB_TYPE_PORT_STATUS_CHANGE (0x22)
@@ -47,6 +51,7 @@
 #define XHCI_EVENT_TRB_TYPE_HC_ERROR (0x25)
 #define XHCI_EVENT_TRB_TYPE_DEV_NOTIF (0x26)
 #define XHCI_EVENT_TRB_TYPE_MFINDEX_WRAP (0x27)
+
 #define XHCI_COMPLETION_CODE_INVALID (0x0)
 #define XHCI_COMPLETION_CODE_SUCCESS (0x1)
 #define XHCI_COMPLETION_CODE_DMA_ERROR (0x2)
@@ -63,6 +68,7 @@
 #define XHCI_COMPLETION_CODE_PARAM_ERROR (0x11)
 #define XHCI_COMPLETION_CODE_CONTEXT_STATE_ERROR (0x13)
 #define XHCI_COMPLETION_CODE_EVENT_RING_FULL (0x1A)
+
 #define XHCI_REQUEST_TRANSFER_DIRECTION_H2D (0x0)
 #define XHCI_REQUEST_TRANSFER_DIRECTION_D2H (0x1)
 #define XHCI_REQUEST_TARGET_DEVICE (0x0)
@@ -74,10 +80,12 @@
 #define XHCI_REQUEST_TYPE_VENDOR (0x2)
 #define XHCI_REQUEST_TYPE_RESERVED (0x3)
 #define XHCI_REQUEST_TYPE_SET_PROTOCOL (0x0B)
+
 #define XHCI_PORT_SPEED_FULL (0x1)
 #define XHCI_PORT_SPEED_LOW (0x2)
 #define XHCI_PORT_SPEED_HIGH (0x3)
 #define XHCI_PORT_SPEED_SUPER (0x4)
+
 #define XHCI_USB_DESC_DEVICE (0x01)
 #define XHCI_USB_DESC_CONFIG (0x02)
 #define XHCI_USB_DESC_STRING (0x03)
@@ -100,13 +108,16 @@
 #define XHCI_USB_DESC_SUPERSPEED_HUB (0x2A)
 #define XHCI_USB_DESC_BILLBOARD (0x0D)
 #define XHCI_USB_DESC_TYPE_C_BRIDGE (0x0E)
+
 #define XHCI_INTERFACE_CLASS_HID (0x03)
 #define XHCI_INTERFACE_PROTOCOL_KEYBOARD (0x01)
 #define XHCI_INTERFACE_PROTOCOL_MOUSE (0x02)
+
 #define XHCI_TRANSFER_TYPE_CONTROL (0x0)
 #define XHCI_TRANSFER_TYPE_ISOCH (0x1)
 #define XHCI_TRANSFER_TYPE_BULK (0x2)
 #define XHCI_TRANSFER_TYPE_INT (0x3)
+
 #define XHCI_ENDPOINT_STATE_INVALID (0x0)
 #define XHCI_ENDPOINT_STATE_RUNNING (0x1)
 #define XHCI_ENDPOINT_STATE_HALTED (0x2)
@@ -120,7 +131,13 @@
 #define XHCI_ENDPOINT_TYPE_ISOCH_IN (0x5)
 #define XHCI_ENDPOINT_TYPE_BULK_IN (0x6)
 #define XHCI_ENDPOINT_TYPE_INT_IN (0x7)
+
 #define XHCI_EP_ID_INDEX(id)(((id&0x0F)*2)+((id%(1<<7)) ? 1 :0))
+
+#define XHCI_INT_MODE_INVALID (0x00)
+#define XHCI_INT_MODE_MSI (0x01)
+#define XHCI_INT_MODE_MSIX (0x02)
+
 struct xhci_transfer_desc;
 typedef int(*xhciTransferCompletionFunc)(struct xhci_transfer_desc* pTransferDesc);
 struct xhci_structure_param0{
@@ -165,22 +182,23 @@ struct xhci_extended_cap_hdr{
 }__attribute__((packed));
 struct xhci_usb_legacy_support_ctrl{
 	uint32_t usb_smi_enable:1;
-	uint32_t smi_host_error_enable:1;	
-	uint32_t smi_os_ownership_enable:1;
-	uint32_t smi_pci_command_enable:1;
-	uint32_t smi_bar_enable:1;
+	uint32_t usb_smi_on_host_system_error_enable:1;
+	uint32_t usb_smi_on_os_ownership_enable:1;
+	uint32_t usb_smi_on_pci_command_enable:1;
+	uint32_t usb_smi_on_bar_enable:1;
 	uint32_t reserved0:8;
-	uint32_t smi_os_own_change_enable:1;
-	uint32_t smi_pci_command_register_enable:1;
-	uint32_t smi_bar_register_enable:1;
-	uint32_t reserved1:5;
-	uint32_t smi_hc_error_status:1;
-	uint32_t smi_pci_command_status:1;
-	uint32_t smi_bar_status:1;
-	uint32_t reserved2:5;
-	uint32_t os_ownership_change_status:1;
-	uint32_t host_system_error_smi_status:1;
-	uint32_t usb_smi_status:1;
+	uint32_t usb_smi_on_event_int_enable:1;
+	uint32_t reserved1:1;
+	uint32_t usb_smi_on_os_ownership_change_enable:1;
+	uint32_t usb_smi_on_usb_complete:1;
+	uint32_t usb_smi_on_host_system_error:1;
+	uint32_t usb_smi_on_os_ownership:1;
+	uint32_t usb_smi_on_pci_command:1;
+	uint32_t usb_smi_on_bar:1;
+	uint32_t reserved2:8;
+	uint32_t usb_smi_on_event_int:1;
+	uint32_t reserved3:1;
+	uint32_t usb_smi_on_os_ownership_change:1;
 }__attribute__((packed));
 struct xhci_usb_legacy_support_cap{
 	struct xhci_extended_cap_hdr* pCapHeader;
@@ -795,6 +813,7 @@ struct xhci_info{
 	struct xhci_device* pDeviceDescList;
 	struct xhci_device* pFirstDevice;
 	struct xhci_device* pLastDevice;	
+	uint8_t interruptMode;
 	struct pcie_location location;
 };
 int xhci_driver_init(void);
@@ -860,7 +879,6 @@ int xhci_dump_interrupter(uint64_t interrupter_id);
 int xhci_init_device_context_list(void);
 int xhci_get_driver_cycle_state(unsigned char* pCycleState);
 int xhci_get_hc_cycle_state(unsigned char* pCycleState);
-int xhci_init_scratchpad(void);
 int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr** ppCapHeader);
 int xhci_enable_slot(uint64_t* pSlotId);
 int xhci_disable_slot(uint64_t slotId);

@@ -64,7 +64,9 @@ int nvme_enable(struct nvme_drive_desc* pDriveDesc){
 		return 0;
 	}
 	controllerConfig.enable = 1;
+	__asm__ volatile("sfence" ::: "memory");
 	pDriveDesc->pBaseRegisters->controller_config = controllerConfig;
+	__asm__ volatile("sfence" ::: "memory");
 	while (!controllerStatus.ready){
 		controllerStatus = pDriveDesc->pBaseRegisters->controller_status;
 	}
@@ -78,7 +80,9 @@ int nvme_disable(struct nvme_drive_desc* pDriveDesc){
 		return 0;
 	struct nvme_controller_config controllerConfig = pDriveDesc->pBaseRegisters->controller_config;
 	controllerConfig.enable = 0;
+	__asm__ volatile("sfence" ::: "memory");
 	pDriveDesc->pBaseRegisters->controller_config = controllerConfig;
+	__asm__ volatile("sfence" ::: "memory");
 	while (controllerStatus.ready){
 		controllerStatus = pDriveDesc->pBaseRegisters->controller_status;
 	}
@@ -97,7 +101,9 @@ int nvme_ring_doorbell(struct nvme_drive_desc* pDriveDesc, uint64_t doorbellId, 
 	uint64_t doorbellStride = (1<<(capabilities.doorbell_stride))*4;
 	uint64_t doorbellOffset = (((doorbellId*2)+doorbellType))*doorbellStride;
 	volatile uint16_t* pDoorbell = (volatile uint16_t*)(((uint64_t)pDriveDesc->pDoorbellBase)+doorbellOffset);	
+	__asm__ volatile("sfence" ::: "memory");
 	*pDoorbell = value;	
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int nvme_run_submission_queue(struct nvme_submission_queue_desc* pSubmissionQueueDesc){

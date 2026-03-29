@@ -1036,6 +1036,9 @@ int virtio_gpu_subsystem_cmd_context_reset(uint64_t gpuId, uint64_t cmdContextId
 int virtio_gpu_subsystem_push_clear_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_clear_cmd_info* pCommandInfo);
 int virtio_gpu_subsystem_push_cmd(uint64_t gpuId, uint64_t cmdContextId, struct gpu_cmd_info_header* pCommandInfo);
 int virtio_gpu_subsystem_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmdContextId);
+int virtio_gpu_subsystem_object_create(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId);
+int virtio_gpu_subsystem_object_delete(uint64_t gpuId, uint64_t objectId);
+int virtio_gpu_subsystem_object_bind(uint64_t gpuId, uint64_t objectId);
 int virtio_gpu_subsystem_context_create(uint64_t gpuId, uint64_t* pContextId);
 int virtio_gpu_subsystem_context_delete(uint64_t gpuId, uint64_t contextId);
 int virtio_gpu_subsystem_context_attach_resource(uint64_t gpuId, uint64_t contextId, uint64_t resourceId);

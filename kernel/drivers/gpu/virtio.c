@@ -509,8 +509,6 @@ int virtio_gpu_init(void){
 		rasterizerState.s0|=VIRTIO_GPU_GL_RASTERIZER_S0_DEPTH_CLIP;
 		rasterizerState.s0|=VIRTIO_GPU_GL_RASTERIZER_S0_SCISSOR;
 		rasterizerState.s0|=VIRTIO_GPU_GL_RASTERIZER_S0_FRONT_CCW;
-		rasterizerState.s0|=(VIRTIO_GPU_GL_POLYGON_MODE_POINT<<VIRTIO_GPU_GL_RASTERIZER_S0_FILL_FRONT_SHIFT);
-		rasterizerState.s0|=(VIRTIO_GPU_GL_POLYGON_MODE_POINT<<VIRTIO_GPU_GL_RASTERIZER_S0_FILL_BACK_SHIFT);
 		rasterizerState.s0|=VIRTIO_GPU_GL_RASTERIZER_S0_HALF_PIXEL_CENTER;
 		rasterizerState.s0|=VIRTIO_GPU_GL_RASTERIZER_S0_BOTTOM_EDGE_RULE;
 		rasterizerState.s0|=VIRTIO_GPU_GL_RASTERIZER_S0_LINE_SMOOTH;
@@ -563,7 +561,7 @@ int virtio_gpu_init(void){
 		memset_32((void*)&drawVertexBufferCommand, 0, sizeof(struct virtio_gpu_gl_draw_vbo_command));
 		drawVertexBufferCommand.start = 0;
 		drawVertexBufferCommand.count = 3;
-		drawVertexBufferCommand.mode = VIRTIO_GPU_GL_PRIMITIVE_TRIANGLES_FAN;
+		drawVertexBufferCommand.mode = VIRTIO_GPU_GL_PRIMITIVE_TRIANGLES;
 		drawVertexBufferCommand.instance_count = 1;
 		drawVertexBufferCommand.max_index = drawVertexBufferCommand.count-1;
 		clear();
@@ -676,8 +674,8 @@ int virtio_gpu_init(void){
 		clearCommandInfo.header.commandType = GPU_CMD_TYPE_CLEAR;
 		clearCommandInfo.color.x = 1.0f;
 		clearCommandInfo.depth = 1.0;
-		/*gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCommandInfo);
-		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCommandInfo);
+		/*if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
 			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
@@ -3281,6 +3279,7 @@ int virtio_gpu_subsystem_read_pixel(uint64_t monitorId, struct uvec2 position, s
 	volatile struct uvec4_8* pPixel = pFramebuffer+pixelOffset;
 	struct uvec4_8 color = *pPixel;
 	struct uvec4_8 newColor = {color.z, color.y, color.x, 0x0};
+	__asm__ volatile("mfence" ::: "memory");
 	*pColor = gpuInfo.virglSupport ? color : newColor;
 	mutex_unlock(&mutex);
 	return 0;
@@ -3308,6 +3307,7 @@ int virtio_gpu_subsystem_write_pixel(uint64_t monitorId, struct uvec2 position, 
 	volatile struct uvec4_8* pPixel = pFramebuffer+pixelOffset;
 	struct uvec4_8 newColor = {color.z, color.y, color.x, 0x0};
 	*pPixel = gpuInfo.virglSupport ? color : newColor;
+	__asm__ volatile("sfence" ::: "memory");
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -3555,6 +3555,29 @@ int virtio_gpu_subsystem_cmd_context_submit(uint64_t gpuId, uint64_t contextId, 
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_object_create(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId){
+	if (!pObjectId)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_object_delete(uint64_t gpuId, uint64_t objectId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_object_bind(uint64_t gpuId, uint64_t objectId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+
 	mutex_unlock(&mutex);
 	return 0;
 }

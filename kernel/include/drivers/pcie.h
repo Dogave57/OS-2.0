@@ -36,9 +36,39 @@ struct pcie_cap_pm{
 struct pcie_msi_msg_ctrl{
 	struct pcie_cap_link capLink;
 	uint16_t msi_enable:1;
-	uint16_t multi_message_enable:1;
-	uint16_t multi_message_capable:3;
-	uint16_t reserved0:9;
+	uint16_t max_vector_count:3;
+	uint16_t vector_count:3;
+	uint16_t long_address_capable:1;
+	uint16_t per_vector_masking_capable:1;
+	uint16_t reserved0:7;
+	unsigned char table[];
+}__attribute__((packed));
+struct pcie_msi_msg_data{
+	uint16_t isr_vector:8;
+	uint16_t delivery_mode:2;
+	uint16_t reserved0:6;
+}__attribute__((packed));
+struct pcie_msi_table_entry_32{
+	uint32_t msg_addr;
+	struct pcie_msi_msg_data msg_data;
+}__attribute__((packed));
+struct pcie_msi_table_entry_32_mask{
+	uint32_t msg_addr;
+	struct pcie_msi_msg_data msg_data;
+	uint32_t mask_bits;
+	uint32_t pending_bits;
+}__attribute__((packed));
+struct pcie_msi_table_entry_64{
+	uint32_t msg_addr_low;
+	uint32_t msg_addr_high;
+	struct pcie_msi_msg_data msg_data;
+}__attribute__((packed));
+struct pcie_msi_table_entry_64_mask{
+	uint32_t msg_addr_low;
+	uint32_t msg_addr_high;
+	struct pcie_msi_msg_data msg_data;
+	uint32_t mask_bits;
+	uint32_t pending_bits;
 }__attribute__((packed));
 struct pcie_msix_msg_ctrl{
 	struct pcie_cap_link capLink;
@@ -111,6 +141,9 @@ int pcie_get_function_by_class(uint8_t class, uint8_t subclass, struct pcie_loca
 int pcie_get_function_by_id(uint16_t vendor_id, uint16_t device_id, struct pcie_location* pLocation);
 int pcie_msix_get_msg_ctrl(struct pcie_location location, volatile struct pcie_msix_msg_ctrl** ppMsgControl);
 int pcie_msi_get_msg_ctrl(struct pcie_location location, volatile struct pcie_msi_msg_ctrl** ppMsgControl);
+int pcie_msi_get_entry_size(struct pcie_location location, volatile struct pcie_msi_msg_ctrl* pMsgControl, uint64_t* pEntrySize);
+int pcie_get_msi_entry(struct pcie_location location, volatile unsigned char** ppEntry, volatile struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector);
+int pcie_set_msi_entry(struct pcie_location location, volatile struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector, uint64_t lapic_id, uint8_t interrupt_vector);
 int pcie_msi_enable(volatile struct pcie_msi_msg_ctrl* pMsgControl);
 int pcie_msi_disable(volatile struct pcie_msi_msg_ctrl* pMsgControl);
 int pcie_msix_get_table_base(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, volatile struct pcie_msix_table_entry** ppTableBase);

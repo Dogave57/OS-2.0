@@ -29,6 +29,7 @@ int xhci_init(void){
 	memset((void*)&xhciInfo, 0, sizeof(struct xhci_info));
 	if (xhci_get_info(&xhciInfo)!=0)
 		return -1;
+	printf("initializing XHC at bus: %d, device: %d, function: %d\r\n", xhciInfo.location.bus, xhciInfo.location.dev, xhciInfo.location.func);
 	uint32_t pcie_cmd_reg = 0;
 	pcie_read_dword(xhciInfo.location, 0x4, &pcie_cmd_reg);
 	pcie_cmd_reg|=(1<<0);
@@ -41,11 +42,7 @@ int xhci_init(void){
 		return -1;
 	}	
 	if (xhci_reset()!=0){
-		printf("failed to reset XHCI controller\r\n");
-		return -1;
-	}
-	if (xhci_stop()!=0){
-		printf("failed to stop XHCI controller\r\n");
+		printf("failed to reset XHC\r\n");
 		return -1;
 	}
 	if (xhci_init_device_context_list()!=0){
@@ -77,6 +74,28 @@ int xhci_init(void){
 		return -1;
 	}	
 	xhci_set_cmd_ring_base(xhciInfo.pCmdRingInfo->pRingBuffer_phys);	
+	uint8_t portCount = 0;
+	if (xhci_get_port_count(&portCount)!=0){
+		printf("failed to get port count\r\n");
+		return -1;
+	}
+	for (uint8_t i = 0;i<portCount;i++){
+		volatile struct xhci_port* pPort = (struct xhci_port*)0x0;
+		if (xhci_get_port(i, &pPort)!=0)
+			continue;
+		struct xhci_port_status status = pPort->port_status;
+		struct xhci_port_status newStatus = {0};
+		*(uint32_t*)&newStatus = 0;
+		newStatus.connection_status_change = status.connection_status_change;
+		newStatus.port_enable_change = status.port_enable_change;
+		newStatus.warm_port_reset_change = status.warm_port_reset_change;
+		newStatus.over_current_change = status.over_current_change;
+		newStatus.port_reset_change = status.port_reset_change;
+		newStatus.port_link_state_change = status.port_link_state_change;
+		newStatus.config_error_change = status.config_error_change;
+		pPort->port_status = status;
+		__asm__ volatile("sfence" ::: "memory");
+	}
 	if (xhci_init_interrupter()!=0){
 		printf("failed to initialize XHCI interrupter\r\n");
 		return -1;
@@ -84,10 +103,6 @@ int xhci_init(void){
 	struct xhci_structure_param1 param = xhciInfo.pCapabilities->structure_param1;
 	printf("scratchpad physical pages low: %d\r\n", param.scratchpad_pages_low);
 	printf("scratchpad physical pages high: %d\r\n", param.scratchpad_pages_high);	
-	printf("initialized interrupter\r\n");
-	uint8_t portCount = 0;
-	if (xhci_get_port_count(&portCount)!=0)
-		return -1;
 	printf("port count: %d\r\n", portCount);
 	struct xhci_trb trb = {0};
 	uint64_t trbIndex = 0;
@@ -107,27 +122,31 @@ int xhci_init(void){
 	xhci_start();
 	xhci_ring(0);
 	uint64_t time_us = get_time_us();
-	while (!pCmdDesc->cmdComplete){};
+	xhci_yield_until_cmd_complete(pCmdDesc);
 	const unsigned char* completionStatusName = "Unknown completion status\r\n";
 	xhci_get_error_name(pCmdDesc->eventTrb.event.completion_code, &completionStatusName);
-	while (!pCmdDesc->cmdComplete){};	
+	xhci_yield_until_cmd_complete(pCmdDesc);
 	xhci_get_error_name(pCmdDesc->eventTrb.event.completion_code, &completionStatusName);
 	uint64_t elapsed_us = get_time_us()-time_us;
-	struct xhci_usb_status usb_status = xhciInfo.pOperational->usb_status;
-	if (usb_status.host_system_error)
-		printf("host system error\r\n");
-	if (usb_status.host_controller_error)
-		printf("host controller error\r\n");
 	for (uint64_t i = 0;i<portCount;i++){
 		if (xhci_device_exists(i)!=0)
 			continue;
+		volatile struct xhci_port* pPort = (volatile struct xhci_port*)0x0;
+		if (xhci_get_port(i, &pPort)!=0)
+			continue;
+		struct xhci_port_status status = pPort->port_status;
+		pPort->port_status = status;
+		__asm__ volatile("sfence" ::: "memory");
 		struct xhci_device* pDevice = (struct xhci_device*)0x0;
 		if (xhci_get_device(i, &pDevice)!=0)
 			continue;
 		if (pDevice->deviceInitialized)
 			continue;
-		if (xhci_reset_port(i)!=0)
+		if (xhci_init_device(i, &pDevice)!=0){
+			printf("failed to initialize USB device at port %d\r\n", i);
 			continue;
+		}
+		sleep(25);
 	}
 	if (usb_kbd_driver_init()!=0){
 		printf("failed to initialize USB keyboard HID driver\r\n");
@@ -187,6 +206,7 @@ int xhci_write_qword(volatile uint64_t* pQword, uint64_t value){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	*pQword = value;	
+	__asm__ volatile("sfence" ::: "memory");
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -225,65 +245,68 @@ int xhci_device_exists(uint8_t port){
 	return status.connection_status ? 0 : -1;
 }
 int xhci_reset_port(uint8_t port){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	volatile struct xhci_port* pPort = (volatile struct xhci_port*)0x0;
 	if (xhci_get_port(port, &pPort)!=0){
 		printf("failed to get XHC port descriptor\r\n");
+		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (xhci_enable_port_power(port)!=0){
 		printf("failed to enable port power\r\n");
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (xhci_start()!=0){
-		printf("failed to start XHC\r\n");
-		return -1;
-	}
-	__asm__ volatile("mfence" ::: "memory");
 	struct xhci_port_status status = pPort->port_status;
-	pPort->port_status = status;
 	status.port_reset = 1;
-	__asm__ volatile("mfence" ::: "memory");
+	status.connection_status_change = 0;
+	status.port_enable_change = 0;
+	status.warm_port_reset_change = 0;
+	status.over_current_change = 0;
+	status.port_reset_change = 0;
+	status.port_link_state_change = 0;
+	status.config_error_change = 0;
 	pPort->port_status = status;
+	__asm__ volatile("sfence" ::: "memory");
 	uint64_t time_us = get_time_us();
-	while (status.port_reset){
+	while (!status.port_reset_change){
 		uint64_t elapsed_us = get_time_us()-time_us;
-		if (elapsed_us>5000000){
+		if (elapsed_us>500000){
 			printf("port %d reset timed out\r\n", port);
-			xhci_stop();
+			mutex_unlock(&mutex);
 			return -1;
 		}
 		status = pPort->port_status;
-		sleep(25);
 	}
+	*(uint32_t*)&status = 0x0;
+	status.port_reset_change = 1;
+	pPort->port_status = status;
+	__asm__ volatile("sfence" ::: "memory");
 	sleep(5);
-	if (xhci_stop()!=0){
-		printf("failed to stop the XHC\r\n");	
-		return -1;
-	}
+	printf("port %d reset\r\n", port);
+	mutex_unlock(&mutex);
 	return 0;
 }
 int xhci_enable_port_power(uint8_t port){
+	static struct mutex_t mutex = {0};
 	volatile struct xhci_port* pPort = (volatile struct xhci_port*)0x0;
-	if (xhci_get_port(port, &pPort)!=0)
-		return -1;
-	if (xhci_start()!=0){
-		printf("failed to start the XHC\r\n");
+	if (xhci_get_port(port, &pPort)!=0){
 		return -1;
 	}
-	struct xhci_port_status status = pPort->port_status;	
+	struct xhci_port_status status = pPort->port_status;
 	status.port_power = 1;
+	status.connection_status_change = 0;
+	status.port_enable_change = 0;
+	status.warm_port_reset_change = 0;
+	status.over_current_change = 0;
+	status.port_reset_change = 0;
+	status.port_link_state_change = 0;
+	status.config_error_change = 0;
+	__asm__ volatile("sfence" ::: "memory");
+	pPort->port_status = status;
+	__asm__ volatile("sfence" ::: "memory");
 	sleep(25);
-	status = pPort->port_status;
-	if (!status.port_power){
-		printf("failed to set port power bit\r\n");
-		xhci_stop();
-		return -1;
-	}
-	sleep(25);
-	if (xhci_stop()!=0){
-		printf("failed to stop the XHC\r\n");
-		return -1;
-	}
 	return 0;
 }
 int xhci_get_port_count(uint8_t* pPortCount){
@@ -551,6 +574,7 @@ int xhci_write_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint6
 	unsigned char cycle_state = pTransferRingInfo->cycle_state;
 	trbEntry.generic.control.cycle_bit = cycle_state;
 	*(pTransferRingInfo->pRingBuffer+trbIndex) = trbEntry;	
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int xhci_read_transfer(struct xhci_transfer_ring_info* pTransferRingInfo, uint64_t trbIndex, struct xhci_trb* pTrbEntry){
@@ -570,8 +594,9 @@ int xhci_yield_until_transfer_complete(struct xhci_transfer_desc* pTransferDesc)
 }
 int xhci_ring(uint64_t doorbell_vector){
 	volatile uint32_t* pDoorBell = xhciInfo.pDoorBells+doorbell_vector;
-	__asm__ volatile("mfence" ::: "memory");
+	__asm__ volatile("sfence" ::: "memory");
 	*pDoorBell = 0;
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int xhci_ring_endpoint(uint64_t slotId, uint8_t endpoint_id, uint8_t stream_id){
@@ -580,76 +605,69 @@ int xhci_ring_endpoint(uint64_t slotId, uint8_t endpoint_id, uint8_t stream_id){
 	doorbell.endpoint_id = endpoint_id;
 	doorbell.stream_id = stream_id;
 	volatile struct xhci_doorbell* pDoorBell = (volatile struct xhci_doorbell*)(xhciInfo.pDoorBells+slotId);	
-	__asm__ volatile("mfence" ::: "memory");
+	__asm__ volatile("sfence" ::: "memory");
 	*pDoorBell = doorbell;	
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int xhci_reset(void){
-	xhci_stop();
 	struct xhci_usb_cmd cmd = xhciInfo.pOperational->usb_cmd;
 	cmd.hc_reset = 1;
+	__asm__ volatile("sfence" ::: "memory");
 	xhciInfo.pOperational->usb_cmd = cmd;
+	__asm__ volatile("sfence" ::: "memory");
 	uint64_t start_us = get_time_us();
-	struct xhci_usb_status status = xhciInfo.pOperational->usb_status;
-	while (!status.halted||status.controller_not_ready||cmd.hc_reset){
+	while (cmd.hc_reset){
 		uint64_t current_us = get_time_us();
 		uint64_t elapsed_us = current_us-start_us;
 		if (elapsed_us>5000000){
 			printf("controller reset timed out\r\n");
 			return -1;
 		}
-		status = xhciInfo.pOperational->usb_status;
 		cmd = xhciInfo.pOperational->usb_cmd;
 	}
-	sleep(25);
-	xhci_stop();
 	sleep(25);
 	struct xhci_config config = xhciInfo.pOperational->config;	
 	config.max_slots_enabled = XHCI_MAX_SLOT_COUNT-1;
 	xhciInfo.pOperational->config = config;	
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int xhci_start(void){
 	struct xhci_usb_cmd cmd = xhciInfo.pOperational->usb_cmd;
 	cmd.run = 1;
-	__asm__ volatile("mfence" ::: "memory");
+	__asm__ volatile("sfence" ::: "memory");
 	xhciInfo.pOperational->usb_cmd = cmd;
-	struct xhci_usb_status status = {0};
+	__asm__ volatile("sfence" ::: "memory");
+	struct xhci_usb_status status = xhciInfo.pOperational->usb_status;
 	uint64_t start_us = get_time_us();
-	while (1){
+	while (status.halted){
 		uint64_t elapsed_us = get_time_us()-start_us;
-		if (elapsed_us>50000000){
-			printf("controller start timed out\r\n");
+		if (elapsed_us>5000000){
+			printf("XHC start timed out\r\n");
 			return -1;
 		}
-		cmd = xhciInfo.pOperational->usb_cmd;
 		status = xhciInfo.pOperational->usb_status;
-		if (status.halted)
-			continue;
-		return 0;
 	}
-	return -1;
+	return 0;
 }
 int xhci_stop(void){
 	struct xhci_usb_cmd cmd = xhciInfo.pOperational->usb_cmd;
 	cmd.run = 0;
-	__asm__ volatile("mfence" ::: "memory");
+	__asm__ volatile("sfence" ::: "memory");
 	xhciInfo.pOperational->usb_cmd = cmd;
-	struct xhci_usb_status status = {0};
+	__asm__ volatile("sfence" ::: "memory");
+	struct xhci_usb_status status = xhciInfo.pOperational->usb_status;
 	uint64_t start_us = get_time_us();
-	while (1){
+	while (!status.halted){
 		uint64_t elapsed_us = get_time_us()-start_us;
 		if (elapsed_us>5000000){
-			printf("controller stop timed out\r\n");
+			printf("XHC stop timed out\r\n");
 			return -1;
 		}
-		cmd = xhciInfo.pOperational->usb_cmd;
 		status = xhciInfo.pOperational->usb_status;
-		if (!status.halted)
-			continue;
-		return 0;
 	}
-	return -1;
+	return 0;
 }
 int xhci_is_running(void){
 	struct xhci_usb_cmd cmd = xhciInfo.pOperational->usb_cmd;
@@ -711,7 +729,7 @@ int xhci_init_scratchpad_list(void){
 	uint16_t scratchpadPages = ((scratchpadPagesHigh<<5)|scratchpadPagesLow);
 	if (!scratchpadPages)
 		return 0;
-	uint64_t* pScratchpadList = (uint64_t*)0x0;
+	volatile uint64_t* pScratchpadList = (uint64_t*)0x0;
 	uint64_t pScratchpadList_phys = 0;
 	if (virtualAllocPage((uint64_t*)&pScratchpadList, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for scratchpad page list\r\n");
@@ -741,6 +759,7 @@ int xhci_init_scratchpad_list(void){
 		pScratchpadList[i] = pScratchpadPage_phys;
 	}
 	xhciInfo.deviceContextListInfo.pContextList[0] = pScratchpadList_phys;	
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int xhci_init_firmware_handoff(void){
@@ -750,13 +769,34 @@ int xhci_init_firmware_handoff(void){
 		return 0;
 	}	
 	struct xhci_usb_legacy_support_cap firmwareHandoffCap = *pFirmwareHandoffCap;
-	firmwareHandoffCap.os_owned = 1;	
-	firmwareHandoffCap.control.smi_os_ownership_enable = 1;	
+	if (!firmwareHandoffCap.firmware_owned){
+		printf("firmware has not locked the XHC\r\n");
+		return 0;
+	}
+	printf("XHC locked by firmware\r\n");
+	__asm__ volatile("sfence" ::: "memory");
+	firmwareHandoffCap.os_owned = 1;
 	*pFirmwareHandoffCap = firmwareHandoffCap;
-	while (firmwareHandoffCap.firmware_owned||!firmwareHandoffCap.os_owned){
+	__asm__ volatile("sfence" ::: "memory");
+	uint64_t time_us = get_time_us();
+	while (!firmwareHandoffCap.os_owned){
+		uint64_t elapsed_us = get_time_us()-time_us;
+		if (elapsed_us>5000000){
+			printf("firmware won't lock off XHC\r\n");
+			return -1;
+		}
 		firmwareHandoffCap = *pFirmwareHandoffCap;
 	}
-	*(uint32_t*)&firmwareHandoffCap.control = 0x0;
+	firmwareHandoffCap = *pFirmwareHandoffCap;
+	firmwareHandoffCap.control.usb_smi_enable = 0;
+	firmwareHandoffCap.control.usb_smi_on_host_system_error_enable = 0;
+	firmwareHandoffCap.control.usb_smi_on_pci_command_enable = 0;
+	firmwareHandoffCap.control.usb_smi_on_bar_enable = 0;
+	firmwareHandoffCap.control.usb_smi_on_event_int_enable = 0;
+	firmwareHandoffCap.control.usb_smi_on_os_ownership_change_enable = 0;
+	*pFirmwareHandoffCap = firmwareHandoffCap;
+	__asm__ volatile("sfence" ::: "memory");
+	sleep(50);
 	*pFirmwareHandoffCap = firmwareHandoffCap;	
 	return 0;
 }
@@ -766,25 +806,34 @@ int xhci_init_interrupter(void){
 		printf("failed to get interrupter registers\r\n");
 		return -1;
 	}
-	uint64_t msixVector = 0;
-	volatile struct pcie_msix_msg_ctrl* pMsgControl = (volatile struct pcie_msix_msg_ctrl*)0x0;
-	volatile struct pcie_msi_msg_ctrl* pMsiMsgControl = (volatile struct pcie_msi_msg_ctrl*)0x0;
+	uint64_t interruptVector = 0;
+	volatile struct pcie_msix_msg_ctrl* pMsixMsgControl = (volatile struct pcie_msix_msg_ctrl*)0x0;
 	volatile struct pcie_msix_table_entry* pMsixEntry = (volatile struct pcie_msix_table_entry*)0x0;
-	if (pcie_msix_get_msg_ctrl(xhciInfo.location, &pMsgControl)!=0){
-		printf("failed to get MSIX control\r\n");
+	volatile struct pcie_msi_msg_ctrl* pMsiMsgControl = (volatile struct pcie_msi_msg_ctrl*)0x0;
+	volatile struct pcie_msi_table_entry* pMsiEntry = (volatile struct pcie_msi_table_entry*)0x0;
+	if (!pcie_msi_get_msg_ctrl(xhciInfo.location, &pMsiMsgControl)){
+		xhciInfo.interruptMode = XHCI_INT_MODE_MSI;
+		pcie_msi_enable(pMsiMsgControl);
+	}
+	if (!pcie_msix_get_msg_ctrl(xhciInfo.location, &pMsixMsgControl)){
+		if (xhciInfo.interruptMode==XHCI_INT_MODE_MSI)
+			pcie_msi_disable(pMsiMsgControl);
+		xhciInfo.interruptMode = XHCI_INT_MODE_MSIX;
+		if (pcie_get_msix_entry(xhciInfo.location, &pMsixEntry, pMsixMsgControl, interruptVector)!=0){
+			printf("failed to get MSI-X table entry\r\n");
+			return -1;
+		}
+	}
+	if (!xhciInfo.interruptMode){
+		printf("XHC lacks support of MSI or MSI-X protocol for triggering driver ISRs\r\n");
 		return -1;
 	}
-	pcie_msi_get_msg_ctrl(xhciInfo.location, &pMsiMsgControl);
-	if (pMsiMsgControl){
-		printf("disabling MSI\r\n");
-		pcie_msi_disable(pMsiMsgControl);
-		printf("done disabling MSI\r\n");
+	if (xhciInfo.interruptMode==XHCI_INT_MODE_MSI){
+		if (pcie_get_msi_entry(xhciInfo.location, (volatile unsigned char**)&pMsiEntry, pMsiMsgControl, interruptVector)!=0){
+			printf("failed to get MSI table entry\r\n");
+			return -1;
+		}
 	}
-	if (pcie_get_msix_entry(xhciInfo.location, &pMsixEntry, pMsgControl, msixVector)!=0){
-		printf("failed to get MSIX table entry\r\n");
-		return -1;
-	}
-	pcie_msix_disable(pMsgControl);
 	if (xhci_init_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo)!=0){
 		printf("failed to initialize event TRB list\r\n");
 		return -1;
@@ -808,10 +857,19 @@ int xhci_init_interrupter(void){
 		return -1;
 	}
 	idt_add_entry(interrupterVector, (uint64_t)xhci_interrupter_isr, 0x8E, 0x0, 1);
-	if (pcie_set_msix_entry(xhciInfo.location, pMsgControl, 0, lapic_id, interrupterVector)!=0){
-		printf("failed to set MSIX entry\r\n");
-		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
-		return -1;
+	if (xhciInfo.interruptMode==XHCI_INT_MODE_MSIX){
+		if (pcie_set_msix_entry(xhciInfo.location, pMsixMsgControl, interruptVector, lapic_id, interrupterVector)!=0){
+			printf("failed to set MSI-X entry\r\n");
+			xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
+			return -1;
+		}
+	}
+	if (xhciInfo.interruptMode==XHCI_INT_MODE_MSI){
+		if (pcie_set_msi_entry(xhciInfo.location, pMsiMsgControl, interruptVector, lapic_id, interrupterVector)!=0){
+			printf("failed to set MSI entry\r\n");
+			xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
+			return -1;
+		}
 	}
 	volatile struct xhci_segment_table_entry* pSegmentTable = (volatile struct xhci_segment_table_entry*)0x0;
 	uint64_t pSegmentTable_phys = 0;
@@ -832,6 +890,7 @@ int xhci_init_interrupter(void){
 	segmentEntry.size = xhciInfo.interrupterInfo.eventRingInfo.maxEntries;
 	segmentEntry.reserved0 = 0;
 	*pSegmentTable = segmentEntry;
+	__asm__ volatile("sfence" ::: "memory");
 	pInt->table_size = 1;
 	struct xhci_interrupter_iman iman = pInt->interrupt_management;
 	iman.interrupt_enable = 1;
@@ -840,17 +899,23 @@ int xhci_init_interrupter(void){
 	uint32_t imod = pInt->interrupt_moderation;
 	imod = 0;
 	pInt->interrupt_moderation = imod;
+	__asm__ volatile("sfence" ::: "memory");
 	struct xhci_usb_cmd usb_cmd = xhciInfo.pOperational->usb_cmd;
 	xhci_write_qword((uint64_t*)&pInt->table_base, pSegmentTable_phys);	
 	usb_cmd.interrupter_enable = 1;
-	__asm__ volatile("mfence" ::: "memory");
 	xhciInfo.pOperational->usb_cmd = usb_cmd;
+	__asm__ volatile("sfence" ::: "memory");
 	xhciInfo.interrupterInfo.eventRingInfo.pSegmentTable = pSegmentTable;
 	xhciInfo.interrupterInfo.eventRingInfo.pSegmentTable_phys = pSegmentTable_phys;
 	xhciInfo.interrupterInfo.eventRingInfo.maxSegmentTableEntryCount = XHCI_MAX_EVENT_SEGMENT_TABLE_ENTRIES;
 	xhciInfo.interrupterInfo.vector = interrupterVector;
-	pcie_msix_enable_entry(xhciInfo.location, pMsgControl, msixVector);
-	pcie_msix_enable(pMsgControl);
+	if (xhciInfo.interruptMode==XHCI_INT_MODE_MSI){
+		pcie_msi_enable(pMsiMsgControl);
+	}
+	if (xhciInfo.interruptMode==XHCI_INT_MODE_MSIX){
+		pcie_msix_enable(pMsixMsgControl);
+		pcie_msix_enable_entry(xhciInfo.location, pMsixMsgControl, interruptVector);
+	}
 	xhci_send_ack(0);
 	xhci_update_dequeue_trb();
 	return 0;
@@ -859,13 +924,14 @@ int xhci_send_ack(uint64_t interrupter_id){
 	volatile struct xhci_interrupter* pInt = (volatile struct xhci_interrupter*)0x0;
 	if (xhci_get_interrupter_base(interrupter_id, &pInt)!=0)
 		return -1;
-	__asm__ volatile("mfence" ::: "memory");
 	struct xhci_usb_status usb_status = xhciInfo.pOperational->usb_status;
 	usb_status.event_int = 1;
 	xhciInfo.pOperational->usb_status = usb_status;
+	__asm__ volatile("sfence" ::: "memory");
 	struct xhci_interrupter_iman iman = pInt->interrupt_management;	
 	iman.interrupt_pending = 1;
 	pInt->interrupt_management = iman;	
+	__asm__ volatile("sfence "::: "memory");
 	return 0;
 }
 int xhci_get_dequeue_trb_phys(uint64_t* ppTrbEntry){
@@ -897,8 +963,8 @@ int xhci_update_dequeue_trb(void){
 	}
 	uint64_t dequeue_ring_ptr = xhciInfo.interrupterInfo.eventRingInfo.dequeueTrbBase_phys;
 	dequeue_ring_ptr|=(1<<3);
-	__asm__ volatile("mfence" ::: "memory");
 	*(volatile uint64_t*)&pInt->dequeue_ring_ptr = dequeue_ring_ptr;
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int xhci_get_event_trb(volatile struct xhci_trb** ppTrbEntry){
@@ -910,6 +976,7 @@ int xhci_get_event_trb(volatile struct xhci_trb** ppTrbEntry){
 	if (!pTrbEntry)
 		pTrbEntry = xhciInfo.interrupterInfo.eventRingInfo.pRingBuffer;
 	*ppTrbEntry = pTrbEntry;
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int xhci_get_event_trb_phys(uint64_t* ppTrbEntry){
@@ -1081,17 +1148,20 @@ int xhci_interrupter(void){
 				break;
 			}
 			struct xhci_port_status portStatus = pPort->port_status;
+			struct xhci_port_status newPortStatus = {0};
+			*(uint32_t*)&newPortStatus = 0x0;
 			if (portStatus.connection_status_change&&portStatus.connection_status){
 				printf("device at port %d connected\r\n", portIndex);
+				struct xhci_device* pNewDevice = (struct xhci_device*)0x0;
 				xhci_send_ack(0);
 				xhci_update_dequeue_trb();
 				acknowledged = 1;
 				lapic_send_eoi();
-				if (xhci_reset_port(portIndex)!=0){
-					printf("failed to reset port\r\n");
+				newPortStatus.connection_status_change = 1;
+				if (xhci_init_device(portIndex, &pNewDevice)!=0){
+					printf("failed to initialize device at port %d\r\n", portIndex);
 					break;
-				}	
-				return 0;
+				}
 			}
 			if (portStatus.connection_status_change&&!portStatus.connection_status){
 				printf("device at port %d disconnected\r\n", portIndex);
@@ -1099,51 +1169,42 @@ int xhci_interrupter(void){
 				xhci_update_dequeue_trb();
 				acknowledged = 1;
 				lapic_send_eoi();
+				newPortStatus.connection_status_change = 1;
 				if (xhci_deinit_device(pDevice)!=0){
 					printf("failed to deinitialize device\r\n");
 					break;
 				}
-				return 0;
-			}
-			if (portStatus.port_reset_change){
-				struct xhci_device* pNewDevice = (struct xhci_device*)0x0;
-				xhci_send_ack(0);
-				xhci_update_dequeue_trb();
-				acknowledged = 1;
-				lapic_send_eoi();
-				if (xhci_init_device(portIndex, &pNewDevice)!=0){
-					printf("failed to intialize device at port %d\r\n", portIndex);
-					break;
-				}	
-				printf("device at port %d reset\r\n", portIndex);
-				return 0;
 			}
 			if (portStatus.port_link_state_change){
 				printf("port %d link state change\r\n", portIndex);
+				newPortStatus.port_link_state_change = 1;
 			}
 			if (portStatus.over_current_change){
 				xhci_send_ack(0);
 				xhci_update_dequeue_trb();
 				acknowledged = 1;
 				lapic_send_eoi();
-				pPort->port_status = portStatus;
+				newPortStatus.over_current_change = 1;
 				if (xhci_deinit_device(pDevice)!=0){
 					printf("failed to deintialize device\r\n");
 					break;
 				}
 				printf("device at port %d over current\r\n", portIndex);
-				return 0;	
 			}
 			if (portStatus.port_enable_change&&portStatus.enable){
 				printf("port %d enable\r\n", portIndex);
+				newPortStatus.port_enable_change = 1;
 			}
 			if (portStatus.port_enable_change&&!portStatus.enable){
 				printf("port %d disable\r\n", portIndex);
+				newPortStatus.port_enable_change = 1;
 			}
 			if (portStatus.config_error_change){
 				printf("port %d config error change\r\n", portIndex);
+				newPortStatus.config_error_change = 1;
 			}
-			pPort->port_status = portStatus;	
+			pPort->port_status = newPortStatus;
+			__asm__ volatile("sfence" ::: "memory");	
 			break;					    
 		};
 	}
@@ -1225,11 +1286,6 @@ int xhci_get_hc_cycle_state(unsigned char* pCycleState){
 	*pCycleState = cmdRingControl.ring_cycle_state;
 	return 0;
 }
-int xhci_init_scratchpad(void){
-	struct xhci_structure_param1 param1 = xhciInfo.pCapabilities->structure_param1;
-	uint64_t scratchpadPages = 0;
-	return 0;
-}
 int xhci_get_extended_cap(uint8_t cap_id, volatile struct xhci_extended_cap_hdr** ppCapHeader){
 	if (!ppCapHeader)
 		return -1;
@@ -1305,7 +1361,6 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	printf("initializing device at port: %d\r\n", port);
 	struct xhci_device* pDevice = (struct xhci_device*)0x0;
 	if (xhci_get_device(port, &pDevice)!=0){
 		printf("failed to get device descriptor\r\n");
@@ -1318,6 +1373,11 @@ KAPI int xhci_init_device(uint8_t port, struct xhci_device** ppDevice){
 		return -1;
 	}
 	pDevice->deviceInitialized = 1;	
+	if (xhci_reset_port(port)!=0){
+		printf("failed to reset port %d\r\n", port);
+		return -1;
+	}
+	printf("initializing device at port %d\r\n", port);
 	if (xhci_enable_port_power(port)!=0){
 		printf("failed to enable port power\r\n");
 		mutex_unlock(&mutex);

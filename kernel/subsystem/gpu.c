@@ -848,6 +848,78 @@ int gpu_push(uint64_t monitorId, struct uvec4 rect){
 	mutex_unlock(&mutex);
 	return 0;
 }
+int gpu_object_create(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId){
+	if (!pObjectId)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
+	if (gpu_driver_get_desc(pGpuDesc->driverId, &pDriverDesc)!=0){
+		printf("failed to get GPU host controller driver descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (!pDriverDesc->vtable.objectCreate){
+		printf("GPU host controller drivers lacks ability of creating objects\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	
+	mutex_unlock(&mutex);
+	return 0;
+}
+int gpu_object_delete(uint64_t gpuId, uint64_t objectId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
+	if (gpu_driver_get_desc(pGpuDesc->driverId, &pDriverDesc)!=0){
+		printf("failed to get GPU host controller driver descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (!pDriverDesc->vtable.objectDelete){
+		printf("GPU host controller drivers lacks ability of deleting objects\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int gpu_object_bind(uint64_t gpuId, uint64_t objectId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
+	if (gpu_driver_get_desc(pDriverDesc->driverId, &pDriverDesc)!=0){
+		printf("failed to get GPU host controller driver descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (!pDriverDesc->vtable.objectBind){
+		printf("GPU host controller driver lacks ability of binding objects\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
 int gpu_context_create(uint64_t gpuId, uint64_t* pContextId){
 	if (!pContextId)
 		return -1;

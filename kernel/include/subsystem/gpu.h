@@ -12,6 +12,9 @@ typedef int(*gpuWritePixelFunc)(uint64_t monitorId, struct uvec2 position, struc
 typedef int(*gpuSyncFunc)(uint64_t monitorId, struct uvec4 rect);
 typedef int(*gpuCommitFunc)(uint64_t monitorId, struct uvec4 rect);
 typedef int(*gpuPushFunc)(uint64_t monitorId, struct uvec4 rect);
+typedef int(*gpuCreateObjectFunc)(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId);
+typedef int(*gpuDeleteObjectFunc)(uint64_t gpuId, uint64_t objectId);
+typedef int(*gpuBindObjectFunc)(uint64_t gpuId, uint64_t objectId);
 typedef int(*gpuCmdContextInitFunc)(uint64_t gpuId, uint64_t commandListSize, uint64_t* pCmdContextId);
 typedef int(*gpuCmdContextDeinitFunc)(uint64_t gpuId, uint64_t cmdContextId);
 typedef int(*gpuCmdContextResetFunc)(uint64_t gpuId, uint64_t cmdContextId);
@@ -77,6 +80,9 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_CMD_TYPE_INVALID (0x00)
 #define GPU_CMD_TYPE_CLEAR (0x01)
 
+#define GPU_OBJECT_TYPE_INVALID (0x00)
+#define GPU_OBJECT_TYPE_SURFACE (0x01)
+
 #define GPU_DEFAULT_CMD_LIST_SIZE (16384)
 #define GPU_MAX_CMD_CONTEXT_COUNT (16384)
 #define GPU_MAX_RESOURCE_COUNT (16384)
@@ -113,6 +119,9 @@ struct gpu_driver_vtable{
 	gpuSyncFunc sync;
 	gpuCommitFunc commit;
 	gpuPushFunc push;
+	gpuCreateObjectFunc objectCreate;
+	gpuDeleteObjectFunc objectDelete;
+	gpuBindObjectFunc objectBind;
 	gpuCmdContextInitFunc cmdContextInit;
 	gpuCmdContextDeinitFunc cmdContextDeinit;
 	gpuCmdContextResetFunc cmdContextReset;
@@ -145,6 +154,12 @@ struct gpu_cmd_context_desc{
 	uint64_t commandListSize;
 	struct gpu_cmd_context_desc* pFlink;
 	struct gpu_cmd_context_desc* pBlink;
+};
+struct gpu_object_desc{
+	uint64_t objectId;
+	uint64_t objectType;
+	struct gpu_object_desc* pFlink;
+	struct gpu_object_desc* pBlink;
 };
 struct gpu_context_desc{
 	uint64_t driverContextId;
@@ -206,6 +221,11 @@ struct gpu_cmd_context_subsystem_info{
 	struct gpu_cmd_context_desc* pFirstCmdContextDesc;
 	struct gpu_cmd_context_desc* pLastCmdContextDesc;
 };
+struct gpu_object_subsystem_info{
+	struct subsystem_desc* pSubsystemDesc;
+	struct gpu_object_desc* pFirstObjectDesc;
+	struct gpu_object_desc* pLastObjectDesc;
+};
 struct gpu_context_subsystem_info{
 	struct subsystem_desc* pSubsystemDesc;
 	struct gpu_context_desc* pFirstContextDesc;
@@ -222,6 +242,7 @@ struct gpu_desc{
 	uint64_t extra;
 	struct gpu_info gpuInfo;
 	struct gpu_cmd_context_subsystem_info cmdContextSubsystemInfo;
+	struct gpu_object_subsystem_info objectSubsystemInfo;
 	struct gpu_context_subsystem_info contextSubsystemInfo;
 	struct gpu_resource_subsystem_info resourceSubsystemInfo;
 	uint64_t monitorCount;
@@ -288,6 +309,9 @@ int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pi
 int gpu_sync(uint64_t monitorId, struct uvec4 rect);
 int gpu_commit(uint64_t monitorId, struct uvec4 rect);
 int gpu_push(uint64_t monitorId, struct uvec4 rect);
+int gpu_object_create(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId);
+int gpu_object_delete(uint64_t gpuId, uint64_t objectId);
+int gpu_object_bind(uint64_t gpuId, uint64_t objectId);
 int gpu_context_create(uint64_t gpuId, uint64_t* pContextId);
 int gpu_context_delete(uint64_t gpuId, uint64_t contextId);
 int gpu_context_attach_resource(uint64_t gpuId, uint64_t contextId, uint64_t resourceId);
