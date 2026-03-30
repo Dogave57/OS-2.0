@@ -85,6 +85,7 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 
 #define GPU_DEFAULT_CMD_LIST_SIZE (16384)
 #define GPU_MAX_CMD_CONTEXT_COUNT (16384)
+#define GPU_MAX_OBJECT_COUNT (16384)
 #define GPU_MAX_RESOURCE_COUNT (16384)
 #define GPU_MAX_CONTEXT_COUNT (16384)
 
@@ -156,7 +157,8 @@ struct gpu_cmd_context_desc{
 	struct gpu_cmd_context_desc* pBlink;
 };
 struct gpu_object_desc{
-	uint64_t objectId;
+	uint64_t driverObjectId;
+	uint64_t subsystemObjectId;
 	uint64_t objectType;
 	struct gpu_object_desc* pFlink;
 	struct gpu_object_desc* pBlink;
@@ -293,6 +295,9 @@ int gpu_monitor_exists(uint64_t monitorId);
 int gpu_cmd_context_register(uint64_t gpuId, uint64_t* pCmdContextId);
 int gpu_cmd_context_unregister(uint64_t gpuId, uint64_t cmdContextId);
 int gpu_cmd_context_get_desc(uint64_t gpuId, uint64_t cmdContextId, struct gpu_cmd_context_desc** ppCmdContextDesc);
+int gpu_object_register(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId);
+int gpu_object_unregister(uint64_t gpuId, uint64_t objectId);
+int gpu_object_get_desc(uint64_t gpuId, uint64_t objectId, struct gpu_object_desc** ppObjectDesc);
 int gpu_context_register(uint64_t gpuId, uint64_t* pContextId);
 int gpu_context_unregister(uint64_t gpuId, uint64_t contextId);
 int gpu_context_get_desc(uint64_t gpuId, uint64_t contextId, struct gpu_context_desc** ppContextDesc);

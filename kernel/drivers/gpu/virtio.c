@@ -669,6 +669,13 @@ int virtio_gpu_init(void){
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
+		uint64_t surfaceObjectId = 0;
+		if (gpu_object_create(gpuId, GPU_OBJECT_TYPE_SURFACE, &surfaceObjectId)!=0){
+			printf("failed to create surface object via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, subsystemResourceId);
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
 		struct gpu_clear_cmd_info clearCommandInfo = {0};
 		memset((void*)&clearCommandInfo, 0, sizeof(struct gpu_clear_cmd_info));
 		clearCommandInfo.header.commandType = GPU_CMD_TYPE_CLEAR;
@@ -680,8 +687,8 @@ int virtio_gpu_init(void){
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
-		}*/
-		struct gpu_transfer_to_device_info transferToDeviceInfo = {0};
+		}
+		*/struct gpu_transfer_to_device_info transferToDeviceInfo = {0};
 		memset((void*)&transferToDeviceInfo, 0, sizeof(struct gpu_transfer_to_device_info));
 		transferToDeviceInfo.boxRect.width = subsystemCreateResourceInfo.resourceInfo.width;
 		transferToDeviceInfo.offset = 0;
