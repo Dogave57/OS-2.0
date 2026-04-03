@@ -2,6 +2,7 @@
 #define _SUBSYSTEM_GPU
 #include "kernel_include.h"
 #include "math/vector.h"
+struct gpu_create_object_info;
 struct gpu_create_resource_info;
 struct gpu_rect;
 struct gpu_transfer_to_device_info;
@@ -12,18 +13,19 @@ typedef int(*gpuWritePixelFunc)(uint64_t monitorId, struct uvec2 position, struc
 typedef int(*gpuSyncFunc)(uint64_t monitorId, struct uvec4 rect);
 typedef int(*gpuCommitFunc)(uint64_t monitorId, struct uvec4 rect);
 typedef int(*gpuPushFunc)(uint64_t monitorId, struct uvec4 rect);
-typedef int(*gpuCreateObjectFunc)(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId);
+typedef int(*gpuSetScanoutFunc)(uint64_t monitorId, uint64_t resourceId);
+typedef int(*gpuCreateObjectFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_create_object_info* pCreateObjectInfo);
 typedef int(*gpuDeleteObjectFunc)(uint64_t gpuId, uint64_t objectId);
 typedef int(*gpuBindObjectFunc)(uint64_t gpuId, uint64_t objectId);
-typedef int(*gpuCmdContextInitFunc)(uint64_t gpuId, uint64_t commandListSize, uint64_t* pCmdContextId);
+typedef int(*gpuCmdContextInitFunc)(uint64_t gpuId, uint64_t cmdContextId, uint64_t commandListSize);
 typedef int(*gpuCmdContextDeinitFunc)(uint64_t gpuId, uint64_t cmdContextId);
 typedef int(*gpuCmdContextResetFunc)(uint64_t gpuId, uint64_t cmdContextId);
 typedef int(*gpuCmdContextPushCmdFunc)(uint64_t gpuId, uint64_t cmdContextId, struct gpu_cmd_info_header* pCommandInfo);
 typedef int(*gpuCmdContextSubmitFunc)(uint64_t gpuId, uint64_t contextId, uint64_t cmdContextId);
-typedef int(*gpuCreateContextFunc)(uint64_t gpuId, uint64_t* pContextId);
+typedef int(*gpuCreateContextFunc)(uint64_t gpuId, uint64_t contextId);
 typedef int(*gpuDeleteContextFunc)(uint64_t gpuId, uint64_t contextId);
 typedef int(*gpuContextAttachResourceFunc)(uint64_t gpuId, uint64_t contextId, uint64_t resourceId);
-typedef int(*gpuCreateResourceFunc)(uint64_t gpuId, struct gpu_create_resource_info createResourceInfo, uint64_t* pResourceId);
+typedef int(*gpuCreateResourceFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_create_resource_info createResourceInfo);
 typedef int(*gpuDeleteResourceFunc)(uint64_t gpuId, uint64_t resourceId);
 typedef int(*gpuResourceAttachBackingFunc)(uint64_t gpuId, uint64_t resourceId, unsigned char* pBuffer, uint64_t bufferSize);
 typedef int(*gpuResourceFlushFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect);
@@ -77,11 +79,16 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_RESOURCE_TYPE_2D (0x01)
 #define GPU_RESOURCE_TYPE_3D (0x02)
 
+#define GPU_RESOURCE_FLAG_Y_0_TOP (1<<0)
+#define GPU_RESOURCE_FLAG_MAP_PERSISTENT (1<<1)
+#define GPU_RESOURCE_FLAG_MAP_COHERENT (1<<2)
+
 #define GPU_CMD_TYPE_INVALID (0x00)
-#define GPU_CMD_TYPE_CLEAR (0x01)
+#define GPU_CMD_TYPE_SET_FRAMEBUFFER_STATE (0x01)
+#define GPU_CMD_TYPE_CLEAR (0x02)
 
 #define GPU_OBJECT_TYPE_INVALID (0x00)
-#define GPU_OBJECT_TYPE_SURFACE (0x01)
+#define GPU_OBJECT_TYPE_SURFACE (0x08)
 
 #define GPU_DEFAULT_CMD_LIST_SIZE (16384)
 #define GPU_MAX_CMD_CONTEXT_COUNT (16384)
@@ -120,6 +127,7 @@ struct gpu_driver_vtable{
 	gpuSyncFunc sync;
 	gpuCommitFunc commit;
 	gpuPushFunc push;
+	gpuSetScanoutFunc setScanout;
 	gpuCreateObjectFunc objectCreate;
 	gpuDeleteObjectFunc objectDelete;
 	gpuBindObjectFunc objectBind;
@@ -143,29 +151,36 @@ struct gpu_cmd_info_header{
 	uint64_t commandType;
 	unsigned char commandData[];
 };
+struct gpu_set_framebuffer_state_cmd_info{
+	struct gpu_cmd_info_header header;
+	uint32_t colorBufferCount;
+	uint32_t depthStencilHandle;
+	uint32_t color_buffer_handle_list[8];
+};
 struct gpu_clear_cmd_info{
 	struct gpu_cmd_info_header header;
 	struct fvec4_32 color;
+	uint32_t buffers;
 	uint32_t depth;
 	uint32_t stencil;
 };
 struct gpu_cmd_context_desc{
-	uint64_t driverCmdContextId;
-	uint64_t subsystemCmdContextId;
+	uint64_t cmdContextId;
+	uint64_t extra;
 	uint64_t commandListSize;
 	struct gpu_cmd_context_desc* pFlink;
 	struct gpu_cmd_context_desc* pBlink;
 };
 struct gpu_object_desc{
-	uint64_t driverObjectId;
-	uint64_t subsystemObjectId;
+	uint64_t objectId;
+	uint64_t extra;
 	uint64_t objectType;
 	struct gpu_object_desc* pFlink;
 	struct gpu_object_desc* pBlink;
 };
 struct gpu_context_desc{
-	uint64_t driverContextId;
-	uint64_t subsystemContextId;
+	uint64_t contextId;
+	uint64_t extra;
 	struct gpu_context_desc* pFlink;
 	struct gpu_context_desc* pBlink;
 };
@@ -178,17 +193,29 @@ struct gpu_resource_info{
 	uint32_t depth;
 	uint32_t arraySize;
 	uint32_t target;
+	uint32_t bind;
 	uint32_t flags;
 };
 struct gpu_resource_desc{
-	uint64_t driverResourceId;
-	uint64_t subsystemResourceId;
+	uint64_t resourceId;
 	uint64_t gpuId;
+	uint64_t extra;
 	struct gpu_resource_info resourceInfo;
 	unsigned char* pBackingBuffer;
 	uint64_t backingBufferSize;
 	struct gpu_resource_desc* pFlink;
 	struct gpu_resource_desc* pBlink;
+};
+struct gpu_create_object_info_header{
+	uint64_t objectType;
+};
+struct gpu_create_object_info{
+	struct gpu_create_object_info_header header;
+	uint8_t extra[];
+};
+struct gpu_create_surface_object_info{
+	struct gpu_create_object_info_header header;
+	uint64_t resourceId;
 };
 struct gpu_create_resource_info{
 	struct gpu_resource_info resourceInfo;
@@ -252,6 +279,7 @@ struct gpu_desc{
 	struct gpu_desc* pBlink;
 };
 struct gpu_monitor_desc{
+	uint64_t gpuId;
 	uint64_t driverId;
 	uint64_t monitorId;
 	uint64_t extra;
@@ -314,7 +342,8 @@ int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pi
 int gpu_sync(uint64_t monitorId, struct uvec4 rect);
 int gpu_commit(uint64_t monitorId, struct uvec4 rect);
 int gpu_push(uint64_t monitorId, struct uvec4 rect);
-int gpu_object_create(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId);
+int gpu_set_scanout(uint64_t monitorId, uint64_t resourceId);
+int gpu_object_create(uint64_t gpuId, uint64_t contextId, struct gpu_create_object_info* pCreateObjectInfo, uint64_t* pObjectId);
 int gpu_object_delete(uint64_t gpuId, uint64_t objectId);
 int gpu_object_bind(uint64_t gpuId, uint64_t objectId);
 int gpu_context_create(uint64_t gpuId, uint64_t* pContextId);

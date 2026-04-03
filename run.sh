@@ -1,5 +1,5 @@
 SERIAL_PATH="/dev/null"
-MACOS_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci -device usb-mouse,bus=xhci.0 -device usb-kbd,bus=xhci.0 -display cocoa,gl=es,zoom-to-fit=on,full-screen=on -device virtio-gpu-gl -serial stdio"
+MACOS_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci -device usb-mouse,bus=xhci.0 -device usb-kbd,bus=xhci.0 -display cocoa,gl=es,zoom-to-fit=on,full-screen=on -device virtio-gpu-gl -trace "virtio_*""
 LINUX_FLAGS="-enable-kvm -device qemu-xhci,id=xhci -device usb-mouse,bus=xhci.0 -device usb-kbd,bus=xhci.0 -device virtio-gpu-gl -display sdl,gl=es -vga none"
 OS=$(uname -s)
 bash restore_firmware.sh

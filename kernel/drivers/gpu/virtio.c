@@ -46,14 +46,6 @@ int virtio_gpu_init(void){
 		printf("failed to initialize command context subsystem\r\n");
 		return -1;
 	}
-	if (virtio_gpu_init_resource_subsystem()!=0){
-		printf("failed to initialize resource subsystem\r\n");
-		return -1;
-	}
-	if (virtio_gpu_init_context_subsystem()!=0){
-		printf("failed to initialize context subsystem\r\n");
-		return -1;
-	}
 	if (virtio_gpu_init_object_subsystem()!=0){
 		printf("failed to initialize object subsystem\r\n");
 		return -1;
@@ -127,11 +119,15 @@ int virtio_gpu_init(void){
 	vtable.sync = virtio_gpu_subsystem_sync;
 	vtable.commit = virtio_gpu_subsystem_commit;
 	vtable.push = virtio_gpu_subsystem_push;
+	vtable.setScanout = virtio_gpu_subsystem_set_scanout;
 	vtable.cmdContextInit = virtio_gpu_subsystem_cmd_context_init;
 	vtable.cmdContextDeinit = virtio_gpu_subsystem_cmd_context_deinit;
 	vtable.cmdContextReset = virtio_gpu_subsystem_cmd_context_reset;
 	vtable.cmdContextPushCmd = virtio_gpu_subsystem_push_cmd;
 	vtable.cmdContextSubmit = virtio_gpu_subsystem_cmd_context_submit;
+	vtable.objectCreate = virtio_gpu_subsystem_object_create;
+	vtable.objectDelete = virtio_gpu_subsystem_object_delete;
+	vtable.objectBind = virtio_gpu_subsystem_object_bind;
 	vtable.contextCreate = virtio_gpu_subsystem_context_create;
 	vtable.contextDelete = virtio_gpu_subsystem_context_delete;
 	vtable.contextAttachResource = virtio_gpu_subsystem_context_attach_resource;
@@ -159,6 +155,7 @@ int virtio_gpu_init(void){
 		gpu_driver_unregister(driverId);
 		return -1;
 	}
+	gpuInfo.gpuId = gpuId;
 	if (virtio_gpu_queue_init(&gpuInfo.controlQueueInfo)!=0){
 		printf("failed to initialize virtual I/O GPU virtqueue\r\n");
 		return -1;
@@ -206,52 +203,15 @@ int virtio_gpu_init(void){
 		if (!pScanoutInfo->enabled)
 			continue;	
 		printf("scanout %d resolution: %d:%d\r\n", i, pScanoutInfo->resolution.width, pScanoutInfo->resolution.height);	
-		unsigned char* pFramebuffer = (unsigned char*)0x0;
-		uint64_t framebufferSize = pScanoutInfo->resolution.width*pScanoutInfo->resolution.height*sizeof(struct uvec4_8);
-		if (virtualAlloc((uint64_t*)&pFramebuffer, framebufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
-			printf("failed to allocate framebuffer\r\n");
-			continue;	
-		}	
+ 		uint64_t framebufferSize = pScanoutInfo->resolution.width*pScanoutInfo->resolution.height*sizeof(struct uvec4_8);
+		struct uvec4_8* pFramebuffer = (struct uvec4_8*)0x0;
+		if (virtualAlloc((uint64_t*)&pFramebuffer, framebufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+			printf("failed to allocate physical pages for virtual I/O GPU host controller framebuffer\r\n");
+			continue;
+		}
 		for (uint64_t i = 0;i<framebufferSize/sizeof(struct uvec4_8);i++){
-			struct uvec4_8* pPixel = ((struct uvec4_8*)pFramebuffer)+i;
+			struct uvec4_8* pPixel = pFramebuffer+i;
 			*(uint32_t*)pPixel = 0;
-		}
-		struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
-		struct virtio_gpu_response_header responseHeader = {0};
-		memset((void*)&responseHeader, 0, sizeof(struct virtio_gpu_response_header));
-		struct virtio_gpu_create_resource_info createResourceInfo = {0};
-		memset((void*)&createResourceInfo, 0, sizeof(struct virtio_gpu_create_resource_info));
-		createResourceInfo.format = VIRTIO_GPU_PIXEL_FORMAT_B8G8R8X8_UNORM;
-		createResourceInfo.width = pScanoutInfo->resolution.width;
-		createResourceInfo.height = pScanoutInfo->resolution.height;
-		createResourceInfo.resourceType = VIRTIO_GPU_RESOURCE_TYPE_2D;
-		createResourceInfo.pBackingBuffer = (unsigned char*)pFramebuffer;
-		createResourceInfo.backingBufferSize = framebufferSize;
-		if (virtio_gpu_create_resource(createResourceInfo, &pResourceDesc, &responseHeader)!=0){
-			printf("failed to create framebuffer resource\r\n");
-			virtualFree((uint64_t)pFramebuffer, framebufferSize);
-			continue;
-		}
-		if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
-			const unsigned char* responseTypeName = "Unknown response type";
-			virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
-			printf("failed to create framebuffer resource (%s)\r\n", responseTypeName);
-			virtualFree((uint64_t)pFramebuffer, framebufferSize);
-			continue;
-		}	
-		if (virtio_gpu_set_scanout(i, pResourceDesc, &responseHeader)!=0){
-			printf("failed to set virtual I/O GPU scanout\r\n");
-			virtio_gpu_delete_resource(pResourceDesc, &responseHeader);
-			virtualFree((uint64_t)pFramebuffer, framebufferSize);
-			continue;
-		}	
-		if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
-			const unsigned char* responseTypeName = "Unknown response type";	
-			virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
-			printf("failed to set virtual I/O GPU scanout (%s)\r\n", responseTypeName);	
-			virtio_gpu_delete_resource(pResourceDesc, &responseHeader);
-			virtualFree((uint64_t)pFramebuffer, framebufferSize);
-			continue;	
 		}
 		struct gpu_monitor_info subsystemMonitorInfo = {0};
 		uint64_t monitorId = 0;
@@ -261,7 +221,6 @@ int virtio_gpu_init(void){
 		subsystemMonitorInfo.pFramebuffer = (struct uvec4_8*)pFramebuffer;
 		if (gpu_monitor_register(gpuInfo.gpuId, subsystemMonitorInfo, &monitorId)!=0){
 			printf("failed to register virtual I/O GPU monitor into monitor subsystem\r\n");
-			virtio_gpu_delete_resource(pResourceDesc, &responseHeader);
 			virtualFree((uint64_t)pFramebuffer, framebufferSize);
 			continue;
 		}
@@ -269,7 +228,6 @@ int virtio_gpu_init(void){
 		if (gpu_monitor_get_desc(monitorId, &pSubsystemMonitorDesc)!=0){
 			printf("failed to get monitor subsystem monitor descriptor\r\n");
 			gpu_monitor_unregister(monitorId);
-			virtio_gpu_delete_resource(pResourceDesc, &responseHeader);
 			virtualFree((uint64_t)pFramebuffer, framebufferSize);
 			continue;
 		}
@@ -277,15 +235,38 @@ int virtio_gpu_init(void){
 		if (!pMonitorDesc){
 			printf("failed to allocate virutal I/O GPU monitor descriptor\r\n");
 			gpu_monitor_unregister(monitorId);
-			virtio_gpu_delete_resource(pResourceDesc, &responseHeader);
 			virtualFree((uint64_t)pFramebuffer, framebufferSize);
 			continue;
 		}
 		memset((void*)pMonitorDesc, 0, sizeof(struct virtio_gpu_monitor_desc));
 		pMonitorDesc->scanoutId = i;
 		pMonitorDesc->scanoutInfo = *pScanoutInfo;
-		pMonitorDesc->pFramebufferResourceDesc = pResourceDesc;
 		pSubsystemMonitorDesc->extra = (uint64_t)pMonitorDesc;
+		uint64_t framebufferResourceId = 0;
+		struct gpu_create_resource_info createResourceInfo = {0};
+		memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
+		createResourceInfo.resourceInfo.format = GPU_FORMAT_R8G8B8A8_UNORM;
+		createResourceInfo.resourceInfo.width = pScanoutInfo->resolution.width;
+		createResourceInfo.resourceInfo.height = pScanoutInfo->resolution.height;
+		createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_2D;
+		if (gpu_resource_create(gpuInfo.gpuId, createResourceInfo, &framebufferResourceId)!=0){
+			printf("failed to create virtual I/O GPU host controller framebuffer resource\r\n");
+			virtualFree((uint64_t)pFramebuffer, framebufferSize);
+			continue;
+		}
+		if (gpu_resource_attach_backing(gpuInfo.gpuId, framebufferResourceId, (unsigned char*)pFramebuffer, framebufferSize)!=0){
+			printf("failed to attach physical pages to virtual I/O GPU host controller resource\r\n");
+			gpu_resource_delete(gpuInfo.gpuId, framebufferResourceId);
+			virtualFree((uint64_t)pFramebuffer, framebufferSize);
+			continue;
+		}
+		if (gpu_set_scanout(monitorId, framebufferResourceId)!=0){
+			printf("failed to set virtual I/O GPU host controller scanout\r\n");
+			gpu_resource_delete(gpuInfo.gpuId, framebufferResourceId);
+			virtualFree((uint64_t)pFramebuffer, framebufferSize);
+			continue;
+		}
+		pMonitorDesc->resourceId = framebufferResourceId;
 		clear();
 		printf("virtual I/O GPU scanout initialized\r\n");
 		printf("scanout resolution %d:%d\r\n", pScanoutInfo->resolution.width, pScanoutInfo->resolution.height);
@@ -293,7 +274,8 @@ int virtio_gpu_init(void){
 			printf("no VirGL support\r\n");
 			continue;
 		}
-		struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)0x0;
+		continue;
+/*		struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)0x0;
 		if (virtio_gpu_create_context(&pContextDesc, &responseHeader)!=0){
 			printf("failed to create virtual I/O GPU host controller context\r\n");
 			continue;
@@ -621,7 +603,7 @@ int virtio_gpu_init(void){
 		transferCommand.direction = VIRTIO_GPU_GL_TRANSFER_DIRECTION_H2D;
 		virtio_gpu_gl_transfer_3d(pContextDesc, transferCommand, &responseHeader);
 		virtio_gpu_resource_flush(pFramebufferResourceDesc, pScanoutInfo->resolution, &responseHeader);
-		uint64_t subsystemContextId = 0;
+*/		uint64_t subsystemContextId = 0;
 		if (gpu_context_create(gpuId, &subsystemContextId)!=0){
 			printf("failed to create virtual I/O GPU host controller context via GPU subsystem\r\n");
 			continue;
@@ -631,29 +613,25 @@ int virtio_gpu_init(void){
 		subsystemCreateResourceInfo.resourceInfo.contextId = subsystemContextId;
 		subsystemCreateResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
 		subsystemCreateResourceInfo.resourceInfo.format = GPU_FORMAT_R8G8B8A8_UNORM;
-		subsystemCreateResourceInfo.resourceInfo.width = 64;
-		subsystemCreateResourceInfo.resourceInfo.height = 1;
+		subsystemCreateResourceInfo.resourceInfo.width = pScanoutInfo->resolution.width;
+		subsystemCreateResourceInfo.resourceInfo.height = pScanoutInfo->resolution.height;
+		subsystemCreateResourceInfo.resourceInfo.arraySize = 1;
 		subsystemCreateResourceInfo.resourceInfo.depth = 1;
-		subsystemCreateResourceInfo.resourceInfo.target = GPU_TARGET_BUFFER;
-		subsystemCreateResourceInfo.resourceInfo.flags = 0;
+		subsystemCreateResourceInfo.resourceInfo.target = GPU_TARGET_TEXTURE_2D;
+		subsystemCreateResourceInfo.resourceInfo.bind = GPU_BIND_RENDER_TARGET|GPU_BIND_SCANOUT;
+		subsystemCreateResourceInfo.resourceInfo.flags = GPU_RESOURCE_FLAG_Y_0_TOP;
 		if (gpu_resource_create(gpuId, subsystemCreateResourceInfo, &subsystemResourceId)!=0){
 			printf("failed to create resource via subsystem\r\n");
 			continue;	
 		}
-		if (gpu_context_attach_resource(gpuId, subsystemContextId, subsystemResourceId)!=0){
-			printf("failed to attach resource to context via subsystem\r\n");
-			continue;
-		}
-		unsigned char* pResourceBuffer = (unsigned char*)0x0;
-		uint64_t resourceBufferSize = subsystemCreateResourceInfo.resourceInfo.width*subsystemCreateResourceInfo.resourceInfo.height*sizeof(struct uvec4_8);
-		if (virtualAllocPage((uint64_t*)&pResourceBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
-			printf("failed to allocate physical page for resource data\r\n");
-			continue;
-		}
-		if (gpu_resource_attach_backing(gpuId, subsystemResourceId, pResourceBuffer, resourceBufferSize)!=0){
+		if (gpu_resource_attach_backing(gpuId, subsystemResourceId, (unsigned char*)pFramebuffer, framebufferSize)!=0){
 			printf("failed to attach physical pages to virtual I/O GPU host controller resource via GPU subsystem\r\n");
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
+		if (gpu_context_attach_resource(gpuId, subsystemContextId, subsystemResourceId)!=0){
+			printf("failed to attach resource to context via subsystem\r\n");
 			continue;
 		}
 		uint64_t cmdContextId = 0;
@@ -669,31 +647,62 @@ int virtio_gpu_init(void){
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
+		struct gpu_create_surface_object_info createSurfaceObjectInfo = {0};
+		memset((void*)&createSurfaceObjectInfo, 0, sizeof(struct gpu_create_surface_object_info));
+		createSurfaceObjectInfo.header.objectType = GPU_OBJECT_TYPE_SURFACE;
+		createSurfaceObjectInfo.resourceId = subsystemResourceId;
 		uint64_t surfaceObjectId = 0;
-		if (gpu_object_create(gpuId, GPU_OBJECT_TYPE_SURFACE, &surfaceObjectId)!=0){
+		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createSurfaceObjectInfo, &surfaceObjectId)!=0){
 			printf("failed to create surface object via GPU subsystem\r\n");
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
-		struct gpu_clear_cmd_info clearCommandInfo = {0};
-		memset((void*)&clearCommandInfo, 0, sizeof(struct gpu_clear_cmd_info));
-		clearCommandInfo.header.commandType = GPU_CMD_TYPE_CLEAR;
-		clearCommandInfo.color.x = 1.0f;
-		clearCommandInfo.depth = 1.0;
-		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCommandInfo);
-		/*if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
-			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
+		if (gpu_object_bind(gpuId, surfaceObjectId)!=0){
+			printf("failed to bind surface object via GPU subsystem\r\n");
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
-		*/struct gpu_transfer_to_device_info transferToDeviceInfo = {0};
+		struct gpu_set_framebuffer_state_cmd_info setFramebufferStateCmdInfo = {0};
+		memset((void*)&setFramebufferStateCmdInfo, 0, sizeof(struct gpu_set_framebuffer_state_cmd_info));
+		setFramebufferStateCmdInfo.header.commandType = GPU_CMD_TYPE_SET_FRAMEBUFFER_STATE;
+		setFramebufferStateCmdInfo.colorBufferCount = 1;
+		setFramebufferStateCmdInfo.color_buffer_handle_list[0] = surfaceObjectId;
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setFramebufferStateCmdInfo);
+		struct gpu_clear_cmd_info clearCmdInfo = {0};
+		memset((void*)&clearCmdInfo, 0, sizeof(struct gpu_clear_cmd_info));
+		clearCmdInfo.header.commandType = GPU_CMD_TYPE_CLEAR;
+		clearCmdInfo.color.x = 1.0f;
+		clearCmdInfo.depth = 1.0;
+		clearCmdInfo.buffers = (1<<0)|(1<<2);
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
+		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
+			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, subsystemResourceId);
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}	
+		pMonitorDesc->surfaceObjectId = surfaceObjectId;
+		pMonitorDesc->contextId = subsystemContextId;
+		pMonitorDesc->resourceId = subsystemResourceId;
+		for (uint64_t i = 0;i<framebufferSize/sizeof(struct uvec4_8);i++){
+			struct uvec4_8* pPixel = pFramebuffer+i;
+			struct uvec4_8 pixel = {0};
+			pixel.x = 255;
+			pixel.y = 0;
+			pixel.z = 255;
+			pixel.w = 0;
+			*pPixel = pixel;
+		}
+		struct gpu_transfer_to_device_info transferToDeviceInfo = {0};
 		memset((void*)&transferToDeviceInfo, 0, sizeof(struct gpu_transfer_to_device_info));
 		transferToDeviceInfo.boxRect.width = subsystemCreateResourceInfo.resourceInfo.width;
+		transferToDeviceInfo.boxRect.height = subsystemCreateResourceInfo.resourceInfo.height;
+		transferToDeviceInfo.boxRect.depth = 1;
 		transferToDeviceInfo.offset = 0;
 		if (gpu_transfer_to_device(gpuId, subsystemResourceId, transferToDeviceInfo)!=0){
-			printf("failde to transfer resource data to virtual I/O GPU host controller via GPU subsystem\r\n");
+			printf("failed to transfer resource data to virtual I/O GPU host controller via GPU subsystem\r\n");
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
@@ -701,30 +710,27 @@ int virtio_gpu_init(void){
 		struct gpu_rect flushRect = {0};
 		flushRect.x = 0;
 		flushRect.y = 0;
-		flushRect.width = 64;
-		flushRect.height = 1;
+		flushRect.width = pScanoutInfo->resolution.width;
+		flushRect.height = pScanoutInfo->resolution.height;
 		if (gpu_resource_flush(gpuId, subsystemResourceId, flushRect)!=0){
 			printf("failed to flush resource data to virtual I/O GPU host controller via GPU subsystem\r\n");
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
-		virtualFreePage((uint64_t)pResourceBuffer, 0);
+		if (gpu_set_scanout(monitorId, subsystemResourceId)!=0){
+			printf("failed to set virtual I/O GPU host controller csanout via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, subsystemResourceId);	
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
 		if (gpu_cmd_context_deinit(gpuId, cmdContextId)!=0){
 			printf("failed to deinitialize command context via GPU subsystem\r\n");
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
-		if (gpu_resource_delete(gpuId, subsystemResourceId)!=0){
-			printf("failed to delete resource via GPU subsystem\r\n");
-			gpu_context_delete(gpuId, subsystemContextId);
-			continue;
-		}
-		if (gpu_context_delete(gpuId, subsystemContextId)!=0){
-			printf("failed to delete context via GPU subsystem\r\n");
-			continue;
-		}
+		while (1){};
 	}
 	virtualFreePage((uint64_t)pDisplayInfo, 0);
 	return 0;
@@ -869,38 +875,6 @@ int virtio_gpu_deinit_cmd_context_subsystem(void){
 	}
 	return 0;
 }
-int virtio_gpu_init_resource_subsystem(void){
-	struct subsystem_desc* pResourceSubsystemDesc = (struct subsystem_desc*)0x0;
-	if (subsystem_init(&pResourceSubsystemDesc, VIRTIO_GPU_MAX_RESOURCE_COUNT)!=0){
-		printf("failed to initialize resource subsystem\r\n");
-		return -1;
-	}
-	gpuInfo.pResourceSubsystemDesc = pResourceSubsystemDesc;	
-	return 0;
-}
-int virtio_gpu_deinit_resource_subsystem(void){
-	if (subsystem_deinit(gpuInfo.pResourceSubsystemDesc)!=0){
-		printf("failed to deinitialize resource subsystem\r\n");
-		return -1;
-	}	
-	return 0;
-}
-int virtio_gpu_init_context_subsystem(void){
-	struct subsystem_desc* pSubsystemDesc = (struct subsystem_desc*)0x0;
-	if (subsystem_init(&pSubsystemDesc, VIRTIO_GPU_MAX_CONTEXT_COUNT)!=0){
-		printf("failed to initialize context subsystem\r\n");
-		return -1;
-	}
-	gpuInfo.pContextSubsystemDesc = pSubsystemDesc;
-	return 0;
-}
-int virtio_gpu_deinit_context_subsystem(void){
-	if (subsystem_deinit(gpuInfo.pContextSubsystemDesc)!=0){
-		printf("failed to deinitialize context subsystem\r\n");
-		return -1;
-	}
-	return 0;
-}
 int virtio_gpu_init_object_subsystem(void){
 	struct subsystem_desc* pSubsystemDesc = (struct subsystem_desc*)0x0;
 	if (subsystem_init(&pSubsystemDesc, VIRTIO_GPU_MAX_OBJECT_COUNT)!=0){
@@ -1022,7 +996,7 @@ int virtio_gpu_commit(struct virtio_gpu_resource_desc* pResourceDesc, struct vir
 	}
 	struct virtio_gpu_gl_transfer_3d_command transferCommand = {0};
 	memset((void*)&transferCommand, 0, sizeof(struct virtio_gpu_gl_transfer_3d_command));
-	transferCommand.resource_id = pResourceDesc->resourceId+1;
+	transferCommand.resource_id = pResourceDesc->resourceId;
 	transferCommand.transfer_type = VIRTIO_GPU_GL_TRANSFER_WRITE;
 	transferCommand.box_rect = boxRect;
 	transferCommand.box_rect.depth = 1;
@@ -1047,34 +1021,6 @@ int virtio_gpu_push(struct virtio_gpu_resource_desc* pResourceDesc, struct virti
 		return -1;
 	}
 	*pResponseHeader = responseHeader;
-	mutex_unlock(&mutex);
-	return 0;
-}
-int virtio_gpu_create_context_with_resource(struct virtio_gpu_context_desc** ppContextDesc, struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!ppContextDesc||!pResourceDesc||!pResponseHeader)
-		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)0x0;
-	if (virtio_gpu_create_context(&pContextDesc, pResponseHeader)!=0){
-		printf("failed to create virtual I/O GPU host controller context\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (pResponseHeader->type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
-		mutex_unlock(&mutex);
-		return 0;
-	}
-	if (virtio_gpu_context_attach_resource(pContextDesc, pResourceDesc, pResponseHeader)!=0){
-		printf("failed to attach virtual I/O GPU host controller context to resource\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (pResponseHeader->type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
-		mutex_unlock(&mutex);
-		return 0;
-	}
-	*ppContextDesc = pContextDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -1117,29 +1063,11 @@ int virtio_gpu_get_display_info(struct virtio_gpu_display_info_response* pDispla
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_create_resource_2d(struct virtio_gpu_create_resource_info createResourceInfo, struct virtio_gpu_resource_desc** ppResourceDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!ppResourceDesc||!pResponseHeader)
+int virtio_gpu_create_resource_2d(struct virtio_gpu_create_resource_info createResourceInfo, uint64_t resourceId, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pResponseHeader)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	uint64_t resourceId = 0;
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)kmalloc(sizeof(struct virtio_gpu_resource_desc));
-	if (!pResourceDesc){
-		printf("failed to allocate resource descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	memset((void*)pResourceDesc, 0, sizeof(struct virtio_gpu_resource_desc));
-	if (subsystem_alloc_entry(gpuInfo.pResourceSubsystemDesc, (unsigned char*)pResourceDesc, &resourceId)!=0){
-		printf("failed to allocate resource subsystem entry\r\n");	
-		kfree((void*)pResourceDesc);
-		mutex_unlock(&mutex);
-		return -1;
-	}	
-	pResourceDesc->resourceId = resourceId;
-	pResourceDesc->width = createResourceInfo.width;
-	pResourceDesc->height = createResourceInfo.height;
-	pResourceDesc->format = createResourceInfo.format;
 	struct virtio_gpu_command_desc commandDesc = {0};
 	memset((void*)&commandDesc, 0, sizeof(struct virtio_gpu_command_desc));
 	struct virtio_gpu_alloc_cmd_info allocCmdInfo = {0};
@@ -1147,8 +1075,6 @@ int virtio_gpu_create_resource_2d(struct virtio_gpu_create_resource_info createR
 	struct virtio_gpu_create_resource_2d_command* pCommandBuffer = (struct virtio_gpu_create_resource_2d_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate command buffer physical page\r\n");	
-		kfree((void*)pResourceDesc);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);
 		mutex_unlock(&mutex);
 		return -1;
 	}	
@@ -1157,14 +1083,12 @@ int virtio_gpu_create_resource_2d(struct virtio_gpu_create_resource_info createR
 	if (virtualAllocPage((uint64_t*)&pResponseBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate response buffer physical page\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		kfree((void*)pResourceDesc);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);
 		mutex_unlock(&mutex);
 		return -1;
 	}	
 	memset((void*)pResponseBuffer, 0, sizeof(struct virtio_gpu_response_header));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD_RESOURCE_CREATE_2D;	
-	pCommandBuffer->resource_id = resourceId+1;	
+	pCommandBuffer->resource_id = resourceId;
 	pCommandBuffer->format = createResourceInfo.format;
 	pCommandBuffer->width = createResourceInfo.width;
 	pCommandBuffer->height = createResourceInfo.height;
@@ -1176,8 +1100,6 @@ int virtio_gpu_create_resource_2d(struct virtio_gpu_create_resource_info createR
 		printf("failed to allocate create resource command\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);	
 		virtualFreePage((uint64_t)pResponseBuffer, 0);	
-		kfree((void*)pResourceDesc);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);	
 		mutex_unlock(&mutex);
 		return -1;
 	}	
@@ -1185,8 +1107,6 @@ int virtio_gpu_create_resource_2d(struct virtio_gpu_create_resource_info createR
 		printf("failed to run virtual I/O GPU control queue\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
 		virtualFreePage((uint64_t)pResponseBuffer, 0);
-		kfree((void*)pResourceDesc);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);
 		mutex_unlock(&mutex);
 		return -1;
 	}	
@@ -1194,40 +1114,16 @@ int virtio_gpu_create_resource_2d(struct virtio_gpu_create_resource_info createR
 	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
 	virtualFreePage((uint64_t)pResponseBuffer, 0);	
-	pResourceDesc->resourceType = VIRTIO_GPU_RESOURCE_TYPE_2D;
-	*ppResourceDesc = pResourceDesc;
 	*pResponseHeader = responseHeader;
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_create_resource_3d(struct virtio_gpu_create_resource_info createResourceInfo, struct virtio_gpu_resource_desc** ppResourceDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!createResourceInfo.pContextDesc||!ppResourceDesc||!pResponseHeader)
+int virtio_gpu_create_resource_3d(struct virtio_gpu_create_resource_info createResourceInfo, uint64_t resourceId, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pResponseHeader)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct virtio_gpu_context_desc* pContextDesc = createResourceInfo.pContextDesc;
-	uint64_t resourceId = 0;
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)kmalloc(sizeof(struct virtio_gpu_resource_desc));
-	if (!pResourceDesc){
-		printf("failed to allocate resource descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	memset((void*)pResourceDesc, 0, sizeof(struct virtio_gpu_resource_desc));
-	if (subsystem_alloc_entry(gpuInfo.pResourceSubsystemDesc, (unsigned char*)pResourceDesc, &resourceId)!=0){
-		printf("failed to allocate resource subsystem entry\r\n");	
-		kfree((void*)pResourceDesc);
-		mutex_unlock(&mutex);
-		return -1;
-	}	
-	pResourceDesc->resourceId = resourceId;
-	pResourceDesc->pContextDesc = createResourceInfo.pContextDesc;
-	pResourceDesc->width = createResourceInfo.width;
-	pResourceDesc->height = createResourceInfo.height;
-	pResourceDesc->depth = createResourceInfo.depth;
-	pResourceDesc->bind = createResourceInfo.bind;
-	pResourceDesc->format = createResourceInfo.format;
-	pResourceDesc->flags = createResourceInfo.flags;
 	struct virtio_gpu_command_desc commandDesc = {0};
 	memset((void*)&commandDesc, 0, sizeof(struct virtio_gpu_command_desc));
 	struct virtio_gpu_alloc_cmd_info allocCmdInfo = {0};
@@ -1235,8 +1131,6 @@ int virtio_gpu_create_resource_3d(struct virtio_gpu_create_resource_info createR
 	struct virtio_gpu_create_resource_3d_command* pCommandBuffer = (struct virtio_gpu_create_resource_3d_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate command buffer physical page\r\n");	
-		kfree((void*)pResourceDesc);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);
 		mutex_unlock(&mutex);
 		return -1;
 	}	
@@ -1245,15 +1139,14 @@ int virtio_gpu_create_resource_3d(struct virtio_gpu_create_resource_info createR
 	if (virtualAllocPage((uint64_t*)&pResponseBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate response buffer physical page\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		kfree((void*)pResourceDesc);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);
 		mutex_unlock(&mutex);
 		return -1;
 	}	
 	memset((void*)pResponseBuffer, 0, sizeof(struct virtio_gpu_response_header));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_RESOURCE_CREATE_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
-	pCommandBuffer->resource_id = resourceId+1;	
+	if (pContextDesc)
+		pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
+	pCommandBuffer->resource_id = resourceId;
 	pCommandBuffer->format = createResourceInfo.format;
 	pCommandBuffer->width = createResourceInfo.width;
 	pCommandBuffer->height = createResourceInfo.height;
@@ -1270,8 +1163,6 @@ int virtio_gpu_create_resource_3d(struct virtio_gpu_create_resource_info createR
 		printf("failed to allocate create resource command\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);	
 		virtualFreePage((uint64_t)pResponseBuffer, 0);	
-		kfree((void*)pResourceDesc);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);	
 		mutex_unlock(&mutex);
 		return -1;
 	}	
@@ -1279,8 +1170,6 @@ int virtio_gpu_create_resource_3d(struct virtio_gpu_create_resource_info createR
 		printf("failed to run virtual I/O GPU control queue\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
 		virtualFreePage((uint64_t)pResponseBuffer, 0);
-		kfree((void*)pResourceDesc);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, resourceId);
 		mutex_unlock(&mutex);
 		return -1;
 	}	
@@ -1288,21 +1177,18 @@ int virtio_gpu_create_resource_3d(struct virtio_gpu_create_resource_info createR
 	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
 	virtualFreePage((uint64_t)pResponseBuffer, 0);	
-	pResourceDesc->resourceType = VIRTIO_GPU_RESOURCE_TYPE_3D;
-	*ppResourceDesc = pResourceDesc;
 	*pResponseHeader = responseHeader;
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_create_resource(struct virtio_gpu_create_resource_info createResourceInfo, struct virtio_gpu_resource_desc** ppResourceDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!ppResourceDesc||!pResponseHeader)
+int virtio_gpu_create_resource(struct virtio_gpu_create_resource_info createResourceInfo, uint64_t resourceId, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pResponseHeader)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct virtio_gpu_response_header responseHeader = {0};
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
 	if (createResourceInfo.resourceType==VIRTIO_GPU_RESOURCE_TYPE_2D){
-		if (virtio_gpu_create_resource_2d(createResourceInfo, &pResourceDesc, &responseHeader)!=0){
+		if (virtio_gpu_create_resource_2d(createResourceInfo, resourceId, &responseHeader)!=0){
 			*pResponseHeader = responseHeader;
 			mutex_unlock(&mutex);
 			return -1;
@@ -1314,7 +1200,7 @@ int virtio_gpu_create_resource(struct virtio_gpu_create_resource_info createReso
 		}
 	}
 	if (createResourceInfo.resourceType==VIRTIO_GPU_RESOURCE_TYPE_3D){
-		if (virtio_gpu_create_resource_3d(createResourceInfo, &pResourceDesc, &responseHeader)!=0){
+		if (virtio_gpu_create_resource_3d(createResourceInfo, resourceId, &responseHeader)!=0){
 			*pResponseHeader = responseHeader;
 			mutex_unlock(&mutex);
 			return -1;
@@ -1325,24 +1211,6 @@ int virtio_gpu_create_resource(struct virtio_gpu_create_resource_info createReso
 			return 0;
 		}
 	}
-	if (createResourceInfo.pContextDesc){
-		if (virtio_gpu_context_attach_resource(createResourceInfo.pContextDesc, pResourceDesc, &responseHeader)!=0){
-			*pResponseHeader = responseHeader;
-			mutex_unlock(&mutex);
-			return -1;
-		}
-	
-		*pResponseHeader = responseHeader;
-	}
-	if (createResourceInfo.pBackingBuffer){
-		if (virtio_gpu_attach_resource_backing(pResourceDesc, createResourceInfo.pBackingBuffer, createResourceInfo.backingBufferSize, &responseHeader)!=0){
-			*pResponseHeader = responseHeader;
-			mutex_unlock(&mutex);
-			return -1;
-		}
-		*pResponseHeader = responseHeader;
-	}
-	*ppResourceDesc = pResourceDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -1358,8 +1226,6 @@ int virtio_gpu_delete_resource(struct virtio_gpu_resource_desc* pResourceDesc, s
 	struct virtio_gpu_delete_resource_command* pCommandBuffer = (struct virtio_gpu_delete_resource_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for command buffer\r\n");
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId);
-		kfree((void*)pResourceDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}  
@@ -1368,13 +1234,11 @@ int virtio_gpu_delete_resource(struct virtio_gpu_resource_desc* pResourceDesc, s
 	if (virtualAllocPage((uint64_t*)&pResponseBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for response buffer\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId);
-		kfree((void*)pResourceDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}	
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD_RESOURCE_FREE;
-	pCommandBuffer->resource_id = pResourceDesc->resourceId+1;
+	pCommandBuffer->resource_id = pResourceDesc->resourceId;
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
 	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_delete_resource_command);
 	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
@@ -1383,16 +1247,12 @@ int virtio_gpu_delete_resource(struct virtio_gpu_resource_desc* pResourceDesc, s
 		printf("failed to allocate virtual I/O GPU delete resource command\r\n");	
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
 		virtualFreePage((uint64_t)pResponseBuffer, 0);	
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId);
-		kfree((void*)pResourceDesc);	
 		mutex_unlock(&mutex);
 		return -1;
 	}	
 	if (virtio_gpu_run_queue(&gpuInfo.controlQueueInfo)!=0){
 		printf("failed to run virtual I/O GPU control queue\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId);
-		kfree((void*)pResourceDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -1400,12 +1260,6 @@ int virtio_gpu_delete_resource(struct virtio_gpu_resource_desc* pResourceDesc, s
 	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;	
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
 	virtualFreePage((uint64_t)pResponseBuffer, 0);	
-	if (subsystem_free_entry(gpuInfo.pResourceSubsystemDesc, pResourceDesc->resourceId)!=0){
-		printf("failed to free resource subsystem entry\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}	
-	kfree((void*)pResourceDesc);
 	*pResponseHeader = responseHeader;
 	mutex_unlock(&mutex);
 	return 0;
@@ -1436,7 +1290,7 @@ int virtio_gpu_attach_resource_backing(struct virtio_gpu_resource_desc* pResourc
 	}
 	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_attach_backing_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD_RESOURCE_ATTACH_BACKING;	
-	pCommandBuffer->resource_id = pResourceDesc->resourceId+1;
+	pCommandBuffer->resource_id = pResourceDesc->resourceId;
 	pCommandBuffer->memory_entry_count = physicalPageCount;
 	for (uint64_t i = 0;i<physicalPageCount;i++){
 		struct virtio_gpu_memory_entry* pMemoryEntry = pCommandBuffer->memoryEntryList+i;
@@ -1482,24 +1336,6 @@ int virtio_gpu_attach_resource_backing(struct virtio_gpu_resource_desc* pResourc
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_resource_get_desc(uint64_t resourceId, struct virtio_gpu_resource_desc** ppResourceDesc){
-	if (!ppResourceDesc)
-		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
-	if (subsystem_get_entry(gpuInfo.pResourceSubsystemDesc, resourceId, (uint64_t*)&pResourceDesc)!=0){
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (!pResourceDesc){
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	*ppResourceDesc = pResourceDesc;
-	mutex_unlock(&mutex);
-	return 0;
-}
 int virtio_gpu_set_scanout(uint32_t scanoutId, struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_response_header* pResponseHeader){
 	if (!pResourceDesc||!pResponseHeader)
 		return -1;
@@ -1525,7 +1361,7 @@ int virtio_gpu_set_scanout(uint32_t scanoutId, struct virtio_gpu_resource_desc* 
 	pCommandBuffer->rect.width = pResourceDesc->width;
 	pCommandBuffer->rect.height = pResourceDesc->height;
 	pCommandBuffer->scanout_id = scanoutId;
-	pCommandBuffer->resource_id = pResourceDesc->resourceId+1;
+	pCommandBuffer->resource_id = pResourceDesc->resourceId;
 	struct virtio_gpu_alloc_cmd_info allocCmdInfo = {0};
 	memset((void*)&allocCmdInfo, 0, sizeof(struct virtio_gpu_alloc_cmd_info));
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
@@ -1580,7 +1416,7 @@ int virtio_gpu_transfer_h2d_2d(struct virtio_gpu_resource_desc* pResourceDesc, s
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD_TRANSFER_H2D;
 	pCommandBuffer->rect = rect;
 	pCommandBuffer->offset = offset;
-	pCommandBuffer->resource_id = pResourceDesc->resourceId+1;
+	pCommandBuffer->resource_id = pResourceDesc->resourceId;
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
 	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_transfer_to_host_2d_command);
 	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
@@ -1633,7 +1469,7 @@ int virtio_gpu_transfer_h2d_3d(struct virtio_gpu_resource_desc* pResourceDesc, s
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_TRANSFER_H2D;
 	pCommandBuffer->box = box;
 	pCommandBuffer->offset = offset;
-	pCommandBuffer->resource_id = pResourceDesc->resourceId+1;
+	pCommandBuffer->resource_id = pResourceDesc->resourceId;
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
 	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_transfer_to_host_3d_command);
 	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
@@ -1686,7 +1522,7 @@ int virtio_gpu_transfer_d2h_3d(struct virtio_gpu_resource_desc* pResourceDesc, s
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_TRANSFER_D2H;
 	pCommandBuffer->box = box;
 	pCommandBuffer->offset = offset;
-	pCommandBuffer->resource_id = pResourceDesc->resourceId+1;
+	pCommandBuffer->resource_id = pResourceDesc->resourceId;
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
 	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_transfer_from_host_3d_command);
 	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
@@ -1737,7 +1573,7 @@ int virtio_gpu_resource_flush(struct virtio_gpu_resource_desc* pResourceDesc, st
 	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_resource_flush_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD_RESOURCE_FLUSH;
 	pCommandBuffer->rect = rect;
-	pCommandBuffer->resource_id = pResourceDesc->resourceId+1;
+	pCommandBuffer->resource_id = pResourceDesc->resourceId;
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
 	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_resource_flush_command);
 	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
@@ -1764,25 +1600,11 @@ int virtio_gpu_resource_flush(struct virtio_gpu_resource_desc* pResourceDesc, st
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_create_context(struct virtio_gpu_context_desc** ppContextDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!ppContextDesc||!pResponseHeader)
+int virtio_gpu_create_context(uint64_t contextId, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pResponseHeader)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)kmalloc(sizeof(struct virtio_gpu_context_desc));
-	if (!pContextDesc){
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	uint64_t contextId = 0;
-	if (subsystem_alloc_entry(gpuInfo.pContextSubsystemDesc, (unsigned char*)pContextDesc, &contextId)!=0){
-		printf("failed to allocate subsystem entry for virtual I/O GPU host controller context\r\n");
-		kfree((void*)pContextDesc);
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	memset((void*)pContextDesc, 0, sizeof(struct virtio_gpu_context_desc));
-	pContextDesc->contextId = contextId;
 	struct virtio_gpu_command_desc commandDesc = {0};
 	memset((void*)&commandDesc, 0, sizeof(struct virtio_gpu_command_desc));
 	struct virtio_gpu_alloc_cmd_info allocCmdInfo = {0};
@@ -1790,31 +1612,25 @@ int virtio_gpu_create_context(struct virtio_gpu_context_desc** ppContextDesc, st
 	struct virtio_gpu_create_context_command* pCommandBuffer = (struct virtio_gpu_create_context_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for create context command buffer\r\n");
-		kfree((void*)pContextDesc);
-		subsystem_free_entry(gpuInfo.pContextSubsystemDesc, contextId);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct virtio_gpu_response_header* pResponseBuffer = (struct virtio_gpu_response_header*)0x0;
 	if (virtualAllocPage((uint64_t*)&pResponseBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for create context response buffer\r\n");
-		kfree((void*)pContextDesc);
-		subsystem_free_entry(gpuInfo.pContextSubsystemDesc, contextId);
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_create_context_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_CONTEXT_CREATE;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = contextId;
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
 	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_create_context_command);
 	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
 	allocCmdInfo.responseBufferSize = sizeof(struct virtio_gpu_response_header);
 	if (virtio_gpu_queue_alloc_cmd(&gpuInfo.controlQueueInfo, allocCmdInfo, &commandDesc)!=0){
 		printf("failed to allocate virutal I/O GPU create context command\r\n");
-		kfree((void*)pContextDesc);
-		subsystem_free_entry(gpuInfo.pContextSubsystemDesc, contextId);
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
 		virtualFreePage((uint64_t)pResponseBuffer, 0);
 		mutex_unlock(&mutex);
@@ -1822,8 +1638,6 @@ int virtio_gpu_create_context(struct virtio_gpu_context_desc** ppContextDesc, st
 	}
 	if (virtio_gpu_run_queue(&gpuInfo.controlQueueInfo)!=0){
 		printf("failed to run virtual I/O GPU control queue\r\n");
-		kfree((void*)pContextDesc);
-		subsystem_free_entry(gpuInfo.pContextSubsystemDesc, contextId);
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
 		virtualFreePage((uint64_t)pResponseBuffer, 0);
 		mutex_unlock(&mutex);
@@ -1833,7 +1647,6 @@ int virtio_gpu_create_context(struct virtio_gpu_context_desc** ppContextDesc, st
 	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
 	virtualFreePage((uint64_t)pResponseBuffer, 0);
-	*ppContextDesc = pContextDesc;
 	*pResponseHeader = responseHeader;
 	mutex_unlock(&mutex);
 	return 0;
@@ -1862,7 +1675,7 @@ int virtio_gpu_delete_context(struct virtio_gpu_context_desc* pContextDesc, stru
 	}
 	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_delete_context_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_CONTEXT_DESTROY;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
 	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_delete_context_command);
 	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
@@ -1913,8 +1726,8 @@ int virtio_gpu_context_attach_resource(struct virtio_gpu_context_desc* pContextD
 	}
 	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_attach_context_resource_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_CONTEXT_ATTACH_RESOURCE;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
-	pCommandBuffer->resource_id = pResourceDesc->resourceId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
+	pCommandBuffer->resource_id = pResourceDesc->resourceId;
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
 	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_attach_context_resource_command);
 	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
@@ -1937,15 +1750,19 @@ int virtio_gpu_context_attach_resource(struct virtio_gpu_context_desc* pContextD
 	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
 	virtualFreePage((uint64_t)pResponseBuffer, 0);
-	pContextDesc->resourceId = pResourceDesc->resourceId;
-	pContextDesc->pResourceDesc = pResourceDesc;
+	pResourceDesc->pContextDesc = pContextDesc;
 	*pResponseHeader = responseHeader;
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_context_detach_resource(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!pContextDesc||!pResponseHeader)
+int virtio_gpu_context_detach_resource(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pResourceDesc||!pResponseHeader)
 		return -1;
+	struct virtio_gpu_context_desc* pContextDesc = pResourceDesc->pContextDesc;
+	if (!pContextDesc){
+		printf("virtual I/O GPU host controller resource descriptor not attached to virtual I/O GPU host controller context descriptor\r\n");
+		return -1;
+	}
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct virtio_gpu_command_desc commandDesc = {0};
@@ -1967,8 +1784,8 @@ int virtio_gpu_context_detach_resource(struct virtio_gpu_context_desc* pContextD
 	}
 	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_detach_context_resource_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_CONTEXT_DETACH_RESOURCE;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
-	pCommandBuffer->resource_id = pContextDesc->resourceId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
+	pCommandBuffer->resource_id = pResourceDesc->resourceId;
 	allocCmdInfo.pCommandBuffer = (unsigned char*)pCommandBuffer;
 	allocCmdInfo.commandBufferSize = sizeof(struct virtio_gpu_detach_context_resource_command);
 	allocCmdInfo.pResponseBuffer = (unsigned char*)pResponseBuffer;
@@ -1991,25 +1808,8 @@ int virtio_gpu_context_detach_resource(struct virtio_gpu_context_desc* pContextD
 	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
 	virtualFreePage((uint64_t)pResponseBuffer, 0);
+	pResourceDesc->pContextDesc = (struct virtio_gpu_context_desc*)0x0;
 	*pResponseHeader = responseHeader;
-	mutex_unlock(&mutex);
-	return 0;
-}
-int virtio_gpu_context_get_desc(uint64_t contextId, struct virtio_gpu_context_desc** ppContextDesc){
-	if (!ppContextDesc)
-		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)0x0;
-	if (subsystem_get_entry(gpuInfo.pContextSubsystemDesc, contextId, (uint64_t*)&pContextDesc)!=0){
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (!pContextDesc){
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	*ppContextDesc = pContextDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -2056,126 +1856,62 @@ int virtio_gpu_submit(struct virtio_gpu_submit_3d_command* pCommandBuffer, struc
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_alloc_object_desc(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_object_desc** ppObjectDesc){
-	if (!pContextDesc||!ppObjectDesc)
-		return -1;
-	struct virtio_gpu_resource_desc* pResourceDesc = pContextDesc->pResourceDesc;
-	if (!pResourceDesc)
+int virtio_gpu_gl_create_surface_object(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pContextDesc||!pResourceDesc||!pObjectDesc||!pResponseHeader)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)kmalloc(sizeof(struct virtio_gpu_object_desc));
-	memset((void*)pObjectDesc, 0, sizeof(struct virtio_gpu_object_desc));
-	uint64_t objectId = 0;
-	if (subsystem_alloc_entry(gpuInfo.pObjectSubsystemDesc, (unsigned char*)pObjectDesc, &objectId)!=0){
-		kfree((void*)pObjectDesc);
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	pObjectDesc->objectId = objectId;
-	pObjectDesc->pContextDesc = pContextDesc;
-	pObjectDesc->pResourceDesc = pResourceDesc;
-	*ppObjectDesc = pObjectDesc;
-	mutex_unlock(&mutex);
-	return 0;
-}
-int virtio_gpu_free_object_desc(struct virtio_gpu_object_desc* pObjectDesc){
-	if (!pObjectDesc)
-		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-	if (subsystem_free_entry(gpuInfo.pObjectSubsystemDesc, pObjectDesc->objectId)!=0){
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (pObjectDesc->pExtra)
-		kfree((void*)pObjectDesc->pExtra);
-	kfree((void*)pObjectDesc);
-	mutex_unlock(&mutex);
-	return 0;
-}
-int virtio_gpu_gl_create_surface_object(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!pContextDesc||!ppObjectDesc||!pResponseHeader)
-		return -1;
-	struct virtio_gpu_resource_desc* pResourceDesc = pContextDesc->pResourceDesc;
-	if (!pResourceDesc)
-		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-	struct virtio_gpu_surface_object_desc* pSurfaceObjectDesc = (struct virtio_gpu_surface_object_desc*)kmalloc(sizeof(struct virtio_gpu_surface_object_desc));
-	if (!pSurfaceObjectDesc){
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	memset((void*)pSurfaceObjectDesc, 0, sizeof(struct virtio_gpu_surface_object_desc));
-	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)0x0;
-	if (virtio_gpu_alloc_object_desc(pContextDesc, &pObjectDesc)!=0){
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	pObjectDesc->pExtra = (unsigned char*)pSurfaceObjectDesc;
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for submit 3D command buffer\r\n");
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D; 
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_create_surface_object_command* pCommand = (struct virtio_gpu_gl_create_surface_object_command*)pCommandBuffer->command_data;
-	virtio_gpu_gl_write_create_surface(pCommand, pObjectDesc->objectId+1, pResourceDesc->resourceId+1, pResourceDesc->format, 0, 0);
+	virtio_gpu_gl_write_create_surface(pCommand, pObjectDesc->objectId, pResourceDesc->resourceId, pResourceDesc->format, 0, 0);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
 		printf("failed to submit VirGL command to virtual I/O GPU host controller\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
-	*ppObjectDesc = pObjectDesc;
 	mutex_unlock(&mutex);
 	return 0;
 } 
-int virtio_gpu_gl_create_vertex_element_list_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint32_t vertexElementCount, struct virtio_gpu_gl_vertex_element* pVertexElementList, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!pSurfaceObjectDesc||!vertexElementCount||!pVertexElementList||!ppObjectDesc||!pResponseHeader)
+int virtio_gpu_gl_create_vertex_element_list_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint32_t vertexElementCount, struct virtio_gpu_gl_vertex_element* pVertexElementList, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pSurfaceObjectDesc||!vertexElementCount||!pVertexElementList||!pObjectDesc||!pResponseHeader)
 		return -1;
 	struct virtio_gpu_context_desc* pContextDesc = pSurfaceObjectDesc->pContextDesc;
 	if (!pContextDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)0x0;
-	if (virtio_gpu_alloc_object_desc(pContextDesc, &pObjectDesc)!=0){
-		mutex_unlock(&mutex);
-		return -1;
-	}
 	pObjectDesc->objectType = VIRTIO_GPU_GL_OBJECT_TYPE_VERTEX_ELEMENT_LIST;
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for submit 3D command buffer\r\n");
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	unsigned char* pCommandList = (unsigned char*)pCommandBuffer->command_data;
 	struct virtio_gpu_gl_create_vertex_element_list_object_command* pCommand = (struct virtio_gpu_gl_create_vertex_element_list_object_command*)pCommandList;
-	virtio_gpu_gl_write_create_vertex_element_list(pCommand, pObjectDesc->objectId+1, vertexElementCount,  pVertexElementList);
+	virtio_gpu_gl_write_create_vertex_element_list(pCommand, pObjectDesc->objectId, vertexElementCount,  pVertexElementList);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
 		printf("failed to submit VirGL command list to virtual I/O GPU host controller\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
-	*ppObjectDesc = pObjectDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -2195,7 +1931,7 @@ int virtio_gpu_gl_set_vertex_buffer_list(struct virtio_gpu_object_desc* pSurface
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_set_vertex_buffer_list_command* pCommand = (struct virtio_gpu_gl_set_vertex_buffer_list_command*)pCommandBuffer->command_data;
 	virtio_gpu_gl_write_set_vertex_buffer_list(pCommand, vertexBufferCount, pVertexBufferList);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
@@ -2209,125 +1945,99 @@ int virtio_gpu_gl_set_vertex_buffer_list(struct virtio_gpu_object_desc* pSurface
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_gl_create_rasterizer_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_gl_rasterizer_state rasterizerState, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!pSurfaceObjectDesc||!ppObjectDesc||!pResponseHeader)
+int virtio_gpu_gl_create_rasterizer_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_gl_rasterizer_state rasterizerState, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pSurfaceObjectDesc||!pObjectDesc||!pResponseHeader)
 		return -1;
 	struct virtio_gpu_context_desc* pContextDesc = pSurfaceObjectDesc->pContextDesc;
 	if (!pContextDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)0x0;
-	if (virtio_gpu_alloc_object_desc(pContextDesc, &pObjectDesc)!=0){
-		mutex_unlock(&mutex);
-		return -1;
-	}
 	pObjectDesc->objectType = VIRTIO_GPU_GL_OBJECT_TYPE_RASTERIZER;
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for virtual I/O GPU host controller command buffer\r\n");
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	unsigned char* pCommandList = (unsigned char*)pCommandBuffer->command_data;
 	struct virtio_gpu_gl_create_rasterizer_object_command* pCommand = (struct virtio_gpu_gl_create_rasterizer_object_command*)pCommandList;
-	virtio_gpu_gl_write_create_rasterizer_object(pCommand, pObjectDesc->objectId+1, rasterizerState);
+	virtio_gpu_gl_write_create_rasterizer_object(pCommand, pObjectDesc->objectId, rasterizerState);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
 		printf("failed to submit VirGL command list to virtual I/O GPU host controller\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
-	*ppObjectDesc = pObjectDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_gl_create_dsa_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_gl_dsa_state dsaState, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!pSurfaceObjectDesc||!ppObjectDesc||!pResponseHeader)
+int virtio_gpu_gl_create_dsa_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_gl_dsa_state dsaState, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pSurfaceObjectDesc||!pObjectDesc||!pResponseHeader)
 		return -1;
 	struct virtio_gpu_context_desc* pContextDesc = pSurfaceObjectDesc->pContextDesc;
 	if (!pContextDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)0x0;
-	if (virtio_gpu_alloc_object_desc(pContextDesc, &pObjectDesc)!=0){
-		mutex_unlock(&mutex);
-		return -1;
-	
-	}
 	pObjectDesc->objectType = VIRTIO_GPU_GL_OBJECT_TYPE_DSA;
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for submit 3D command buffer\r\n");
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	unsigned char* pCommandList = (unsigned char*)pCommandBuffer->command_data;
 	struct virtio_gpu_gl_create_dsa_object_command* pCommand = (struct virtio_gpu_gl_create_dsa_object_command*)pCommandList;
-	virtio_gpu_gl_write_create_dsa_object(pCommand, pObjectDesc->objectId+1, dsaState);
+	virtio_gpu_gl_write_create_dsa_object(pCommand, pObjectDesc->objectId, dsaState);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
 		printf("failed to submit VirGL command list to virtual I/O GPU host controller\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
-	*ppObjectDesc = pObjectDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_gl_create_blend_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint32_t s0, uint32_t s1, uint32_t blendStateCount, struct virtio_gpu_gl_blend_state* pBlendStateList, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!pSurfaceObjectDesc||!blendStateCount||!pBlendStateList||!ppObjectDesc||!pResponseHeader)
+int virtio_gpu_gl_create_blend_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint32_t s0, uint32_t s1, uint32_t blendStateCount, struct virtio_gpu_gl_blend_state* pBlendStateList, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pSurfaceObjectDesc||!blendStateCount||!pBlendStateList||!pObjectDesc||!pResponseHeader)
 		return -1;
 	struct virtio_gpu_context_desc* pContextDesc = pSurfaceObjectDesc->pContextDesc;
 	if (!pContextDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)0x0;
-	if (virtio_gpu_alloc_object_desc(pContextDesc, &pObjectDesc)!=0){
-		mutex_unlock(&mutex);
-		return -1;
-	
-	}
 	pObjectDesc->objectType = VIRTIO_GPU_GL_OBJECT_TYPE_BLEND;
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for submit 3D command buffer\r\n");
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	unsigned char* pCommandList = (unsigned char*)pCommandBuffer->command_data;
 	struct virtio_gpu_gl_create_blend_object_command* pCommand = (struct virtio_gpu_gl_create_blend_object_command*)pCommandList;
-	virtio_gpu_gl_write_create_blend_object(pCommand, pObjectDesc->objectId+1, s0, s1, blendStateCount, pBlendStateList);
+	virtio_gpu_gl_write_create_blend_object(pCommand, pObjectDesc->objectId, s0, s1, blendStateCount, pBlendStateList);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
 		printf("failed to submit VirGL command list to virtual I/O GPU host controller\r\n");
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
-	*ppObjectDesc = pObjectDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -2344,7 +2054,7 @@ int virtio_gpu_gl_set_framebuffer_state(struct virtio_gpu_context_desc* pContext
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_set_framebuffer_state_command* pCommand = (struct virtio_gpu_gl_set_framebuffer_state_command*)pCommandBuffer->command_data;
 	virtio_gpu_gl_write_set_framebuffer_state(pCommand, colorBufferCount, depthStencilHandle, pColorBufferHandleList);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
@@ -2369,7 +2079,7 @@ int virtio_gpu_gl_set_viewport_state_list(struct virtio_gpu_context_desc* pConte
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_set_viewport_state_list_command* pCommand = (struct virtio_gpu_gl_set_viewport_state_list_command*)pCommandBuffer->command_data;
 	virtio_gpu_gl_write_set_viewport_state_list(pCommand, startSlot, viewportStateCount, pViewportStateList);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
@@ -2395,7 +2105,7 @@ int virtio_gpu_gl_set_scissor_state_list(struct virtio_gpu_context_desc* pContex
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_set_scissor_state_list_command* pCommand = (struct virtio_gpu_gl_set_scissor_state_list_command*)pCommandBuffer->command_data;
 	virtio_gpu_gl_write_set_scissor_state_list(pCommand, startSlot, scissorStateCount, pScissorStateList);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
@@ -2407,8 +2117,8 @@ int virtio_gpu_gl_set_scissor_state_list(struct virtio_gpu_context_desc* pContex
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_create_shader_info createShaderInfo, struct virtio_gpu_object_desc** ppObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!pSurfaceObjectDesc||!ppObjectDesc||!pResponseHeader)
+int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_create_shader_info createShaderInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pSurfaceObjectDesc||!pObjectDesc||!pResponseHeader)
 		return -1;
 	struct virtio_gpu_context_desc* pContextDesc = pSurfaceObjectDesc->pContextDesc;
 	if (!pContextDesc)
@@ -2417,12 +2127,6 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	mutex_lock(&mutex);
 	struct virtio_gpu_shader_object_desc* pShaderObjectDesc = (struct virtio_gpu_shader_object_desc*)kmalloc(sizeof(struct virtio_gpu_shader_object_desc));
 	if (!pShaderObjectDesc){
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)0x0;
-	if (virtio_gpu_alloc_object_desc(pContextDesc, &pObjectDesc)!=0){
-		kfree((void*)pShaderObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -2446,13 +2150,12 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
 	if (virtualAlloc((uint64_t*)&pCommandBuffer, commandBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical pages for virtual I/O GPU host controller submit 3D command buffer\r\n");
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_create_shader_object_command* pGlCommand = (struct virtio_gpu_gl_create_shader_object_command*)pCommandBuffer->command_data;
 	struct virtio_gpu_gl_create_shader_object_so_command* pGlStreamOutputCommand = (struct virtio_gpu_gl_create_shader_object_so_command*)pGlCommand;
 	memset((void*)pGlCommand, 0, sizeof(struct virtio_gpu_gl_create_shader_object_command));
@@ -2466,7 +2169,7 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	pGlCommand->header.opcode = VIRTIO_GPU_GL_CMD_CREATE_OBJECT;
 	pGlCommand->header.object_type = VIRTIO_GPU_GL_OBJECT_TYPE_SHADER;
 	pGlCommand->header.length = 5+(firstSegmentSizeAligned/sizeof(uint32_t));
-	pGlCommand->object_id = pObjectDesc->objectId+1;
+	pGlCommand->object_id = pObjectDesc->objectId;
 	pGlCommand->shader_type = createShaderInfo.shaderType;
 	pGlCommand->token_count = createShaderInfo.tokenCount;
 	pGlCommand->offset_length = shaderCodeSizeAligned;
@@ -2488,7 +2191,6 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 		return -1;
 	}
 	virtualFree((uint64_t)pCommandBuffer, commandBufferSize);
-	*ppObjectDesc = pObjectDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -2500,43 +2202,42 @@ int virtio_gpu_gl_delete_object(struct virtio_gpu_object_desc* pObjectDesc, stru
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for submit 3D command buffer\r\n");
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pObjectDesc->pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pObjectDesc->pContextDesc->contextId;
 	struct virtio_gpu_gl_delete_object_command* pCommand = (struct virtio_gpu_gl_delete_object_command*)pCommandBuffer->command_data;
-	virtio_gpu_gl_write_delete_object(pCommand, pObjectDesc->objectId+1);
+	virtio_gpu_gl_write_delete_object(pCommand, pObjectDesc->objectId);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
 		printf("failed to submit VirtGL command list to virtual I/O GPU host controller\r\n");	
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
-	virtio_gpu_free_object_desc(pObjectDesc);
 	mutex_unlock(&mutex);	
 	return 0;
 }
 int virtio_gpu_gl_bind_object(struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
 	if (!pObjectDesc||!pResponseHeader)
 		return -1;
+	struct virtio_gpu_context_desc* pContextDesc = pObjectDesc->pContextDesc;
+	if (!pContextDesc)
+		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
 	if (virtualAllocPage((uint64_t*)&pCommandBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical page for submit 3D command buffer\r\n");
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pObjectDesc->pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_command_header* pCommand = (struct virtio_gpu_gl_command_header*)pCommandBuffer->command_data;
 	switch (pObjectDesc->objectType){
 		case VIRTIO_GPU_GL_OBJECT_TYPE_SHADER:
@@ -2545,22 +2246,20 @@ int virtio_gpu_gl_bind_object(struct virtio_gpu_object_desc* pObjectDesc, struct
 			mutex_unlock(&mutex);
 			return -1;
 		}
-		virtio_gpu_gl_write_bind_shader_object((struct virtio_gpu_gl_bind_shader_object_command*)pCommand, pObjectDesc->objectId+1, pShaderObjectDesc->shaderType);
+		virtio_gpu_gl_write_bind_shader_object((struct virtio_gpu_gl_bind_shader_object_command*)pCommand, pObjectDesc->objectId, pShaderObjectDesc->shaderType);
 		break;
 		default:
-		virtio_gpu_gl_write_bind_object((struct virtio_gpu_gl_bind_object_command*)pCommand, pObjectDesc->objectId+1, pObjectDesc->objectType);
+		virtio_gpu_gl_write_bind_object((struct virtio_gpu_gl_bind_object_command*)pCommand, pObjectDesc->objectId, pObjectDesc->objectType);
 		break;
 	}
 	pCommandBuffer->size = (pCommand->length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
 		printf("failed to submit VirGL command list to virtual I/O GPU host controller\r\n");	
 		virtualFreePage((uint64_t)pCommandBuffer, 0);
-		virtio_gpu_free_object_desc(pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	virtualFreePage((uint64_t)pCommandBuffer, 0);
-	virtio_gpu_free_object_desc(pObjectDesc);
 	mutex_unlock(&mutex);	
 	return 0;
 }
@@ -2577,7 +2276,7 @@ int virtio_gpu_gl_clear(struct virtio_gpu_context_desc* pContextDesc, uint32_t b
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_clear_command* pClearCommand = (struct virtio_gpu_gl_clear_command*)pCommandBuffer->command_data;
 	virtio_gpu_gl_write_clear(pClearCommand, buffers, color, depth, stencil);
 	pCommandBuffer->size = (pClearCommand->header.length+1)*sizeof(uint32_t);
@@ -2603,7 +2302,7 @@ int virtio_gpu_gl_draw_vbo(struct virtio_gpu_context_desc* pContextDesc, struct 
 		return -1;
 	}
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_draw_vbo_command* pCommand = (struct virtio_gpu_gl_draw_vbo_command*)pCommandBuffer->command_data;
 	*pCommand = command;
 	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_DRAW_VBO;
@@ -2632,7 +2331,7 @@ int virtio_gpu_gl_transfer_3d(struct virtio_gpu_context_desc* pContextDesc, stru
 	}
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_transfer_3d_command* pGlCommand = (struct virtio_gpu_gl_transfer_3d_command*)pCommandBuffer->command_data;
 	virtio_gpu_gl_write_transfer_3d(pGlCommand, command);
 	pCommandBuffer->size = (pGlCommand->header.length+1)*sizeof(uint32_t);
@@ -3064,8 +2763,9 @@ int virtio_gpu_queue_deinit(struct virtio_gpu_queue_info* pQueueInfo){
 }
 int virtio_gpu_notify(uint16_t notifyId){
 	uint64_t notifyOffset = ((uint64_t)notifyId)*gpuInfo.notifyOffsetMultiplier;
-	__asm__ volatile("mfence" ::: "memory");
+	__asm__ volatile("sfence" ::: "memory");
 	*(volatile uint16_t*)(((uint64_t)gpuInfo.pNotifyRegisters)+notifyOffset) = notifyId;
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int virtio_gpu_run_queue(struct virtio_gpu_queue_info* pQueueInfo){
@@ -3276,18 +2976,28 @@ int virtio_gpu_subsystem_read_pixel(uint64_t monitorId, struct uvec2 position, s
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	uint64_t gpuId = pSubsystemMonitorDesc->gpuId;
 	struct virtio_gpu_monitor_desc* pMonitorDesc = (struct virtio_gpu_monitor_desc*)pSubsystemMonitorDesc->extra;
 	if (!pMonitorDesc){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, pMonitorDesc->resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	uint64_t pixelOffset = (position.y*pMonitorDesc->scanoutInfo.resolution.width)+position.x;
-	volatile struct uvec4_8* pFramebuffer = (struct uvec4_8*)pMonitorDesc->pFramebufferResourceDesc->pBuffer;
+	volatile struct uvec4_8* pFramebuffer = (struct uvec4_8*)pResourceDesc->pBuffer;
 	volatile struct uvec4_8* pPixel = pFramebuffer+pixelOffset;
-	struct uvec4_8 color = *pPixel;
-	struct uvec4_8 newColor = {color.z, color.y, color.x, 0x0};
-	__asm__ volatile("mfence" ::: "memory");
-	*pColor = gpuInfo.virglSupport ? color : newColor;
+	*pColor = *pPixel;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -3299,22 +3009,33 @@ int virtio_gpu_subsystem_write_pixel(uint64_t monitorId, struct uvec2 position, 
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	uint64_t gpuId = pSubsystemMonitorDesc->gpuId;
 	struct virtio_gpu_monitor_desc* pMonitorDesc = (struct virtio_gpu_monitor_desc*)pSubsystemMonitorDesc->extra;
 	if (!pMonitorDesc){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, pMonitorDesc->resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsytem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	uint64_t pixelOffset = (position.y*pMonitorDesc->scanoutInfo.resolution.width)+position.x;
-	volatile struct uvec4_8* pFramebuffer = (struct uvec4_8*)pMonitorDesc->pFramebufferResourceDesc->pBuffer;
+	volatile struct uvec4_8* pFramebuffer = (struct uvec4_8*)pResourceDesc->pBuffer;
 	if (!pFramebuffer){
 		serial_print(0, "invalid framebuffer\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	volatile struct uvec4_8* pPixel = pFramebuffer+pixelOffset;
-	struct uvec4_8 newColor = {color.z, color.y, color.x, 0x0};
-	*pPixel = gpuInfo.virglSupport ? color : newColor;
-	__asm__ volatile("sfence" ::: "memory");
+	*pPixel = color;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -3326,8 +3047,21 @@ int virtio_gpu_subsystem_sync(uint64_t monitorId, struct uvec4 rect){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	uint64_t gpuId = pSubsystemMonitorDesc->gpuId;
 	struct virtio_gpu_monitor_desc* pMonitorDesc = (struct virtio_gpu_monitor_desc*)pSubsystemMonitorDesc->extra;
 	if (!pMonitorDesc){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, pMonitorDesc->resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);	
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3337,7 +3071,8 @@ int virtio_gpu_subsystem_sync(uint64_t monitorId, struct uvec4 rect){
 	boxRect.width = rect.z;
 	boxRect.height = rect.w;
 	struct virtio_gpu_response_header responseHeader = {0};
-	if (virtio_gpu_sync(pMonitorDesc->pFramebufferResourceDesc, boxRect, &responseHeader)!=0){
+	if (virtio_gpu_sync(pResourceDesc, boxRect, &responseHeader)!=0){
+		serial_print(0, "failed to sync virtual I/O GPU host controller resource data virtual I/O GPU host controller driver fault\r\n");
 		printf("failed to sync virtual I/O GPU framebuffer\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -3345,6 +3080,7 @@ int virtio_gpu_subsystem_sync(uint64_t monitorId, struct uvec4 rect){
 	if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
 		const unsigned char* responseTypeName = "Unknown response type name";
 		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
+		serial_print(0, "failed to sync virtual I/O GPU host controller resource data\r\n");
 		printf("failed to sync virtual I/O GPU framebuffer (%s)\r\n", responseTypeName);
 		mutex_unlock(&mutex);
 		return -1;
@@ -3360,8 +3096,21 @@ int virtio_gpu_subsystem_commit(uint64_t monitorId, struct uvec4 rect){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	uint64_t gpuId = pSubsystemMonitorDesc->gpuId;
 	struct virtio_gpu_monitor_desc* pMonitorDesc = (struct virtio_gpu_monitor_desc*)pSubsystemMonitorDesc->extra;
 	if (!pMonitorDesc){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, pMonitorDesc->resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3371,7 +3120,7 @@ int virtio_gpu_subsystem_commit(uint64_t monitorId, struct uvec4 rect){
 	boxRect.width = rect.z;
 	boxRect.height = rect.w;
 	struct virtio_gpu_response_header responseHeader = {0};
-	if (virtio_gpu_commit(pMonitorDesc->pFramebufferResourceDesc, boxRect, &responseHeader)!=0){
+	if (virtio_gpu_commit(pResourceDesc, boxRect, &responseHeader)!=0){
 		printf("failed to commit to virtual I/O GPU frameubuffer\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -3394,8 +3143,21 @@ int virtio_gpu_subsystem_push(uint64_t monitorId, struct uvec4 rect){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	uint64_t gpuId = pSubsystemMonitorDesc->gpuId;
 	struct virtio_gpu_monitor_desc* pMonitorDesc = (struct virtio_gpu_monitor_desc*)pSubsystemMonitorDesc->extra;
 	if (!pMonitorDesc){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, pMonitorDesc->resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3405,7 +3167,7 @@ int virtio_gpu_subsystem_push(uint64_t monitorId, struct uvec4 rect){
 	virtioGpuRect.width = rect.z;
 	virtioGpuRect.height = rect.w;
 	struct virtio_gpu_response_header responseHeader = {0};
-	if (virtio_gpu_push(pMonitorDesc->pFramebufferResourceDesc, virtioGpuRect, &responseHeader)!=0){
+	if (virtio_gpu_push(pResourceDesc, virtioGpuRect, &responseHeader)!=0){
 		printf("failed to push to virtual I/O GPU framebuffer\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -3420,8 +3182,52 @@ int virtio_gpu_subsystem_push(uint64_t monitorId, struct uvec4 rect){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_subsystem_cmd_context_init(uint64_t gpuId, uint64_t commandListSize, uint64_t* pCmdContextId){
-	if (!pCmdContextId)
+int virtio_gpu_subsystem_set_scanout(uint64_t monitorId, uint64_t resourceId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_monitor_desc* pSubsystemMonitorDesc = (struct gpu_monitor_desc*)0x0;
+	if (gpu_monitor_get_desc(monitorId, &pSubsystemMonitorDesc)!=0){
+		printf("failed to get GPU host controller monitor descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t gpuId = pSubsystemMonitorDesc->gpuId;
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controlller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_monitor_desc* pMonitorDesc = (struct virtio_gpu_monitor_desc*)pSubsystemMonitorDesc->extra;
+	if (!pMonitorDesc){
+		printf("GPU subsystem monitor descriptor not linked with virtual I/O GPU host controller monitor descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_response_header responseHeader = {0};
+	if (virtio_gpu_set_scanout(pMonitorDesc->scanoutId, pResourceDesc, &responseHeader)!=0){
+		printf("failed to set virtual I/O GPU host controller monitor %d scanout to resource %d\r\n", monitorId, resourceId);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
+		const unsigned char* responseTypeName = "Unknown response type";
+		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
+		printf("failed to set virtual I/O GPU host controller monitor %d scanout to resource %d (%s)\r\n", monitorId, resourceId, responseTypeName);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_cmd_context_init(uint64_t gpuId, uint64_t cmdContextId, uint64_t commandListSize){
+	if (!commandListSize)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -3431,22 +3237,34 @@ int virtio_gpu_subsystem_cmd_context_init(uint64_t gpuId, uint64_t commandListSi
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	struct gpu_cmd_context_desc* pSubsystemCmdContextDesc = (struct gpu_cmd_context_desc*)0x0;
+	if (gpu_cmd_context_get_desc(gpuId, cmdContextId, &pSubsystemCmdContextDesc)!=0){
+		printf("failed to get GPU host controller command context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	struct virtio_gpu_cmd_context_desc* pCmdContextDesc = (struct virtio_gpu_cmd_context_desc*)0x0;
 	if (virtio_gpu_cmd_context_init(commandListSize, &pCmdContextDesc)!=0){
 		printf("failed to initialize virtual I/O GPU host controller command context\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	*pCmdContextId = pCmdContextDesc->cmdContextId;
+	pSubsystemCmdContextDesc->extra = (uint64_t)pCmdContextDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
 int virtio_gpu_subsystem_cmd_context_deinit(uint64_t gpuId, uint64_t cmdContextId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct virtio_gpu_cmd_context_desc* pCmdContextDesc = (struct virtio_gpu_cmd_context_desc*)0x0;
-	if (virtio_gpu_cmd_context_get_desc(cmdContextId, &pCmdContextDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller command context descriptor\r\n");
+	struct gpu_cmd_context_desc* pSubsystemCmdContextDesc = (struct gpu_cmd_context_desc*)0x0;
+	if (gpu_cmd_context_get_desc(gpuId, cmdContextId, &pSubsystemCmdContextDesc)!=0){
+		printf("failed to get GPU host controller command context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_cmd_context_desc* pCmdContextDesc = (struct virtio_gpu_cmd_context_desc*)pSubsystemCmdContextDesc->extra;
+	if (!pCmdContextDesc){
+		printf("GPU subsystem command context descriptor not linked with virtual I/O GPU host controller command context descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3467,9 +3285,15 @@ int virtio_gpu_subsystem_cmd_context_reset(uint64_t gpuId, uint64_t cmdContextId
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_cmd_context_desc* pCmdContextDesc = (struct virtio_gpu_cmd_context_desc*)0x0;
-	if (virtio_gpu_cmd_context_get_desc(cmdContextId, &pCmdContextDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller command context descriptor\r\n");
+	struct gpu_cmd_context_desc* pSubsystemCmdContextDesc = (struct gpu_cmd_context_desc*)0x0;
+	if (gpu_cmd_context_get_desc(gpuId, cmdContextId, &pSubsystemCmdContextDesc)!=0){
+		printf("failed to get GPU host controller command context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_cmd_context_desc* pCmdContextDesc = (struct virtio_gpu_cmd_context_desc*)pSubsystemCmdContextDesc->extra;
+	if (!pCmdContextDesc){
+		printf("GPU subsystem command context descriptor not linked with virtual I/O GPU host controller command context descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3481,6 +3305,18 @@ int virtio_gpu_subsystem_cmd_context_reset(uint64_t gpuId, uint64_t cmdContextId
 	mutex_unlock(&mutex);
 	return 0;
 }
+int virtio_gpu_subsystem_set_framebuffer_state_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_framebuffer_state_cmd_info* pCommandInfo){
+	if (!pGpuDesc||!pCmdContextDesc||!pCommandInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct virtio_gpu_gl_set_framebuffer_state_command* pGlCommand = (struct virtio_gpu_gl_set_framebuffer_state_command*)0x0;
+	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
+	virtio_gpu_gl_write_set_framebuffer_state(pGlCommand, pCommandInfo->colorBufferCount, pCommandInfo->depthStencilHandle, (uint32_t*)pCommandInfo->color_buffer_handle_list);
+	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
+	mutex_unlock(&mutex);
+	return 0;
+}
 int virtio_gpu_subsystem_push_clear_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_clear_cmd_info* pCommandInfo){
 	if (!pGpuDesc||!pCmdContextDesc||!pCommandInfo)
 		return -1;
@@ -3488,7 +3324,7 @@ int virtio_gpu_subsystem_push_clear_cmd(struct gpu_desc* pGpuDesc, struct virtio
 	mutex_lock(&mutex);
 	struct virtio_gpu_gl_clear_command* pGlCommand = (struct virtio_gpu_gl_clear_command*)0x0;
 	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
-	virtio_gpu_gl_write_clear(pGlCommand, (1<<0)|(1<<2), pCommandInfo->color, pCommandInfo->depth, pCommandInfo->stencil);
+	virtio_gpu_gl_write_clear(pGlCommand, pCommandInfo->buffers, pCommandInfo->color, pCommandInfo->depth, pCommandInfo->stencil);
 	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
 	mutex_unlock(&mutex);
 	return 0;
@@ -3497,6 +3333,7 @@ int virtio_gpu_subsystem_push_cmd(uint64_t gpuId, uint64_t cmdContextId, struct 
 	if (!pCommandInfo)
 		return -1;
 	static const virtioGpuPushCmdFunc pushCmdVtable[]={
+		[GPU_CMD_TYPE_SET_FRAMEBUFFER_STATE]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_set_framebuffer_state_cmd,
 		[GPU_CMD_TYPE_CLEAR]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_clear_cmd,
 	};
 	uint64_t commandType = pCommandInfo->commandType;
@@ -3510,9 +3347,15 @@ int virtio_gpu_subsystem_push_cmd(uint64_t gpuId, uint64_t cmdContextId, struct 
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_cmd_context_desc* pCmdContextDesc = (struct virtio_gpu_cmd_context_desc*)0x0;
-	if (virtio_gpu_cmd_context_get_desc(cmdContextId, &pCmdContextDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller command context descriptor\r\n");
+	struct gpu_cmd_context_desc* pSubsystemCmdContextDesc = (struct gpu_cmd_context_desc*)0x0;
+	if (gpu_cmd_context_get_desc(gpuId, cmdContextId, &pSubsystemCmdContextDesc)!=0){
+		printf("failed to get GPU host controller command context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_cmd_context_desc* pCmdContextDesc = (struct virtio_gpu_cmd_context_desc*)pSubsystemCmdContextDesc->extra;
+	if (!pCmdContextDesc){
+		printf("GPU subsystem command context descriptor not linked with virtual I/O GPU host controller command context descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3539,15 +3382,33 @@ int virtio_gpu_subsystem_cmd_context_submit(uint64_t gpuId, uint64_t contextId, 
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_cmd_context_desc* pCmdContextDesc = (struct virtio_gpu_cmd_context_desc*)0x0;
-	if (virtio_gpu_cmd_context_get_desc(cmdContextId, &pCmdContextDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller command context descriptor\r\n");
+	struct gpu_context_desc* pSubsystemContextDesc = (struct gpu_context_desc*)0x0;
+	if (gpu_context_get_desc(gpuId, contextId, &pSubsystemContextDesc)!=0){
+		printf("failed to get GPU host controller context descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)pSubsystemContextDesc->extra;
+	if (!pContextDesc){
+		printf("GPU subsystem context descriptor not linked with virtual I/O GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_cmd_context_desc* pSubsystemCmdContextDesc = (struct gpu_cmd_context_desc*)0x0;
+	if (gpu_cmd_context_get_desc(gpuId, cmdContextId, &pSubsystemCmdContextDesc)!=0){
+		printf("failed to get GPU host controller command context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_cmd_context_desc* pCmdContextDesc = (struct virtio_gpu_cmd_context_desc*)pSubsystemCmdContextDesc->extra;
+	if (!pCmdContextDesc){
+		printf("GPU subsystem command context descriptor not linked with virtual I/O GPU host controller command context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;	
+	}
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)pCmdContextDesc->pCommandBuffer;
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
-	pCommandBuffer->commandHeader.context_id = contextId+1;
+	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	pCommandBuffer->size = pCmdContextDesc->currentCommandOffset;
 	struct virtio_gpu_response_header responseHeader = {0};
 	if (virtio_gpu_submit(pCmdContextDesc->pCommandBuffer, &responseHeader)!=0){
@@ -3565,31 +3426,33 @@ int virtio_gpu_subsystem_cmd_context_submit(uint64_t gpuId, uint64_t contextId, 
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_subsystem_object_create(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId){
-	if (!pObjectId)
+int virtio_gpu_subsystem_surface_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_surface_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pContextDesc||!pCreateObjectInfo||!pResponseHeader)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuInfo.gpuId, pCreateObjectInfo->resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem GPU host controller resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (virtio_gpu_gl_create_surface_object(pContextDesc, pResourceDesc, pObjectDesc, pResponseHeader)!=0){
+		printf("failed to create virtual I/O GPU host controller surface object\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_subsystem_object_delete(uint64_t gpuId, uint64_t objectId){
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-
-	mutex_unlock(&mutex);
-	return 0;
-}
-int virtio_gpu_subsystem_object_bind(uint64_t gpuId, uint64_t objectId){
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-
-	mutex_unlock(&mutex);
-	return 0;
-}
-int virtio_gpu_subsystem_context_create(uint64_t gpuId, uint64_t* pContextId){
-	if (!pContextId)
+int virtio_gpu_subsystem_object_create(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_create_object_info* pCreateObjectInfo){
+	if (!pCreateObjectInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -3599,10 +3462,171 @@ int virtio_gpu_subsystem_context_create(uint64_t gpuId, uint64_t* pContextId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)0x0;
+	struct gpu_context_desc* pSubsystemContextDesc = (struct gpu_context_desc*)0x0;
+	if (gpu_context_get_desc(gpuId, contextId, &pSubsystemContextDesc)!=0){
+		printf("failed to get GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_object_desc* pSubsystemObjectDesc = (struct gpu_object_desc*)0x0;
+	if (gpu_object_get_desc(gpuId, objectId, &pSubsystemObjectDesc)!=0){
+		printf("failed to get GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)pSubsystemContextDesc->extra;
+	if (!pContextDesc){
+		printf("GPU subsystem context descriptor not linked with virtual I/O GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t objectType = pCreateObjectInfo->header.objectType;
+	static virtioGpuSubsystemCreateObjectFunc createObjectFuncList[]={
+		[GPU_OBJECT_TYPE_SURFACE]=(virtioGpuSubsystemCreateObjectFunc)virtio_gpu_subsystem_surface_object_create,
+	};
+	if (!objectType||objectType>sizeof(createObjectFuncList)/sizeof(virtioGpuSubsystemCreateObjectFunc)){
+		printf("invalid or unsupported object type: 0x%x\r\n", objectType);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	virtioGpuSubsystemCreateObjectFunc createObjectFunc = createObjectFuncList[objectType];
+	if (!createObjectFunc){
+		printf("invalid or unsupported object type: 0x%x\r\n", objectType);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)kmalloc(sizeof(struct virtio_gpu_object_desc));
+	if (!pObjectDesc){
+		printf("failed to allocate virtual I/O GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pObjectDesc, 0, sizeof(struct virtio_gpu_object_desc));
+	pObjectDesc->objectType = objectType;
+	pObjectDesc->pContextDesc = pContextDesc;
 	struct virtio_gpu_response_header responseHeader = {0};
-	if (virtio_gpu_create_context(&pContextDesc, &responseHeader)!=0){
+	if (createObjectFunc(pContextDesc, pCreateObjectInfo, pObjectDesc, &responseHeader)!=0){
+		printf("failed to create virtual I/O GPU host controller object with type: 0x%x\r\n", objectType);
+		kfree((void*)pObjectDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
+		const unsigned char* responseTypeName = "Unknown response type";
+		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
+		printf("failed to create virtual I/O GPU host controller object with type: 0x%x (%s)\r\n", objectType, responseTypeName);
+		kfree((void*)pObjectDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	pSubsystemObjectDesc->extra = (uint64_t)pObjectDesc;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_object_delete(uint64_t gpuId, uint64_t objectId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_object_desc* pSubsystemObjectDesc = (struct gpu_object_desc*)0x0;
+	if (gpu_object_get_desc(gpuId, objectId, &pSubsystemObjectDesc)!=0){
+		printf("failed to get GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)pSubsystemObjectDesc->extra;
+	if (!pObjectDesc){
+		printf("GPU subsystem object descriptor not linked with virtual I/O GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_response_header responseHeader = {0};
+	if (virtio_gpu_gl_delete_object(pObjectDesc, &responseHeader)!=0){
+		printf("failed to delete virtual I/O GPU host controller object with type: 0x%x\r\n", pSubsystemObjectDesc->objectType);
+		kfree((void*)pObjectDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
+		const unsigned char* responseTypeName = "Unknown response type";
+		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
+		printf("failed to delete virtaul I/O GPU host controller object with type: 0x%x (%s)\r\n", responseTypeName);
+		kfree((void*)pObjectDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	kfree((void*)pObjectDesc);
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_object_bind(uint64_t gpuId, uint64_t objectId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_object_desc* pSubsystemObjectDesc = (struct gpu_object_desc*)0x0;
+	if (gpu_object_get_desc(gpuId, objectId, &pSubsystemObjectDesc)!=0){
+		printf("failed to get GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_object_desc* pObjectDesc = (struct virtio_gpu_object_desc*)pSubsystemObjectDesc->extra;
+	if (!pObjectDesc){
+		printf("GPU subsystem object descriptor not linked with virtual I/O GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_response_header responseHeader = {0};
+	if (virtio_gpu_gl_bind_object(pObjectDesc, &responseHeader)!=0){
+		printf("failed to bind virtual I/O GPU host controller object\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
+		const unsigned char* responseTypeName = "Unknown response type";
+		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
+		printf("failed to bind virtual I/O GPU host controller object (%s)\r\n", responseTypeName);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex); 
+	return 0;
+}
+int virtio_gpu_subsystem_context_create(uint64_t gpuId, uint64_t contextId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_context_desc* pSubsystemContextDesc = (struct gpu_context_desc*)0x0;
+	if (gpu_context_get_desc(gpuId, contextId, &pSubsystemContextDesc)!=0){
+		printf("failed to get GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)kmalloc(sizeof(struct virtio_gpu_context_desc));
+	if (!pContextDesc){
+		printf("failed to allocate virtual I/O GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pContextDesc, 0, sizeof(struct virtio_gpu_context_desc));
+	pContextDesc->contextId = contextId;
+	struct virtio_gpu_response_header responseHeader = {0};
+	if (virtio_gpu_create_context(contextId, &responseHeader)!=0){
 		printf("failed to create virtual I/O GPU host controller context\r\n");
+		kfree((void*)pContextDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3610,10 +3634,11 @@ int virtio_gpu_subsystem_context_create(uint64_t gpuId, uint64_t* pContextId){
 		const unsigned char* responseTypeName = "Unknown response type";
 		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
 		printf("failed to create virtual I/O GPU host controller context (%s)\r\n", responseTypeName);
+		kfree((void*)pContextDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	*pContextId = pContextDesc->contextId;
+	pSubsystemContextDesc->extra = (uint64_t)pContextDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -3626,15 +3651,22 @@ int virtio_gpu_subsystem_context_delete(uint64_t gpuId, uint64_t contextId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)0x0;
-	if (virtio_gpu_context_get_desc(contextId, &pContextDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller context descriptor\r\n");
+	struct gpu_context_desc* pSubsystemContextDesc = (struct gpu_context_desc*)0x0;
+	if (gpu_context_get_desc(gpuId, contextId, &pSubsystemContextDesc)!=0){
+		printf("failed to get GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)pSubsystemContextDesc->extra;
+	if (!pContextDesc){
+		printf("GPU subsystem context descriptor not linked with virtual I/O GPU host controller context descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct virtio_gpu_response_header responseHeader = {0};
 	if (virtio_gpu_delete_context(pContextDesc, &responseHeader)!=0){
 		printf("failed to delete virtual I/O GPU host controller context\r\n");
+		kfree((void*)pContextDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3642,9 +3674,11 @@ int virtio_gpu_subsystem_context_delete(uint64_t gpuId, uint64_t contextId){
 		const unsigned char* responseTypeName = "Unknown response type";
 		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
 		printf("failed to delete virtual I/O GPU host controller context (%s)\r\n", responseTypeName);
+		kfree((void*)pContextDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	kfree((void*)pContextDesc);
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -3657,15 +3691,27 @@ int virtio_gpu_subsystem_context_attach_resource(uint64_t gpuId, uint64_t contex
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)0x0;
-	if (virtio_gpu_context_get_desc(contextId, &pContextDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller context descriptor\r\n");
+	struct gpu_context_desc* pSubsystemContextDesc = (struct gpu_context_desc*)0x0;
+	if (gpu_context_get_desc(gpuId, contextId, &pSubsystemContextDesc)!=0){
+		printf("failed to get GPU host controller context descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
-	if (virtio_gpu_resource_get_desc(resourceId, &pResourceDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller resource descriptor\r\n");
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)pSubsystemContextDesc->extra;
+	if (!pContextDesc){
+		printf("GPU subsystem context descriptor not linked with virtual I/O GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controlller resource descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3685,9 +3731,7 @@ int virtio_gpu_subsystem_context_attach_resource(uint64_t gpuId, uint64_t contex
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_subsystem_resource_create(uint64_t gpuId, struct gpu_create_resource_info subsystemCreateResourceInfo, uint64_t* pResourceId){
-	if (!pResourceId)
-		return -1;
+int virtio_gpu_subsystem_resource_create(uint64_t gpuId, uint64_t resourceId, struct gpu_create_resource_info subsystemCreateResourceInfo){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -3696,21 +3740,14 @@ int virtio_gpu_subsystem_resource_create(uint64_t gpuId, struct gpu_create_resou
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_context_desc* pSubsystemContextDesc = (struct gpu_context_desc*)0x0;
-	if (gpu_context_get_desc(gpuId, subsystemCreateResourceInfo.resourceInfo.contextId, &pSubsystemContextDesc)!=0){
-		printf("failed to get GPU host controller subsystem context descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)0x0;
-	if (virtio_gpu_context_get_desc(pSubsystemContextDesc->driverContextId, &pContextDesc)!=0){
-		printf("failed to get context descriptor\r\n");
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller subsystem resource descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct virtio_gpu_create_resource_info createResourceInfo = {0};
 	memset((void*)&createResourceInfo, 0, sizeof(struct virtio_gpu_create_resource_info));
-	createResourceInfo.pContextDesc = pContextDesc;
 	createResourceInfo.resourceType = subsystemCreateResourceInfo.resourceInfo.resourceType;
 	createResourceInfo.format = subsystemCreateResourceInfo.resourceInfo.format;
 	createResourceInfo.width = subsystemCreateResourceInfo.resourceInfo.width;
@@ -3718,12 +3755,27 @@ int virtio_gpu_subsystem_resource_create(uint64_t gpuId, struct gpu_create_resou
 	createResourceInfo.depth = subsystemCreateResourceInfo.resourceInfo.depth;
 	createResourceInfo.arraySize = subsystemCreateResourceInfo.resourceInfo.arraySize;
 	createResourceInfo.target = subsystemCreateResourceInfo.resourceInfo.target;
+	createResourceInfo.bind = subsystemCreateResourceInfo.resourceInfo.bind;
 	createResourceInfo.flags = subsystemCreateResourceInfo.resourceInfo.flags;
-	createResourceInfo.resourceType = VIRTIO_GPU_RESOURCE_TYPE_3D;
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)kmalloc(sizeof(struct virtio_gpu_resource_desc));
+	if (!pResourceDesc){
+		printf("failed to allocate virtual I/O GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pResourceDesc, 0, sizeof(struct virtio_gpu_resource_desc));
+	pResourceDesc->resourceId = resourceId;
+	pResourceDesc->width = createResourceInfo.width;
+	pResourceDesc->height = createResourceInfo.height;
+	pResourceDesc->depth = createResourceInfo.depth;
+	pResourceDesc->bind = createResourceInfo.bind;
+	pResourceDesc->format = createResourceInfo.format;
+	pResourceDesc->flags = createResourceInfo.flags;
+	pResourceDesc->resourceType = createResourceInfo.resourceType;
 	struct virtio_gpu_response_header responseHeader = {0};
-	if (virtio_gpu_create_resource(createResourceInfo, &pResourceDesc, &responseHeader)!=0){
+	if (virtio_gpu_create_resource(createResourceInfo, resourceId, &responseHeader)!=0){
 		printf("failed to create virtual I/O GPU host controller resource\r\n");
+		kfree((void*)pResourceDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3731,10 +3783,11 @@ int virtio_gpu_subsystem_resource_create(uint64_t gpuId, struct gpu_create_resou
 		const unsigned char* responseTypeName = "Unknown response type";
 		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
 		printf("failed to create virtual I/O GPU host controller resource (%s)\r\n", responseTypeName);
+		kfree((void*)pResourceDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	*pResourceId = pResourceDesc->resourceId;
+	pSubsystemResourceDesc->extra = (uint64_t)pResourceDesc;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -3746,14 +3799,22 @@ int virtio_gpu_subsystem_resource_delete(uint64_t gpuId, uint64_t resourceId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
-	if (virtio_gpu_resource_get_desc(resourceId, &pResourceDesc)!=0){
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct virtio_gpu_response_header responseHeader = {0};
 	if (virtio_gpu_delete_resource(pResourceDesc, &responseHeader)!=0){
 		printf("failed to delete virtual I/O GPU host controller resource\r\n");
+		kfree((void*)pResourceDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3761,9 +3822,11 @@ int virtio_gpu_subsystem_resource_delete(uint64_t gpuId, uint64_t resourceId){
 		const unsigned char* responseTypeName = "Unknown response type";
 		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
 		printf("failed to delete virtual I/O GPU host controller resource\r\n");
+		kfree((void*)pResourceDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	kfree((void*)pResourceDesc);
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -3778,9 +3841,15 @@ int virtio_gpu_subsystem_resource_attach_backing(uint64_t gpuId, uint64_t resour
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
-	if (virtio_gpu_resource_get_desc(resourceId, &pResourceDesc)!=0){
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, resourceId, &pSubsystemResourceDesc)!=0){
 		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3809,9 +3878,15 @@ int virtio_gpu_subsystem_resource_flush(uint64_t gpuId, uint64_t resourceId, str
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
-	if (virtio_gpu_resource_get_desc(resourceId, &pResourceDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller resource descriptor\r\n");
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3845,9 +3920,21 @@ int virtio_gpu_subsystem_transfer_to_device(uint64_t gpuId, uint64_t resourceId,
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
-	if (virtio_gpu_resource_get_desc(resourceId, &pResourceDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller resource descriptor\r\n");
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_context_desc* pContextDesc = pResourceDesc->pContextDesc;
+	if (!pContextDesc){
+		printf("virtual I/O GPU host controller resource descriptor not linked with virtual I/O GPU host controller context descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -3874,6 +3961,17 @@ int virtio_gpu_subsystem_transfer_to_device(uint64_t gpuId, uint64_t resourceId,
 			virtioGpuBox.width = transferToDeviceInfo.boxRect.width;
 			virtioGpuBox.height = transferToDeviceInfo.boxRect.height;
 			virtioGpuBox.depth = transferToDeviceInfo.boxRect.depth;
+			struct virtio_gpu_gl_transfer_3d_command transferCommand = {0};
+			memset((void*)&transferCommand, 0, sizeof(struct virtio_gpu_gl_transfer_3d_command));
+			transferCommand.resource_id = pResourceDesc->resourceId;
+			transferCommand.transfer_type = VIRTIO_GPU_GL_TRANSFER_WRITE;
+			transferCommand.direction = VIRTIO_GPU_GL_TRANSFER_DIRECTION_H2D;
+			transferCommand.box_rect = virtioGpuBox;
+			if (virtio_gpu_gl_transfer_3d(pContextDesc, transferCommand, &responseHeader)!=0){
+				printf("failed to transfer 3D resource data to VirGL rendering backned\r\n");
+				mutex_unlock(&mutex);
+				return -1;
+			}
 			if (virtio_gpu_transfer_h2d_3d(pResourceDesc, virtioGpuBox, transferToDeviceInfo.offset, &responseHeader)!=0){
 				printf("failed to transfer resource data to virtual I/O GPU host controller\r\n");
 				mutex_unlock(&mutex);
@@ -3901,9 +3999,15 @@ int virtio_gpu_subsystem_transfer_from_device(uint64_t gpuId, uint64_t resourceI
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)0x0;
-	if (virtio_gpu_resource_get_desc(resourceId, &pResourceDesc)!=0){
-		printf("failed to get virtual I/O GPU host controller resource descriptor\r\n");
+	struct gpu_resource_desc* pSubsystemResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(gpuId, resourceId, &pSubsystemResourceDesc)!=0){
+		printf("failed to get GPU host controller resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_resource_desc* pResourceDesc = (struct virtio_gpu_resource_desc*)pSubsystemResourceDesc->extra;
+	if (!pResourceDesc){
+		printf("GPU subsystem resource descriptor not linked with virtual I/O GPU host controller reosurce descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}

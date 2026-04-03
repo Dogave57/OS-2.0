@@ -208,11 +208,24 @@ int gpu_get_desc(uint64_t gpuId, struct gpu_desc** ppGpuDesc){
 	*ppGpuDesc = pGpuDesc;
 	return 0;
 }
-int gpu_monitor_register(uint64_t driverId, struct gpu_monitor_info monitorInfo, uint64_t* pMonitorId){
+int gpu_monitor_register(uint64_t gpuId, struct gpu_monitor_info monitorInfo, uint64_t* pMonitorId){
 	if (!pMonitorId)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t driverId = pGpuDesc->driverId;
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
+	if (gpu_driver_get_desc(driverId, &pDriverDesc)!=0){
+		printf("failed to get GPU host controller driver descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)kmalloc(sizeof(struct gpu_monitor_desc));
 	if (!pMonitorDesc){
 		mutex_unlock(&mutex);
@@ -226,6 +239,7 @@ int gpu_monitor_register(uint64_t driverId, struct gpu_monitor_info monitorInfo,
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	pMonitorDesc->gpuId = gpuId;
 	pMonitorDesc->driverId = driverId;
 	pMonitorDesc->monitorId = monitorId;
 	pMonitorDesc->monitorInfo = monitorInfo;
@@ -310,7 +324,7 @@ int gpu_cmd_context_register(uint64_t gpuId, uint64_t* pCmdContextId){
 		mutex_unlock(&mutex);
 		return -1;	
 	}
-	pCmdContextDesc->subsystemCmdContextId = cmdContextId;
+	pCmdContextDesc->cmdContextId = cmdContextId;
 	if (!pGpuDesc->cmdContextSubsystemInfo.pFirstCmdContextDesc){
 		pGpuDesc->cmdContextSubsystemInfo.pFirstCmdContextDesc = pCmdContextDesc;
 	}
@@ -394,14 +408,14 @@ int gpu_object_register(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId
 		return -1;
 	}
 	memset((void*)pObjectDesc, 0, sizeof(struct gpu_object_desc));
-	uint64_t subsystemObjectId = 0;
-	if (subsystem_alloc_entry(pGpuDesc->objectSubsystemInfo.pSubsystemDesc, (unsigned char*)pObjectDesc, &subsystemObjectId)!=0){
+	uint64_t objectId = 0;
+	if (subsystem_alloc_entry(pGpuDesc->objectSubsystemInfo.pSubsystemDesc, (unsigned char*)pObjectDesc, &objectId)!=0){
 		printf("failed to allocate GPU host controller object subsystem entry\r\n");
 		kfree((void*)pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	pObjectDesc->subsystemObjectId = subsystemObjectId;
+	pObjectDesc->objectId = objectId;
 	if (!pGpuDesc->objectSubsystemInfo.pFirstObjectDesc){
 		pGpuDesc->objectSubsystemInfo.pFirstObjectDesc = pObjectDesc;
 	}
@@ -410,7 +424,7 @@ int gpu_object_register(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId
 		pObjectDesc->pBlink = pGpuDesc->objectSubsystemInfo.pLastObjectDesc;	
 	}
 	pGpuDesc->objectSubsystemInfo.pLastObjectDesc = pObjectDesc;
-	*pObjectId = subsystemObjectId;
+	*pObjectId = objectId;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -494,7 +508,7 @@ int gpu_context_register(uint64_t gpuId, uint64_t* pContextId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	pContextDesc->subsystemContextId = contextId;
+	pContextDesc->contextId = contextId;
 	if (!pGpuDesc->contextSubsystemInfo.pFirstContextDesc){
 		pGpuDesc->contextSubsystemInfo.pFirstContextDesc = pContextDesc;
 	}
@@ -606,14 +620,12 @@ int gpu_cmd_context_init(uint64_t gpuId, uint64_t commandListSize, uint64_t* pCm
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	uint64_t driverCmdContextId = 0;
-	if (pDriverDesc->vtable.cmdContextInit(gpuId, commandListSize, &driverCmdContextId)!=0){
+	if (pDriverDesc->vtable.cmdContextInit(gpuId, cmdContextId, commandListSize)!=0){
 		printf("failed to initialize GPU host controller command context\r\n");
 		gpu_cmd_context_unregister(gpuId, cmdContextId);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	pCmdContextDesc->driverCmdContextId = driverCmdContextId;
 	pCmdContextDesc->commandListSize = commandListSize;
 	*pCmdContextId = cmdContextId;
 	mutex_unlock(&mutex);
@@ -673,7 +685,7 @@ int gpu_cmd_context_reset(uint64_t gpuId, uint64_t cmdContextId){
 		mutex_unlock(&mutex);
 		return -1;	
 	}
-	if (pDriverDesc->vtable.cmdContextReset(gpuId, pCmdContextDesc->driverCmdContextId)!=0){
+	if (pDriverDesc->vtable.cmdContextReset(gpuId, cmdContextId)!=0){
 		printf("GPU host controller driver failed to reset command context\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -749,7 +761,7 @@ int gpu_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmdConte
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (pDriverDesc->vtable.cmdContextSubmit(gpuId, pContextDesc->driverContextId, pCmdContextDesc->driverCmdContextId)!=0){
+	if (pDriverDesc->vtable.cmdContextSubmit(gpuId, contextId, cmdContextId)!=0){
 		printf("failed to submit command list to GPU host controller\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -780,7 +792,7 @@ int gpu_resource_register(uint64_t gpuId, struct gpu_resource_info resourceInfo,
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	pResourceDesc->subsystemResourceId = resourceId;
+	pResourceDesc->resourceId = resourceId;
 	if (!pGpuDesc->resourceSubsystemInfo.pFirstResourceDesc){
 		pGpuDesc->resourceSubsystemInfo.pFirstResourceDesc = pResourceDesc;
 		pGpuDesc->resourceSubsystemInfo.pLastResourceDesc = pResourceDesc;
@@ -955,6 +967,11 @@ int gpu_push(uint64_t monitorId, struct uvec4 rect){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	if (!pDriverDesc->vtable.push){
+		printf("GPU host controller driver lacks ability of pushing pixel data to the framebuffer\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	if (pDriverDesc->vtable.push(monitorId, rect)!=0){
 		mutex_unlock(&mutex);
 		return -1;
@@ -962,8 +979,36 @@ int gpu_push(uint64_t monitorId, struct uvec4 rect){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_object_create(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId){
-	if (!pObjectId)
+int gpu_set_scanout(uint64_t monitorId, uint64_t resourceId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
+	if (gpu_monitor_get_desc(monitorId, &pMonitorDesc)!=0){
+		printf("failed to get GPU host controller monitor descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
+	if (gpu_driver_get_desc(pMonitorDesc->driverId, &pDriverDesc)!=0){
+		printf("failed to get GPU host controller driver descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (!pDriverDesc->vtable.setScanout){
+		printf("GPU host controller driver lacks ability of setting scanouts\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pDriverDesc->vtable.setScanout(monitorId, resourceId)!=0){
+		printf("GPU host controller driver failed to set monitor %d scanout to resource %d\r\n", monitorId, resourceId);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int gpu_object_create(uint64_t gpuId, uint64_t contextId, struct gpu_create_object_info* pCreateObjectInfo, uint64_t* pObjectId){
+	if (!pCreateObjectInfo||!pObjectId)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -972,7 +1017,7 @@ int gpu_object_create(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId){
 		printf("failed to get GPU host controller descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
-	}
+	}	
 	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
 	if (gpu_driver_get_desc(pGpuDesc->driverId, &pDriverDesc)!=0){
 		printf("failed to get GPU host controller driver descriptor\r\n");
@@ -984,27 +1029,19 @@ int gpu_object_create(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	uint64_t subsystemObjectId = 0;
-	if (gpu_object_register(gpuId, objectType, &subsystemObjectId)!=0){
+	uint64_t objectType = pCreateObjectInfo->header.objectType;
+	uint64_t objectId = 0;
+	if (gpu_object_register(gpuId, objectType, &objectId)!=0){
 		printf("failed to register GPU host controller object into GPU host controller object subsystem\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_object_desc* pObjectDesc = (struct gpu_object_desc*)0x0;
-	if (gpu_object_get_desc(gpuId, subsystemObjectId, &pObjectDesc)!=0){
-		printf("failed to get GPU host controller object descriptor\r\n");
-		gpu_object_unregister(gpuId, subsystemObjectId);
+	if (pDriverDesc->vtable.objectCreate(gpuId, contextId, objectId, pCreateObjectInfo)!=0){
+		printf("GPU host controller driver failed to create object with type 0x%x\r\n", objectType);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	uint64_t driverObjectId = 0;
-	if (pDriverDesc->vtable.objectCreate(gpuId, objectType, &driverObjectId)!=0){
-		printf("GPU host controller failed to create object with type 0x%x\r\n", objectType);
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	pObjectDesc->driverObjectId = driverObjectId;
-	*pObjectId = subsystemObjectId;
+	*pObjectId = objectId;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -1028,6 +1065,16 @@ int gpu_object_delete(uint64_t gpuId, uint64_t objectId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	if (pDriverDesc->vtable.objectDelete(gpuId, objectId)!=0){
+		printf("GPU host controller driver failed to delete object\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (gpu_object_unregister(gpuId, objectId)!=0){
+		printf("failed to unregister GPU host controller object\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -1041,13 +1088,18 @@ int gpu_object_bind(uint64_t gpuId, uint64_t objectId){
 		return -1;
 	}
 	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
-	if (gpu_driver_get_desc(pDriverDesc->driverId, &pDriverDesc)!=0){
+	if (gpu_driver_get_desc(pGpuDesc->driverId, &pDriverDesc)!=0){
 		printf("failed to get GPU host controller driver descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (!pDriverDesc->vtable.objectBind){
 		printf("GPU host controller driver lacks ability of binding objects\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pDriverDesc->vtable.objectBind(gpuId, objectId)!=0){
+		printf("failed to bind virtual I/O GPU host controller object\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -1082,19 +1134,11 @@ int gpu_context_create(uint64_t gpuId, uint64_t* pContextId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_context_desc* pContextDesc = (struct gpu_context_desc*)0x0;
-	if (gpu_context_get_desc(gpuId, contextId, &pContextDesc)!=0){
-		printf("failed to get GPU host controller context descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	uint64_t driverContextId = 0;
-	if (pDriverDesc->vtable.contextCreate(gpuId, &driverContextId)!=0){
+	if (pDriverDesc->vtable.contextCreate(gpuId, contextId)!=0){
 		printf("failed to create GPU host controller context\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	pContextDesc->driverContextId = driverContextId;
 	*pContextId = contextId;
 	mutex_unlock(&mutex);
 	return 0;
@@ -1119,13 +1163,7 @@ int gpu_context_delete(uint64_t gpuId, uint64_t contextId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_context_desc* pContextDesc = (struct gpu_context_desc*)0x0;
-	if (gpu_context_get_desc(gpuId, contextId, &pContextDesc)!=0){
-		printf("failed to get GPU host controller context descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (pDriverDesc->vtable.contextDelete(gpuId, pContextDesc->driverContextId)!=0){
+	if (pDriverDesc->vtable.contextDelete(gpuId, contextId)!=0){
 		printf("failed to delete GPU host controller context\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -1153,24 +1191,12 @@ int gpu_context_attach_resource(uint64_t gpuId, uint64_t contextId, uint64_t res
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_context_desc* pContextDesc = (struct gpu_context_desc*)0x0;
-	if (gpu_context_get_desc(gpuId, contextId, &pContextDesc)!=0){
-		printf("failed to get GPU host controller context descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	struct gpu_resource_desc* pResourceDesc = (struct gpu_resource_desc*)0x0;
-	if (gpu_resource_get_desc(gpuId, resourceId, &pResourceDesc)!=0){
-		printf("failed to get GPU host controller resource descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
 	if (!pDriverDesc->vtable.contextAttachResource){
 		printf("GPU host contorller driver lacks ability of attaching resources to contexts\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (pDriverDesc->vtable.contextAttachResource(gpuId, pContextDesc->driverContextId, pResourceDesc->driverResourceId)!=0){
+	if (pDriverDesc->vtable.contextAttachResource(gpuId, contextId, resourceId)!=0){
 		printf("failed to attach GPU host controller context with resource\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -1206,21 +1232,12 @@ int gpu_resource_create(uint64_t gpuId, struct gpu_create_resource_info createRe
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_resource_desc* pResourceDesc = (struct gpu_resource_desc*)0x0;
-	if (gpu_resource_get_desc(gpuId, resourceId, &pResourceDesc)!=0){
-		printf("failed to get resource descriptor\r\n");
-		gpu_resource_unregister(gpuId, resourceId);
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	uint64_t driverResourceId = 0;
-	if (pDriverDesc->vtable.resourceCreate(gpuId, createResourceInfo, &driverResourceId)!=0){
+	if (pDriverDesc->vtable.resourceCreate(gpuId, resourceId, createResourceInfo)!=0){
 		printf("failed to create GPU host controller resource\r\n");
 		gpu_resource_unregister(gpuId, resourceId);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	pResourceDesc->driverResourceId = driverResourceId;
 	*pResourceId = resourceId;
 	mutex_unlock(&mutex);
 	return 0;
@@ -1248,7 +1265,7 @@ int gpu_resource_delete(uint64_t gpuId, uint64_t resourceId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (pDriverDesc->vtable.resourceDelete(gpuId, pResourceDesc->driverResourceId)!=0){
+	if (pDriverDesc->vtable.resourceDelete(gpuId, resourceId)!=0){
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -1282,13 +1299,7 @@ int gpu_resource_attach_backing(uint64_t gpuId, uint64_t resourceId, unsigned ch
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_resource_desc* pResourceDesc = (struct gpu_resource_desc*)0x0;
-	if (gpu_resource_get_desc(gpuId, resourceId, &pResourceDesc)!=0){
-		printf("failed to get GPU host controller resource descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (pDriverDesc->vtable.resourceAttachBacking(gpuId, pResourceDesc->driverResourceId, pBuffer, bufferSize)!=0){
+	if (pDriverDesc->vtable.resourceAttachBacking(gpuId, resourceId, pBuffer, bufferSize)!=0){
 		printf("failed to attach physical pages to GPU host controller resource\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -1316,13 +1327,7 @@ int gpu_resource_flush(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_resource_desc* pResourceDesc = (struct gpu_resource_desc*)0x0;
-	if (gpu_resource_get_desc(gpuId, resourceId, &pResourceDesc)!=0){
-		printf("failed to get GPU host controller resource descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (pDriverDesc->vtable.resourceFlush(gpuId, pResourceDesc->driverResourceId, rect)!=0){
+	if (pDriverDesc->vtable.resourceFlush(gpuId, resourceId, rect)!=0){
 		printf("failed to flush resource data to GPU host controller\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -1350,13 +1355,7 @@ int gpu_transfer_to_device(uint64_t gpuId, uint64_t resourceId, struct gpu_trans
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_resource_desc* pResourceDesc = (struct gpu_resource_desc*)0x0;
-	if (gpu_resource_get_desc(gpuId, resourceId, &pResourceDesc)!=0){
-		printf("failed to get GPU host controller resource descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (pDriverDesc->vtable.transferToDevice(gpuId, pResourceDesc->driverResourceId, transferToDeviceInfo)!=0){
+	if (pDriverDesc->vtable.transferToDevice(gpuId, resourceId, transferToDeviceInfo)!=0){
 		printf("failed to transfer resource data to GPU host controller\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -1384,13 +1383,7 @@ int gpu_transfer_from_device(uint64_t gpuId, uint64_t resourceId, struct gpu_tra
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_resource_desc* pResourceDesc = (struct gpu_resource_desc*)0x0;
-	if (gpu_resource_get_desc(gpuId, resourceId, &pResourceDesc)!=0){
-		printf("failed to get GPU host controller reosurce descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (pDriverDesc->vtable.transferFromDevice(gpuId, pResourceDesc->driverResourceId, transferFromDeviceInfo)!=0){
+	if (pDriverDesc->vtable.transferFromDevice(gpuId, resourceId, transferFromDeviceInfo)!=0){
 		printf("failed to transfer GPU host controller resource data from GPU host controller\r\n");
 		mutex_unlock(&mutex);
 		return -1;

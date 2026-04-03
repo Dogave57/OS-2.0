@@ -22,26 +22,33 @@ int drive_subsystem_init(void){
 		panic("unsupported boot device\r\n");
 		while (1){};
 	}
-	uint64_t driveId = 0;
+	uint64_t driveId = 0x00;
 	if (drive_register(0xFFFFFFFFFFFFFFFF, 0xFF, &driveId)!=0){
 		printf("failed to register boot drive placeholder\r\n");
 		return -1;
 	}
+	printf("boot non-volatile storage device placeholder ID: %d\r\n", driveId);
 	return 0;
 }
 KAPI int drive_register_boot_drive(uint64_t driverId, uint8_t port){
 	static struct mutex_t mutex = {0};
 	mutex_lock_isr_safe(&mutex);
-	if (drive_unregister(0x0)!=0){
+	if (drive_unregister(0x01)!=0){
 		printf("failed to unregister boot drive\r\n");
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}	
-	uint64_t driveId = 0;
+	uint64_t driveId = 0x01;
 	if (drive_register(driverId, port, &driveId)!=0){
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
+	if (driveId!=0x01){
+		printf("boot non-volatile storage device has unexpected ID: %d\r\n", driveId);
+		mutex_unlock_isr_safe(&mutex);
+		return -1;
+	}
+	printf("boot non-volatile storage device ID: %d\r\n", driveId);
 	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
@@ -93,6 +100,11 @@ KAPI int drive_driver_get_desc(uint64_t driverId, struct drive_driver_desc** ppD
 		mutex_unlock(&mutex);
 		return -1;	
 	}
+	if (!pDriverDesc){
+		printf("non-volatile storage device host controller driver not linked with non-volatile storage device host controller driver descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;	
+	}
 	*ppDriverDesc = pDriverDesc;
 	mutex_unlock(&mutex);	
 	return 0;
@@ -118,6 +130,7 @@ KAPI int drive_register(uint64_t driverId, uint64_t port, uint64_t* pDriveId){
 	}
 	pDriveDesc->driveId = driveId;
 	if (driverId==0xFFFFFFFFFFFFFFFF){
+		*pDriveId = driveId;
 		mutex_unlock_isr_safe(&mutex);
 		return 0;
 	}
@@ -141,7 +154,6 @@ KAPI int drive_register(uint64_t driverId, uint64_t port, uint64_t* pDriveId){
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	*pDriveId = driveId;
 	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
@@ -162,13 +174,15 @@ KAPI int drive_unregister(uint64_t driveId){
 		return -1;
 	}	
 	struct drive_driver_desc* pDriverDesc = (struct drive_driver_desc*)0x0;
-	if (drive_driver_get_desc(pDriveDesc->driverId, &pDriverDesc)!=0){
-		mutex_unlock_isr_safe(&mutex);
-		return -1;
-	}
-	if (pDriverDesc->vtable.driveUnregister(driveId)!=0){
-		mutex_unlock_isr_safe(&mutex);
-		return -1;
+	if (pDriveDesc->driverId!=0xFFFFFFFFFFFFFFFF){
+		if (drive_driver_get_desc(pDriveDesc->driverId, &pDriverDesc)!=0){
+			mutex_unlock_isr_safe(&mutex);
+			return -1;
+		}
+		if (pDriverDesc->vtable.driveUnregister(driveId)!=0){
+			mutex_unlock_isr_safe(&mutex);
+			return -1;
+		}
 	}
 	kfree((void*)pDriveDesc);
 	if (subsystem_free_entry(pDriveSubsystem, driveId)!=0){
@@ -185,6 +199,11 @@ KAPI int drive_get_desc(uint64_t driveId, struct drive_desc** ppDriveDesc){
 	mutex_lock(&mutex);
 	struct drive_desc* pDriveDesc = (struct drive_desc*)0x0;
 	if (subsystem_get_entry(pDriveSubsystem, driveId, (uint64_t*)&pDriveDesc)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (!pDriveDesc){
+		printf("non-volatile storage device subsystem entry not linked with non-volatile storage device subsystem descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}

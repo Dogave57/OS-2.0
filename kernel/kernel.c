@@ -236,7 +236,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (xhci_driver_init()!=0){
 		printf("failed to initialize XHCI controller\r\n");
 	}
-	if (gpt_verify(0)!=0){
+	if (gpt_verify(1)!=0){
 		printf("failed to verify GPT partition table\r\n");
 		while (1){};
 		return -1;
@@ -283,7 +283,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	set_text_color(old_fg, old_bg);
 	printf("--end of page info---\r\n");
 	struct gpt_header gptHeader = {0};
-	if (gpt_get_header(0, &gptHeader)!=0){
+	if (gpt_get_header(1, &gptHeader)!=0){
 		printf("failed to get GPT header\r\n");
 		while (1){};
 		return -1;
@@ -293,14 +293,14 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	unsigned char esp_partition_guid[16] = GPT_ESP_GUID;
 	uint64_t espNumber = pbootargs->driveInfo.espNumber;
 	struct gpt_partition partition = {0};
-	if (gpt_get_partition(0, espNumber, &partition)!=0){
+	if (gpt_get_partition(1, espNumber, &partition)!=0){
 		printf("failed to get ESP information\r\n");
 		while (1){};
 		return -1;
 	}
 	uint64_t size = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
 	struct fat32_mount_handle* pEspHandle = (struct fat32_mount_handle*)0x0;
-	if (fat32_mount(0, espNumber, &pEspHandle)!=0){
+	if (fat32_mount(1, espNumber, &pEspHandle)!=0){
 		printf("failed to mount ESP\r\n");
 		while (1){};
 		return -1;
@@ -328,7 +328,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	unsigned char rootPartitionType[] = GPT_BASIC_DATA_GUID;
 	struct drive_info bootDriveInfo = {0};
 	uint64_t bootDriveSize = 0;
-	if (drive_get_info(0, &bootDriveInfo)!=0){
+	if (drive_get_info(1, &bootDriveInfo)!=0){
 		printf("failed to get boot drive info\r\n");
 		while (1){};
 		return -1;
@@ -337,7 +337,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	struct gpt_partition highestPartition = {0};
 	for (uint64_t i = 0;i<gptHeader.partition_count;i++){
 		struct gpt_partition partition = {0};
-		if (gpt_get_partition(0, i, &partition)!=0){
+		if (gpt_get_partition(1, i, &partition)!=0){
 			break;
 		}
 		if (!partition.end_lba){
@@ -355,7 +355,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	uint64_t mountId = 0;
-	if (fs_mount(0, espNumber, &mountId)!=0){
+	if (fs_mount(1, espNumber, &mountId)!=0){
 		printf("failed to mount ESP\r\n");
 		while (1){};
 		return -1;

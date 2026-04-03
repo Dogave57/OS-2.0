@@ -15,7 +15,7 @@ int write_pixel(struct uvec2 position, struct uvec4_8 color){
 	}
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	if (gpu_monitor_exists(0)!=0){
+	if (gpu_monitor_exists(1)!=0){
 		struct uvec4_8 flip_color = {color.z, color.y, color.x, color.w};
 		uint64_t pixelOffset = (position.y*pbootargs->graphicsInfo.width)+position.x;
 		struct uvec4_8* pPixel = pbootargs->graphicsInfo.virtualFrameBuffer+pixelOffset;
@@ -24,7 +24,7 @@ int write_pixel(struct uvec2 position, struct uvec4_8 color){
 		mutex_unlock(&mutex);
 		return 0;
 	}
-	if (gpu_write_pixel(0, position, color)!=0){
+	if (gpu_write_pixel(1, position, color)!=0){
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -35,7 +35,7 @@ KAPI int clear(void){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	char_position = 0;
-	if (gpu_monitor_exists(0)!=0){
+	if (gpu_monitor_exists(1)!=0){
 		for (unsigned int i = 0;i<pbootargs->graphicsInfo.width*pbootargs->graphicsInfo.height;i++){
 			struct uvec2 position = {0};
 			position.x = i%pbootargs->graphicsInfo.width;
@@ -46,12 +46,12 @@ KAPI int clear(void){
 		return 0;
 	}
 	struct gpu_monitor_info monitorInfo = {0};
-	if (gpu_monitor_get_info(0, &monitorInfo)!=0){
+	if (gpu_monitor_get_info(1, &monitorInfo)!=0){
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
-	if (gpu_monitor_get_desc(0, &pMonitorDesc)!=0){
+	if (gpu_monitor_get_desc(1, &pMonitorDesc)!=0){
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -64,7 +64,7 @@ KAPI int clear(void){
 		struct uvec2 position = {0};
 		position.x = i%monitorInfo.resolution.width;
 		position.y = i/monitorInfo.resolution.width;
-		if (gpu_write_pixel(0, position, text_bg)!=0){
+		if (gpu_write_pixel(1, position, text_bg)!=0){
 			mutex_unlock(&mutex);
 			return -1;
 		}
@@ -74,7 +74,7 @@ KAPI int clear(void){
 	syncRect.y = 0;
 	syncRect.z = monitorInfo.resolution.width;
 	syncRect.w = monitorInfo.resolution.height;
-	if (gpu_sync(0, syncRect)!=0){
+	if (gpu_sync(1, syncRect)!=0){
 		serial_print(0, "failed to flush framebuffer\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -88,9 +88,9 @@ int writechar(unsigned int position, unsigned char ch){
 	struct gpu_resolution resolution = {0};
 	resolution.width = pbootargs->graphicsInfo.width;
 	resolution.height = pbootargs->graphicsInfo.height;
-	if (!gpu_monitor_exists(0)){
+	if (!gpu_monitor_exists(1)){
 		struct gpu_monitor_info monitorInfo = {0};
-		if (gpu_monitor_get_info(0, &monitorInfo)!=0){
+		if (gpu_monitor_get_info(1, &monitorInfo)!=0){
 			serial_print(0, "failed to get new monitor info\r\n");
 			return -1;
 		}
@@ -117,13 +117,13 @@ int writechar(unsigned int position, unsigned char ch){
 				write_pixel(position, text_bg);
 		}
 	}	
-	if (!gpu_monitor_exists(0)){
+	if (!gpu_monitor_exists(1)){
 		struct uvec4 syncRect = {0};
 		syncRect.x = position_x;
 		syncRect.y = position_y;
 		syncRect.z = 8;
 		syncRect.w = 16;
-		if (gpu_sync(0, syncRect)!=0){
+		if (gpu_sync(1, syncRect)!=0){
 			serial_print(0, "failed to sync framebuffer\r\n");
 			return -1;
 		}
@@ -142,9 +142,9 @@ KAPI int putchar(unsigned char ch){
 	struct gpu_resolution resolution = {0};
 	resolution.width = pbootargs->graphicsInfo.width;
 	resolution.height = pbootargs->graphicsInfo.height;
-	if (!gpu_monitor_exists(0)){
+	if (!gpu_monitor_exists(1)){
 		struct gpu_monitor_info monitorInfo = {0};
-		if (gpu_monitor_get_info(0, &monitorInfo)!=0){
+		if (gpu_monitor_get_info(1, &monitorInfo)!=0){
 			printf("failed to get monitor info\r\n");
 			return -1;
 		}

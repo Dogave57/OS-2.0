@@ -1065,9 +1065,9 @@ int nvme_drive_init(struct pcie_location location){
 		nvme_drive_deinit(pDriveDesc);	
 		return -1;
 	}
-	struct nvme_namespace_desc* pCurrentNamespace = pDriveDesc->pFirstActiveNamespace;	
+	struct nvme_namespace_desc* pCurrentNamespace = pDriveDesc->pFirstActiveNamespace;
 	for (uint64_t i = 0;i<pDriveDesc->activeNamespaceCount&&pCurrentNamespace;i++){
-		uint64_t driveSubsystemId = 0;
+		uint64_t driveSubsystemId = 0x01;
 		struct pcie_location bootDriveLocation = *(struct pcie_location*)&pbootargs->driveInfo.extra;
 		uint8_t isBootDrive = pbootargs->driveInfo.driveType==DRIVE_TYPE_NVME&&*(uint32_t*)&location==*(uint32_t*)&bootDriveLocation&&pbootargs->driveInfo.port==pCurrentNamespace->namespaceId;
 		if ((isBootDrive ? (drive_register_boot_drive(driverInfo.driveDriverId, pCurrentNamespace->namespaceId)) : (drive_register(driverInfo.driveDriverId, pCurrentNamespace->namespaceId, &driveSubsystemId)))!=0){

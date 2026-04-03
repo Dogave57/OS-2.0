@@ -38,14 +38,15 @@ int subsystem_deinit(struct subsystem_desc* pSubsystemDesc){
 	return 0;
 }
 int subsystem_get_entry(struct subsystem_desc* pSubsystemDesc, uint64_t id, uint64_t* ppEntry){
-	if (!pSubsystemDesc||!ppEntry)
+	if (!pSubsystemDesc|!ppEntry)
 		return -1;
+	id--;
 	uint64_t pEntry = pSubsystemDesc->pEntries[id];
 	*ppEntry = pEntry;
 	return 0;
 }
 int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, unsigned char* pEntry, uint64_t* pId){
-	if (!pSubsystemDesc||!pId||!pEntry)
+	if (!pSubsystemDesc||!pId)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -68,22 +69,23 @@ int subsystem_alloc_entry(struct subsystem_desc* pSubsystemDesc, unsigned char* 
 	}
 	pSubsystemDesc->pEntries[id] = (uint64_t)pEntry;
 	pSubsystemDesc->freeEntryCount--;
-	*pId = id;
+	*pId = id+1;
 	mutex_unlock(&mutex);
 	return 0;
 }
 int subsystem_free_entry(struct subsystem_desc* pSubsystemDesc, uint64_t id){
-	if (!pSubsystemDesc)
+	if (!pSubsystemDesc||!id)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
+	id--;
 	if (pSubsystemDesc->freeEntryCount>=pSubsystemDesc->entryReserveCount){
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	uint64_t freeEntry = pSubsystemDesc->freeEntryCount;
 	pSubsystemDesc->pFreeEntries[freeEntry] = id;
-	pSubsystemDesc->pEntries[id] = 0;
+	pSubsystemDesc->pEntries[id] = 0x0;
 	pSubsystemDesc->freeEntryCount++;
 	mutex_unlock(&mutex);
 	return 0;
@@ -95,7 +97,7 @@ int subsystem_commit_entries(struct subsystem_desc* pSubsystemDesc, uint64_t com
 		return -1;
 	}
 	for (uint64_t i = 0;i<commitEntryCount;i++){
-		uint64_t entryId = pSubsystemDesc->entryCommitCount+commitEntryCount-i-1;
+		uint64_t entryId = pSubsystemDesc->entryCommitCount+commitEntryCount-i;
 		if (subsystem_free_entry(pSubsystemDesc, entryId)!=0){
 			printf("failed to commit free entry with ID: %d\r\n", entryId);
 			return -1;
