@@ -85,6 +85,8 @@ KAPI int clear(void){
 int writechar(unsigned int position, unsigned char ch){
 	if (ch>255)
 		ch = L' ';
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct gpu_resolution resolution = {0};
 	resolution.width = pbootargs->graphicsInfo.width;
 	resolution.height = pbootargs->graphicsInfo.height;
@@ -92,6 +94,7 @@ int writechar(unsigned int position, unsigned char ch){
 		struct gpu_monitor_info monitorInfo = {0};
 		if (gpu_monitor_get_info(1, &monitorInfo)!=0){
 			serial_print(0, "failed to get new monitor info\r\n");
+			mutex_unlock(&mutex);
 			return -1;
 		}
 		resolution = monitorInfo.resolution;
@@ -125,19 +128,19 @@ int writechar(unsigned int position, unsigned char ch){
 		syncRect.w = 16;
 		if (gpu_sync(1, syncRect)!=0){
 			serial_print(0, "failed to sync framebuffer\r\n");
+			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
 	serial_putchar(SERIAL_DEBUG_PORT, (unsigned char)ch);
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int putchar(unsigned char ch){
-	if (!pbootargs->graphicsInfo.font_initialized){
-		CHAR16 str[2] = {0};
-		str[0] = ch;
-		conout->OutputString(conout, str);
-		return 0;
-	}
+	if (!pbootargs->graphicsInfo.font_initialized)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	struct gpu_monitor_info monitorInfo = {0};
 	struct gpu_resolution resolution = {0};
 	resolution.width = pbootargs->graphicsInfo.width;
@@ -146,6 +149,7 @@ KAPI int putchar(unsigned char ch){
 		struct gpu_monitor_info monitorInfo = {0};
 		if (gpu_monitor_get_info(1, &monitorInfo)!=0){
 			printf("failed to get monitor info\r\n");
+			mutex_unlock(&mutex);
 			return -1;
 		}
 		resolution = monitorInfo.resolution;
@@ -158,10 +162,12 @@ KAPI int putchar(unsigned char ch){
 		char_position+=pbootargs->graphicsInfo.width;
 		char_position-=(char_position%pbootargs->graphicsInfo.width);
 		serial_putchar(SERIAL_DEBUG_PORT, '\n');
+		mutex_unlock(&mutex);
 		return 0;
 		case '\r':
 		char_position-=(char_position%pbootargs->graphicsInfo.width);
 		serial_putchar(SERIAL_DEBUG_PORT, '\r');
+		mutex_unlock(&mutex);
 		return 0;
 		default:
 		break;
@@ -171,10 +177,12 @@ KAPI int putchar(unsigned char ch){
 		char_position-=8;
 		writechar(char_position, L' ');
 		serial_putchar(SERIAL_DEBUG_PORT, '\b');
+		mutex_unlock(&mutex);
 		return 0;
 	}
 	writechar(char_position, ch);	
 	char_position+=8;
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int putlchar(uint16_t ch){

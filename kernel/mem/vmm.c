@@ -2,6 +2,7 @@
 #include "stdlib/stdlib.h"
 #include "align.h"
 #include "panic.h"
+#include "cpu/mutex.h"
 #include "mem/pmm.h"
 #include "mem/vmm.h"
 static uint64_t* pml4 = (uint64_t*)0x0;
@@ -161,27 +162,40 @@ KAPI int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int s
 		flags|=PTE_LAZY;
 	}
 	uint64_t pt_entry = (pa)|flags;
-	if (!shared&&PTE_IS_MAPPED(*pentry))
+	if (!shared&&PTE_IS_MAPPED(*pentry)){
 		return -1;
+	}
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	if (!(map_flags&MAP_FLAG_LAZY)){
-		if (physicalMapPage(pa, va, pageType)!=0)
+		if (physicalMapPage(pa, va, pageType)!=0){
+			mutex_unlock(&mutex);
 			return -1;
+		}
 	}
 	*pentry = pt_entry;
 	if (va>last_page_va)
 		last_page_va = va;
-	if (get_pt()!=(uint64_t)pml4)
+	if (get_pt()!=(uint64_t)pml4){
+		mutex_unlock(&mutex);
 		return 0;
+	}
 	flush_tlb(va);
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared, uint64_t map_flags, uint32_t pageType){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	for (uint64_t i = 0;i<page_cnt;i++){
 		uint64_t page_pa = pa+(i*PAGE_SIZE);
 		uint64_t page_va = va+(i*PAGE_SIZE);
-		if (virtualMapPage(page_pa, page_va, flags, shared, map_flags, pageType)!=0)
+		if (virtualMapPage(page_pa, page_va, flags, shared, map_flags, pageType)!=0){
+			mutex_unlock(&mutex);
 			return -1;
+		}
 	}
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int virtualUnmapPage(uint64_t va, uint64_t map_flags){
@@ -195,24 +209,35 @@ KAPI int virtualUnmapPage(uint64_t va, uint64_t map_flags){
 	if (!PTE_IS_MAPPED(*pentry)){
 		return -1;
 	}
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	uint64_t pa = PTE_GET_ADDR(*pentry);
 	if (!PTE_IS_LAZY(*pentry)){
-		if (physicalUnmapPage(pa)!=0)
+		if (physicalUnmapPage(pa)!=0){
+			mutex_unlock(&mutex);
 			return -1;
+		}
 	}
 	*pentry = 0;
 	if (get_pt()!=(uint64_t)pml4){
+		mutex_unlock(&mutex);
 		return 0;
 	}
 	flush_tlb(va);
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int virtualUnmapPages(uint64_t va, uint64_t page_cnt, uint64_t map_flags){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	for (uint64_t i = 0;i<page_cnt;i++){
 		uint64_t page_va = va+(i*PAGE_SIZE);
-		if (virtualUnmapPage(page_va, map_flags)!=0)
+		if (virtualUnmapPage(page_va, map_flags)!=0){
+			mutex_unlock(&mutex);
 			return -1;
+		}
 	}
+	mutex_unlock(&mutex);
 	return 0;	
 }
 KAPI int virtualToPhysical(uint64_t va, uint64_t* pPa){
@@ -229,25 +254,33 @@ KAPI int virtualToPhysical(uint64_t va, uint64_t* pPa){
 KAPI int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t pageType){
 	if (!pVa)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	uint64_t pa = 0;
 	if (!(map_flags&MAP_FLAG_LAZY)){
 		if (physicalAllocPage(&pa, PAGE_TYPE_NORMAL)!=0){
+			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
 	uint64_t va = 0;
 	if (virtualGetSpace(&va, 1)!=0){
+		mutex_unlock(&mutex);
 		physicalFreePage(pa);
 		return -1;
 	}
-	if (virtualMapPage(pa, va, flags, 1, map_flags, pageType)!=0)
+	if (virtualMapPage(pa, va, flags, 1, map_flags, pageType)!=0){
+		mutex_unlock(&mutex);
 		return -1;
+	}
 	if (!(map_flags&MAP_FLAG_LAZY)){
 		if (physicalMapPage(pa, va, pageType)!=0){
+			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
 	*pVa = va;
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int virtualFreePage(uint64_t va, uint64_t map_flags){
@@ -256,48 +289,65 @@ KAPI int virtualFreePage(uint64_t va, uint64_t map_flags){
 		printf("failed to get PTE\r\n");
 		return -1;
 	}
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	uint64_t pa = PTE_GET_ADDR(*pentry);
 	if (!PTE_IS_LAZY(*pentry)){
 		if (physicalFreePage(pa)!=0){
 			printf("failed to free physical page\r\n");
+			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
 	if (virtualUnmapPage(va, 0)!=0){
+		mutex_unlock(&mutex);
 		return -1;
 	}
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType){
 	if (!pVa)
 		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	uint64_t va = 0;
 	virtualGetSpace(&va, page_cnt);
 	for (uint64_t i = 0;i<page_cnt;i++){
 		uint64_t new_ppage = (uint64_t)0;
 		if (!(map_flags&MAP_FLAG_LAZY)){
-			if (physicalAllocPage(&new_ppage, PAGE_TYPE_NORMAL)!=0)
+			if (physicalAllocPage(&new_ppage, PAGE_TYPE_NORMAL)!=0){
+				mutex_unlock(&mutex);
 				return -1;
+			}
 		}
 		uint64_t page_va = va+(PAGE_SIZE*i);
-		if (virtualMapPage(new_ppage, page_va, flags, 1, map_flags, pageType)!=0)
+		if (virtualMapPage(new_ppage, page_va, flags, 1, map_flags, pageType)!=0){
+			mutex_unlock(&mutex);	
 			return -1;
+		}
 		if ((map_flags&MAP_FLAG_LAZY))
 			continue;
 		if (physicalMapPage(new_ppage, page_va, pageType)!=0){
+			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
 	*pVa = va;
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int virtualFreePages(uint64_t va, uint64_t pagecnt){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	for (uint64_t i = 0;i<pagecnt;i++){
 		uint64_t page_va = va+(i*PAGE_SIZE);
 		if (virtualFreePage(page_va, 0)!=0){
+			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int virtualAlloc(uint64_t* pVa, uint64_t size, uint64_t flags, uint64_t map_flags, uint32_t pageType){

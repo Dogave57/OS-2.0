@@ -4,6 +4,7 @@
 #include "align.h"
 #include "bootloader.h"
 #include "panic.h"
+#include "cpu/mutex.h"
 #include "mem/pmm.h"
 uint64_t totalMemory = 0;
 uint64_t installedMemory = 0;
@@ -142,6 +143,8 @@ KAPI int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType){
 		printf("invalid free entry\r\n");
 		return -1;
 	}
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	pNewPage->status = PAGE_INUSE;
 	pNewPage->pageType = pageType;
 	pt->pUsedEntries[pt->usedEntryCnt] = pNewPage;
@@ -150,6 +153,7 @@ KAPI int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType){
 	uint64_t pa = (uint64_t)(pNewPage-pt->pPageEntries);
 	pa*=PAGE_SIZE;
 	*pPhysicalAddress = pa;
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int physicalFreePage(uint64_t physicalAddress){
@@ -159,13 +163,18 @@ KAPI int physicalFreePage(uint64_t physicalAddress){
 	struct p_page* pentry = pt->pPageEntries+pageEntry;
 	if (pentry->status==PAGE_FREE)
 		return 0;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
 	pentry->status = PAGE_FREE;
 	pt->pFreeEntries[pt->freeEntryCnt] = pentry;
 	pt->freeEntryCnt++;
 	pt->usedEntryCnt--;
 	if (pt->freeEntryCnt>pt->maxFreeEntries){
 		panic("too many free physical pages!\r\n");
+		mutex_unlock(&mutex);
+		return -1;
 	}
+	mutex_unlock(&mutex);
 	return 0;
 }
 KAPI int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType){

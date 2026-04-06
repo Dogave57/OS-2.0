@@ -719,7 +719,8 @@ struct virtio_gpu_gl_set_vertex_buffer_list_command{
 	struct virtio_gpu_gl_command_header header;
 	struct virtio_gpu_gl_vertex_buffer vertex_buffer_list[];
 }__attribute__((packed));
-struct virtio_gpu_gl_draw_vbo_command_info{
+struct virtio_gpu_gl_draw_vbo_command{
+	struct virtio_gpu_gl_command_header header;
 	uint32_t start;
 	uint32_t count;
 	uint32_t mode;
@@ -732,10 +733,6 @@ struct virtio_gpu_gl_draw_vbo_command_info{
 	uint32_t min_index;
 	uint32_t max_index;
 	uint32_t stream_output_count;
-}__attribute__((packed));
-struct virtio_gpu_gl_draw_vbo_command{
-	struct virtio_gpu_gl_command_header header;
-	struct virtio_gpu_gl_draw_vbo_command_info commandInfo;
 }__attribute__((packed));
 struct virtio_gpu_gl_clear_command{
 	struct virtio_gpu_gl_command_header header;
@@ -978,7 +975,7 @@ int virtio_gpu_gl_delete_shader_object(struct virtio_gpu_object_desc* pShaderObj
 int virtio_gpu_gl_delete_object(struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_bind_object(struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_clear(struct virtio_gpu_context_desc* pContextDesc, uint32_t buffers, struct fvec4_32 color, double depth, uint32_t stencil, struct virtio_gpu_response_header* pResponseHeader);
-int virtio_gpu_gl_draw_vbo(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_gl_draw_vbo_command_info commandInfo, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_gl_draw_vbo(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_gl_draw_vbo_command command, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_transfer_3d(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_gl_transfer_3d_command command, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_write_delete_object(struct virtio_gpu_gl_delete_object_command* pCommand, uint32_t objectId);
 int virtio_gpu_gl_write_bind_object(struct virtio_gpu_gl_bind_object_command* pCommand, uint32_t objectId, uint32_t objectType);
@@ -1022,16 +1019,12 @@ int virtio_gpu_subsystem_cmd_context_reset(uint64_t gpuId, uint64_t cmdContextId
 int virtio_gpu_subsystem_push_set_framebuffer_state_list_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_framebuffer_state_list_cmd_info* pCommandInfo);
 int virtio_gpu_subsystem_push_set_viewport_state_list_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_viewport_state_list_cmd_info* pCommandInfo);
 int virtio_gpu_subsystem_push_set_scissor_state_list_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_scissor_state_list_cmd_info* pCommandInfo);
-int virtio_gpu_subsystem_push_set_vertex_buffer_list_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_vertex_buffer_list_cmd_info* pCommandInfo);
-int virtio_gpu_subsystem_push_draw_vbo_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_draw_vbo_cmd_info* pCommandInfo);
 int virtio_gpu_subsystem_push_clear_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_clear_cmd_info* pCommandInfo);
 int virtio_gpu_subsystem_push_cmd(uint64_t gpuId, uint64_t cmdContextId, struct gpu_cmd_info_header* pCommandInfo);
 int virtio_gpu_subsystem_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmdContextId);
 int virtio_gpu_subsystem_rasterizer_state_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_rasterizer_state_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_subsystem_dsa_state_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_dsa_state_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_subsystem_blend_state_list_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_blend_state_list_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
-int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_shader_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
-int virtio_gpu_subsystem_vertex_element_list_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_vertex_element_list_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_subsystem_surface_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_surface_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_subsystem_object_create(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_create_object_info* pCreateObjectInfo);
 int virtio_gpu_subsystem_object_delete(uint64_t gpuId, uint64_t objectId);

@@ -1,7 +1,7 @@
 #include "stdlib/stdlib.h"
 #include "subsystem/subsystem.h"
 #include "mem/vmm.h"
- #include "mem/heap.h"
+#include "mem/heap.h"
 #include "crypto/random.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
@@ -274,7 +274,6 @@ int virtio_gpu_init(void){
 			printf("no VirGL support\r\n");
 			continue;
 		}
-		continue;
 /*		struct virtio_gpu_context_desc* pContextDesc = (struct virtio_gpu_context_desc*)0x0;
 		if (virtio_gpu_create_context(&pContextDesc, &responseHeader)!=0){
 			printf("failed to create virtual I/O GPU host controller context\r\n");
@@ -603,7 +602,9 @@ int virtio_gpu_init(void){
 		transferCommand.direction = VIRTIO_GPU_GL_TRANSFER_DIRECTION_H2D;
 		virtio_gpu_gl_transfer_3d(pContextDesc, transferCommand, &responseHeader);
 		virtio_gpu_resource_flush(pFramebufferResourceDesc, pScanoutInfo->resolution, &responseHeader);
-*/		uint64_t subsystemContextId = 0;
+*/
+		clear();
+		uint64_t subsystemContextId = 0;
 		if (gpu_context_create(gpuId, &subsystemContextId)!=0){
 			printf("failed to create virtual I/O GPU host controller context via GPU subsystem\r\n");
 			continue;
@@ -658,22 +659,153 @@ int virtio_gpu_init(void){
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
-		if (gpu_object_bind(gpuId, surfaceObjectId)!=0){
-			printf("failed to bind surface object via GPU subsystem\r\n");
+		struct gpu_set_framebuffer_state_list_cmd_info setFramebufferStateCmdInfo = {0};
+		memset((void*)&setFramebufferStateCmdInfo, 0, sizeof(struct gpu_set_framebuffer_state_list_cmd_info));
+		setFramebufferStateCmdInfo.header.commandType = GPU_CMD_TYPE_SET_FRAMEBUFFER_STATE_LIST;
+		setFramebufferStateCmdInfo.colorBufferCount = 1;
+		setFramebufferStateCmdInfo.color_buffer_handle_list[0] = surfaceObjectId;
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setFramebufferStateCmdInfo);
+		struct gpu_set_viewport_state_list_cmd_info setViewportStateCmdInfo = {0};
+		memset((void*)&setViewportStateCmdInfo, 0, sizeof(struct gpu_set_viewport_state_list_cmd_info));
+		struct gpu_viewport_state* pViewportState = &setViewportStateCmdInfo.viewportStateList[0];
+		setViewportStateCmdInfo.header.commandType = GPU_CMD_TYPE_SET_VIEWPORT_STATE_LIST;
+		setViewportStateCmdInfo.viewportStateCount = 1;
+		pViewportState->translate.x = ((float)pScanoutInfo->resolution.width)/2.0f;
+		pViewportState->translate.y = ((float)pScanoutInfo->resolution.height)/2.0f;
+		pViewportState->translate.z = 1.0f;
+		pViewportState->scale.x = ((float)pScanoutInfo->resolution.width)/2.0f;
+		pViewportState->scale.y = ((float)pScanoutInfo->resolution.height)/2.0f;
+		pViewportState->scale.z = 1.0f;
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setViewportStateCmdInfo);
+		struct gpu_set_scissor_state_list_cmd_info setScissorStateCmdInfo = {0};
+		memset((void*)&setScissorStateCmdInfo, 0, sizeof(struct gpu_set_scissor_state_list_cmd_info));
+		struct gpu_scissor_state* pScissorState = &setScissorStateCmdInfo.scissorStateList[0];
+		setScissorStateCmdInfo.header.commandType = GPU_CMD_TYPE_SET_SCISSOR_STATE_LIST;
+		setScissorStateCmdInfo.scissorStateCount = 1;
+		pScissorState->maxX = pScanoutInfo->resolution.width;
+		pScissorState->maxY = pScanoutInfo->resolution.height;
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setScissorStateCmdInfo);
+		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
+			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
-		struct gpu_set_framebuffer_state_cmd_info setFramebufferStateCmdInfo = {0};
-		memset((void*)&setFramebufferStateCmdInfo, 0, sizeof(struct gpu_set_framebuffer_state_cmd_info));
-		setFramebufferStateCmdInfo.header.commandType = GPU_CMD_TYPE_SET_FRAMEBUFFER_STATE;
-		setFramebufferStateCmdInfo.colorBufferCount = 1;
-		setFramebufferStateCmdInfo.color_buffer_handle_list[0] = surfaceObjectId;
-		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setFramebufferStateCmdInfo);
+		uint64_t rasterizerObjectId = 0;
+		struct gpu_create_rasterizer_state_object_info createRasterizerObjectInfo = {0};
+		memset((void*)&createRasterizerObjectInfo, 0, sizeof(struct gpu_create_rasterizer_state_object_info));
+		createRasterizerObjectInfo.header.objectType = GPU_OBJECT_TYPE_RASTERIZER_STATE;
+		createRasterizerObjectInfo.surfaceObjectId = surfaceObjectId;
+		createRasterizerObjectInfo.state.depth_clip = 1;
+		createRasterizerObjectInfo.state.scissor = 1;
+		createRasterizerObjectInfo.state.front_ccw = 1;
+		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createRasterizerObjectInfo, &rasterizerObjectId)!=0){
+			printf("failed to create GPU host controller rasterizer object via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, subsystemResourceId);
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
+		uint64_t dsaObjectId = 0;
+		struct gpu_create_dsa_state_object_info createDsaObjectInfo = {0};
+		memset((void*)&createDsaObjectInfo, 0, sizeof(struct gpu_create_dsa_state_object_info));
+		createDsaObjectInfo.header.objectType = GPU_OBJECT_TYPE_DSA_STATE;
+		createDsaObjectInfo.surfaceObjectId = surfaceObjectId;
+		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createDsaObjectInfo, &dsaObjectId)!=0){
+			printf("failed to create GPU host controller DSA state object via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, subsystemResourceId);
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
+		uint64_t blendStateListObjectId = 0;
+		struct gpu_create_blend_state_list_object_info createBlendStateListObjectInfo = {0};
+		memset((void*)&createBlendStateListObjectInfo, 0, sizeof(struct gpu_create_blend_state_list_object_info));
+		struct gpu_blend_state* pBlendState = &createBlendStateListObjectInfo.blend_state_list[0];
+		createBlendStateListObjectInfo.header.objectType = GPU_OBJECT_TYPE_BLEND_STATE_LIST;
+		createBlendStateListObjectInfo.surfaceObjectId = surfaceObjectId;
+		createBlendStateListObjectInfo.blendStateCount = 1;
+		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createBlendStateListObjectInfo, &blendStateListObjectId)!=0){
+			printf("failed to create GPU host controller blend state list object via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, subsystemResourceId);
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
+		uint64_t vertexElementListObjectId = 0;
+		struct gpu_vertex_buffer_triangle vertexBuffer = {0};
+		memset((void*)&vertexBuffer, 0, sizeof(struct gpu_vertex_buffer_triangle));
+		vertexBuffer.vertex_list[0].position.x = -0.5f;
+		vertexBuffer.vertex_list[0].position.y = -0.5;
+		vertexBuffer.vertex_list[0].position.z = 0.0f;
+		vertexBuffer.vertex_list[1].position.x = 0.0f;
+		vertexBuffer.vertex_list[1].position.y = 0.5f;
+		vertexBuffer.vertex_list[1].position.z = 0.0f;
+		vertexBuffer.vertex_list[2].position.x = 0.5f;
+		vertexBuffer.vertex_list[2].position.y = -0.5f;
+		vertexBuffer.vertex_list[2].position.z = 0.0f;
+		vertexBuffer.vertex_list[0].color.x = 1.0f;
+		vertexBuffer.vertex_list[0].color.y = 0.5f;
+		vertexBuffer.vertex_list[0].color.z = 0.5f;
+		vertexBuffer.vertex_list[0].color.w = 1.0f;
+		vertexBuffer.vertex_list[1].color.x = 1.0f;
+		vertexBuffer.vertex_list[1].color.y = 1.0f;
+		vertexBuffer.vertex_list[1].color.z = 0.75f;
+		vertexBuffer.vertex_list[1].color.w = 1.0f;
+		vertexBuffer.vertex_list[2].color.x = 0.1f;
+		vertexBuffer.vertex_list[2].color.y = 0.1f;
+		vertexBuffer.vertex_list[2].color.z = 0.5f;
+		vertexBuffer.vertex_list[2].color.w = 1.0f;
+		struct gpu_vertex_element vertexElementList[2] = {0};
+		memset((void*)&vertexElementList, 0, sizeof(struct gpu_vertex_element));
+		vertexElementList[0].vertex_buffer_index = 0;
+		vertexElementList[0].src_format = GPU_FORMAT_R32G32B32A32_FLOAT;
+		vertexElementList[1].vertex_buffer_index = 0;
+		vertexElementList[1].src_offset = sizeof(vertexBuffer.vertex_list[0].position);
+		vertexElementList[1].src_format = GPU_FORMAT_R32G32B32A32_FLOAT;
+		struct gpu_create_vertex_element_list_object_info createVertexElementListObjectInfo = {0};
+		memset((void*)&createVertexElementListObjectInfo, 0, sizeof(struct gpu_create_vertex_element_list_object_info));
+		createVertexElementListObjectInfo.header.objectType = GPU_OBJECT_TYPE_VERTEX_ELEMENT_LIST;
+		createVertexElementListObjectInfo.surfaceObjectId = surfaceObjectId;
+		createVertexElementListObjectInfo.vertexElementCount = 2;
+		createVertexElementListObjectInfo.pVertexElementList = (struct gpu_vertex_element*)vertexElementList;
+		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createVertexElementListObjectInfo, &vertexElementListObjectId)!=0){
+			printf("failed to create GPU host controller vertex element list object via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, subsystemResourceId);
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
+		uint64_t vertexShaderObjectId = 0;
+		uint64_t fragmentShaderObjectId = 0;
+		const unsigned char vertexShaderCode[]="VERT\nDCL OUT[0], POSITION\nDCL OUT[1], COLOR\nDCL IN[0]\nDCL IN[1]\nMOV OUT[0], IN[0]\nMOV OUT[1], IN[1]\nEND\n";
+		const unsigned char fragmentShaderCode[]="FRAG\nDCL OUT[0], COLOR\nDCL IN[0], COLOR, PERSPECTIVE\nMOV OUT[0], IN[0]\nEND\n";
+		struct gpu_create_shader_object_info createShaderObjectInfo = {0};
+		memset((void*)&createShaderObjectInfo, 0, sizeof(struct gpu_create_shader_object_info));
+		createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
+		createShaderObjectInfo.surfaceObjectId = surfaceObjectId;
+		createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
+		createShaderObjectInfo.pShaderCode = (unsigned char*)vertexShaderCode;
+		createShaderObjectInfo.shaderCodeSize = sizeof(vertexShaderCode);
+		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
+			printf("failed to create GPU host controller vertex shader object via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, subsystemResourceId);
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
+		createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
+		createShaderObjectInfo.pShaderCode = (unsigned char*)fragmentShaderCode;
+		createShaderObjectInfo.shaderCodeSize = sizeof(fragmentShaderCode);
+		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &fragmentShaderObjectId)!=0){
+			printf("failed to create GPU host controller fragment shader object via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, subsystemResourceId);
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
+		gpu_cmd_context_reset(gpuId, cmdContextId);
 		struct gpu_clear_cmd_info clearCmdInfo = {0};
 		memset((void*)&clearCmdInfo, 0, sizeof(struct gpu_clear_cmd_info));
 		clearCmdInfo.header.commandType = GPU_CMD_TYPE_CLEAR;
-		clearCmdInfo.color.x = 1.0f;
+		clearCmdInfo.color.x = 0.25f;
+		clearCmdInfo.color.y = 0.25f;
+		clearCmdInfo.color.z = 0.25f;
+		clearCmdInfo.color.w = 1.0f;
 		clearCmdInfo.depth = 1.0;
 		clearCmdInfo.buffers = (1<<0)|(1<<2);
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
@@ -683,19 +815,138 @@ int virtio_gpu_init(void){
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}	
+		uint64_t vertexBufferResourceId = 0;
+		struct gpu_vertex_buffer_triangle* pVertexBuffer = (struct gpu_vertex_buffer_triangle*)0x0;
+		if (virtualAllocPage((uint64_t*)&pVertexBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+			printf("failed to allocate physical page for GPU host controller vertex buffer\r\n");
+			continue;
+		}
+		*pVertexBuffer = vertexBuffer;
+		memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
+		createResourceInfo.resourceInfo.contextId = subsystemContextId;
+		createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
+		createResourceInfo.resourceInfo.format = GPU_FORMAT_R32G32B32A32_FLOAT;
+		createResourceInfo.resourceInfo.format = 64;
+		createResourceInfo.resourceInfo.width = sizeof(struct gpu_vertex_buffer_triangle);
+		createResourceInfo.resourceInfo.height = 1;
+		createResourceInfo.resourceInfo.depth = 1;
+		createResourceInfo.resourceInfo.arraySize = 1;
+		createResourceInfo.resourceInfo.target = GPU_TARGET_BUFFER;
+		createResourceInfo.resourceInfo.bind = GPU_BIND_VERTEX_BUFFER;
+		if (gpu_resource_create(gpuId, createResourceInfo, &vertexBufferResourceId)!=0){
+			printf("failed to create GPU host controller vertex buffer object resource via GPU subsystem\r\n");
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		if (gpu_context_attach_resource(gpuId, subsystemContextId, vertexBufferResourceId)!=0){
+			printf("failed to attach GPU host controller vertex buffer resource to context via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		if (gpu_resource_attach_backing(gpuId, vertexBufferResourceId, (unsigned char*)pVertexBuffer, sizeof(struct gpu_vertex_buffer_triangle))!=0){
+			printf("failed to attach physical pages to GPU host controller vertex bufefr object resource via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		struct gpu_transfer_to_device_info transferToDeviceInfo = {0};
+		memset((void*)&transferToDeviceInfo, 0, sizeof(struct gpu_transfer_to_device_info));
+		transferToDeviceInfo.boxRect.width = sizeof(struct gpu_vertex_buffer_triangle);
+		transferToDeviceInfo.boxRect.height = 1;
+		transferToDeviceInfo.boxRect.depth = 1;
+		if (gpu_transfer_to_device(gpuId, vertexBufferResourceId, transferToDeviceInfo)!=0){
+			printf("failed to transfer vertex buffer data to GPU host controller resource via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		gpu_cmd_context_reset(gpuId, cmdContextId);
+		struct gpu_set_vertex_buffer_list_cmd_info setVertexBufferListCmdInfo = {0};
+		memset((void*)&setVertexBufferListCmdInfo, 0, sizeof(struct gpu_set_vertex_buffer_list_cmd_info));
+		struct gpu_vertex_buffer* pVertexBufferEntry = (struct gpu_vertex_buffer*)setVertexBufferListCmdInfo.vertex_buffer_list;
+		pVertexBufferEntry->stride = sizeof(struct gpu_vertex_buffer_triangle);
+		pVertexBufferEntry->resource_id = vertexBufferResourceId;
+		setVertexBufferListCmdInfo.header.commandType = GPU_CMD_TYPE_SET_VERTEX_BUFFER_LIST;
+		setVertexBufferListCmdInfo.vertexBufferCount = 1;
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setVertexBufferListCmdInfo);
+		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
+			printf("failed to submit GPU host controller set vertex buffer list command\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		if (gpu_object_bind(gpuId, rasterizerObjectId)!=0){
+			printf("failed to bind GPU host controller rasterizer state object\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		if (gpu_object_bind(gpuId, dsaObjectId)!=0){
+			printf("failed to bind GPU host controller DSA state object\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		if (gpu_object_bind(gpuId, blendStateListObjectId)!=0){
+			printf("failed to bind GPU host controller blend state list object\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		if (gpu_object_bind(gpuId, vertexElementListObjectId)!=0){
+			printf("faield to bind GPU host controller vertex element list object\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		if (gpu_object_bind(gpuId, vertexShaderObjectId)!=0){
+			printf("failed to bind GPU host controller vertex shader object\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		if (gpu_object_bind(gpuId, fragmentShaderObjectId)!=0){
+			printf("failed to bind GPU host controller fragment shader object\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
+		gpu_cmd_context_reset(gpuId, cmdContextId);
+		struct gpu_draw_vbo_cmd_info drawVboCmdInfo = {0};
+		memset((void*)&drawVboCmdInfo, 0, sizeof(struct gpu_draw_vbo_cmd_info));
+		drawVboCmdInfo.header.commandType = GPU_CMD_TYPE_DRAW_VBO;
+		drawVboCmdInfo.count = 3;
+		drawVboCmdInfo.mode = GPU_PRIMITIVE_TRIANGLES;
+		drawVboCmdInfo.instance_count = 1;
+		drawVboCmdInfo.max_index = drawVboCmdInfo.count-1;
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&drawVboCmdInfo);
+		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
+			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
+		}
 		pMonitorDesc->surfaceObjectId = surfaceObjectId;
 		pMonitorDesc->contextId = subsystemContextId;
 		pMonitorDesc->resourceId = subsystemResourceId;
-		for (uint64_t i = 0;i<framebufferSize/sizeof(struct uvec4_8);i++){
-			struct uvec4_8* pPixel = pFramebuffer+i;
-			struct uvec4_8 pixel = {0};
-			pixel.x = 255;
-			pixel.y = 0;
-			pixel.z = 255;
-			pixel.w = 0;
-			*pPixel = pixel;
+		if (gpu_set_scanout(monitorId, subsystemResourceId)!=0){
+			printf("failed to set virtual I/O GPU host controller scanout via GPU subsystem\r\n");
+			gpu_resource_delete(gpuId, vertexBufferResourceId);
+			virtualFreePage((uint64_t)pVertexBuffer, 0);
+			continue;
 		}
-		struct gpu_transfer_to_device_info transferToDeviceInfo = {0};
+		gpu_resource_delete(gpuId, vertexBufferResourceId);
+		virtualFreePage((uint64_t)pVertexBuffer, 0);
+		struct gpu_transfer_from_device_info transferFromDeviceInfo = {0};
+		memset((void*)&transferFromDeviceInfo, 0, sizeof(struct gpu_transfer_from_device_info));
+		transferFromDeviceInfo.boxRect.width = subsystemCreateResourceInfo.resourceInfo.width;
+		transferFromDeviceInfo.boxRect.height = subsystemCreateResourceInfo.resourceInfo.height;
+		transferFromDeviceInfo.boxRect.depth = 1;
+		if (gpu_transfer_from_device(gpuId, subsystemResourceId, transferFromDeviceInfo)!=0){
+			printf("failed to transfer resource data from virtual I/O GPU host controller via GPU subsystem\r\n");
+			continue;
+		}
 		memset((void*)&transferToDeviceInfo, 0, sizeof(struct gpu_transfer_to_device_info));
 		transferToDeviceInfo.boxRect.width = subsystemCreateResourceInfo.resourceInfo.width;
 		transferToDeviceInfo.boxRect.height = subsystemCreateResourceInfo.resourceInfo.height;
@@ -718,19 +969,12 @@ int virtio_gpu_init(void){
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
-		if (gpu_set_scanout(monitorId, subsystemResourceId)!=0){
-			printf("failed to set virtual I/O GPU host controller csanout via GPU subsystem\r\n");
-			gpu_resource_delete(gpuId, subsystemResourceId);	
-			gpu_context_delete(gpuId, subsystemContextId);
-			continue;
-		}
 		if (gpu_cmd_context_deinit(gpuId, cmdContextId)!=0){
 			printf("failed to deinitialize command context via GPU subsystem\r\n");
 			gpu_resource_delete(gpuId, subsystemResourceId);
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
-		while (1){};
 	}
 	virtualFreePage((uint64_t)pDisplayInfo, 0);
 	return 0;
@@ -1850,7 +2094,6 @@ int virtio_gpu_submit(struct virtio_gpu_submit_3d_command* pCommandBuffer, struc
 	}
 	virtio_gpu_queue_yield_until_response(&commandDesc);
 	struct virtio_gpu_response_header responseHeader = *pResponseBuffer;
-	virtualFreePage((uint64_t)pCommandBuffer, 0);
 	virtualFreePage((uint64_t)pResponseBuffer, 0);	
 	*pResponseHeader = responseHeader;
 	mutex_unlock(&mutex);
@@ -2055,8 +2298,8 @@ int virtio_gpu_gl_set_framebuffer_state(struct virtio_gpu_context_desc* pContext
 	memset_32((void*)pCommandBuffer, 0, sizeof(struct virtio_gpu_submit_3d_command));
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
 	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
-	struct virtio_gpu_gl_set_framebuffer_state_command* pCommand = (struct virtio_gpu_gl_set_framebuffer_state_command*)pCommandBuffer->command_data;
-	virtio_gpu_gl_write_set_framebuffer_state(pCommand, colorBufferCount, depthStencilHandle, pColorBufferHandleList);
+	struct virtio_gpu_gl_set_framebuffer_state_list_command* pCommand = (struct virtio_gpu_gl_set_framebuffer_state_list_command*)pCommandBuffer->command_data;
+	virtio_gpu_gl_write_set_framebuffer_state_list(pCommand, colorBufferCount, depthStencilHandle, pColorBufferHandleList);
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
 		printf("failed to submit VirGL command list to virtual I/O GPU host controller\r\n");
@@ -2240,17 +2483,19 @@ int virtio_gpu_gl_bind_object(struct virtio_gpu_object_desc* pObjectDesc, struct
 	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_command_header* pCommand = (struct virtio_gpu_gl_command_header*)pCommandBuffer->command_data;
 	switch (pObjectDesc->objectType){
-		case VIRTIO_GPU_GL_OBJECT_TYPE_SHADER:
-		struct virtio_gpu_shader_object_desc* pShaderObjectDesc = (struct virtio_gpu_shader_object_desc*)pObjectDesc->pExtra;
-		if (!pShaderObjectDesc){
-			mutex_unlock(&mutex);
-			return -1;
+		case VIRTIO_GPU_GL_OBJECT_TYPE_SHADER:{
+			struct virtio_gpu_shader_object_desc* pShaderObjectDesc = (struct virtio_gpu_shader_object_desc*)pObjectDesc->pExtra;
+			if (!pShaderObjectDesc){
+				mutex_unlock(&mutex);
+				return -1;
+			}
+			virtio_gpu_gl_write_bind_shader_object((struct virtio_gpu_gl_bind_shader_object_command*)pCommand, pObjectDesc->objectId, pShaderObjectDesc->shaderType);
+			break;
 		}
-		virtio_gpu_gl_write_bind_shader_object((struct virtio_gpu_gl_bind_shader_object_command*)pCommand, pObjectDesc->objectId, pShaderObjectDesc->shaderType);
-		break;
-		default:
-		virtio_gpu_gl_write_bind_object((struct virtio_gpu_gl_bind_object_command*)pCommand, pObjectDesc->objectId, pObjectDesc->objectType);
-		break;
+		default:{
+			virtio_gpu_gl_write_bind_object((struct virtio_gpu_gl_bind_object_command*)pCommand, pObjectDesc->objectId, pObjectDesc->objectType);
+			break;
+		}
 	}
 	pCommandBuffer->size = (pCommand->length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
@@ -2290,7 +2535,7 @@ int virtio_gpu_gl_clear(struct virtio_gpu_context_desc* pContextDesc, uint32_t b
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_gl_draw_vbo(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_gl_draw_vbo_command command, struct virtio_gpu_response_header* pResponseHeader){
+int virtio_gpu_gl_draw_vbo(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_gl_draw_vbo_command_info commandInfo, struct virtio_gpu_response_header* pResponseHeader){
 	if (!pContextDesc||!pResponseHeader)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -2304,9 +2549,10 @@ int virtio_gpu_gl_draw_vbo(struct virtio_gpu_context_desc* pContextDesc, struct 
 	pCommandBuffer->commandHeader.type = VIRTIO_GPU_CMD3D_SUBMIT_3D;
 	pCommandBuffer->commandHeader.context_id = pContextDesc->contextId;
 	struct virtio_gpu_gl_draw_vbo_command* pCommand = (struct virtio_gpu_gl_draw_vbo_command*)pCommandBuffer->command_data;
-	*pCommand = command;
 	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_DRAW_VBO;
 	pCommand->header.length = 12;
+	pCommand->header.object_type = 0;
+	pCommand->commandInfo = commandInfo;
 	pCommandBuffer->size = (pCommand->header.length+1)*sizeof(uint32_t);
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
 		printf("failed to submit VirGL command list to virtual I/O GPU host controller\r\n");
@@ -2438,12 +2684,12 @@ int virtio_gpu_gl_write_create_blend_object(struct virtio_gpu_gl_create_blend_ob
 	memcpy((void*)pCommand->blend_state_list, (void*)pBlendStateList, blendStateCount*sizeof(struct virtio_gpu_gl_blend_state));
 	return 0;
 }
-int virtio_gpu_gl_write_set_framebuffer_state(struct virtio_gpu_gl_set_framebuffer_state_command* pCommand, uint32_t colorBufferCount, uint32_t depthStencilHandle, uint32_t* pColorBufferHandleList){
+int virtio_gpu_gl_write_set_framebuffer_state_list(struct virtio_gpu_gl_set_framebuffer_state_list_command* pCommand, uint32_t colorBufferCount, uint32_t depthStencilHandle, uint32_t* pColorBufferHandleList){
 	if (!pCommand||!colorBufferCount||!pColorBufferHandleList)
 		return -1;
 	if (colorBufferCount>8)
 		return -1;
-	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_SET_FRAMEBUFFER_STATE;
+	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_SET_FRAMEBUFFER_STATE_LIST;
 	pCommand->header.object_type = 0;
 	pCommand->header.length = 2+colorBufferCount;
 	pCommand->color_buffer_count = colorBufferCount;
@@ -2454,7 +2700,7 @@ int virtio_gpu_gl_write_set_framebuffer_state(struct virtio_gpu_gl_set_framebuff
 int virtio_gpu_gl_write_set_viewport_state_list(struct virtio_gpu_gl_set_viewport_state_list_command* pCommand, uint32_t startSlot, uint64_t viewportStateCount, struct virtio_gpu_gl_viewport_state* pViewportStateList){
 	if (!pCommand||!pViewportStateList)
 		return -1;
-	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_SET_VIEWPORT_STATE;
+	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_SET_VIEWPORT_STATE_LIST;
 	pCommand->header.object_type = 0;
 	pCommand->header.length = 1+(6*viewportStateCount);
 	pCommand->start_slot = startSlot;	
@@ -2464,7 +2710,7 @@ int virtio_gpu_gl_write_set_viewport_state_list(struct virtio_gpu_gl_set_viewpor
 int virtio_gpu_gl_write_set_scissor_state_list(struct virtio_gpu_gl_set_scissor_state_list_command* pCommand, uint32_t startSlot, uint32_t scissorStateCount, struct virtio_gpu_gl_scissor_state* pScissorStateList){
 	if (!pCommand||!pScissorStateList)
 		return -1;
-	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_SET_SCISSOR_STATE;
+	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_SET_SCISSOR_STATE_LIST;
 	pCommand->header.object_type = 0x0;
 	pCommand->header.length = 1+(scissorStateCount*2);
 	pCommand->start_slot = startSlot;
@@ -2580,7 +2826,7 @@ int virtio_gpu_cmd_context_get_current_cmd(struct virtio_gpu_cmd_context_desc* p
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	unsigned char* pCurrentCommand = pCmdContextDesc->pCommandBuffer->command_data+pCmdContextDesc->currentCommandOffset;
+	unsigned char* pCurrentCommand = ((unsigned char*)pCmdContextDesc->pCommandBuffer->command_data)+pCmdContextDesc->currentCommandOffset;
 	*ppCurrentCommand = pCurrentCommand;
 	mutex_unlock(&mutex);
 	return 0;
@@ -3305,14 +3551,65 @@ int virtio_gpu_subsystem_cmd_context_reset(uint64_t gpuId, uint64_t cmdContextId
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_subsystem_set_framebuffer_state_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_framebuffer_state_cmd_info* pCommandInfo){
+int virtio_gpu_subsystem_push_set_framebuffer_state_list_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_framebuffer_state_list_cmd_info* pCommandInfo){
 	if (!pGpuDesc||!pCmdContextDesc||!pCommandInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct virtio_gpu_gl_set_framebuffer_state_command* pGlCommand = (struct virtio_gpu_gl_set_framebuffer_state_command*)0x0;
+	struct virtio_gpu_gl_set_framebuffer_state_list_command* pGlCommand = (struct virtio_gpu_gl_set_framebuffer_state_list_command*)0x0;
 	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
-	virtio_gpu_gl_write_set_framebuffer_state(pGlCommand, pCommandInfo->colorBufferCount, pCommandInfo->depthStencilHandle, (uint32_t*)pCommandInfo->color_buffer_handle_list);
+	virtio_gpu_gl_write_set_framebuffer_state_list(pGlCommand, pCommandInfo->colorBufferCount, pCommandInfo->depthStencilHandle, (uint32_t*)pCommandInfo->color_buffer_handle_list);
+	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_push_set_viewport_state_list_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_viewport_state_list_cmd_info* pCommandInfo){
+	if (!pGpuDesc||!pCmdContextDesc||!pCommandInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct virtio_gpu_gl_set_viewport_state_list_command* pGlCommand = (struct virtio_gpu_gl_set_viewport_state_list_command*)0x0;
+	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
+	virtio_gpu_gl_write_set_viewport_state_list(pGlCommand, pCommandInfo->startSlot, pCommandInfo->viewportStateCount, (struct virtio_gpu_gl_viewport_state*)pCommandInfo->viewportStateList);
+	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_push_set_scissor_state_list_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_scissor_state_list_cmd_info* pCommandInfo){
+	if (!pGpuDesc||!pCmdContextDesc||!pCommandInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct virtio_gpu_gl_set_scissor_state_list_command* pGlCommand = (struct virtio_gpu_gl_set_scissor_state_list_command*)0x0;
+	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
+	virtio_gpu_gl_write_set_scissor_state_list(pGlCommand, pCommandInfo->startSlot, pCommandInfo->scissorStateCount, (struct virtio_gpu_gl_scissor_state*)pCommandInfo->scissorStateList);
+	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_push_set_vertex_buffer_list_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_vertex_buffer_list_cmd_info* pCommandInfo){
+	if (!pGpuDesc||!pCmdContextDesc||!pCommandInfo)
+		return-1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct virtio_gpu_gl_set_vertex_buffer_list_command* pGlCommand = (struct virtio_gpu_gl_set_vertex_buffer_list_command*)0x0;
+	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
+	virtio_gpu_gl_write_set_vertex_buffer_list(pGlCommand, pCommandInfo->vertexBufferCount, (struct virtio_gpu_gl_vertex_buffer*)pCommandInfo->vertex_buffer_list);
+	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_push_draw_vbo_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_draw_vbo_cmd_info* pCommandInfo){
+	if (!pGpuDesc||!pCommandInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct virtio_gpu_gl_draw_vbo_command* pGlCommand = (struct virtio_gpu_gl_draw_vbo_command*)0x0;
+	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
+	pGlCommand->header.opcode = VIRTIO_GPU_GL_CMD_DRAW_VBO;
+	pGlCommand->header.length = 12;
+	pGlCommand->header.object_type = 0;
+	pGlCommand->commandInfo = *(struct virtio_gpu_gl_draw_vbo_command_info*)((&pCommandInfo->header)+1);
 	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
 	mutex_unlock(&mutex);
 	return 0;
@@ -3333,7 +3630,11 @@ int virtio_gpu_subsystem_push_cmd(uint64_t gpuId, uint64_t cmdContextId, struct 
 	if (!pCommandInfo)
 		return -1;
 	static const virtioGpuPushCmdFunc pushCmdVtable[]={
-		[GPU_CMD_TYPE_SET_FRAMEBUFFER_STATE]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_set_framebuffer_state_cmd,
+		[GPU_CMD_TYPE_SET_FRAMEBUFFER_STATE_LIST]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_set_framebuffer_state_list_cmd,
+		[GPU_CMD_TYPE_SET_VIEWPORT_STATE_LIST]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_set_viewport_state_list_cmd,
+		[GPU_CMD_TYPE_SET_SCISSOR_STATE_LIST]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_set_scissor_state_list_cmd,
+		[GPU_CMD_TYPE_SET_VERTEX_BUFFER_LIST]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_set_vertex_buffer_list_cmd,
+		[GPU_CMD_TYPE_DRAW_VBO]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_draw_vbo_cmd,
 		[GPU_CMD_TYPE_CLEAR]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_clear_cmd,
 	};
 	uint64_t commandType = pCommandInfo->commandType;
@@ -3426,8 +3727,139 @@ int virtio_gpu_subsystem_cmd_context_submit(uint64_t gpuId, uint64_t contextId, 
 	mutex_unlock(&mutex);
 	return 0;
 }
+int virtio_gpu_subsystem_rasterizer_state_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_rasterizer_state_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pContextDesc||!pCreateObjectInfo||!pObjectDesc||!pResponseHeader)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_object_desc* pSubsystemSurfaceObjectDesc = (struct gpu_object_desc*)0x0;
+	if (gpu_object_get_desc(gpuInfo.gpuId, pCreateObjectInfo->surfaceObjectId, &pSubsystemSurfaceObjectDesc)!=0){
+		printf("failed to get GPU host controller surface object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_object_desc* pSurfaceObjectDesc = (struct virtio_gpu_object_desc*)pSubsystemSurfaceObjectDesc->extra;
+	if (!pSurfaceObjectDesc){
+		printf("GPU subsystem surface object descriptor not linked with virtual I/O GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (virtio_gpu_gl_create_rasterizer_object(pSurfaceObjectDesc, *(struct virtio_gpu_gl_rasterizer_state*)&pCreateObjectInfo->state, pObjectDesc, pResponseHeader)!=0){
+		printf("failed to create virtual I/O GPU host controller rasterizer state object\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_dsa_state_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_dsa_state_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pContextDesc||!pCreateObjectInfo||!pObjectDesc||!pResponseHeader)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_object_desc* pSubsystemSurfaceObjectDesc = (struct gpu_object_desc*)0x0;
+	if (gpu_object_get_desc(gpuInfo.gpuId, pCreateObjectInfo->surfaceObjectId, &pSubsystemSurfaceObjectDesc)!=0){
+		printf("failed to get GPU host controller surface object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_object_desc* pSurfaceObjectDesc = (struct virtio_gpu_object_desc*)pSubsystemSurfaceObjectDesc->extra;
+	if (!pSurfaceObjectDesc){
+		printf("GPU subsystem surface object descriptor not linked with virtual I/O GPU host controller surface object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (virtio_gpu_gl_create_dsa_object(pSurfaceObjectDesc, *(struct virtio_gpu_gl_dsa_state*)&pCreateObjectInfo->state, pObjectDesc, pResponseHeader)!=0){
+		printf("failed to create virtual I/O GPU host controller DSA state object\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_blend_state_list_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_blend_state_list_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header*pResponseHeader){
+	if (!pContextDesc||!pCreateObjectInfo||!pObjectDesc||!pResponseHeader)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_object_desc* pSubsystemSurfaceObjectDesc = (struct gpu_object_desc*)0x0;
+	if (gpu_object_get_desc(gpuInfo.gpuId, pCreateObjectInfo->surfaceObjectId, &pSubsystemSurfaceObjectDesc)!=0){
+		printf("failed to get GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_object_desc* pSurfaceObjectDesc = (struct virtio_gpu_object_desc*)pSubsystemSurfaceObjectDesc->extra;
+	if (!pSurfaceObjectDesc){
+		printf("GPU subsystem surface object descriptor not linked with virtual I/O GPU host controller surface object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (virtio_gpu_gl_create_blend_object(pSurfaceObjectDesc, 0x0, 0x0, pCreateObjectInfo->blendStateCount, (struct virtio_gpu_gl_blend_state*)pCreateObjectInfo->blend_state_list, pObjectDesc, pResponseHeader)!=0){
+		printf("failed to create virtual I/O GPU host controller blend state list object\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_shader_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pContextDesc||!pCreateObjectInfo||!pObjectDesc||!pResponseHeader)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_object_desc* pSubsystemSurfaceObjectDesc = (struct gpu_object_desc*)0x0;
+	if (gpu_object_get_desc(gpuInfo.gpuId, pCreateObjectInfo->surfaceObjectId, &pSubsystemSurfaceObjectDesc)!=0){
+		printf("failed to get GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_object_desc* pSurfaceObjectDesc = (struct virtio_gpu_object_desc*)pSubsystemSurfaceObjectDesc->extra;
+	if (!pSurfaceObjectDesc){
+		printf("GPU subsystem surface object descriptor not linked with virtual I/O GPU host controller surface object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_create_shader_info createShaderInfo = {0};
+	memset((void*)&createShaderInfo, 0, sizeof(struct virtio_gpu_create_shader_info));
+	createShaderInfo.pShaderCode = pCreateObjectInfo->pShaderCode;
+	createShaderInfo.shaderCodeSize = pCreateObjectInfo->shaderCodeSize;
+	createShaderInfo.tokenCount = pCreateObjectInfo->shaderCodeSize;
+	createShaderInfo.shaderType = pCreateObjectInfo->shaderType;
+	if (virtio_gpu_gl_create_shader_object(pSurfaceObjectDesc, createShaderInfo, pObjectDesc, pResponseHeader)!=0){
+		printf("failed to create virtual I/O GPU host controller shader object\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_vertex_element_list_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_vertex_element_list_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
+	if (!pContextDesc||!pCreateObjectInfo||!pObjectDesc||!pResponseHeader)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_object_desc* pSubsystemSurfaceObjectDesc = (struct gpu_object_desc*)0x0;
+	if (gpu_object_get_desc(gpuInfo.gpuId, pCreateObjectInfo->surfaceObjectId, &pSubsystemSurfaceObjectDesc)!=0){
+		printf("failed to get GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_object_desc* pSurfaceObjectDesc = (struct virtio_gpu_object_desc*)pSubsystemSurfaceObjectDesc->extra;
+	if (!pSurfaceObjectDesc){
+		printf("GPU subsystem surface object descriptor not linked with virtual I/O GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (virtio_gpu_gl_create_vertex_element_list_object(pSurfaceObjectDesc, pCreateObjectInfo->vertexElementCount, (struct virtio_gpu_gl_vertex_element*)pCreateObjectInfo->pVertexElementList, pObjectDesc, pResponseHeader)!=0){
+		printf("failed to create virtual I/O GPU host controller vertex element list object\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
 int virtio_gpu_subsystem_surface_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_surface_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
-	if (!pContextDesc||!pCreateObjectInfo||!pResponseHeader)
+	if (!pContextDesc||!pCreateObjectInfo||!pObjectDesc||!pResponseHeader)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -3482,7 +3914,12 @@ int virtio_gpu_subsystem_object_create(uint64_t gpuId, uint64_t contextId, uint6
 	}
 	uint64_t objectType = pCreateObjectInfo->header.objectType;
 	static virtioGpuSubsystemCreateObjectFunc createObjectFuncList[]={
+		[GPU_OBJECT_TYPE_RASTERIZER_STATE]=(virtioGpuSubsystemCreateObjectFunc)virtio_gpu_subsystem_rasterizer_state_object_create,
+		[GPU_OBJECT_TYPE_DSA_STATE]=(virtioGpuSubsystemCreateObjectFunc)virtio_gpu_subsystem_dsa_state_object_create,
+		[GPU_OBJECT_TYPE_SHADER]=(virtioGpuSubsystemCreateObjectFunc)virtio_gpu_subsystem_shader_object_create,
+		[GPU_OBJECT_TYPE_VERTEX_ELEMENT_LIST]=(virtioGpuSubsystemCreateObjectFunc)virtio_gpu_subsystem_vertex_element_list_object_create,
 		[GPU_OBJECT_TYPE_SURFACE]=(virtioGpuSubsystemCreateObjectFunc)virtio_gpu_subsystem_surface_object_create,
+		[GPU_OBJECT_TYPE_BLEND_STATE_LIST]=(virtioGpuSubsystemCreateObjectFunc)virtio_gpu_subsystem_blend_state_list_object_create,
 	};
 	if (!objectType||objectType>sizeof(createObjectFuncList)/sizeof(virtioGpuSubsystemCreateObjectFunc)){
 		printf("invalid or unsupported object type: 0x%x\r\n", objectType);
@@ -3502,6 +3939,7 @@ int virtio_gpu_subsystem_object_create(uint64_t gpuId, uint64_t contextId, uint6
 		return -1;
 	}
 	memset((void*)pObjectDesc, 0, sizeof(struct virtio_gpu_object_desc));
+	pObjectDesc->objectId = objectId;
 	pObjectDesc->objectType = objectType;
 	pObjectDesc->pContextDesc = pContextDesc;
 	struct virtio_gpu_response_header responseHeader = {0};
@@ -4011,15 +4449,32 @@ int virtio_gpu_subsystem_transfer_from_device(uint64_t gpuId, uint64_t resourceI
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	if (pResourceDesc->resourceType!=VIRTIO_GPU_RESOURCE_TYPE_3D){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_context_desc* pContextDesc = pResourceDesc->pContextDesc;
+	if (!pContextDesc){
+		printf("virtual I/O GPU host controller resource descriptor not attached to virtual I/O GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct virtio_gpu_gl_transfer_3d_command transferCommand = {0};
+	memset((void*)&transferCommand, 0, sizeof(struct virtio_gpu_gl_transfer_3d_command));
 	struct virtio_gpu_box boxRect = {0};
+	memset((void*)&boxRect, 0, sizeof(struct virtio_gpu_box));
 	boxRect.x = transferInfo.boxRect.x;
 	boxRect.y = transferInfo.boxRect.y;
 	boxRect.z = transferInfo.boxRect.z;
 	boxRect.width = transferInfo.boxRect.width;
 	boxRect.height = transferInfo.boxRect.height;
 	boxRect.depth = transferInfo.boxRect.depth;
+	transferCommand.resource_id = pResourceDesc->resourceId;
+	transferCommand.transfer_type = VIRTIO_GPU_GL_TRANSFER_READ;
+	transferCommand.direction = VIRTIO_GPU_GL_TRANSFER_DIRECTION_D2H;
+	transferCommand.box_rect = boxRect;
 	struct virtio_gpu_response_header responseHeader = {0};
-	if (virtio_gpu_transfer_d2h_3d(pResourceDesc, boxRect, transferInfo.offset, &responseHeader)!=0){
+	if (virtio_gpu_gl_transfer_3d(pContextDesc, transferCommand, &responseHeader)!=0){
 		printf("failed to transfer virtual I/O GPU host controller resource data to host physical pages\r\n");
 		mutex_unlock(&mutex);
 		return -1;
