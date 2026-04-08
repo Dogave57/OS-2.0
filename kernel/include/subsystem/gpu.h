@@ -75,6 +75,11 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_PRIMITIVE_LINES_ADJACENCY (0x0A)
 #define GPU_PRIMITIVE_LINE_STRIP_ADJACENCY (0x0B)
 
+#define GPU_POLYGON_MODE_FILL (0x00)
+#define GPU_POLYGON_MODE_LINE (0x01)
+#define GPU_POLYGON_MODE_POINT (0x02)
+#define GPU_POLYGON_MODE_FILL_RECT (0x03)
+
 #define GPU_RESOURCE_TYPE_INVALID (0x00)
 #define GPU_RESOURCE_TYPE_2D (0x01)
 #define GPU_RESOURCE_TYPE_3D (0x02)
@@ -92,13 +97,46 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FUNC_GEQUAL (0x06)
 #define GPU_FUNC_ALWAYS (0x07)
 
+#define GPU_BLEND_ADD (0x00)
+#define GPU_BLEND_SUB (0x01)
+#define GPU_BLEND_REVERSE_SUB (0x02)
+#define GPU_BLEND_MIN (0x03)
+#define GPU_BLEND_MAX (0x04)
+
+#define GPU_BLENDFACTOR_ONE (0x01)
+#define GPU_BLENDFACTOR_SRC_COLOR (0x02)
+#define GPU_BLENDFACTOR_SRC_ALPHA (0x03)
+#define GPU_BLENDFACTOR_DEST_ALPHA (0x04)
+#define GPU_BLENDFACTOR_DEST_COLOR (0x05)
+#define GPU_BLENDFACTOR_SRC_ALPHA_SATURATE (0x06)
+#define GPU_BLENDFACTOR_CONST_COLOR (0x07)
+#define GPU_BLENDFACTOR_CONST_ALPHA (0x08)
+#define GPU_BLENDFACTOR_SRC1_COLOR (0x09)
+#define GPU_BLENDFACTOR_SRC1_ALPHA (0x0A)
+#define GPU_BLENDFACTOR_ZERO (0x11)
+#define GPU_BLENDFACTOR_INV_SRC_COLOR (0x12)
+#define GPU_BLENDFACTOR_INV_SRC_ALPHA (0x13)
+#define GPU_BLENDFACTOR_INV_DEST_ALPHA (0x14)
+#define GPU_BLENDFACTOR_INV_DEST_COLOR (0x15)
+#define GPU_BLENDFACTOR_INV_CONST_COLOR (0x17)
+#define GPU_BLENDFACTOR_INV_CONST_ALPHA (0x18)
+#define GPU_BLENDFACTOR_INV_SRC1_COLOR (0x19)
+#define GPU_BLENDFACTOR_INV_SRC1_ALPHA (0x1A)
+
+#define GPU_COLOR_MASK_INVALID (0x00)
+#define GPU_COLOR_MASK_R (0x01)
+#define GPU_COLOR_MASK_G (0x02)
+#define GPU_COLOR_MASK_B (0x04)
+#define GPU_COLOR_MASK_A (0x08)
+#define GPU_COLOR_MASK_RGBA (0x0F)
+
 #define GPU_CMD_TYPE_INVALID (0x00)
 #define GPU_CMD_TYPE_SET_FRAMEBUFFER_STATE_LIST (0x01)
 #define GPU_CMD_TYPE_SET_VIEWPORT_STATE_LIST (0x02)
 #define GPU_CMD_TYPE_SET_SCISSOR_STATE_LIST (0x03)
-#define GPU_CMD_TYPE_SET_VERTEX_BUFFER_LIST (0x04)
-#define GPU_CMD_TYPE_DRAW_VBO (0x05)
-#define GPU_CMD_TYPE_CLEAR (0x06)
+#define GPU_CMD_TYPE_SET_VERTEX_BUFFER_LIST (0x05)
+#define GPU_CMD_TYPE_DRAW_VBO (0x06)
+#define GPU_CMD_TYPE_CLEAR (0x07)
 
 #define GPU_OBJECT_TYPE_INVALID (0x00)
 #define GPU_OBJECT_TYPE_BLEND_STATE_LIST (0x01)
@@ -177,29 +215,29 @@ struct gpu_set_framebuffer_state_list_cmd_info{
 	struct gpu_cmd_info_header header;
 	uint32_t colorBufferCount;
 	uint32_t depthStencilHandle;
-	uint32_t color_buffer_handle_list[8];
+	uint32_t* pColorBufferHandleList;
 };
 struct gpu_viewport_state{
 	struct fvec3_32 scale;
 	struct fvec3_32 translate;
-};
+}__attribute__((packed));
 struct gpu_set_viewport_state_list_cmd_info{
 	struct gpu_cmd_info_header header;
 	uint64_t startSlot;
 	uint64_t viewportStateCount;
-	struct gpu_viewport_state viewportStateList[1];
+	struct gpu_viewport_state* pViewportStateList;
 };
 struct gpu_scissor_state{
 	uint16_t minX;	
 	uint16_t minY;
 	uint16_t maxX;
 	uint16_t maxY;
-};
+}__attribute__((packed));
 struct gpu_set_scissor_state_list_cmd_info{
 	struct gpu_cmd_info_header header;
 	uint64_t startSlot;
 	uint64_t scissorStateCount;
-	struct gpu_scissor_state scissorStateList[1];
+	struct gpu_scissor_state* pScissorStateList;
 };
 struct gpu_vertex_buffer{
 	uint32_t stride;
@@ -209,10 +247,9 @@ struct gpu_vertex_buffer{
 struct gpu_set_vertex_buffer_list_cmd_info{
 	struct gpu_cmd_info_header header;
 	uint64_t vertexBufferCount;
-	struct gpu_vertex_buffer vertex_buffer_list[1];
+	struct gpu_vertex_buffer* pVertexBufferList;
 };
-struct gpu_draw_vbo_cmd_info{
-	struct gpu_cmd_info_header header;
+struct gpu_draw_vbo_info{
 	uint32_t start;
 	uint32_t count;
 	uint32_t mode;
@@ -225,7 +262,11 @@ struct gpu_draw_vbo_cmd_info{
 	uint32_t min_index;
 	uint32_t max_index;
 	uint32_t stream_output_count;
-};
+}__attribute__((packed));
+struct gpu_draw_vbo_cmd_info{
+	struct gpu_cmd_info_header header;
+	struct gpu_draw_vbo_info* pDrawVboInfo;
+}__attribute__((packed));
 struct gpu_clear_cmd_info{
 	struct gpu_cmd_info_header header;
 	struct fvec4_32 color;
@@ -284,9 +325,9 @@ struct gpu_rasterizer_state{
 	uint32_t light_twoside:1;
 	uint32_t sprite_coord_mode:1;
 	uint32_t point_quad_rasterization:1;
-	uint32_t cull_face_shift:2;
-	uint32_t fill_front_shift:2;
-	uint32_t fill_back_shift:2;
+	uint32_t cull_face_mode:2;
+	uint32_t fill_mode_front:2;
+	uint32_t fill_mode_back:2;
 	uint32_t scissor:1;
 	uint32_t front_ccw:1;
 	uint32_t clamp_vertex_color:1;
@@ -375,19 +416,19 @@ struct gpu_create_surface_object_info{
 struct gpu_create_rasterizer_state_object_info{
 	struct gpu_create_object_info_header header;
 	uint64_t surfaceObjectId;
-	struct gpu_rasterizer_state state;
-};
+	struct gpu_rasterizer_state* pRasterizerState;
+}__attribute__((packed));
 struct gpu_create_dsa_state_object_info{
 	struct gpu_create_object_info_header header;
 	uint64_t surfaceObjectId;
-	struct gpu_dsa_state state;
-};
+	struct gpu_dsa_state* pDsaState;
+}__attribute__((packed));
 struct gpu_create_blend_state_list_object_info{
 	struct gpu_create_object_info_header header;
 	uint64_t surfaceObjectId;
 	uint64_t blendStateCount;
-	struct gpu_blend_state blend_state_list[1];
-};
+	struct gpu_blend_state* pBlendStateList;
+}__attribute__((packed));
 struct gpu_create_shader_object_info{
 	struct gpu_create_object_info_header header;
 	uint64_t surfaceObjectId;
