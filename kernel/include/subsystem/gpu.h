@@ -4,6 +4,7 @@
 #include "math/vector.h"
 struct gpu_create_object_info;
 struct gpu_create_resource_info;
+struct gpu_create_resource_blob_info;
 struct gpu_rect;
 struct gpu_transfer_to_device_info;
 struct gpu_transfer_from_device_info;
@@ -28,6 +29,7 @@ typedef int(*gpuContextAttachResourceFunc)(uint64_t gpuId, uint64_t contextId, u
 typedef int(*gpuCreateResourceFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_create_resource_info createResourceInfo);
 typedef int(*gpuDeleteResourceFunc)(uint64_t gpuId, uint64_t resourceId);
 typedef int(*gpuResourceAttachBackingFunc)(uint64_t gpuId, uint64_t resourceId, unsigned char* pBuffer, uint64_t bufferSize);
+typedef int(*gpuResourceCreateBlobFunc)(uint64_t gpuId, uint64_t blobId, struct gpu_create_resource_blob_info createResourceBlobInfo);
 typedef int(*gpuResourceFlushFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect);
 typedef int(*gpuTransferToDeviceFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_to_device_info transferToDeviceInfo);
 typedef int(*gpuTransferFromDeviceFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_from_device_info transferFromDeviceInfo);
@@ -87,6 +89,14 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_RESOURCE_FLAG_Y_0_TOP (1<<0)
 #define GPU_RESOURCE_FLAG_MAP_PERSISTENT (1<<1)
 #define GPU_RESOURCE_FLAG_MAP_COHERENT (1<<2)
+
+#define GPU_RESOURCE_BLOB_MEM_FLAG_GUEST (0x01)
+#define GPU_RESOURCE_BLOB_MEM_FLAG_HOST (0x02)
+#define GPU_RESOURCE_BLOB_MEM_FLAG_HOST_GUEST (0x03)
+
+#define GPU_RESOURCE_BLOB_MAP_FLAG_USE_MAPPABLE (0x01)
+#define GPU_RESOURCE_BLOB_MAP_FLAG_USE_SHAREABLE (0x02)
+#define GPU_RESOURCE_BLOB_MAP_FLAG_USE_CROSS_DEVICE (0x04)
 
 #define GPU_FUNC_NEVER (0x00)
 #define GPU_FUNC_LESS (0x01)
@@ -154,6 +164,7 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_MAX_CMD_CONTEXT_COUNT (16384)
 #define GPU_MAX_OBJECT_COUNT (16384)
 #define GPU_MAX_RESOURCE_COUNT (16384)
+#define GPU_MAX_RESOURCE_BLOB_COUNT (16384)
 #define GPU_MAX_CONTEXT_COUNT (16384)
 
 struct gpu_resolution{
@@ -202,6 +213,7 @@ struct gpu_driver_vtable{
 	gpuCreateResourceFunc resourceCreate;
 	gpuDeleteResourceFunc resourceDelete;
 	gpuResourceAttachBackingFunc resourceAttachBacking;
+	gpuResourceCreateBlobFunc resourceCreateBlob;
 	gpuResourceFlushFunc resourceFlush;
 	gpuTransferToDeviceFunc transferToDevice;
 	gpuTransferFromDeviceFunc transferFromDevice;
@@ -315,6 +327,21 @@ struct gpu_resource_desc{
 	uint64_t backingBufferSize;
 	struct gpu_resource_desc* pFlink;
 	struct gpu_resource_desc* pBlink;
+};
+struct gpu_resource_blob_info{
+	uint64_t resourceId;
+	uint64_t memFlags;
+	uint64_t mapFlags;
+	unsigned char* pBlobBuffer;
+	uint64_t blobBufferSize;
+};
+struct gpu_resource_blob_desc{
+	uint64_t resourceBlobId;
+	uint64_t gpuId;
+	uint64_t extra;
+	struct gpu_resource_blob_info resourceBlobInfo;
+	struct gpu_resource_blob_desc* pFlink;
+	struct gpu_resource_blob_desc* pBlink;
 };
 struct gpu_rasterizer_state{
 	uint32_t flatshade:1;
@@ -445,6 +472,10 @@ struct gpu_create_vertex_element_list_object_info{
 struct gpu_create_resource_info{
 	struct gpu_resource_info resourceInfo;
 };
+struct gpu_create_resource_blob_info{
+	uint64_t resourceId;
+	struct gpu_resource_blob_info resourceBlobInfo;
+};
 struct gpu_transfer_to_device_info{
 	struct gpu_rect rect;
 	struct gpu_box boxRect;
@@ -490,6 +521,11 @@ struct gpu_resource_subsystem_info{
 	struct gpu_resource_desc* pFirstResourceDesc;
 	struct gpu_resource_desc* pLastResourceDesc;
 };
+struct gpu_resource_blob_subsystem_info{
+	struct subsystem_desc* pSubsystemDesc;
+	struct gpu_resource_blob_desc* pFirstResourceBlobDesc;
+	struct gpu_resource_blob_desc* pLastResourceBlobDesc;
+};
 struct gpu_desc{
 	uint64_t driverId;
 	uint64_t gpuId;
@@ -499,6 +535,7 @@ struct gpu_desc{
 	struct gpu_object_subsystem_info objectSubsystemInfo;
 	struct gpu_context_subsystem_info contextSubsystemInfo;
 	struct gpu_resource_subsystem_info resourceSubsystemInfo;
+	struct gpu_resource_blob_subsystem_info resourceBlobSubsystemInfo;
 	uint64_t monitorCount;
 	struct gpu_desc* pFlink;
 	struct gpu_desc* pBlink;
@@ -562,6 +599,9 @@ int gpu_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmdConte
 int gpu_resource_register(uint64_t gpuId, struct gpu_resource_info resourceInfo, uint64_t* pResourceId);
 int gpu_resource_unregister(uint64_t gpuId, uint64_t resourceId);
 int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_resource_desc** ppResourceDesc);
+int gpu_resource_blob_register(uint64_t gpuId, struct gpu_resource_blob_info resourceBlobInfo, uint64_t* pResourceBlobId);
+int gpu_resource_blob_unregister(uint64_t gpuId, uint64_t resourceBlobId);
+int gpu_resource_blob_get_desc(uint64_t gpuId, uint64_t resourceBlobId, struct gpu_resource_blob_desc** ppResourceBlobDesc);
 int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel);
 int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel);
 int gpu_sync(uint64_t monitorId, struct uvec4 rect);
@@ -577,6 +617,7 @@ int gpu_context_attach_resource(uint64_t gpuId, uint64_t contextId, uint64_t res
 int gpu_resource_create(uint64_t gpuId, struct gpu_create_resource_info createResourceInfo, uint64_t* pResourceId);
 int gpu_resource_delete(uint64_t gpuId, uint64_t resourceId);
 int gpu_resource_attach_backing(uint64_t gpuId, uint64_t resourceId, unsigned char* pBuffer, uint64_t bufferSize);
+int gpu_resource_create_blob(uint64_t gpuId, struct gpu_create_resource_blob_info createResourceBlobInfo, uint64_t* pResourceBlobId);
 int gpu_resource_flush(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect);
 int gpu_transfer_to_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_to_device_info transferToDeviceInfo);
 int gpu_transfer_from_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_from_device_info transferFromDeviceInfo);

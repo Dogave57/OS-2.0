@@ -150,10 +150,21 @@ int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpuId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	struct subsystem_desc* pResourceBlobSubsystemDesc = (struct subsystem_desc*)0x0;
+	if (subsystem_init(&pResourceBlobSubsystemDesc, GPU_MAX_RESOURCE_BLOB_COUNT)!=0){
+		printf("failed to initialize GPU resource blob subsystem\r\n");
+		subsystem_deinit(pResourceSubsystemDesc);
+		subsystem_deinit(pObjectSubsystemDesc);
+		subsystem_deinit(pContextSubsystemDesc);
+		subsystem_deinit(pCmdContextSubsystemDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	pGpuDesc->cmdContextSubsystemInfo.pSubsystemDesc = pCmdContextSubsystemDesc;
 	pGpuDesc->objectSubsystemInfo.pSubsystemDesc = pObjectSubsystemDesc;
 	pGpuDesc->contextSubsystemInfo.pSubsystemDesc = pContextSubsystemDesc;
 	pGpuDesc->resourceSubsystemInfo.pSubsystemDesc = pResourceSubsystemDesc;
+	pGpuDesc->resourceBlobSubsystemInfo.pSubsystemDesc = pResourceBlobSubsystemDesc;
 	pGpuDesc->driverId = driverId;
 	pGpuDesc->gpuId = gpuId;
 	pGpuDesc->gpuInfo = gpuInfo;
@@ -193,6 +204,8 @@ int gpu_unregister(uint64_t gpuId){
 		subsystem_deinit(pGpuDesc->contextSubsystemInfo.pSubsystemDesc);
 	if (pGpuDesc->resourceSubsystemInfo.pSubsystemDesc)
 		subsystem_deinit(pGpuDesc->resourceSubsystemInfo.pSubsystemDesc);
+	if (pGpuDesc->resourceBlobSubsystemInfo.pSubsystemDesc)
+		subsystem_deinit(pGpuDesc->resourceBlobSubsystemInfo.pSubsystemDesc);
 	kfree((void*)pGpuDesc);
 	mutex_unlock(&mutex);
 	return 0;
@@ -852,6 +865,98 @@ int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_resour
 	*ppResourceDesc = pResourceDesc;
 	return 0;
 }
+int gpu_resource_blob_register(uint64_t gpuId, struct gpu_resource_blob_info resourceBlobInfo, uint64_t* pResourceBlobId){
+	if (!pResourceBlobId)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_resource_blob_desc* pResourceBlobDesc = (struct gpu_resource_blob_desc*)kmalloc(sizeof(struct gpu_resource_blob_desc));
+	if (!pResourceBlobDesc){
+		printf("failed to allocate GPU host controller resource blob descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t resourceBlobId = 0;
+	if (subsystem_alloc_entry(pGpuDesc->resourceBlobSubsystemInfo.pSubsystemDesc, (unsigned char*)pResourceBlobDesc, &resourceBlobId)!=0){
+		printf("failed to allocate GPU host controller resource blob descriptor subsystem entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pResourceBlobDesc, 0, sizeof(struct gpu_resource_blob_desc));
+	pResourceBlobDesc->resourceBlobId = resourceBlobId;
+	pResourceBlobDesc->gpuId = gpuId;
+	pResourceBlobDesc->resourceBlobInfo = resourceBlobInfo;
+	if (!pGpuDesc->resourceBlobSubsystemInfo.pFirstResourceBlobDesc){
+		pGpuDesc->resourceBlobSubsystemInfo.pFirstResourceBlobDesc = pResourceBlobDesc;
+	}
+	if (pGpuDesc->resourceBlobSubsystemInfo.pLastResourceBlobDesc){
+		pGpuDesc->resourceBlobSubsystemInfo.pLastResourceBlobDesc->pFlink = pResourceBlobDesc;
+		pResourceBlobDesc->pBlink = pGpuDesc->resourceBlobSubsystemInfo.pLastResourceBlobDesc;
+	}
+	pGpuDesc->resourceBlobSubsystemInfo.pLastResourceBlobDesc = pResourceBlobDesc;
+	*pResourceBlobId = resourceBlobId;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int gpu_resource_blob_unregister(uint64_t gpuId, uint64_t resourceBlobId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_resource_blob_desc* pResourceBlobDesc = (struct gpu_resource_blob_desc*)0x0;
+	if (subsystem_get_entry(pGpuDesc->resourceBlobSubsystemInfo.pSubsystemDesc, resourceBlobId, (uint64_t*)&pResourceBlobDesc)!=0){
+		printf("failed to get GPU host controller resource blob descriptor subsystem entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (subsystem_free_entry(pGpuDesc->resourceBlobSubsystemInfo.pSubsystemDesc, resourceBlobId)!=0){
+		printf("failed to free GPU host controller resource blob descriptor subsystem entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pResourceBlobDesc->pBlink)
+		pResourceBlobDesc->pBlink->pFlink = pResourceBlobDesc->pFlink;
+	if (pResourceBlobDesc->pFlink)
+		pResourceBlobDesc->pFlink->pBlink = pResourceBlobDesc->pBlink;
+	if (pResourceBlobDesc==pGpuDesc->resourceBlobSubsystemInfo.pFirstResourceBlobDesc)
+		pGpuDesc->resourceBlobSubsystemInfo.pFirstResourceBlobDesc = pResourceBlobDesc->pFlink;
+	if (pResourceBlobDesc==pGpuDesc->resourceBlobSubsystemInfo.pLastResourceBlobDesc)
+		pGpuDesc->resourceBlobSubsystemInfo.pLastResourceBlobDesc = pResourceBlobDesc->pBlink;
+	kfree((void*)pResourceBlobDesc);
+	mutex_unlock(&mutex);
+	return 0;
+}
+int gpu_resource_blob_get_desc(uint64_t gpuId, uint64_t resourceBlobId, struct gpu_resource_blob_desc** ppResourceBlobDesc){
+	if (!ppResourceBlobDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_resource_blob_desc* pResourceBlobDesc = (struct gpu_resource_blob_desc*)0x0;
+	if (subsystem_get_entry(pGpuDesc->resourceBlobSubsystemInfo.pSubsystemDesc, resourceBlobId, (uint64_t*)&pResourceBlobDesc)!=0){
+		printf("failed to get GPU host controller resource blob descriptor subsystem entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	*ppResourceBlobDesc = pResourceBlobDesc;
+	mutex_unlock(&mutex);
+	return 0;
+}
 int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel){
 	if (!pPixel)
 		return -1;
@@ -1304,6 +1409,43 @@ int gpu_resource_attach_backing(uint64_t gpuId, uint64_t resourceId, unsigned ch
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int gpu_resource_create_blob(uint64_t gpuId, struct gpu_create_resource_blob_info createResourceBlobInfo, uint64_t* pResourceBlobId){
+	if (!pResourceBlobId)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
+	if (gpu_driver_get_desc(pGpuDesc->driverId, &pDriverDesc)!=0){
+		printf("failed to get GPU host controller driver descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (!pDriverDesc->vtable.resourceCreateBlob){
+		printf("GPU host controller driver lacks ability of creating resource blobs\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t resourceBlobId = 0;
+	if (gpu_resource_blob_register(gpuId, createResourceBlobInfo.resourceBlobInfo, &resourceBlobId)!=0){
+		printf("failed to register GPU Host controller resource blob descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pDriverDesc->vtable.resourceCreateBlob(gpuId, resourceBlobId, createResourceBlobInfo)!=0){
+		printf("GPU host controller driver failed to create GPU host controller resource blob\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	*pResourceBlobId = resourceBlobId;
 	mutex_unlock(&mutex);
 	return 0;
 }

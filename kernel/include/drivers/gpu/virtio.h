@@ -5,11 +5,12 @@
 #include "drivers/pcie.h"
 #include "drivers/virtio.h"
 #define VIRTIO_GPU_DEVICE_ID 0x1050
-#define VIRTIO_BLOCK_BASE_REGISTERS (0x01)
-#define VIRTIO_BLOCK_NOTIFY_REGISTERS (0x02)
-#define VIRTIO_BLOCK_INTERRUPT_REGISTERS (0x03)
-#define VIRTIO_BLOCK_DEVICE_REGISTERS (0x04)
-#define VIRTIO_BLOCK_PCIE_REGISTERS (0x05)
+#define VIRTIO_GPU_BLOCK_BASE_REGISTERS (0x01)
+#define VIRTIO_GPU_BLOCK_NOTIFY_REGISTERS (0x02)
+#define VIRTIO_GPU_BLOCK_INTERRUPT_REGISTERS (0x03)
+#define VIRTIO_GPU_BLOCK_DEVICE_REGISTERS (0x04)
+#define VIRTIO_GPU_BLOCK_PCIE_REGISTERS (0x05)
+#define VIRTIO_GPU_BLOCK_SHARED_MEMORY_REGISTERS (0x08)
 
 #define VIRTIO_GPU_DEVICE_FEATURE_SELECTOR_LEGACY (0x00)
 #define VIRTIO_GPU_DEVICE_FEATURE_SELECTOR_MODERN (0x01)
@@ -84,6 +85,14 @@
 #define VIRTIO_GPU_RESOURCE_FLAG_Y_0_TOP (1<<0)
 #define VIRTIO_GPU_RESOURCE_FLAG_MAP_PERSISTENT (1<<1)
 #define VIRTIO_GPU_RESOURCE_FLAG_MAP_COHERENT (1<<2)
+
+#define VIRTIO_GPU_RESOURCE_BLOB_MEM_FLAG_GUEST (0x01)
+#define VIRTIO_GPU_RESOURCE_BLOB_MEM_FLAG_HOST (0x02)
+#define VIRTIO_GPU_RESOURCE_BLOB_MEM_FLAG_HOST_GUEST (0x03)
+
+#define VIRTIO_GPU_RESOURCE_BLOB_MAP_FLAG_USE_MAPPABLE (0x01)
+#define VIRTIO_GPU_RESOURCE_BLOB_MAP_FLAG_USE_SHAREABLE (0x02)
+#define VIRTIO_GPU_RESOURCE_BLOB_MAP_FLAG_USE_CROSS_DEVICE (0x04)
 
 #define VIRTIO_GPU_GL_OBJECT_TYPE_NULL (0x00)
 #define VIRTIO_GPU_GL_OBJECT_TYPE_BLEND (0x01)
@@ -354,6 +363,11 @@ struct virtio_gpu_pcie_config_cap_notify{
 	struct virtio_gpu_pcie_config_cap header;
 	uint32_t notify_offset_multiplier;
 }__attribute__((packed));
+struct virtio_gpu_pcie_config_cap_shared_memory{
+	struct virtio_gpu_pcie_config_cap header;
+	uint32_t offset_high;
+	uint32_t length_high;
+}__attribute__((packed));
 struct virtio_gpu_features_legacy{
 	uint32_t virgl_support:1;
 	uint32_t edid_metadata_support:1;
@@ -498,6 +512,16 @@ struct virtio_gpu_delete_resource_command{
 struct virtio_gpu_attach_backing_command{
 	struct virtio_gpu_command_header commandHeader;
 	uint32_t resource_id;
+	uint32_t memory_entry_count;
+	struct virtio_gpu_memory_entry memoryEntryList[];
+}__attribute__((packed));
+struct virtio_gpu_create_resource_blob_command{
+	struct virtio_gpu_command_header commandHeader;
+	uint32_t resource_id;
+	uint32_t mem_flags;
+	uint32_t map_flags;
+	uint64_t blob_id;
+	uint64_t size;
 	uint32_t memory_entry_count;
 	struct virtio_gpu_memory_entry memoryEntryList[];
 }__attribute__((packed));
@@ -842,6 +866,17 @@ struct virtio_gpu_resource_desc{
 	uint32_t flags;
 	uint8_t resourceType;
 }; 
+struct virtio_gpu_resource_blob_info{
+	uint64_t resourceId;
+	uint64_t memFlags;
+	uint64_t mapFlags;
+	unsigned char* pBlobBuffer;
+	uint64_t blobBufferSize;
+};
+struct virtio_gpu_resource_blob_desc{
+	uint64_t resourceBlobId;
+	struct virtio_gpu_resource_blob_info resourceBlobInfo;
+};
 struct virtio_gpu_context_desc{
 	uint64_t contextId;
 };
@@ -866,6 +901,13 @@ struct virtio_gpu_create_resource_info{
 	unsigned char* pBackingBuffer;
 	uint64_t backingBufferSize;
 	uint8_t resourceType;
+};
+struct virtio_gpu_create_resource_blob_info{
+	struct virtio_gpu_resource_desc* pResourceDesc;
+	uint32_t memFlags;
+	uint32_t mapFlags;
+	unsigned char* pBlobBuffer;
+	uint64_t blobBufferSize;
 };
 struct virtio_gpu_alloc_cmd_info{
 	unsigned char* pCommandBuffer;
@@ -916,6 +958,7 @@ struct virtio_gpu_info{
 	volatile struct virtio_gpu_interrupt_registers* pInterruptRegisters;
 	volatile struct virtio_gpu_device_registers* pDeviceRegisters;
 	volatile struct virtio_gpu_pcie_registers* pPcieRegisters;
+
 	volatile struct pcie_msix_msg_ctrl* pMsgControl;	
 	uint64_t queueCount;	
 	struct virtio_gpu_isr_mapping_table_entry* pIsrMappingTable;
@@ -954,6 +997,7 @@ int virtio_gpu_create_resource_3d(struct virtio_gpu_create_resource_info createR
 int virtio_gpu_create_resource(struct virtio_gpu_create_resource_info createResourceInfo, uint64_t resourceId, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_delete_resource(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_attach_resource_backing(struct virtio_gpu_resource_desc* pResourceDesc, unsigned char* pBuffer, uint64_t bufferSize, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_create_resource_blob(struct virtio_gpu_create_resource_blob_info createResourceBlobInfo, uint64_t resourceBlobId, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_set_scanout(uint32_t scanoutId, struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_transfer_h2d_2d(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_rect rect, uint64_t offset, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_transfer_h2d_3d(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_box box, uint64_t offset, struct virtio_gpu_response_header* pResponseHeader);
@@ -1042,6 +1086,7 @@ int virtio_gpu_subsystem_context_attach_resource(uint64_t gpuId, uint64_t contex
 int virtio_gpu_subsystem_resource_create(uint64_t gpuId, uint64_t resourceId, struct gpu_create_resource_info createResourceInfo);
 int virtio_gpu_subsystem_resource_delete(uint64_t gpuId, uint64_t resourceId);
 int virtio_gpu_subsystem_resource_attach_backing(uint64_t gpuId, uint64_t resourceId, unsigned char* pBuffer, uint64_t bufferSize);
+int virtio_gpu_subsystem_resource_create_blob(uint64_t gpuId, uint64_t resourceBlobId, struct gpu_create_resource_blob_info createResourceBlobInfo);
 int virtio_gpu_subsystem_resource_flush(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect);
 int virtio_gpu_subsystem_transfer_to_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_to_device_info transferInfo);
 int virtio_gpu_subsystem_transfer_from_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_from_device_info transferInfo);
