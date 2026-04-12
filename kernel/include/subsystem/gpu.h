@@ -90,9 +90,9 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_RESOURCE_FLAG_MAP_PERSISTENT (1<<1)
 #define GPU_RESOURCE_FLAG_MAP_COHERENT (1<<2)
 
-#define GPU_RESOURCE_BLOB_MEM_FLAG_GUEST (0x01)
-#define GPU_RESOURCE_BLOB_MEM_FLAG_HOST (0x02)
-#define GPU_RESOURCE_BLOB_MEM_FLAG_HOST_GUEST (0x03)
+#define GPU_RESOURCE_BLOB_MEM_FLAG_HOST (0x01)
+#define GPU_RESOURCE_BLOB_MEM_FLAG_DEVICE (0x02)
+#define GPU_RESOURCE_BLOB_MEM_FLAG_DEVICE_HOST (0x03)
 
 #define GPU_RESOURCE_BLOB_MAP_FLAG_USE_MAPPABLE (0x01)
 #define GPU_RESOURCE_BLOB_MAP_FLAG_USE_SHAREABLE (0x02)
@@ -473,6 +473,7 @@ struct gpu_create_resource_info{
 	struct gpu_resource_info resourceInfo;
 };
 struct gpu_create_resource_blob_info{
+	uint64_t contextId;
 	uint64_t resourceId;
 	struct gpu_resource_blob_info resourceBlobInfo;
 };

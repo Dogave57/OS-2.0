@@ -59,6 +59,13 @@
 #define VIRTIO_GPU_RESPONSE_ERROR_INVALID_CONTEXT_ID (0x1204)
 #define VIRTIO_GPU_RESPONSE_ERROR_INVALID_PARAMETER (0x1205)
 
+#define VIRTIO_GPU_CAPSET_ID_VIRGL_LEGACY (0x01)
+#define VIRTIO_GPU_CAPSET_ID_VIRGL_MODERN (0x02)
+#define VIRTIO_GPU_CAPSET_ID_GFXSTREAM_VULKAN (0x03)
+#define VIRTIO_GPU_CAPSET_ID_VENUS (0x04)
+#define VIRTIO_GPU_CAPSET_ID_CROSS_DOMAIN (0x05)
+#define VIRTIO_GPU_CAPSET_ID_DRM (0x06)
+
 #define VIRTIO_GPU_MAX_MEMORY_DESC_COUNT (64)
 #define VIRTIO_GPU_MAX_COMMAND_COUNT (64)
 #define VIRTIO_GPU_MAX_RESPONSE_COUNT (64)
@@ -370,9 +377,9 @@ struct virtio_gpu_pcie_config_cap_shared_memory{
 }__attribute__((packed));
 struct virtio_gpu_features_legacy{
 	uint32_t virgl_support:1;
-	uint32_t edid_metadata_support:1;
+	uint32_t edid_support:1;
 	uint32_t resource_uuid_support:1;
-	uint32_t host_memory_blob_support:1;
+	uint32_t blob_support:1;
 	uint32_t context_init_support:1;
 	uint32_t reserved0:19;
 	uint32_t notify_on_empty:1;
@@ -520,9 +527,9 @@ struct virtio_gpu_create_resource_blob_command{
 	uint32_t resource_id;
 	uint32_t mem_flags;
 	uint32_t map_flags;
+	uint32_t memory_entry_count;
 	uint64_t blob_id;
 	uint64_t size;
-	uint32_t memory_entry_count;
 	struct virtio_gpu_memory_entry memoryEntryList[];
 }__attribute__((packed));
 struct virtio_gpu_set_scanout_command{
@@ -586,6 +593,63 @@ struct virtio_gpu_submit_3d_command{
 	uint32_t size;
 	uint32_t padding0;
 	unsigned char command_data[];
+}__attribute__((packed));
+struct virtio_gpu_get_capset_info_command{
+	struct virtio_gpu_command_header commandHeader;
+	uint32_t capset_index;
+	uint32_t padding0;
+}__attribute__((packed));
+struct virtio_gpu_get_capset_command{
+	struct virtio_gpu_command_header commandHeader;
+	uint32_t capset_id;
+	uint32_t capset_version;
+}__attribute__((packed));
+struct virtio_gpu_get_capset_info_response{
+	struct virtio_gpu_response_header responseHeader;
+	uint32_t capset_id;
+	uint32_t capset_max_version;
+	uint32_t capset_max_size;
+	uint32_t padding0;
+}__attribute__((packed));
+struct virtio_gpu_get_capset_response{
+	struct virtio_gpu_response_header responseHeader;
+	unsigned char capset_data[];
+}__attribute__((packed));
+struct virtio_gpu_gl_valid_format_list{
+	uint32_t format_list[16];
+}__attribute__((packed));
+struct virtio_gpu_capset_data_virgl_legacy{
+	uint32_t max_version;
+	struct virtio_gpu_gl_valid_format_list sampler;
+	struct virtio_gpu_gl_valid_format_list render;
+	struct virtio_gpu_gl_valid_format_list depth_stencil;
+	struct virtio_gpu_gl_valid_format_list vertex_buffer;
+	uint32_t bset;
+	uint32_t glsl_level;
+	uint32_t max_clients;
+	uint32_t max_render_targets;
+	uint32_t max_dual_source_render_targets;
+	uint32_t bset2;
+	uint32_t max_sm_inputs;
+	uint32_t max_sm_outputs;
+	uint32_t max_sm_sysval;
+	uint32_t max_sm_constants;
+	uint32_t max_sm_textures;
+	uint32_t max_sm_samplers;
+	uint32_t max_sm_images;
+	uint32_t max_sm_atomics;
+	uint32_t max_sm_invocations;
+	uint32_t max_sm_shared_size;
+	uint32_t max_vertex_attrib_stride;
+	uint32_t max_color_clamped;
+	uint32_t max_geometry_output_vertices;
+	uint32_t max_geometry_total_output_components;
+	uint32_t max_texture_array_layers;
+	uint32_t max_streamout_buffers;
+	uint32_t max_dual_source_render_targets_unused;
+}__attribute__((packed));
+struct virtio_gpu_capset_data_virgl_modern{
+	struct virtio_gpu_capset_data_virgl_legacy legacyCapset;	
 }__attribute__((packed));
 struct virtio_gpu_gl_command_header{
 	uint8_t opcode;
@@ -903,6 +967,7 @@ struct virtio_gpu_create_resource_info{
 	uint8_t resourceType;
 };
 struct virtio_gpu_create_resource_blob_info{
+	struct virtio_gpu_context_desc* pContextDesc;
 	struct virtio_gpu_resource_desc* pResourceDesc;
 	uint32_t memFlags;
 	uint32_t mapFlags;
@@ -1008,6 +1073,8 @@ int virtio_gpu_delete_context(struct virtio_gpu_context_desc* pContextDesc, stru
 int virtio_gpu_context_attach_resource(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_context_detach_resource(struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_submit(struct virtio_gpu_submit_3d_command* pCommandBuffer, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_get_capset_info(uint32_t capsetId, struct virtio_gpu_get_capset_info_response* pResponseBuffer);
+int virtio_gpu_get_capset(uint32_t capsetId, uint32_t capsetVersion, struct virtio_gpu_get_capset_response* pResponseBuffer, uint64_t responseBufferSize);
 int virtio_gpu_gl_create_surface_object(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_resource_desc* pResourceDesc, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_create_vertex_element_list_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint32_t vertexElementCount, struct virtio_gpu_gl_vertex_element* pVertexElementList, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_set_vertex_buffer_list(struct virtio_gpu_object_desc* pSurfaceObjectDesc, uint64_t vertexBufferCount, struct virtio_gpu_gl_vertex_buffer* pVertexBufferList, struct virtio_gpu_response_header* pResponseHeader);

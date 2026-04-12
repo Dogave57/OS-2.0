@@ -145,7 +145,6 @@ int pcie_get_cap_ptr(struct pcie_location location, uint8_t cap_id, struct pcie_
 	while (currentOffset){
 		pcie_read_word(location, currentOffset, (uint16_t*)&currentLink);
 		if (currentLink.cap_id!=cap_id){
-			printf("capability ID: 0x%x\r\n", currentLink.cap_id);
 			currentOffset = (uint64_t)currentLink.next_offset;
 			continue;
 		}

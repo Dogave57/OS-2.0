@@ -27,6 +27,7 @@
 #include "drivers/filesystem/exfat.h"
 #include "drivers/filesystem/fluxfs.h"
 #include "drivers/usb/xhci.h"
+#include "drivers/dma-device.h"
 #include "crypto/guid.h"
 #include "crypto/random.h"
 #include "kexts/loader.h"
@@ -220,6 +221,9 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	if (virtio_gpu_init()!=0){
 		printf("failed to initialize virtual I/O GPU driver\r\n");
+	}
+	if (dma_device_driver_init()!=0){
+		printf("failed to initialize custom bulk DMA device host controller driver\r\n");
 	}
 	uint64_t usedPhysPages = 0;
 	uint64_t freePhysPages = 0;
