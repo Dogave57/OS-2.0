@@ -29,7 +29,6 @@ typedef int(*gpuContextAttachResourceFunc)(uint64_t gpuId, uint64_t contextId, u
 typedef int(*gpuCreateResourceFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_create_resource_info createResourceInfo);
 typedef int(*gpuDeleteResourceFunc)(uint64_t gpuId, uint64_t resourceId);
 typedef int(*gpuResourceAttachBackingFunc)(uint64_t gpuId, uint64_t resourceId, unsigned char* pBuffer, uint64_t bufferSize);
-typedef int(*gpuResourceCreateBlobFunc)(uint64_t gpuId, uint64_t blobId, struct gpu_create_resource_blob_info createResourceBlobInfo);
 typedef int(*gpuResourceFlushFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect);
 typedef int(*gpuTransferToDeviceFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_to_device_info transferToDeviceInfo);
 typedef int(*gpuTransferFromDeviceFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_from_device_info transferFromDeviceInfo);
@@ -85,6 +84,7 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_RESOURCE_TYPE_INVALID (0x00)
 #define GPU_RESOURCE_TYPE_2D (0x01)
 #define GPU_RESOURCE_TYPE_3D (0x02)
+#define GPU_RESOURCE_TYPE_BLOB (0x03)
 
 #define GPU_RESOURCE_FLAG_Y_0_TOP (1<<0)
 #define GPU_RESOURCE_FLAG_MAP_PERSISTENT (1<<1)
@@ -140,6 +140,18 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_COLOR_MASK_A (0x08)
 #define GPU_COLOR_MASK_RGBA (0x0F)
 
+#define GPU_TEXTURE_WRAP_REPEAT (0x00)
+#define GPU_TEXTURE_WRAP_CLAMP (0x01)
+#define GPU_TEXTURE_WRAP_CLAMP_TO_EDGE (0x02)
+#define GPU_TEXTURE_WRAP_CLAMP_TO_BORDER (0x03)
+#define GPU_TEXTURE_WRAP_MIRROR_REPEAT (0x04)
+#define GPU_TEXTURE_WRAP_MIRROR_CLAMP (0x05)
+#define GPU_TEXTURE_WRAP_MIRROR_CLAMP_TO_EDGE (0x06)
+#define GPU_TEXTURE_WRAP_MIRROR_CLAMP_TO_BORDER (0x07)
+
+#define GPU_TEXTURE_FILTER_NEAREST (0x00)
+#define GPU_TEXTURE_FILTER_LINEAR (0x01)
+
 #define GPU_CMD_TYPE_INVALID (0x00)
 #define GPU_CMD_TYPE_SET_FRAMEBUFFER_STATE_LIST (0x01)
 #define GPU_CMD_TYPE_SET_VIEWPORT_STATE_LIST (0x02)
@@ -147,6 +159,8 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_CMD_TYPE_SET_VERTEX_BUFFER_LIST (0x05)
 #define GPU_CMD_TYPE_DRAW_VBO (0x06)
 #define GPU_CMD_TYPE_CLEAR (0x07)
+#define GPU_CMD_TYPE_SET_SAMPLER_VIEW_LIST (0x0A)
+#define GPU_CMD_TYPE_BIND_SAMPLER_STATE_LIST (0x12)
 
 #define GPU_OBJECT_TYPE_INVALID (0x00)
 #define GPU_OBJECT_TYPE_BLEND_STATE_LIST (0x01)
@@ -154,6 +168,8 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_OBJECT_TYPE_DSA_STATE (0x03)
 #define GPU_OBJECT_TYPE_SHADER (0x04)
 #define GPU_OBJECT_TYPE_VERTEX_ELEMENT_LIST (0x05)
+#define GPU_OBJECT_TYPE_SAMPLER_VIEW (0x06)
+#define GPU_OBJECT_TYPE_SAMPLER_STATE (0x07)
 #define GPU_OBJECT_TYPE_SURFACE (0x08)
 
 #define GPU_SHADER_TYPE_VERTEX (0x00)
@@ -185,6 +201,13 @@ struct gpu_box{
 	uint32_t height;
 	uint32_t depth;
 };
+struct gpu_swizzle{
+	uint32_t r:3;
+	uint32_t g:3;
+	uint32_t b:3;
+	uint32_t a:3;
+	uint32_t padding0:20;
+}__attribute__((packed));
 struct gpu_info{
 	uint64_t maxMonitorCount;
 };
@@ -213,7 +236,6 @@ struct gpu_driver_vtable{
 	gpuCreateResourceFunc resourceCreate;
 	gpuDeleteResourceFunc resourceDelete;
 	gpuResourceAttachBackingFunc resourceAttachBacking;
-	gpuResourceCreateBlobFunc resourceCreateBlob;
 	gpuResourceFlushFunc resourceFlush;
 	gpuTransferToDeviceFunc transferToDevice;
 	gpuTransferFromDeviceFunc transferFromDevice;
@@ -286,6 +308,20 @@ struct gpu_clear_cmd_info{
 	uint32_t depth;
 	uint32_t stencil;
 };
+struct gpu_bind_sampler_state_list_cmd_info{
+	struct gpu_cmd_info_header header;
+	uint32_t shaderType;
+	uint32_t startSlot;
+	uint32_t samplerStateCount;
+	uint32_t samplerStateList[1];
+}__attribute__((packed));
+struct gpu_set_sampler_view_list_cmd_info{
+	struct gpu_cmd_info_header header;
+	uint32_t shaderType;
+	uint32_t startSlot;
+	uint32_t samplerViewCount;
+	uint32_t samplerViewList[1];
+};
 struct gpu_cmd_context_desc{
 	uint64_t cmdContextId;
 	uint64_t extra;
@@ -307,16 +343,27 @@ struct gpu_context_desc{
 	struct gpu_context_desc* pBlink;
 };
 struct gpu_resource_info{
-	uint64_t contextId;
 	uint8_t resourceType;
-	uint32_t format;
-	uint32_t width;
-	uint32_t height;
-	uint32_t depth;
-	uint32_t arraySize;
-	uint32_t target;
-	uint32_t bind;
-	uint32_t flags;
+	uint64_t contextId;
+	union{
+		struct{
+			uint32_t format;
+			uint32_t width;
+			uint32_t height;
+			uint32_t depth;
+			uint32_t arraySize;
+			uint32_t target;
+			uint32_t bind;
+			uint32_t flags;
+		}normal;
+		struct{
+			uint64_t resourceId;
+			uint8_t memFlags;
+			uint8_t mapFlags;
+			unsigned char* pBlobBuffer;
+			uint64_t blobBufferSize;
+		}blob;
+	};
 };
 struct gpu_resource_desc{
 	uint64_t resourceId;
@@ -422,9 +469,31 @@ struct gpu_vertex_element{
 	uint32_t vertex_buffer_index;
 	uint32_t src_format;
 }__attribute__((packed));
+struct gpu_sampler_state{
+	uint32_t wrap_s:3;
+	uint32_t wrap_t:3;
+	uint32_t wrap_r:3;
+	uint32_t minImgFilter:2;
+	uint32_t minMipFilter:2;
+	uint32_t magImgFilter:2;
+	uint32_t compareMode:1;
+	uint32_t compareFunc:3;
+	uint32_t seamlessCubeMap:1;
+	uint32_t reserved0:12;
+
+	float detailLevelBias;
+	float minDetailLevel;
+	float maxDetailLevel;
+	union{
+		uint32_t ui[4];
+		int32_t i[4];
+		float f[4];
+	}borderColor;
+}__attribute__((packed));
 struct gpu_vertex_triangle{
 	struct fvec4_32 position;
 	struct fvec4_32 color;
+	struct fvec2_32 textureCoord;
 }__attribute__((packed));
 struct gpu_vertex_buffer_triangle{
 	struct gpu_vertex_triangle vertex_list[3];
@@ -468,6 +537,18 @@ struct gpu_create_vertex_element_list_object_info{
 	uint64_t surfaceObjectId;
 	uint64_t vertexElementCount;
 	struct gpu_vertex_element* pVertexElementList;
+};
+struct gpu_create_sampler_view_object_info{
+	struct gpu_create_object_info_header header;
+	uint32_t resourceId;
+	uint32_t format;
+	uint32_t firstLevel;
+	uint32_t lastLevel;
+	struct gpu_swizzle swizzle;
+};
+struct gpu_create_sampler_state_object_info{
+	struct gpu_create_object_info_header header;
+	struct gpu_sampler_state samplerState;
 };
 struct gpu_create_resource_info{
 	struct gpu_resource_info resourceInfo;
@@ -600,9 +681,6 @@ int gpu_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmdConte
 int gpu_resource_register(uint64_t gpuId, struct gpu_resource_info resourceInfo, uint64_t* pResourceId);
 int gpu_resource_unregister(uint64_t gpuId, uint64_t resourceId);
 int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_resource_desc** ppResourceDesc);
-int gpu_resource_blob_register(uint64_t gpuId, struct gpu_resource_blob_info resourceBlobInfo, uint64_t* pResourceBlobId);
-int gpu_resource_blob_unregister(uint64_t gpuId, uint64_t resourceBlobId);
-int gpu_resource_blob_get_desc(uint64_t gpuId, uint64_t resourceBlobId, struct gpu_resource_blob_desc** ppResourceBlobDesc);
 int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel);
 int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel);
 int gpu_sync(uint64_t monitorId, struct uvec4 rect);
@@ -618,7 +696,6 @@ int gpu_context_attach_resource(uint64_t gpuId, uint64_t contextId, uint64_t res
 int gpu_resource_create(uint64_t gpuId, struct gpu_create_resource_info createResourceInfo, uint64_t* pResourceId);
 int gpu_resource_delete(uint64_t gpuId, uint64_t resourceId);
 int gpu_resource_attach_backing(uint64_t gpuId, uint64_t resourceId, unsigned char* pBuffer, uint64_t bufferSize);
-int gpu_resource_create_blob(uint64_t gpuId, struct gpu_create_resource_blob_info createResourceBlobInfo, uint64_t* pResourceBlobId);
 int gpu_resource_flush(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect);
 int gpu_transfer_to_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_to_device_info transferToDeviceInfo);
 int gpu_transfer_from_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_from_device_info transferFromDeviceInfo);
