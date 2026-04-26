@@ -3,6 +3,7 @@
 #include "drivers/gpu/framebuffer.h"
 #include "cpu/thread.h"
 #include "cpu/mutex.h"
+#include "math/math.h"
 #include "stdlib/stdlib.h"
 unsigned char printfLock = 0;
 KAPI int atoi(long long num, unsigned char* buf, unsigned int bufmax){
@@ -34,8 +35,6 @@ KAPI int atoi(long long num, unsigned char* buf, unsigned int bufmax){
 KAPI int printf(unsigned char* fmt, ...){
 	if (!fmt)
 		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
 	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
@@ -61,6 +60,59 @@ KAPI int printf(unsigned char* fmt, ...){
 			unsigned char buf[64] = {0};
 			atoi(value, buf, 63);
 			print(buf);
+			break;	 
+			}
+			case 'f':{
+			double value = (double)va_arg(args, double);
+			uint64_t pointIndex = 0;
+			uint64_t qwordValue = 0;
+			uint64_t digitCount = 0;
+			if (!value){
+				print("0.0");
+				i++;
+				break;
+			}
+			if (value<0.0){
+				value = value*-1.0;
+				putchar('-');
+			}
+			if (value==(double)floorf(value)){
+				printf("%d", (uint64_t)floorf(value));
+				i++;
+				break;
+			}
+			uint8_t smallFloat = 0;
+			if (value<1.0){
+				value+=1.0;
+				smallFloat = 1;
+			}
+			for (pointIndex = 0;;pointIndex++){
+				if (value!=(double)((uint64_t)value)&&pointIndex<16){
+					value*=10.0;
+					continue;
+				}
+				qwordValue = (uint64_t)value;
+				break;
+			}
+			for (digitCount = 0;qwordValue;digitCount++){
+				qwordValue/=10;
+			}
+			unsigned char buf[256] = {0};
+			buf[digitCount] = 0;
+			qwordValue = (uint64_t)value;
+			for (uint64_t i = 0;qwordValue&&i<256;i++){
+				uint64_t digitValue = qwordValue%10;
+				if (i==pointIndex){
+					buf[digitCount-i] = '.';
+					i++;
+				}
+				buf[digitCount-i] = '0'+digitValue;
+				qwordValue/=10;
+			}
+			if (smallFloat)
+				buf[0] = '0';
+			print(buf);
+			i++;
 			break;	 
 			}
 			case 'p':{
@@ -96,14 +148,11 @@ KAPI int printf(unsigned char* fmt, ...){
 		}
 	}
 	va_end(args);
-	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int lprintf(uint16_t* fmt, ...){
 	if (!fmt)
 		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock_isr_safe(&mutex);
 	va_list args = {0};
 	va_start(args, fmt);
 	for (unsigned int i = 0;fmt[i];i++){
@@ -164,7 +213,6 @@ KAPI int lprintf(uint16_t* fmt, ...){
 		}
 	}
 	va_end(args);
-	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
 KAPI int memset(uint8_t* mem, uint8_t value, uint64_t size){

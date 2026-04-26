@@ -40,6 +40,7 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FORMAT_R32G32B32A32_FLOAT (31)
 #define GPU_FORMAT_R32G32B32_FLOAT (30)
 #define GPU_FORMAT_R32G32_FLOAT (29)
+#define GPU_FORMAT_R32_FLOAT (28)
 
 #define GPU_TARGET_BUFFER (0x00)
 #define GPU_TARGET_TEXTURE_1D (0x01)
@@ -160,7 +161,9 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_CMD_TYPE_DRAW_VBO (0x06)
 #define GPU_CMD_TYPE_CLEAR (0x07)
 #define GPU_CMD_TYPE_SET_SAMPLER_VIEW_LIST (0x0A)
+#define GPU_CMD_TYPE_SET_CONSTANT_BUFFER (0x0C)
 #define GPU_CMD_TYPE_BIND_SAMPLER_STATE_LIST (0x12)
+#define GPU_CMD_TYPE_SET_UNIFORM_BUFFER (0x1B)
 
 #define GPU_OBJECT_TYPE_INVALID (0x00)
 #define GPU_OBJECT_TYPE_BLEND_STATE_LIST (0x01)
@@ -308,6 +311,20 @@ struct gpu_clear_cmd_info{
 	uint32_t depth;
 	uint32_t stencil;
 };
+struct gpu_set_sampler_view_list_cmd_info{
+	struct gpu_cmd_info_header header;
+	uint32_t shaderType;
+	uint32_t startSlot;
+	uint32_t samplerViewCount;
+	uint32_t samplerViewList[1];
+};
+struct gpu_set_constant_buffer_cmd_info{
+	struct gpu_cmd_info_header header;
+	uint32_t shaderType;
+	uint32_t index;
+	uint64_t bufferSize;
+	unsigned char* pBuffer;
+};
 struct gpu_bind_sampler_state_list_cmd_info{
 	struct gpu_cmd_info_header header;
 	uint32_t shaderType;
@@ -315,12 +332,13 @@ struct gpu_bind_sampler_state_list_cmd_info{
 	uint32_t samplerStateCount;
 	uint32_t samplerStateList[1];
 }__attribute__((packed));
-struct gpu_set_sampler_view_list_cmd_info{
+struct gpu_set_uniform_buffer_cmd_info{
 	struct gpu_cmd_info_header header;
 	uint32_t shaderType;
-	uint32_t startSlot;
-	uint32_t samplerViewCount;
-	uint32_t samplerViewList[1];
+	uint32_t index;
+	uint32_t offset;
+	uint32_t length;
+	uint32_t resourceId;
 };
 struct gpu_cmd_context_desc{
 	uint64_t cmdContextId;
@@ -497,6 +515,29 @@ struct gpu_vertex_triangle{
 }__attribute__((packed));
 struct gpu_vertex_buffer_triangle{
 	struct gpu_vertex_triangle vertex_list[3];
+}__attribute__((packed));
+struct gpu_matrix_rotation_2d{
+	float matrix[2][2];
+}__attribute__((packed));
+struct gpu_matrix_transform_3d{
+	float matrix[4][4];
+}__attribute__((packed));
+struct gpu_matrix_scale_3d{
+	float matrix[4][4];
+}__attribute__((packed));
+struct gpu_matrix_rotation_3d{
+	float matrix[4][4][3];
+}__attribute__((packed));
+struct gpu_matrix_model_3d{
+	struct gpu_matrix_transform_3d transform;
+	struct gpu_matrix_scale_3d scale;
+	struct gpu_matrix_rotation_3d rotation;
+}__attribute__((packed));
+struct gpu_matrix_view_3d{
+	float matrix[4][4];	
+}__attribute__((packed));
+struct gpu_matrix_perspective_projection{
+	float matrix[4][4];
 }__attribute__((packed));
 struct gpu_create_object_info_header{
 	uint64_t objectType;

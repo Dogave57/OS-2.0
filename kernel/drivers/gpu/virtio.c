@@ -9,6 +9,7 @@
 #include "cpu/mutex.h"
 #include "align.h"
 #include "math/vector.h"
+#include "math/math.h"
 #include "subsystem/subsystem.h"
 #include "subsystem/gpu.h"
 #include "drivers/serial.h"
@@ -306,14 +307,12 @@ int virtio_gpu_init(void){
 		createResourceInfo.resourceInfo.blob.pBlobBuffer = (unsigned char*)pFramebuffer;
 		createResourceInfo.resourceInfo.blob.blobBufferSize = framebufferSize;
 		if (gpu_resource_attach_backing(gpuInfo.gpuId, framebufferResourceId, (unsigned char*)pFramebuffer, framebufferSize)!=0){
-			printf("failed to attach physical pages to virtual I/O GPU host controller resource\r\n");
-			gpu_resource_delete(gpuInfo.gpuId, framebufferResourceId);
+			printf("failed to attach physical pages to virtual I/O GPU host controller framebuffer resource via GPU subsystem\r\n");
 			virtualFree((uint64_t)pFramebuffer, framebufferSize);
 			continue;
 		}
 		if (gpu_set_scanout(monitorId, framebufferResourceId)!=0){
 			printf("failed to set virtual I/O GPU host controller scanout\r\n");
-			gpu_resource_delete(gpuInfo.gpuId, framebufferResourceId);
 			virtualFree((uint64_t)pFramebuffer, framebufferSize);
 			continue;
 		}
@@ -541,8 +540,8 @@ int virtio_gpu_init(void){
 		}
 		uint64_t vertexShaderObjectId = 0;
 		uint64_t fragmentShaderObjectId = 0;
-		const unsigned char vertexShaderCode[]="VERT\nDCL OUT[0], POSITION\nDCL OUT[1], COLOR\nDCL OUT[2], TEXCOORD\nDCL IN[0]\nDCL IN[1]\nDCL IN[2]\nMOV OUT[0], IN[0]\nMOV OUT[1], IN[1]\nMOV OUT[2], IN[2]\nEND\n";
-		const unsigned char fragmentShaderCode[]="FRAG\nDCL OUT[0], COLOR\nDCL IN[0], COLOR, PERSPECTIVE\nDCL IN[1], TEXCOORD, PERSPECTIVE\nDCL SAMP[0]\nDCL SVIEW[0], 2D, FLOAT\nDCL TEMP[0]\nIMM[0] FLT32 { 0.25, 0.25, 0.25, 0.25 }\nTEX TEMP[0], IN[1], SAMP[0], 2D\nMAD TEMP[0].xyz, TEMP[0], IN[0], IMM[0]\nMOV OUT[0], TEMP[0]\nEND\n";
+		const unsigned char vertexShaderCode[]="VERT\nDCL OUT[0], POSITION\nDCL OUT[1], COLOR\nDCL OUT[2], TEXCOORD\nDCL IN[0]\nDCL IN[1]\nDCL IN[2]\nDCL CONST[0]\nDCL TEMP[0]\nMOV TEMP[0], IN[0]\nDP2 TEMP[0].x, IN[0].xyxy, CONST[0].xyxy\nDP2 TEMP[0].y, IN[0].xyxy, CONST[0].zwzw\nMOV OUT[0], TEMP[0]\nMOV OUT[1], IN[1]\nMOV OUT[2], IN[2]\nEND\n";
+		const unsigned char fragmentShaderCode[]="FRAG\nDCL OUT[0], COLOR\nDCL IN[0], COLOR, PERSPECTIVE\nDCL IN[1], TEXCOORD, PERSPECTIVE\nDCL SAMP[0]\nDCL SVIEW[0], 2D, FLOAT\nDCL TEMP[0]\nTEX TEMP[0], IN[1], SAMP[0], 2D\nMUL TEMP[0], TEMP[0], IN[0]\nMOV OUT[0], TEMP[0]\nEND\n";
 		struct gpu_create_shader_object_info createShaderObjectInfo = {0};
 		memset((void*)&createShaderObjectInfo, 0, sizeof(struct gpu_create_shader_object_info));
 		createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
@@ -828,7 +827,6 @@ int virtio_gpu_init(void){
 			virtualFreePage((uint64_t)pVertexBuffer, 0);
 			continue;
 		}
-		gpu_cmd_context_reset(gpuId, cmdContextId);
 		struct gpu_draw_vbo_cmd_info drawVboCmdInfo = {0};
 		memset((void*)&drawVboCmdInfo, 0, sizeof(struct gpu_draw_vbo_cmd_info));
 		struct gpu_draw_vbo_info drawVboInfo = {0};
@@ -840,14 +838,6 @@ int virtio_gpu_init(void){
 		drawVboInfo.max_index = drawVboInfo.count-1;
 		drawVboCmdInfo.header.commandType = GPU_CMD_TYPE_DRAW_VBO;
 		drawVboCmdInfo.pDrawVboInfo = &drawVboInfo;
-		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&drawVboCmdInfo);
-		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
-			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
-			gpu_context_delete(gpuId, subsystemContextId);
-			virtualFree((uint64_t)pTextureBuffer, textureBufferSize);
-			virtualFreePage((uint64_t)pVertexBuffer, 0);
-			continue;
-		}
 		pMonitorDesc->surfaceObjectId = surfaceObjectId;
 		pMonitorDesc->contextId = subsystemContextId;
 		pMonitorDesc->resourceId = subsystemResourceId;
@@ -857,6 +847,41 @@ int virtio_gpu_init(void){
 			virtualFree((uint64_t)pTextureBuffer, textureBufferSize);
 			virtualFreePage((uint64_t)pVertexBuffer, 0);
 			continue;
+		}
+		struct gpu_matrix_rotation_2d rotationMatrix = {0};
+		memset((void*)&rotationMatrix, 0, sizeof(struct gpu_matrix_rotation_2d));
+		double angle = 25.0;
+		double rad = anglef_to_radf(-angle);
+		rotationMatrix.matrix[0][0] = (float)cosf(rad);
+		rotationMatrix.matrix[0][1] = -(float)sinf(rad);
+		rotationMatrix.matrix[1][0] = (float)sinf(rad);
+		rotationMatrix.matrix[1][1] = (float)cosf(rad);
+		struct gpu_set_constant_buffer_cmd_info setConstantBufferCmdInfo = {0};
+		memset((void*)&setConstantBufferCmdInfo, 0, sizeof(struct gpu_set_constant_buffer_cmd_info));
+		setConstantBufferCmdInfo.header.commandType = GPU_CMD_TYPE_SET_CONSTANT_BUFFER;
+		setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
+		setConstantBufferCmdInfo.index = 0x00;
+		setConstantBufferCmdInfo.bufferSize = sizeof(struct gpu_matrix_rotation_2d);
+		setConstantBufferCmdInfo.pBuffer = (unsigned char*)&rotationMatrix;
+		gpu_cmd_context_reset(gpuId, cmdContextId);
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&drawVboCmdInfo);
+		time_us = get_time_us();
+		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
+			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
+			break;
+		}
+		uint64_t elapsed_us = get_time_us()-time_us;
+		printf("vertex buffer object rasterized and fragmented in %fms\r\n", ((double)elapsed_us)/1000.0);
+		struct gpu_rect flushRect = {0};
+		flushRect.x = 0;
+		flushRect.y = 0;
+		flushRect.width = pScanoutInfo->resolution.width;
+		flushRect.height = pScanoutInfo->resolution.height;
+		if (gpu_resource_flush(gpuId, subsystemResourceId, flushRect)!=0){
+			printf("failed to flush GPU host controller framebuffer physical pages via GPU subsystem\r\n");
+			break;
 		}
 		gpu_resource_delete(gpuId, textureResourceId);
 		gpu_resource_delete(gpuId, vertexBufferResourceId);
@@ -881,8 +906,7 @@ int virtio_gpu_init(void){
 			printf("failed to transfer resource data to virtual I/O GPU host controller via GPU subsystem\r\n");
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
-		}
-*/		struct gpu_rect flushRect = {0};
+		}*/
 		flushRect.x = 0;
 		flushRect.y = 0;
 		flushRect.width = pScanoutInfo->resolution.width;
@@ -2927,6 +2951,17 @@ int virtio_gpu_gl_write_set_sampler_view_list(struct virtio_gpu_gl_set_sampler_v
 	memcpy((void*)pCommand->sampler_view_list, (void*)pSamplerViewList, samplerViewCount*sizeof(uint32_t));
 	return 0;
 }
+int virtio_gpu_gl_write_set_constant_buffer(struct virtio_gpu_gl_set_constant_buffer_command* pCommand, uint32_t shaderType, uint32_t index, uint32_t bufferSize, unsigned char* pBuffer){
+	if (!pCommand||!bufferSize||!pBuffer)
+		return -1;
+	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_SET_CONSTANT_BUFFER;
+	pCommand->header.object_type = 0x00;
+	pCommand->header.length = 2+(bufferSize/sizeof(uint32_t));
+	pCommand->shader_type = shaderType;
+	pCommand->index = index;
+	memcpy((void*)pCommand->data, (void*)pBuffer, bufferSize);
+	return 0;
+}
 int virtio_gpu_gl_write_bind_sampler_state_list(struct virtio_gpu_gl_bind_sampler_state_list_command* pCommand, uint32_t shaderType, uint32_t startSlot, uint32_t samplerStateCount, uint32_t* pSamplerStateList){
 	if (!pCommand||!pSamplerStateList)
 		return -1;
@@ -2936,6 +2971,19 @@ int virtio_gpu_gl_write_bind_sampler_state_list(struct virtio_gpu_gl_bind_sample
 	pCommand->shader_type = shaderType;
 	pCommand->start_slot = startSlot;
 	memcpy((void*)pCommand->sampler_state_list, (void*)pSamplerStateList, samplerStateCount*sizeof(uint32_t));
+	return 0;
+}
+int virtio_gpu_gl_write_set_uniform_buffer(struct virtio_gpu_gl_set_uniform_buffer_command* pCommand, uint32_t shaderType, uint32_t index, uint32_t offset, uint32_t length, uint32_t resourceId){
+	if (!pCommand)
+		return -1;
+	pCommand->header.opcode = VIRTIO_GPU_GL_CMD_SET_UNIFORM_BUFFER;
+	pCommand->header.object_type = 0x00;
+	pCommand->header.length = 5;
+	pCommand->shader_type = shaderType;
+	pCommand->index = index;
+	pCommand->offset = offset;
+	pCommand->length = length;
+	pCommand->resource_id = resourceId;
 	return 0;
 }
 int virtio_gpu_gl_write_transfer_3d(struct virtio_gpu_gl_transfer_3d_command* pCommand, struct virtio_gpu_gl_transfer_3d_command command){
@@ -3847,6 +3895,18 @@ int virtio_gpu_subsystem_push_set_sampler_view_list_cmd(struct gpu_desc* pGpuDes
 	mutex_unlock(&mutex);
 	return 0;	
 }
+int virtio_gpu_subsystem_push_set_constant_buffer_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_constant_buffer_cmd_info* pCommandInfo){
+	if (!pGpuDesc||!pCmdContextDesc||!pCommandInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct virtio_gpu_gl_set_constant_buffer_command* pGlCommand = (struct virtio_gpu_gl_set_constant_buffer_command*)0x0;
+	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
+	virtio_gpu_gl_write_set_constant_buffer(pGlCommand, pCommandInfo->shaderType, pCommandInfo->index, pCommandInfo->bufferSize, pCommandInfo->pBuffer);
+	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
+	mutex_unlock(&mutex);
+	return 0;
+}
 int virtio_gpu_subsystem_push_bind_sampler_state_list_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_bind_sampler_state_list_cmd_info* pCommandInfo){
 	if (!pGpuDesc||!pCmdContextDesc||!pCommandInfo)
 		return -1;
@@ -3855,6 +3915,18 @@ int virtio_gpu_subsystem_push_bind_sampler_state_list_cmd(struct gpu_desc* pGpuD
 	struct virtio_gpu_gl_bind_sampler_state_list_command* pGlCommand = (struct virtio_gpu_gl_bind_sampler_state_list_command*)0x0;
 	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
 	virtio_gpu_gl_write_bind_sampler_state_list(pGlCommand, pCommandInfo->shaderType, pCommandInfo->startSlot, pCommandInfo->samplerStateCount, (uint32_t*)pCommandInfo->samplerStateList);
+	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_subsystem_push_set_uniform_buffer_cmd(struct gpu_desc* pGpuDesc, struct virtio_gpu_cmd_context_desc* pCmdContextDesc, struct gpu_set_uniform_buffer_cmd_info* pCommandInfo){
+	if (!pGpuDesc||!pCmdContextDesc||!pCommandInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct virtio_gpu_gl_set_uniform_buffer_command* pGlCommand = (struct virtio_gpu_gl_set_uniform_buffer_command*)0x0;
+	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
+	virtio_gpu_gl_write_set_uniform_buffer(pGlCommand, pCommandInfo->shaderType, pCommandInfo->index, pCommandInfo->offset, pCommandInfo->length, pCommandInfo->resourceId);
 	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
 	mutex_unlock(&mutex);
 	return 0;
@@ -3870,7 +3942,9 @@ int virtio_gpu_subsystem_push_cmd(uint64_t gpuId, uint64_t cmdContextId, struct 
 		[GPU_CMD_TYPE_DRAW_VBO]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_draw_vbo_cmd,
 		[GPU_CMD_TYPE_CLEAR]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_clear_cmd,
 		[GPU_CMD_TYPE_SET_SAMPLER_VIEW_LIST]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_set_sampler_view_list_cmd,
+		[GPU_CMD_TYPE_SET_CONSTANT_BUFFER]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_set_constant_buffer_cmd,
 		[GPU_CMD_TYPE_BIND_SAMPLER_STATE_LIST]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_bind_sampler_state_list_cmd,
+		[GPU_CMD_TYPE_SET_UNIFORM_BUFFER]=(virtioGpuPushCmdFunc)virtio_gpu_subsystem_push_set_uniform_buffer_cmd,
 	};
 	uint64_t commandType = pCommandInfo->commandType;
 	if (commandType>sizeof(pushCmdVtable)/sizeof(virtioGpuPushCmdFunc))
