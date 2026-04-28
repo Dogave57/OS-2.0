@@ -899,7 +899,7 @@ int virtio_gpu_init(void){
 		}
 		struct gpu_matrix_rotation_2d rotationMatrix = {0};
 		memset((void*)&rotationMatrix, 0, sizeof(struct gpu_matrix_rotation_2d));
-		double angle = 25.0;
+		double angle = 45.0;
 		double rad = anglef_to_radf(-angle);
 		rotationMatrix.matrix[0][0] = (float)cosf(rad);
 		rotationMatrix.matrix[0][1] = -(float)sinf(rad);
@@ -922,7 +922,7 @@ int virtio_gpu_init(void){
 			break;
 		}
 		uint64_t elapsed_us = get_time_us()-time_us;
-		printf("vertex buffer object rasterized and fragmented in %fms\r\n", ((double)elapsed_us)/1000.0);
+//		printf("vertex buffer object rasterized and fragmented in %fms\r\n", ((double)elapsed_us)/1000.0);
 		struct gpu_rect flushRect = {0};
 		flushRect.x = 0;
 		flushRect.y = 0;
@@ -3360,20 +3360,19 @@ int virtio_gpu_response_queue_interrupt(uint8_t interruptVector){
 	if (!pQueueInfo){
 		return -1;
 	}	
-	uint64_t responseCount = pQueueInfo->pResponseRing->index-pQueueInfo->oldResponseRingIndex;
-	if (!responseCount)
+	uint64_t responseCount = (pQueueInfo->lastResponseRingIndex>=(1<<16)-1) ? (pQueueInfo->pResponseRing->index+1) : pQueueInfo->pResponseRing->index-pQueueInfo->lastResponseRingIndex;
+	if (!responseCount&&pQueueInfo->pResponseRing->index){
+		serial_print(0, "invalid response count\r\n");
+		while (1){};
 		return -1;
-	for (uint64_t i = 0;i<responseCount;i++){	
-		uint64_t currentResponse = pQueueInfo->currentResponse;	
-		volatile struct virtio_gpu_response_list_entry* pResponseListEntry = &pQueueInfo->pResponseRing->responseList[currentResponse];
-		struct virtio_gpu_response_desc* pResponseDesc = pQueueInfo->ppResponseDescList[pQueueInfo->currentResponse];	
-		pResponseDesc->responseComplete = 1;	
-		gpuInfo.controlQueueInfo.currentResponse++;
-		if (gpuInfo.controlQueueInfo.currentResponse>gpuInfo.controlQueueInfo.maxResponseCount){
-			gpuInfo.controlQueueInfo.currentResponse = 0;	
-		}
 	}
-	pQueueInfo->oldResponseRingIndex = pQueueInfo->pResponseRing->index;
+	for (uint64_t i = 0;i<responseCount;i++){	
+		uint64_t responseRingIndex = (pQueueInfo->lastResponseRingIndex%pQueueInfo->maxResponseCount)+i;
+		volatile struct virtio_gpu_response_list_entry* pResponseListEntry = &pQueueInfo->pResponseRing->responseList[responseRingIndex];
+		struct virtio_gpu_response_desc* pResponseDesc = (struct virtio_gpu_response_desc*)pQueueInfo->ppResponseDescList[responseRingIndex];
+		pResponseDesc->responseComplete = 1;	
+	}
+	pQueueInfo->lastResponseRingIndex = pQueueInfo->pResponseRing->index;
 	return 0;
 }
 int virtio_gpu_alloc_memory_desc(struct virtio_gpu_queue_info* pQueueInfo, uint64_t physicalAddress, uint32_t size, uint16_t flags, struct virtio_gpu_memory_desc_info* pMemoryDescInfo){
@@ -3381,10 +3380,6 @@ int virtio_gpu_alloc_memory_desc(struct virtio_gpu_queue_info* pQueueInfo, uint6
 		return -1;
 	}
 	uint64_t memoryDescIndex = pQueueInfo->memoryDescCount;
-	if (memoryDescIndex>pQueueInfo->maxMemoryDescCount-1){
-		pQueueInfo->memoryDescCount = 0;	
-		memoryDescIndex = 0;
-	}
 	volatile struct virtio_gpu_memory_desc* pMemoryDesc = &pQueueInfo->pMemoryDescList[memoryDescIndex];	
 	memset((void*)pMemoryDesc, 0, sizeof(struct virtio_gpu_memory_desc));
 	pMemoryDesc->physical_address = physicalAddress;
@@ -3396,6 +3391,8 @@ int virtio_gpu_alloc_memory_desc(struct virtio_gpu_queue_info* pQueueInfo, uint6
 	memoryDescInfo.memoryDescIndex = memoryDescIndex;	
 	memoryDescInfo.pMemoryDesc = pMemoryDesc;	
 	pQueueInfo->memoryDescCount++;
+	if (pQueueInfo->memoryDescCount>=pQueueInfo->maxMemoryDescCount)
+		pQueueInfo->memoryDescCount = 0x00;
 	*pMemoryDescInfo = memoryDescInfo;	
 	return 0;
 }
@@ -3403,10 +3400,6 @@ int virtio_gpu_queue_alloc_cmd(struct virtio_gpu_queue_info* pQueueInfo, struct 
 	if (!pQueueInfo||!pCommandDesc)
 		return -1;
 	uint64_t commandIndex = pQueueInfo->currentCommand;
-	if (commandIndex>=pQueueInfo->maxCommandCount){
-		pQueueInfo->currentCommand = 0;
-		commandIndex = 0;
-	}
 	uint64_t pCommandBuffer_phys = 0;
 	if (virtualToPhysical((uint64_t)allocCmdInfo.pCommandBuffer, &pCommandBuffer_phys)!=0){
 		printf("failed to get command buffer physical address\r\n");
@@ -3489,10 +3482,15 @@ int virtio_gpu_queue_alloc_cmd(struct virtio_gpu_queue_info* pQueueInfo, struct 
 	commandDesc.pResponseBuffer = allocCmdInfo.pResponseBuffer;
 	commandDesc.pResponseBuffer_phys = pResponseBuffer_phys;	
 	commandDesc.responseBufferSize = allocCmdInfo.responseBufferSize;	
-	*pCommandDesc = commandDesc;	
+	*pCommandDesc = commandDesc;
 	pQueueInfo->ppResponseDescList[pQueueInfo->currentResponse] = &pCommandDesc->responseDesc;	
-	pQueueInfo->currentCommand++;	
-	pQueueInfo->pCommandRing->index = (pQueueInfo->pCommandRing->index>=65534) ? 0 : pQueueInfo->pCommandRing->index+1;
+	pQueueInfo->currentCommand++;
+	if (pQueueInfo->currentCommand>=pQueueInfo->maxCommandCount)
+		pQueueInfo->currentCommand = 0x00;
+	pQueueInfo->currentResponse++;
+	if (pQueueInfo->currentResponse>=pQueueInfo->maxResponseCount)
+		pQueueInfo->currentResponse = 0x00;
+	pQueueInfo->pCommandRing->index++;
 	*ppCommandDesc = pCommandDesc;	
 	return 0;
 }
