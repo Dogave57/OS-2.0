@@ -36,7 +36,24 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FORMAT_INVALID (0)
 #define GPU_FORMAT_B8G8R8A8_UNORM (1)
 #define GPU_FORMAT_B8G8R8X8_UNORM (2)
-#define GPU_FORMAT_R8G8B8A8_UNORM (67)
+#define GPU_FORMAT_R8_UNORM (0x40)
+#define GPU_FORMAT_R8G8_UNORM (0x41)
+#define GPU_FORMAT_R8G8B8_UNORM (0x42)
+#define GPU_FORMAT_R8G8B8A8_UNORM (0x43)
+#define GPU_FORMAT_R16_UNORM (0x30)
+#define GPU_FORMAT_R16G16_UNORM (0x31)
+#define GPU_FORMAT_R16G16B16_UNORM (0x32)
+#define GPU_FORMAT_R16G16B16A16_UNORM (0x33)
+
+#define GPU_FORMAT_R8_UINT (0x70)
+#define GPU_FORMAT_R8G8_UINT (0x71)
+#define GPU_FORMAT_R8G8B8_UINT (0x72)
+#define GPU_FORMAT_R8G8B8A8_UINT (0x73)
+#define GPU_FORMAT_R16_UINT (0x68)
+#define GPU_FORMAT_R16G16_UINT (0x69)
+#define GPU_FORMAT_R16G16B16_UINT (0x6A)
+#define GPU_FORMAT_R16G16B16A16_UINT (0x6B)
+
 #define GPU_FORMAT_R32G32B32A32_FLOAT (31)
 #define GPU_FORMAT_R32G32B32_FLOAT (30)
 #define GPU_FORMAT_R32G32_FLOAT (29)
@@ -292,7 +309,7 @@ struct gpu_draw_vbo_info{
 	uint32_t start;
 	uint32_t count;
 	uint32_t mode;
-	uint32_t indexed;
+	uint32_t index_size;
 	uint32_t instance_count;
 	uint32_t index_bias;
 	uint32_t start_instance;

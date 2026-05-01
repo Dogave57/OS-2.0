@@ -207,9 +207,27 @@
 #define VIRTIO_GPU_GL_SHADER_TYPE_COMPUTE (0x05)
 
 #define VIRTIO_GPU_PIXEL_FORMAT_INVALID (0x00)
+
 #define VIRTIO_GPU_PIXEL_FORMAT_B8G8R8A8_UNORM (0x01)
 #define VIRTIO_GPU_PIXEL_FORMAT_B8G8R8X8_UNORM (0x02)
-#define VIRTIO_GPU_PIXEL_FORMAT_R8G8B8A8_UNORM (67)
+#define VIRTIO_GPU_PIXEL_FORMAT_R8_UNORM (0x40)
+#define VIRTIO_GPU_PIXEL_FORMAT_R8G8_UNORM (0x41)
+#define VIRTIO_GPU_PIXEL_FORMAT_R8G8B8_UNORM (0x42)
+#define VIRTIO_GPU_PIXEL_FORMAT_R8G8B8A8_UNORM (0x43)
+#define VIRTIO_GPU_PIXEL_FORMAT_R16_UNORM (0x30)
+#define VIRTIO_GPU_PIXEL_FORMAT_R16G16_UNORM (0x31)
+#define VIRTIO_GPU_PIXEL_FORMAT_R16G16B16_UNORM (0x32)
+#define VIRTIO_GPU_PIXEL_FORMAT_R16G16B16A16_UNORM (0x33)
+
+#define VIRTIO_GPU_PIXEL_FORMAT_R8_UINT (0x70)
+#define VIRTIO_GPU_PIXEL_FORMAT_R8G8_UINT (0x71)
+#define VIRTIO_GPU_PIXEL_FORMAT_R8G8B8_UINT (0x72)
+#define VIRTIO_GPU_PIXEL_FORMAT_R8G8B8A8_UINT (0x73)
+#define VIRTIO_GPU_PIXEL_FORMAT_R16_UINT (0x68)
+#define VIRTIO_GPU_PIXEL_FORMAT_R16B16_UINT (0x69)
+#define VIRTIO_GPU_PIXEL_FORMAT_R16B16G16_UINT (0x6A)
+#define VIRTIO_GPU_PIXEL_FORMAT_R16B16G16A16_UINT (0x6B)
+
 #define VIRTIO_GPU_PIXEL_FORMAT_R32G32B32A32_FLOAT (31)
 #define VIRTIO_GPU_PIXEL_FORMAT_R32G32B32_FLOAT (30)
 #define VIRTIO_GPU_PIXEL_FORMAT_R32G32_FLOAT (29)
@@ -867,7 +885,7 @@ struct virtio_gpu_gl_draw_vbo_command_info{
 	uint32_t start;
 	uint32_t count;
 	uint32_t mode;
-	uint32_t indexed;
+	uint32_t index_count;
 	uint32_t instance_count;
 	uint32_t index_bias;
 	uint32_t start_instance;
@@ -885,6 +903,7 @@ struct virtio_gpu_gl_resource_inline_write_command{
 	struct virtio_gpu_gl_command_header header;
 	uint32_t resource_id;
 	uint32_t level;
+	uint32_t usage;
 	uint32_t stride;
 	uint32_t layer_stride;
 	struct virtio_gpu_box boxRect;
