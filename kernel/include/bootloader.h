@@ -7,7 +7,7 @@
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
 #include "subsystem/drive.h"
-#include "drivers/gpu/framebuffer.h"
+#include "subsystem/text.h"
 #include "drivers/acpi.h"
 #include "drivers/smbios.h"
 struct bootloader_graphicsInfo{

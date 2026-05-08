@@ -1,13 +1,12 @@
 #include "kernel_api.h"
 #include "stdlib/stdlib.h"
 #include "cpu/thread.h"
+#include "subsystem/text.h"
 #include "drivers/serial.h"
 #include "drivers/timer.h"
-#include "drivers/gpu/framebuffer.h"
 int thread_entry(uint64_t tid, uint64_t arg);
 int kext_entry(uint64_t pid){
 	uint64_t time_us = get_time_us();
-	serial_print(0, "test\r\n");
 	printf("test kext\r\n");
 	while (1){};
 	printf("pid: %d\r\n", pid);

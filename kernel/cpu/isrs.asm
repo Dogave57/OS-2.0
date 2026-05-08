@@ -601,69 +601,69 @@ mov qword [rel schedulerHalt], 1
 iretq
 jmp ctx_switch_next_thread_end
 ctx_switch_next_thread:
-;mov qword [rax+8], rbx
-;mov qword [rax+16], rcx
-;mov qword [rax+24], rdx
-;mov qword [rax+32], rsi
-;mov qword [rax+40], rdi
-;mov qword [rax+48], r8
-;mov qword [rax+56], r9
-;mov qword [rax+64], r10
-;mov qword [rax+72], r11
-;mov qword [rax+80], r12
-;mov qword [rax+88], r13
-;mov qword [rax+96], r14
-;mov qword [rax+104], r15
-;mov qword rbx, [rsp+24]
-;mov qword [rax+112], rbx
-;mov qword [rax+120], rbp
-;movdqu [rax+144], xmm0
-;movdqu [rax+160], xmm1
-;movdqu [rax+176], xmm2
-;movdqu [rax+192], xmm3
-;movdqu [rax+208], xmm4
-;movdqu [rax+224], xmm5
-;movdqu [rax+240], xmm6
-;movdqu [rax+256], xmm7
-;movdqu [rax+272], xmm8
-;movdqu [rax+288], xmm9
-;movdqu [rax+304], xmm10
-;movdqu [rax+320], xmm11
-;movdqu [rax+336], xmm12
-;movdqu [rax+352], xmm13
-;movdqu [rax+368], xmm14
-;movdqu [rax+384], xmm15
-;mov qword rbx, [rsp]
-;mov qword [rax+128], rbx
-;mov qword rbx, [rel ctx_switch_args]
-;mov qword [rax], rbx
-;mov qword rbx, [rsp+16]
-;mov qword [rax+136], rbx
-;mov qword rax, [rax+528]
-;cmp rax, 0
-;je ctx_switch_first_thread
+mov qword [rax+8], rbx
+mov qword [rax+16], rcx
+mov qword [rax+24], rdx
+mov qword [rax+32], rsi
+mov qword [rax+40], rdi
+mov qword [rax+48], r8
+mov qword [rax+56], r9
+mov qword [rax+64], r10
+mov qword [rax+72], r11
+mov qword [rax+80], r12
+mov qword [rax+88], r13
+mov qword [rax+96], r14
+mov qword [rax+104], r15
+mov qword rbx, [rsp+24]
+mov qword [rax+112], rbx
+mov qword [rax+120], rbp
+movdqu [rax+144], xmm0
+movdqu [rax+160], xmm1
+movdqu [rax+176], xmm2
+movdqu [rax+192], xmm3
+movdqu [rax+208], xmm4
+movdqu [rax+224], xmm5
+movdqu [rax+240], xmm6
+movdqu [rax+256], xmm7
+movdqu [rax+272], xmm8
+movdqu [rax+288], xmm9
+movdqu [rax+304], xmm10
+movdqu [rax+320], xmm11
+movdqu [rax+336], xmm12
+movdqu [rax+352], xmm13
+movdqu [rax+368], xmm14
+movdqu [rax+384], xmm15
+mov qword rbx, [rsp]
+mov qword [rax+128], rbx
+mov qword rbx, [rel ctx_switch_args]
+mov qword [rax], rbx
+mov qword rbx, [rsp+16]
+mov qword [rax+136], rbx
+mov qword rax, [rax+528]
+cmp rax, 0
+je ctx_switch_first_thread
 ctx_switch_next_thread_end:
-;mov qword [rel pCurrentThread], rax
-;priority_check:
-;mov qword rbx, [rax+416]
-;cmp rbx, 0
-;je priority_case_low
-;cmp rbx, 2
-;je priority_case_high
-;priority_case_normal:
-;mov qword rcx, 1000
-;jmp priority_check_end
-;priority_case_high:
-;mov qword rcx, 5000
-;jmp priority_check_end
-;priority_case_low:
-;mov qword rcx, 500
-;priority_check_end:
-;push rax
-;sub qword rsp, 32
-;call lapic_set_tick_us
-;add qword rsp, 32
-;pop rax
+mov qword [rel pCurrentThread], rax
+priority_check:
+mov qword rbx, [rax+416]
+cmp rbx, 0
+je priority_case_low
+cmp rbx, 2
+je priority_case_high
+priority_case_normal:
+mov qword rcx, 1000
+jmp priority_check_end
+priority_case_high:
+mov qword rcx, 5000
+jmp priority_check_end
+priority_case_low:
+mov qword rcx, 500
+priority_check_end:
+push rax
+sub qword rsp, 32
+call lapic_set_tick_us
+add qword rsp, 32
+pop rax
 mov qword rbx, [rax+112]
 mov qword [rsp+24], rbx
 mov qword rbx, [rax+128]
@@ -672,37 +672,37 @@ switch_rflags:
 mov qword rbx, [rax+136]
 mov qword [rsp+16], rbx
 switch_rflags_end:
-;mov qword rbx, [rax+8]
-;mov qword rcx, [rax+16]
-;mov qword rdx, [rax+24]
-;mov qword rsi, [rax+32]
-;mov qword rdi, [rax+40]
-;mov qword r8, [rax+48]
-;mov qword r9, [rax+56]
-;mov qword r10, [rax+64]
-;mov qword r11, [rax+72]
-;mov qword r12, [rax+80]
-;mov qword r13, [rax+88]
-;mov qword r14, [rax+96]
-;mov qword r15, [rax+104]
-;mov qword rbp, [rax+120]
-;movdqu xmm0, [rax+144]
-;movdqu xmm1, [rax+160]
-;movdqu xmm2, [rax+176]
-;movdqu xmm3, [rax+192]
-;movdqu xmm4, [rax+208]
-;movdqu xmm5, [rax+224]
-;movdqu xmm6, [rax+240]
-;movdqu xmm7, [rax+256]
-;movdqu xmm8, [rax+272]
-;movdqu xmm9, [rax+288]
-;movdqu xmm10, [rax+304]
-;movdqu xmm11, [rax+320]
-;movdqu xmm12, [rax+336]
-;movdqu xmm13, [rax+352]
-;movdqu xmm14, [rax+368]
-;movdqu xmm15, [rax+384]
-;mov qword rax, [rax]
+mov qword rbx, [rax+8]
+mov qword rcx, [rax+16]
+mov qword rdx, [rax+24]
+mov qword rsi, [rax+32]
+mov qword rdi, [rax+40]
+mov qword r8, [rax+48]
+mov qword r9, [rax+56]
+mov qword r10, [rax+64]
+mov qword r11, [rax+72]
+mov qword r12, [rax+80]
+mov qword r13, [rax+88]
+mov qword r14, [rax+96]
+mov qword r15, [rax+104]
+mov qword rbp, [rax+120]
+movdqu xmm0, [rax+144]
+movdqu xmm1, [rax+160]
+movdqu xmm2, [rax+176]
+movdqu xmm3, [rax+192]
+movdqu xmm4, [rax+208]
+movdqu xmm5, [rax+224]
+movdqu xmm6, [rax+240]
+movdqu xmm7, [rax+256]
+movdqu xmm8, [rax+272]
+movdqu xmm9, [rax+288]
+movdqu xmm10, [rax+304]
+movdqu xmm11, [rax+320]
+movdqu xmm12, [rax+336]
+movdqu xmm13, [rax+352]
+movdqu xmm14, [rax+368]
+movdqu xmm15, [rax+384]
+mov qword rax, [rax]
 mov qword [rel schedulerHalt], 1
 iretq
 ctx_switch_end:

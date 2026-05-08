@@ -88,8 +88,6 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_PRIMITIVE_TRIANGLES (0x04)
 #define GPU_PRIMITIVE_TRIANGLES_STRIP (0x05)
 #define GPU_PRIMITIVE_TRIANGLES_FAN (0x06)
-#define GPU_PRIMITIVE_QUADS (0x07)
-#define GPU_PRIMITIVE_QUADS_TRIP (0x08)
 #define GPU_PRIMITIVE_POLYGON (0x09)
 #define GPU_PRIMITIVE_LINES_ADJACENCY (0x0A)
 #define GPU_PRIMITIVE_LINE_STRIP_ADJACENCY (0x0B)
@@ -98,6 +96,11 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_POLYGON_MODE_LINE (0x01)
 #define GPU_POLYGON_MODE_POINT (0x02)
 #define GPU_POLYGON_MODE_FILL_RECT (0x03)
+
+#define GPU_FACE_NONE (0x00)
+#define GPU_FACE_FRONT (0x01)
+#define GPU_FACE_BACK (0x02)
+#define GPU_FACE_BOTH (0x03)
 
 #define GPU_RESOURCE_TYPE_INVALID (0x00)
 #define GPU_RESOURCE_TYPE_2D (0x01)
@@ -230,13 +233,6 @@ struct gpu_swizzle{
 	uint32_t a:3;
 	uint32_t padding0:20;
 }__attribute__((packed));
-struct gpu_info{
-	uint64_t maxMonitorCount;
-};
-struct gpu_monitor_info{
-	struct gpu_resolution resolution;
-	volatile struct uvec4_8* pFramebuffer;
-};
 struct gpu_driver_vtable{
 	gpuReadPixelFunc readPixel;
 	gpuWritePixelFunc writePixel;
@@ -543,36 +539,67 @@ struct gpu_sampler_state{
 		float f[4];
 	}borderColor;
 }__attribute__((packed));
-struct gpu_vertex_triangle{
+struct gpu_vertex_basic{
 	struct fvec4_32 position;
 	struct fvec4_32 color;
 	struct fvec2_32 textureCoord;
+	struct fvec4_32 normalCoord;
 }__attribute__((packed));
 struct gpu_vertex_buffer_triangle{
-	struct gpu_vertex_triangle vertex_list[3];
+	struct gpu_vertex_basic vertex_list[3];
+}__attribute__((packed));
+struct gpu_vertex_buffer_cube_face{
+	struct gpu_vertex_basic vertex_list[24];
 }__attribute__((packed));
 struct gpu_matrix_rotation_2d{
 	float matrix[2][2];
 }__attribute__((packed));
-struct gpu_matrix_transform_3d{
-	float matrix[4][4];
-}__attribute__((packed));
-struct gpu_matrix_scale_3d{
-	float matrix[4][4];
-}__attribute__((packed));
-struct gpu_matrix_rotation_3d{
-	float matrix[4][4][3];
-}__attribute__((packed));
-struct gpu_matrix_model_3d{
-	struct gpu_matrix_transform_3d transform;
-	struct gpu_matrix_scale_3d scale;
-	struct gpu_matrix_rotation_3d rotation;
+struct gpu_matrix_projection_perspective_3d{
+	float xScale;
+	float reserved0[4];
+	float yScale;
+	float reserved1[4];
+	float zScaleFactor;
+	float value0;
+	float reserved2[2];
+	float perspectiveDivide;
+	float reserved3[1];
 }__attribute__((packed));
 struct gpu_matrix_view_3d{
-	float matrix[4][4];	
+	float matrix[16];
 }__attribute__((packed));
-struct gpu_matrix_perspective_projection{
+struct gpu_matrix_scale_3d{
+	float x;
+	float reserved0[4];
+	float y;
+	float reserved1[4];
+	float z;
+	float reserved2[4];
+	float value0;
+}__attribute__((packed));
+struct gpu_matrix_rotation_3d{
 	float matrix[4][4];
+}__attribute__((packed));
+struct gpu_matrix_translation_3d{
+	float value0;
+	float reserved0[2];
+	float x;
+	float reserved1[1];
+	float value1;
+	float reserved2[1];
+	float y;
+	float reserved3[2];
+	float value2;
+	float z;
+	float reserved4[3];
+	float value3;
+}__attribute__((packed));
+struct gpu_matrix_model{
+	struct gpu_matrix_translation_3d translation;
+	struct gpu_matrix_rotation_3d rotationX;
+	struct gpu_matrix_rotation_3d rotationY;
+	struct gpu_matrix_rotation_3d rotationZ;
+	struct gpu_matrix_scale_3d scale;
 }__attribute__((packed));
 struct gpu_create_object_info_header{
 	uint64_t objectType;
@@ -644,21 +671,6 @@ struct gpu_transfer_from_device_info{
 	struct gpu_box boxRect;
 	uint64_t offset;
 };
-struct gpu_driver_features{
-	uint64_t acceleration:1;
-	uint64_t reserved0:63;
-};
-struct gpu_driver_info{
-	struct gpu_driver_features features;
-};
-struct gpu_driver_desc{
-	struct gpu_driver_vtable vtable;
-	struct gpu_driver_info driverInfo;
-	uint64_t driverId;
-	uint64_t extra;
-	struct gpu_driver_desc* pFlink;
-	struct gpu_driver_desc* pBlink;
-};
 struct gpu_cmd_context_subsystem_info{
 	struct subsystem_desc* pSubsystemDesc;
 	struct gpu_cmd_context_desc* pFirstCmdContextDesc;
@@ -683,6 +695,35 @@ struct gpu_resource_blob_subsystem_info{
 	struct subsystem_desc* pSubsystemDesc;
 	struct gpu_resource_blob_desc* pFirstResourceBlobDesc;
 	struct gpu_resource_blob_desc* pLastResourceBlobDesc;
+};
+struct gpu_driver_features{
+	uint64_t acceleration:1;
+	uint64_t reserved0:63;
+};
+struct gpu_features{
+	uint64_t acceleration:1;
+	uint64_t reserved0:63;
+};
+struct gpu_driver_info{
+	struct gpu_driver_features features;
+};
+struct gpu_info{
+	uint64_t maxMonitorCount;
+	struct gpu_features features;
+};
+struct gpu_monitor_info{
+	struct gpu_resolution resolution;
+	uint64_t framebufferContextId;
+	uint64_t framebufferResourceId;
+	volatile struct uvec4_8* pFramebuffer;
+};
+struct gpu_driver_desc{
+	struct gpu_driver_vtable vtable;
+	struct gpu_driver_info driverInfo;
+	uint64_t driverId;
+	uint64_t extra;
+	struct gpu_driver_desc* pFlink;
+	struct gpu_driver_desc* pBlink;
 };
 struct gpu_desc{
 	uint64_t driverId;

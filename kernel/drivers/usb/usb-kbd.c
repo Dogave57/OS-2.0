@@ -115,7 +115,7 @@ int usb_kbd_handle_boot_report(void){
 		if (!key_pressed(character)&&!spamAllowed)
 			continue;
 		if (character<128&&character){
-			putchar((!key_pressed(KEY_LSHIFT)||!key_pressed(KEY_RSHIFT)||!key_pressed(KEY_CAPSLOCK)) ? toUpper(character) : character);
+		//	putchar((!key_pressed(KEY_LSHIFT)||!key_pressed(KEY_RSHIFT)||!key_pressed(KEY_CAPSLOCK)) ? toUpper(character) : character);
 		}
 		if (character)
 			key_register_press(character);

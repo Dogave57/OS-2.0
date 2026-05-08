@@ -1,10 +1,10 @@
 #include "stdlib/stdlib.h"
-#include "drivers/gpu/framebuffer.h"
 #include "cpu/cpuid.h"
 #include "align.h"
 #include "bootloader.h"
 #include "panic.h"
 #include "cpu/mutex.h"
+#include "subsystem/text.h"
 #include "mem/pmm.h"
 uint64_t totalMemory = 0;
 uint64_t installedMemory = 0;

@@ -157,7 +157,8 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 	pThread->stackGuardSize = stackGuardSize;
 	pThread->stackCommit = stackCommit;
 	pThread->stackReserve = stackReserve;
-	uint64_t rsp = ((uint64_t)pStack)+stackReserve-72;
+	uint64_t rsp = ((uint64_t)pStack)+stackReserve-64;
+	uint64_t* pStackEntry = (uint64_t*)rsp;
 	struct thread_context_t* pContext = &pThread->context;
 	uint64_t tid = 0;
 	if (thread_register(pThread, &tid)!=0){
@@ -166,12 +167,14 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	*(pStackEntry) = (uint64_t)argument;
+	*(pStackEntry-1) = 64;
 	uint64_t rflags = (1<<1)|(1<<21)|(1<<14);
 	pContext->rip = rip;
 	pContext->rsp = rsp;
 	pContext->rbp = pContext->rsp;
 	pContext->rbp = 0x0;
-	pContext->rcx = tid;
+	pContext->rcx = 64;
 	pContext->rdx = argument;
 	pContext->rflags = rflags;
 	pThread->priority = THREAD_PRIORITY_NORMAL;

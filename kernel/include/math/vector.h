@@ -73,4 +73,51 @@ struct fvec3_32{
 struct fvec4_32{
 	float x, y, z, w;
 }__attribute__((packed));
+struct uvec2_64{
+	uint64_t x, y;
+}__attribute__((packed));
+struct uvec3_64{
+	uint64_t x, y, z;
+}__attribute__((packed));
+struct uvec4_64{
+	uint64_t x, y, z, w;
+}__attribute__((packed));
+struct vec2_64{
+	int64_t x, y;
+}__attribute__((packed));
+struct vec3_64{
+	int64_t x, y, z;
+}__attribute__((packed));
+struct vec4_64{
+	int64_t x, y, z, w;
+}__attribute__((packed));
+struct fvec2_64{
+	double x, y;
+}__attribute__((packed));
+struct fvec3_64{
+	double x, y, z;
+}__attribute__((packed));
+struct fvec4_64{
+	double x, y, z, w;
+}__attribute__((packed));
+struct fvec3_32 fvec3_32_add(struct fvec3_32 vec1, struct fvec3_32 vec2);
+struct fvec3_32 fvec3_32_sub(struct fvec3_32 vec1, struct fvec3_32 vec2);
+struct fvec3_64 fvec3_64_add(struct fvec3_64 vec1, struct fvec3_64 vec2);
+struct fvec3_64 fvec3_64_sub(struct fvec3_64 vec1, struct fvec3_64 vec2);
+struct fvec4_32 fvec4_32_add(struct fvec4_32 vec1, struct fvec4_32 vec2);
+struct fvec4_32 fvec4_32_sub(struct fvec4_32 vec1, struct fvec4_32 vec2);
+struct fvec4_64 fvec4_64_add(struct fvec4_64 vec1, struct fvec4_64 vec2);
+struct fvec4_64 fvec4_64_sub(struct fvec4_64 vec1, struct fvec4_64 vec2);
+struct fvec3_32 fvec3_32_mul(struct fvec3_32 vec1, struct fvec3_32 vec2);
+struct fvec3_32 fvec3_32_div(struct fvec3_32 vec1, struct fvec3_32 vec2);
+struct fvec3_64 fvec3_64_mul(struct fvec3_64 vec1, struct fvec3_64 vec2);
+struct fvec3_64 fvec3_64_div(struct fvec3_64 vec1, struct fvec3_64 vec2);
+struct fvec4_32 fvec4_32_mul(struct fvec4_32 vec1, struct fvec4_32 vec2);
+struct fvec4_32 fvec4_32_div(struct fvec4_32 vec1, struct fvec4_32 vec2);
+struct fvec4_64 fvec4_64_mul(struct fvec4_64 vec1, struct fvec4_64 vec2);
+struct fvec4_64 fvec4_64_div(struct fvec4_64 vec1, struct fvec4_64 vec2);
+struct fvec3_32 normf3_32(struct fvec3_32 vec);
+struct fvec3_64 normf3_64(struct fvec3_64 vec);
+struct fvec3_32 crossf3_32(struct fvec3_32 vec1, struct fvec3_32 vec2);
+struct fvec3_64 crossf3_64(struct fvec3_64 vec1, struct fvec3_64 vec2);
 #endif

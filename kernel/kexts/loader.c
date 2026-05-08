@@ -110,11 +110,11 @@ int kext_get_entry(uint64_t pid, struct kext_desc_t** ppEntry){
 	*ppEntry = pEntry;
 	return 0;
 }
-int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
-	serial_print(0, "test\r\n");
+__attribute__((ms_abi)) int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
 	lapic_send_eoi();
-	serial_print(0, "done\r\n");
-	printf("test\r\n");
+//	printf("kext TID: %d\r\n", tid);
+	printf("kext arguments: %p\r\n", (uint64_t)pArgs);
+	while (1){};
 	if (!pArgs){
 		printf("invalid arguments\r\n");
 		while (1){};

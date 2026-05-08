@@ -1,6 +1,6 @@
 #include "stdlib/stdlib.h"
-#include "drivers/gpu/framebuffer.h"
 #include "panic.h"
+#include "subsystem/text.h"
 #include "cpu/thread.h"
 #include "cpu/mutex.h"
 int mutex_lock(struct mutex_t* pMutex){

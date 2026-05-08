@@ -1,9 +1,9 @@
 #include <stdarg.h>
 #include <stdint.h>
-#include "drivers/gpu/framebuffer.h"
 #include "cpu/thread.h"
 #include "cpu/mutex.h"
-#include "math/math.h"
+#include "math/basic.h"
+#include "subsystem/text.h"
 #include "stdlib/stdlib.h"
 unsigned char printfLock = 0;
 KAPI int atoi(long long num, unsigned char* buf, unsigned int bufmax){

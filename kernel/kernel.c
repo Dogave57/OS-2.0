@@ -5,7 +5,6 @@
 #include "mem/pmm.h"
 #include "mem/vmm.h"
 #include "mem/heap.h"
-#include "drivers/gpu/framebuffer.h"
 #include "drivers/smbios.h"
 #include "drivers/smp.h"
 #include "drivers/serial.h"
@@ -21,6 +20,7 @@
 #include "subsystem/filesystem.h"
 #include "subsystem/pcie.h"
 #include "subsystem/gpu.h"
+#include "subsystem/text.h"
 #include "drivers/gpt.h"
 #include "drivers/gpu/virtio.h"
 #include "drivers/filesystem/fat32.h"
@@ -51,18 +51,18 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	conout = systab->ConOut;
 	pbootargs = blargs;
 	filesystemProtocol = pbootargs->filesystemProtocol;
-	if (init_fonts()!=0){
-		print("failed to initiailize fonts\r\n");
-		while (1){};
-		return -1;
-	}
 	BS->ExitBootServices(pbootargs->bootloaderHandle, pbootargs->memoryInfo.memoryMapKey);
-	clear();
 	if (serial_init()!=0){
 		printf("failed to intialize serial ports\r\n");
 		while (1){};
 		return -1;
 	}
+	if (text_subsystem_soft_init()!=0){
+		serial_print(0, "failed to soft initialize graphical text subsystem\r\n");
+		while (1){};
+		return -1;
+	}
+	clear();
 	if (pmm_init()!=0){
 		printf("failed to initiallize pmm\r\n");
 		while (1){};
@@ -219,9 +219,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	if (virtio_gpu_init()!=0){
-		printf("failed to initialize virtual I/O GPU driver\r\n");
-	}
 	if (dma_device_driver_init()!=0){
 		printf("failed to initialize custom bulk DMA device host controller driver\r\n");
 	}
@@ -237,8 +234,16 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	if (virtio_gpu_init()!=0){
+		printf("virtual I/O GPU host controller not available\r\n");
+	}
+	if (text_subsystem_init()!=0){
+		printf("failed to fully initialize graphical text subsystem\r\n");
+		while (1){};
+		return -1;
+	}
 	if (xhci_driver_init()!=0){
-		printf("failed to initialize XHCI controller\r\n");
+		printf("extensible host controller not available\r\n");
 	}
 	if (gpt_verify(1)!=0){
 		printf("failed to verify GPT partition table\r\n");

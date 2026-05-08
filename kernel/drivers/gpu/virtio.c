@@ -8,10 +8,13 @@
 #include "cpu/port.h"
 #include "cpu/mutex.h"
 #include "align.h"
+#include "math/basic.h"
+#include "math/trig.h"
+#include "math/matrix.h"
 #include "math/vector.h"
-#include "math/math.h"
 #include "subsystem/subsystem.h"
 #include "subsystem/gpu.h"
+#include "drivers/keyboard.h"
 #include "drivers/serial.h"
 #include "drivers/timer.h"
 #include "drivers/apic.h"
@@ -155,6 +158,7 @@ int virtio_gpu_init(void){
 	struct gpu_info subsystemGpuInfo = {0};
 	memset((void*)&subsystemGpuInfo, 0, sizeof(struct gpu_info));
 	subsystemGpuInfo.maxMonitorCount = VIRTIO_GPU_MAX_SCANOUT_COUNT;
+	subsystemGpuInfo.features.acceleration = gpuInfo.virglSupport ? 0x01 : 0x00;
 	if (gpu_register(driverId, subsystemGpuInfo, &gpuId)!=0){
 		printf("failed to register virtual I/O GPU\r\n");
 		gpu_driver_unregister(driverId);
@@ -400,10 +404,10 @@ int virtio_gpu_init(void){
 		memset((void*)viewportStateList, 0, sizeof(struct gpu_viewport_state));
 		viewportStateList[0].translate.x = ((float)pScanoutInfo->resolution.width)/2.0f;
 		viewportStateList[0].translate.y = ((float)pScanoutInfo->resolution.height)/2.0f;
-		viewportStateList[0].translate.z = 1.0f;
+		viewportStateList[0].translate.z = 0.5f;
 		viewportStateList[0].scale.x = ((float)pScanoutInfo->resolution.width)/2.0f;
 		viewportStateList[0].scale.y = ((float)pScanoutInfo->resolution.height)/2.0f;
-		viewportStateList[0].scale.z = 1.0f;
+		viewportStateList[0].scale.z = 0.5f;
 		setViewportStateCmdInfo.header.commandType = GPU_CMD_TYPE_SET_VIEWPORT_STATE_LIST;
 		setViewportStateCmdInfo.viewportStateCount = 1;
 		setViewportStateCmdInfo.pViewportStateList = (struct gpu_viewport_state*)viewportStateList;
@@ -436,8 +440,9 @@ int virtio_gpu_init(void){
 		rasterizerState.line_smooth = 1;
 		rasterizerState.fill_mode_front = GPU_POLYGON_MODE_FILL;
 		rasterizerState.fill_mode_back = GPU_POLYGON_MODE_FILL;
-		rasterizerState.point_size = 16.0f;
-		rasterizerState.line_width = 16.0f;
+		rasterizerState.cull_face_mode = GPU_FACE_BACK;
+		rasterizerState.point_size = 4.0f;
+		rasterizerState.line_width = 4.0f;
 		createRasterizerObjectInfo.header.objectType = GPU_OBJECT_TYPE_RASTERIZER_STATE;
 		createRasterizerObjectInfo.surfaceObjectId = surfaceObjectId;
 		createRasterizerObjectInfo.pRasterizerState = &rasterizerState;
@@ -451,6 +456,8 @@ int virtio_gpu_init(void){
 		memset((void*)&createDsaObjectInfo, 0, sizeof(struct gpu_create_dsa_state_object_info));
 		struct gpu_dsa_state dsaState = {0};
 		memset((void*)&dsaState, 0, sizeof(struct gpu_dsa_state));
+		dsaState.depth_enable = 1;
+		dsaState.depth_func = GPU_FUNC_LEQUAL;
 		dsaState.alpha_enable = 1;
 		dsaState.alpha_func = GPU_FUNC_ALWAYS;
 		createDsaObjectInfo.header.objectType = GPU_OBJECT_TYPE_DSA_STATE;
@@ -472,7 +479,7 @@ int virtio_gpu_init(void){
 		blendStateList[0].rgb_dest_factor = GPU_BLENDFACTOR_INV_SRC_ALPHA;
 		blendStateList[0].alpha_func = GPU_BLEND_ADD;
 		blendStateList[0].alpha_src_factor = GPU_BLENDFACTOR_ONE;
-		blendStateList[0].alpha_dest_factor = GPU_BLENDFACTOR_INV_SRC_ALPHA;
+		blendStateList[0].alpha_dest_factor = GPU_BLENDFACTOR_ZERO;
 		blendStateList[0].color_mask = GPU_COLOR_MASK_RGBA;
 		createBlendStateListObjectInfo.header.objectType = GPU_OBJECT_TYPE_BLEND_STATE_LIST;
 		createBlendStateListObjectInfo.surfaceObjectId = surfaceObjectId;
@@ -484,49 +491,89 @@ int virtio_gpu_init(void){
 			continue;
 		}
 		uint64_t vertexElementListObjectId = 0;
-		struct gpu_vertex_buffer_triangle vertexBuffer = {0};
-		memset((void*)&vertexBuffer, 0, sizeof(struct gpu_vertex_buffer_triangle));
-		vertexBuffer.vertex_list[0].position.x = -0.5f;
-		vertexBuffer.vertex_list[0].position.y = -0.5f;
-		vertexBuffer.vertex_list[0].position.z = 0.0f;
-		vertexBuffer.vertex_list[0].position.w = 1.0f;
-		vertexBuffer.vertex_list[1].position.x = 0.0f;
-		vertexBuffer.vertex_list[1].position.y = 0.5f;
-		vertexBuffer.vertex_list[1].position.z = 0.0f;
-		vertexBuffer.vertex_list[1].position.w = 1.0f;
-		vertexBuffer.vertex_list[2].position.x = 0.5f;
-		vertexBuffer.vertex_list[2].position.y = -0.5f;
-		vertexBuffer.vertex_list[2].position.z = 0.0f;
-		vertexBuffer.vertex_list[2].position.w = 1.0f;
+		struct gpu_vertex_buffer_cube_face vertexBuffer = {0};
+		memset((void*)&vertexBuffer, 0, sizeof(struct gpu_vertex_buffer_cube_face));
+		struct fvec4_32 vertexPositionList[24] = {
+			{-1.0f, -1.0f, 1.0f, 1.0f}, {1.0f, -1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {-1.0f, 1.0f, 1.0f, 1.0f},
+			{-1.0f, -1.0f, -1.0f, 1.0f}, {-1.0f, 1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, -1.0f, 1.0f}, {1.0f, -1.0f, -1.0f, 1.0f},
+			{-1.0f, 1.0f, -1.0f, 1.0f}, {-1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, -1.0f, 1.0f},
+			{-1.0f, -1.0f, -1.0f, 1.0f}, {1.0f, -1.0f, -1.0f, 1.0f}, {1.0f, -1.0f, 1.0f, 1.0f}, {-1.0f, -1.0f, 1.0f, 1.0f},
+			{1.0f, -1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, -1.0f, 1.0f, 1.0f},
+			{-1.0f, -1.0f, -1.0f, 1.0f}, {-1.0f, -1.0f, 1.0f, 1.0f}, {-1.0f, 1.0f, 1.0f, 1.0f}, {-1.0f, 1.0f, -1.0f, 1.0f},
+		}; 
+		for (uint64_t i = 0;i<24;i++){
+			struct fvec4_32 vertexPosition = vertexPositionList[i];
+			struct fvec3_32 normalCoord = normf3_32(*(struct fvec3_32*)&vertexPosition);
+			vertexBuffer.vertex_list[i].position = vertexPosition;
+			memcpy((void*)&vertexBuffer.vertex_list[i].normalCoord, (void*)&normalCoord, sizeof(struct fvec3_32));
+			vertexBuffer.vertex_list[i].normalCoord.w = 1.0f;
+		}
 		vertexBuffer.vertex_list[0].color.x = 1.0f;
-		vertexBuffer.vertex_list[0].color.y = 0.5f;
+		vertexBuffer.vertex_list[0].color.y = 0.0f;
 		vertexBuffer.vertex_list[0].color.z = 0.0f;
 		vertexBuffer.vertex_list[0].color.w = 1.0f;
-		vertexBuffer.vertex_list[1].color.x = 0.5f;
+		vertexBuffer.vertex_list[1].color.x = 0.0f;
 		vertexBuffer.vertex_list[1].color.y = 1.0f;
-		vertexBuffer.vertex_list[1].color.z = 0.5f;
+		vertexBuffer.vertex_list[1].color.z = 0.0f;
 		vertexBuffer.vertex_list[1].color.w = 1.0f;
-		vertexBuffer.vertex_list[2].color.x = 0.5f;
-		vertexBuffer.vertex_list[2].color.y = 0.5f;
+		vertexBuffer.vertex_list[2].color.x = 0.0f;
+		vertexBuffer.vertex_list[2].color.y = 0.0f;
 		vertexBuffer.vertex_list[2].color.z = 1.0f;
 		vertexBuffer.vertex_list[2].color.w = 1.0f;
+		vertexBuffer.vertex_list[3].color.x = 1.0f;
+		vertexBuffer.vertex_list[3].color.y = 1.0f;
+		vertexBuffer.vertex_list[3].color.z = 0.0f;
+		vertexBuffer.vertex_list[3].color.w = 1.0f;
+		vertexBuffer.vertex_list[4].color.x = 0.25f;
+		vertexBuffer.vertex_list[4].color.y = 0.5f;
+		vertexBuffer.vertex_list[4].color.z = 0.75f;
+		vertexBuffer.vertex_list[4].color.w = 1.0f;
+		vertexBuffer.vertex_list[5].color.x = 0.5f;
+		vertexBuffer.vertex_list[5].color.y = 0.75f;
+		vertexBuffer.vertex_list[5].color.z = 0.25f;
+		vertexBuffer.vertex_list[5].color.w = 1.0f;
+		vertexBuffer.vertex_list[6].color.x = 0.75f;
+		vertexBuffer.vertex_list[6].color.y = 0.15f;
+		vertexBuffer.vertex_list[6].color.z = 0.5f;
+		vertexBuffer.vertex_list[6].color.w = 1.0f;
+		vertexBuffer.vertex_list[7].color.x = 0.5f;
+		vertexBuffer.vertex_list[7].color.y = 0.15f;
+		vertexBuffer.vertex_list[7].color.z = 0.9f;
+		vertexBuffer.vertex_list[7].color.w = 1.0f;
 		vertexBuffer.vertex_list[0].textureCoord.x = -1.0f;
 		vertexBuffer.vertex_list[0].textureCoord.y = -1.0f;
-		vertexBuffer.vertex_list[1].textureCoord.x = 0.0f;
-		vertexBuffer.vertex_list[1].textureCoord.y = 1.0f;
+		vertexBuffer.vertex_list[1].textureCoord.x = 1.0f;
+		vertexBuffer.vertex_list[1].textureCoord.y = -1.0f;
 		vertexBuffer.vertex_list[2].textureCoord.x = 1.0f;
-		vertexBuffer.vertex_list[2].textureCoord.y = -1.0f;
+		vertexBuffer.vertex_list[2].textureCoord.y = 1.0f;
+		vertexBuffer.vertex_list[3].textureCoord.x = -1.0f;
+		vertexBuffer.vertex_list[3].textureCoord.y = 1.0f;
+		vertexBuffer.vertex_list[4].textureCoord.x = -1.0f;
+		vertexBuffer.vertex_list[4].textureCoord.y = -1.0f;
+		vertexBuffer.vertex_list[5].textureCoord.x = 1.0f;
+		vertexBuffer.vertex_list[5].textureCoord.y = -1.0f;
+		vertexBuffer.vertex_list[6].textureCoord.x = 1.0f;
+		vertexBuffer.vertex_list[6].textureCoord.y = 1.0f;
+		vertexBuffer.vertex_list[7].textureCoord.x = -1.0f;
+		vertexBuffer.vertex_list[7].textureCoord.y = 1.0f;
+		for (uint64_t i = 8;i<24;i++){
+			vertexBuffer.vertex_list[i].color = vertexBuffer.vertex_list[i%8].color;
+			vertexBuffer.vertex_list[i].textureCoord = vertexBuffer.vertex_list[i%8].textureCoord;
+		}
 		struct gpu_vertex_element vertexElementList[3] = {0};
 		memset((void*)&vertexElementList, 0, sizeof(struct gpu_vertex_element));
 		vertexElementList[0].src_offset = 0;
-		vertexElementList[0].vertex_buffer_index = 0;
+		vertexElementList[0].vertex_buffer_index = 0x00;
 		vertexElementList[0].src_format = GPU_FORMAT_R32G32B32A32_FLOAT;
-		vertexElementList[1].vertex_buffer_index = 0;
+		vertexElementList[1].vertex_buffer_index = 0x00;
 		vertexElementList[1].src_offset = sizeof(vertexBuffer.vertex_list[0].position);
 		vertexElementList[1].src_format = GPU_FORMAT_R32G32B32A32_FLOAT;
-		vertexElementList[2].vertex_buffer_index = 0;
+		vertexElementList[2].vertex_buffer_index = 0x00;
 		vertexElementList[2].src_offset = vertexElementList[1].src_offset+sizeof(vertexBuffer.vertex_list[0].color);
 		vertexElementList[2].src_format = GPU_FORMAT_R32G32_FLOAT;
+		vertexElementList[3].vertex_buffer_index = 0x00;
+		vertexElementList[3].src_offset = sizeof(vertexBuffer.vertex_list[0].normalCoord);
+		vertexElementList[3].src_format = GPU_FORMAT_R32G32B32A32_FLOAT;
 		struct gpu_create_vertex_element_list_object_info createVertexElementListObjectInfo = {0};
 		memset((void*)&createVertexElementListObjectInfo, 0, sizeof(struct gpu_create_vertex_element_list_object_info));
 		createVertexElementListObjectInfo.header.objectType = GPU_OBJECT_TYPE_VERTEX_ELEMENT_LIST;
@@ -540,8 +587,38 @@ int virtio_gpu_init(void){
 		}
 		uint64_t vertexShaderObjectId = 0;
 		uint64_t fragmentShaderObjectId = 0;
-		const unsigned char vertexShaderCode[]="VERT\nDCL OUT[0], POSITION\nDCL OUT[1], COLOR\nDCL OUT[2], TEXCOORD\nDCL IN[0]\nDCL IN[1]\nDCL IN[2]\nDCL CONST[0]\nDCL TEMP[0]\nMOV TEMP[0], IN[0]\nDP2 TEMP[0].x, IN[0].xyxy, CONST[0].xyxy\nDP2 TEMP[0].y, IN[0].xyxy, CONST[0].zwzw\nMOV OUT[0], TEMP[0]\nMOV OUT[1], IN[1]\nMOV OUT[2], IN[2]\nEND\n";
-		const unsigned char fragmentShaderCode[]="FRAG\nDCL OUT[0], COLOR\nDCL IN[0], COLOR, PERSPECTIVE\nDCL IN[1], TEXCOORD, PERSPECTIVE\nDCL SAMP[0]\nDCL SVIEW[0], 2D, FLOAT\nDCL TEMP[0]\nTEX TEMP[0], IN[1], SAMP[0], 2D\nMUL TEMP[0], TEMP[0], IN[0]\nMOV OUT[0], TEMP[0]\nEND\n";
+		const unsigned char vertexShaderCode[]="VERT\n"
+		"DCL OUT[0], POSITION\n"
+		"DCL OUT[1], COLOR\n"
+		"DCL OUT[2], TEXCOORD\n"
+		"DCL IN[0]\n"
+		"DCL IN[1]\n"
+		"DCL IN[2]\n"
+		"DCL CONST[0..3]\n"
+		"DCL TEMP[0]\n"
+		"DCL TEMP[1]\n"
+		"DCL TEMP[2]\n"
+		"MOV TEMP[0], IN[0]\n"
+		"DP4 TEMP[1].x, CONST[0], TEMP[0]\n"
+		"DP4 TEMP[1].y, CONST[1], TEMP[0]\n"
+		"DP4 TEMP[1].z, CONST[2], TEMP[0]\n"
+		"DP4 TEMP[1].w, CONST[3], TEMP[0]\n"
+		"MOV OUT[0], TEMP[1]\n"
+		"MOV OUT[1], IN[1]\n"
+		"MOV OUT[2], IN[2]\n"
+		"END\n";
+		const unsigned char fragmentShaderCode[]="FRAG\n"
+		"DCL OUT[0], COLOR\n"
+		"DCL IN[0], COLOR, PERSPECTIVE\n"
+		"DCL IN[1], TEXCOORD, PERSPECTIVE\n"
+		"DCL SAMP[0]\n"
+		"DCL SVIEW[0], 2D, FLOAT\n"
+		"DCL CONST[0]\n"
+		"DCL TEMP[0]\n"
+		"TEX TEMP[0], IN[1], SAMP[0], 2D\n"
+		"MUL TEMP[0], TEMP[0], IN[0]\n"
+		"MOV OUT[0], TEMP[0]\n"
+		"END\n";
 		struct gpu_create_shader_object_info createShaderObjectInfo = {0};
 		memset((void*)&createShaderObjectInfo, 0, sizeof(struct gpu_create_shader_object_info));
 		createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
@@ -570,7 +647,7 @@ int virtio_gpu_init(void){
 		clearCmdInfo.color.y = 0.25f;
 		clearCmdInfo.color.z = 0.25f;
 		clearCmdInfo.color.w = 1.0f;
-		clearCmdInfo.depth = 1.0;
+		clearCmdInfo.depth = 1.0f;
 		clearCmdInfo.buffers = (1<<0)|(1<<2);
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
 		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
@@ -693,7 +770,7 @@ int virtio_gpu_init(void){
 			continue;
 		}
 		uint64_t vertexBufferResourceId = 0;
-		struct gpu_vertex_buffer_triangle* pVertexBuffer = (struct gpu_vertex_buffer_triangle*)0x0;
+		struct gpu_vertex_buffer_cube_face* pVertexBuffer = (struct gpu_vertex_buffer_cube_face*)0x00;
 		if (virtualAllocPage((uint64_t*)&pVertexBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 			printf("failed to allocate physical page for GPU host controller vertex buffer\r\n");
 			gpu_context_delete(gpuId, subsystemContextId);
@@ -706,7 +783,7 @@ int virtio_gpu_init(void){
 		createResourceInfo.resourceInfo.contextId = subsystemContextId;
 		createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32G32B32A32_FLOAT;
 		createResourceInfo.resourceInfo.normal.format = 64;
-		createResourceInfo.resourceInfo.normal.width = sizeof(struct gpu_vertex_buffer_triangle);
+		createResourceInfo.resourceInfo.normal.width = sizeof(struct gpu_vertex_buffer_cube_face);
 		createResourceInfo.resourceInfo.normal.height = 1;
 		createResourceInfo.resourceInfo.normal.depth = 1;
 		createResourceInfo.resourceInfo.normal.arraySize = 1;
@@ -735,7 +812,7 @@ int virtio_gpu_init(void){
 		}
 		uint64_t indexBufferResourceId = 0;
 		uint8_t* pIndexBuffer = (uint8_t*)0x0;
-		uint64_t indexBufferSize = sizeof(uint8_t)*3;
+		uint64_t indexBufferSize = sizeof(uint8_t)*36;
 		if (virtualAllocPage((uint64_t*)&pIndexBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
 			printf("failed to allocate physical pages for GPU host controller index buffer resource physical pages\r\n");
 			gpu_context_delete(gpuId, subsystemContextId);
@@ -744,9 +821,26 @@ int virtio_gpu_init(void){
 			continue;
 		}
 		memset((void*)pIndexBuffer, 0, indexBufferSize);
-		pIndexBuffer[0] = 0x00;
-		pIndexBuffer[1] = 0x01;
-		pIndexBuffer[2] = 0x02;
+		uint8_t indexBuffer[42]={
+			0, 1, 2,
+			2, 3, 0,
+			
+			4, 5, 6,
+			6, 7, 4,
+			
+			8, 9, 10,
+			10, 11, 8,
+
+			12, 13, 14,
+			14, 15, 12,
+
+			16, 17, 18,
+			18, 19, 16,
+
+			20, 21, 22,
+			22, 23, 20,
+		};
+		memcpy((void*)pIndexBuffer, (void*)indexBuffer, sizeof(uint8_t)*42);
 		memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
 		createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
 		createResourceInfo.resourceInfo.contextId = subsystemContextId;
@@ -811,7 +905,7 @@ int virtio_gpu_init(void){
 			virtualFree((uint64_t)pIndexBuffer, indexBufferSize);
 			continue;
 		}
-		transferToDeviceInfo.boxRect.width = sizeof(struct gpu_vertex_buffer_triangle);
+		transferToDeviceInfo.boxRect.width = sizeof(struct gpu_vertex_buffer_cube_face);
 		transferToDeviceInfo.boxRect.height = 1;
 		transferToDeviceInfo.boxRect.depth = 1;
 		if (gpu_transfer_to_device(gpuId, vertexBufferResourceId, transferToDeviceInfo)!=0){
@@ -827,7 +921,7 @@ int virtio_gpu_init(void){
 		memset((void*)&setVertexBufferListCmdInfo, 0, sizeof(struct gpu_set_vertex_buffer_list_cmd_info));
 		struct gpu_vertex_buffer vertexBufferList[1] = {0};
 		memset((void*)vertexBufferList, 0, sizeof(struct gpu_vertex_buffer));
-		vertexBufferList[0].stride = sizeof(struct gpu_vertex_triangle);
+		vertexBufferList[0].stride = sizeof(struct gpu_vertex_basic);
 		vertexBufferList[0].resource_id = vertexBufferResourceId;
 		setVertexBufferListCmdInfo.header.commandType = GPU_CMD_TYPE_SET_VERTEX_BUFFER_LIST;
 		setVertexBufferListCmdInfo.vertexBufferCount = 1;
@@ -917,7 +1011,7 @@ int virtio_gpu_init(void){
 		struct gpu_draw_vbo_info drawVboInfo = {0};
 		memset((void*)&drawVboInfo, 0, sizeof(struct gpu_draw_vbo_info));
 		drawVboInfo.start = 0;
-		drawVboInfo.count = 3;
+		drawVboInfo.count = indexBufferSize;
 		drawVboInfo.mode = GPU_PRIMITIVE_TRIANGLES;
 		drawVboInfo.instance_count = 1;
 		drawVboInfo.index_size = 0x01;
@@ -935,33 +1029,175 @@ int virtio_gpu_init(void){
 			virtualFree((uint64_t)pIndexBuffer, indexBufferSize);
 			continue;
 		}
-		struct gpu_matrix_rotation_2d rotationMatrix = {0};
-		memset((void*)&rotationMatrix, 0, sizeof(struct gpu_matrix_rotation_2d));
-		double angle = 45.0;
-		double rad = anglef_to_radf(-angle);
-		rotationMatrix.matrix[0][0] = (float)cosf(rad);
-		rotationMatrix.matrix[0][1] = -(float)sinf(rad);
-		rotationMatrix.matrix[1][0] = (float)sinf(rad);
-		rotationMatrix.matrix[1][1] = (float)cosf(rad);
+		static struct fvec3_32 cameraAngle = {0.0f, 0.0f, 0.0f};
+		static struct fvec3_32 cameraOffset = {0.0f, 0.0f, 0.0f};
+		static struct fvec3_32 cubeScale = {0.25f, 0.25f, 0.25f};
+		static struct fvec3_32 cubeTranslate = {0.0f, 0.0f, 0.0f};
+		static struct fvec3_32 cubeRotate = {0.0f, 0.0f, 0.0f};
+		static double verticalFieldOfView = PI2_F/6.0;
+		double aspect = ((double)pScanoutInfo->resolution.width)/((double)pScanoutInfo->resolution.height);
+		double far = 1000.0;
+		double near = 0.01;
+		struct fvec3_32 cameraPosition = {0};
+		struct fvec4_32 lightPosition = {0};
+		struct fvec3_32 cameraTargetPosition = {0};
+		struct fvec3_32 cameraLookupPosition = {0};
+		struct fvec3_32 cameraForwardVector = {0};
+		struct fvec3_32 cameraRightVector = {0};
+		struct fvec3_32 cameraUpVector = {0};
+		cameraPosition.x = 0.0f;
+		cameraPosition.y = 1.0f;
+		cameraPosition.z = -1.0f;
+		lightPosition.x = 1.0f;
+		lightPosition.y = 1.0f;
+		lightPosition.z = -1.0f;
+		lightPosition.w = 1.0f;
+		cameraTargetPosition.x = 0.0f;
+		cameraTargetPosition.y = 0.0f;
+		cameraTargetPosition.z = 0.0f;
+		cameraLookupPosition.x = 0.0f;
+		cameraLookupPosition.y = 1.0f;
+		cameraLookupPosition.z = 0.0f;
+		cameraForwardVector = normf3_32(fvec3_32_sub(cameraTargetPosition, cameraPosition));
+		cameraRightVector = crossf3_32(cameraForwardVector, cameraLookupPosition);
+		cameraRightVector = normf3_32(cameraRightVector);
+		cameraUpVector = crossf3_32(cameraForwardVector, cameraRightVector);
+		float projectionMatrix[16] = {0};
+		memset((void*)projectionMatrix, 0, sizeof(float)*16);
+		projectionMatrix[0] = (float)(1.0/(aspect*tanf(verticalFieldOfView*0.5)));
+		projectionMatrix[5] = (float)(1.0/(tanf(verticalFieldOfView*0.5)));
+		projectionMatrix[10] = -(float)((far+near)/(far-near));
+		projectionMatrix[11] = -1.0f;
+		projectionMatrix[14] = -(float)(((2.0f*far*near)/(far-near)));
+		float viewMatrix[16] = {0};
+		memset((void*)viewMatrix, 0, sizeof(float)*16);
+		viewMatrix[0] = cameraRightVector.x;
+		viewMatrix[4] = cameraRightVector.y;
+		viewMatrix[8] = cameraRightVector.z;
+		viewMatrix[1] = cameraUpVector.x;
+		viewMatrix[5] = cameraUpVector.y;
+		viewMatrix[9] = cameraUpVector.z;
+		viewMatrix[2] = cameraForwardVector.x;
+		viewMatrix[6] = cameraForwardVector.y;
+		viewMatrix[10] = cameraForwardVector.z;
+		viewMatrix[12] = -((cameraRightVector.x*cameraPosition.x)+(cameraRightVector.y*cameraPosition.y)+(cameraRightVector.z*cameraPosition.z));
+		viewMatrix[13] = -((cameraUpVector.x*cameraPosition.x)+(cameraUpVector.y*cameraPosition.y)+(cameraUpVector.z*cameraPosition.z));
+		viewMatrix[14] = ((cameraForwardVector.x*cameraPosition.x)+(cameraForwardVector.y*cameraPosition.y)+(cameraForwardVector.z*cameraPosition.z));
+		viewMatrix[15] = 1.0f;
+		float translationMatrix[16] = {0};
+		memset((void*)translationMatrix, 0, sizeof(float)*16);
+		float scaleMatrix[16] = {0};
+		memset((void*)scaleMatrix, 0, sizeof(float)*16);
+		scaleMatrix[0] = cubeScale.x;
+		scaleMatrix[5] = cubeScale.y;
+		scaleMatrix[10] = cubeScale.z;
+		scaleMatrix[15] = 1.0f;
+		translationMatrix[0] = 1.0f;
+		translationMatrix[5] = 1.0f;
+		translationMatrix[10] = 1.0f;
+		translationMatrix[3] = cubeTranslate.x;
+		translationMatrix[7] = cubeTranslate.y;
+		translationMatrix[11] = cubeTranslate.z;
+		translationMatrix[15] = 1.0f;
+		float rotationMatrixX[16] = {0};
+		memset((void*)rotationMatrixX, 0, sizeof(float)*16);
+		rotationMatrixX[0] = 1.0f;
+		rotationMatrixX[5] = cosf(cubeRotate.x);
+		rotationMatrixX[6] = -sinf(cubeRotate.x);
+		rotationMatrixX[9] = sinf(cubeRotate.x);
+		rotationMatrixX[10] = cosf(cubeRotate.x);
+		rotationMatrixX[15] = 1.0f;
+		float rotationMatrixY[16] = {0};
+		memset((void*)rotationMatrixY, 0, sizeof(float)*16);
+		rotationMatrixY[0] = cosf(cubeRotate.y);
+		rotationMatrixY[2] = sinf(cubeRotate.y);
+		rotationMatrixY[5] = 1.0f;
+		rotationMatrixY[8] = -sinf(cubeRotate.y);
+		rotationMatrixY[10] = cosf(cubeRotate.y);
+		rotationMatrixY[15] = 1.0f;
+		float rotationMatrixZ[16] = {0};
+		memset((void*)rotationMatrixZ, 0, sizeof(float)*16);
+		rotationMatrixZ[0] = cosf(cubeRotate.z);
+		rotationMatrixZ[1] = -sinf(cubeRotate.z);
+		rotationMatrixZ[4] = sinf(cubeRotate.z);
+		rotationMatrixZ[5] = cosf(cubeRotate.z);
+		rotationMatrixZ[10] = 1.0f;
+		rotationMatrixZ[15] = 1.0f;
+		float tempMatrix[16] = {0};
+		float rotationMatrix[16] = {0};
+		matrix4x4_f32_multiply((float*)rotationMatrixY, (float*)rotationMatrixX, (float*)tempMatrix);
+		matrix4x4_f32_multiply((float*)rotationMatrixZ, (float*)tempMatrix, (float*)rotationMatrix);
+		float modelMatrix[16] = {0};
+		matrix4x4_f32_multiply((float*)rotationMatrix, (float*)scaleMatrix, (float*)tempMatrix);
+		matrix4x4_f32_multiply((float*)tempMatrix, (float*)translationMatrix, (float*)modelMatrix);
+		float modelViewProjectionMatrix[16] = {0};
+		matrix4x4_f32_multiply((float*)viewMatrix, (float*)modelMatrix, (float*)tempMatrix);
+		matrix4x4_f32_multiply((float*)projectionMatrix, (float*)tempMatrix, (float*)modelViewProjectionMatrix);
+		matrix4x4_f32_transpose((float*)modelViewProjectionMatrix, (float*)modelViewProjectionMatrix);
+		matrix4x4_f32_transpose((float*)modelMatrix, (float*)modelMatrix);
+/*		printf("forward vector: (%f, %f, %f)\r\n", cameraForwardVector.x, cameraForwardVector.y, cameraForwardVector.z);
+		printf("right vector: (%f, %f, %f)\r\n", cameraRightVector.x, cameraRightVector.y, cameraRightVector.z);
+		printf("up vector: (%f, %f, %f)\r\n", cameraUpVector.x, cameraUpVector.y, cameraUpVector.z);
+		printf("projection matrix: ");
+		for (uint64_t i = 0;i<16;i++){
+			printf("%f, ", projectionMatrix[i]);
+		}
+		putchar('\n');
+		printf("view matrix: ");
+		for (uint64_t i = 0;i<16;i++){
+			printf("%f, ", viewMatrix[i]);
+		}
+		putchar('\n');
+		printf("translation matrix: ");
+		for (uint64_t i = 0;i<16;i++){
+			printf("%f, ", translationMatrix[i]);
+		}
+		putchar('\n');
+		printf("scale matrix: ");
+		for (uint64_t i = 0;i<16;i++){
+			printf("%f, ", scaleMatrix[i]);
+		}
+		putchar('\n');
+		printf("model matrix: ");
+		for (uint64_t i = 0;i<16;i++){
+			printf("%f, ", modelMatrix[i]);
+		}
+		putchar('\n');
+		printf("model view projection matrix: ");
+		for (uint64_t i = 0;i<16;i++){
+			printf("%f, ", modelViewProjectionMatrix[i]);
+		}
+		putchar('\n');
+		printf("vertex position list: \r\n");
+		for (uint64_t i = 0;i<8;i++){
+			struct fvec4_32 vertexPosition = vertexBuffer.vertex_list[i].position;
+			printf("%f, %f, %f, %f\r\n", vertexPosition.x, vertexPosition.y, vertexPosition.z, vertexPosition.w);
+		}
+		printf("index buffer: ");
+		for (uint64_t i = 0;i<indexBufferSize;i++){
+			printf("%d, ", pIndexBuffer[i]);
+		}
+		putchar('\n');*/
 		struct gpu_set_constant_buffer_cmd_info setConstantBufferCmdInfo = {0};
 		memset((void*)&setConstantBufferCmdInfo, 0, sizeof(struct gpu_set_constant_buffer_cmd_info));
 		setConstantBufferCmdInfo.header.commandType = GPU_CMD_TYPE_SET_CONSTANT_BUFFER;
 		setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
 		setConstantBufferCmdInfo.index = 0x00;
-		setConstantBufferCmdInfo.bufferSize = sizeof(struct gpu_matrix_rotation_2d);
-		setConstantBufferCmdInfo.pBuffer = (unsigned char*)&rotationMatrix;
+		setConstantBufferCmdInfo.bufferSize = sizeof(float)*16;
+		setConstantBufferCmdInfo.pBuffer = (unsigned char*)modelViewProjectionMatrix;
 		gpu_cmd_context_reset(gpuId, cmdContextId);
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
+		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
+		setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
+		setConstantBufferCmdInfo.index = 0x00;
+		setConstantBufferCmdInfo.bufferSize = sizeof(struct fvec4_32);
+		setConstantBufferCmdInfo.pBuffer = (unsigned char*)&lightPosition;
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&drawVboCmdInfo);
 		time_us = get_time_us();
 		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
 			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
-			gpu_context_delete(gpuId, subsystemContextId);
-			virtualFree((uint64_t)pTextureBuffer, textureBufferSize);
-			virtualFreePage((uint64_t)pVertexBuffer, 0);
-			virtualFree((uint64_t)pIndexBuffer, indexBufferSize);
-			continue;
+			break;
 		}
 		uint64_t elapsed_us = get_time_us()-time_us;
 		printf("vertex buffer object rasterized and fragmented in %fms\r\n", ((double)elapsed_us)/1000.0);
@@ -1005,6 +1241,7 @@ int virtio_gpu_init(void){
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
+		printf("test: %f\r\n", sqrtf(16));
 	}
 	virtualFreePage((uint64_t)pDisplayInfo, 0);
 	return 0;

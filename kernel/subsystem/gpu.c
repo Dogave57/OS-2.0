@@ -1007,6 +1007,12 @@ int gpu_set_scanout(uint64_t monitorId, uint64_t resourceId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	struct gpu_resource_desc* pResourceDesc = (struct gpu_resource_desc*)0x0;
+	if (gpu_resource_get_desc(pMonitorDesc->gpuId, resourceId, &pResourceDesc)!=0){
+		printf("failed to get GPU host controller framebuffer resource descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	if (!pDriverDesc->vtable.setScanout){
 		printf("GPU host controller driver lacks ability of setting scanouts\r\n");
 		mutex_unlock(&mutex);
@@ -1017,6 +1023,8 @@ int gpu_set_scanout(uint64_t monitorId, uint64_t resourceId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	pMonitorDesc->monitorInfo.framebufferContextId = pResourceDesc->resourceInfo.contextId;
+	pMonitorDesc->monitorInfo.framebufferResourceId = resourceId;
 	mutex_unlock(&mutex);
 	return 0;
 }
