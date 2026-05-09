@@ -106,7 +106,7 @@ KAPI int clear(void){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (pGpuDesc->gpuInfo.features.acceleration){
+	if (pGpuDesc->gpuInfo.features.acceleration&&pMonitorDesc->monitorInfo.framebufferContextId){
 		gpu_cmd_context_reset(pGpuDesc->gpuId, textSubsystemInfo.commandContextId);
 		struct gpu_clear_cmd_info clearCmdInfo = {0};
 		memset((void*)&clearCmdInfo, 0, sizeof(struct gpu_clear_cmd_info));

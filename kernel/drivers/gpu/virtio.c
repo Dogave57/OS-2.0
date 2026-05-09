@@ -998,6 +998,7 @@ int virtio_gpu_init(void){
 		setSamplerViewListCmdInfo.startSlot = 0x00;
 		setSamplerViewListCmdInfo.samplerViewList[0] = samplerViewObjectId;
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setSamplerViewListCmdInfo);
+		clear();
 		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
 			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
 			gpu_context_delete(gpuId, subsystemContextId);
@@ -1034,6 +1035,8 @@ int virtio_gpu_init(void){
 		static struct fvec3_32 cubeScale = {0.25f, 0.25f, 0.25f};
 		static struct fvec3_32 cubeTranslate = {0.0f, 0.0f, 0.0f};
 		static struct fvec3_32 cubeRotate = {0.0f, 0.0f, 0.0f};
+		if (!i)
+			cubeRotate.y = (float)anglef_to_radf(45.0);
 		static double verticalFieldOfView = PI2_F/6.0;
 		double aspect = ((double)pScanoutInfo->resolution.width)/((double)pScanoutInfo->resolution.height);
 		double far = 1000.0;
@@ -4980,7 +4983,6 @@ int virtio_gpu_subsystem_resource_create(uint64_t gpuId, uint64_t resourceId, st
 	if (responseHeader.type!=VIRTIO_GPU_RESPONSE_OK_NODATA){
 		const unsigned char* responseTypeName = "Unknown response type";
 		virtio_gpu_get_response_type_name(responseHeader.type, &responseTypeName);
-		while (1){};
 		printf("failed to create virtual I/O GPU host controller resource (%s)\r\n", responseTypeName);
 		kfree((void*)pResourceDesc);
 		mutex_unlock(&mutex);
