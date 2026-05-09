@@ -563,14 +563,14 @@ jne ctx_switch_end
 mov qword rax, [rel pFirstThread]
 cmp rax, 0
 je ctx_switch_end
-;mov qword rbp, rsp
-;and rsp, -16
-;push rbp
-;sub qword rsp, 32
-;call lapic_send_eoi
-;add qword rsp, 32
-;pop rbp
-;mov qword rsp, rbp
+mov qword rbp, rsp
+and rsp, -16
+push rbp
+sub qword rsp, 32
+call lapic_send_eoi
+add qword rsp, 32
+pop rbp
+mov qword rsp, rbp
 popaq
 push rax
 push rbx

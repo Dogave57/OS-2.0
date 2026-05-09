@@ -9,7 +9,7 @@
 #include "subsystem/text.h"
 unsigned int char_position = 0;
 struct uvec4_8 text_fg = {255,255,255,255};
-struct uvec4_8 text_bg = {25,25,25,255};
+struct uvec4_8 text_bg = {16,16,16,255};
 static struct text_subsystem_info textSubsystemInfo = {0};
 int text_subsystem_soft_init(void){
 	pbootargs->graphicsInfo.fontDataSize = sizeof(mainfont_data);

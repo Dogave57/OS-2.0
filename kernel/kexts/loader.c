@@ -47,7 +47,7 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 	pKextDesc->pid = pid;
 	pKextDesc->pElfHandle = pHandle;
 	pArgs->pKextDesc = pKextDesc;
-	uint64_t tid = 0;
+	uint64_t tid = 0x00;	
 	if (thread_create((uint64_t)kext_bootstrap, 0, 0, &tid, (uint64_t)pArgs)!=0){
 		printf("failed to create thread\r\n");
 		kfree((void*)pArgs);
@@ -112,8 +112,8 @@ int kext_get_entry(uint64_t pid, struct kext_desc_t** ppEntry){
 }
 __attribute__((ms_abi)) int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
 	lapic_send_eoi();
-//	printf("kext TID: %d\r\n", tid);
-	printf("kext arguments: %p\r\n", (uint64_t)pArgs);
+	printf("kext TID: %d\r\n", tid);
+//	printf("kext arguments: %p\r\n", (uint64_t)pArgs);
 	while (1){};
 	if (!pArgs){
 		printf("invalid arguments\r\n");

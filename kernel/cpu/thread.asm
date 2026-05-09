@@ -2,6 +2,7 @@ section .text
 global get_rflags
 global set_rflags
 global thread_destroy_safe
+global thread_exit_safe
 extern pSafeStackTop
 extern threadDestroySafe
 extern thread_destroy
@@ -70,7 +71,6 @@ jmp loop1
 thread_exit_safe:
 cli
 mov qword rsp, [rel pSafeStackTop]
-
 hlt
 sub qword rsp, 32
 add qword rsp, 32

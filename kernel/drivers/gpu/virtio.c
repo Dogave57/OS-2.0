@@ -998,7 +998,6 @@ int virtio_gpu_init(void){
 		setSamplerViewListCmdInfo.startSlot = 0x00;
 		setSamplerViewListCmdInfo.samplerViewList[0] = samplerViewObjectId;
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setSamplerViewListCmdInfo);
-		clear();
 		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
 			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
 			gpu_context_delete(gpuId, subsystemContextId);
@@ -1030,180 +1029,189 @@ int virtio_gpu_init(void){
 			virtualFree((uint64_t)pIndexBuffer, indexBufferSize);
 			continue;
 		}
-		static struct fvec3_32 cameraAngle = {0.0f, 0.0f, 0.0f};
-		static struct fvec3_32 cameraOffset = {0.0f, 0.0f, 0.0f};
-		static struct fvec3_32 cubeScale = {0.25f, 0.25f, 0.25f};
-		static struct fvec3_32 cubeTranslate = {0.0f, 0.0f, 0.0f};
-		static struct fvec3_32 cubeRotate = {0.0f, 0.0f, 0.0f};
-		if (!i)
-			cubeRotate.y = (float)anglef_to_radf(45.0);
-		static double verticalFieldOfView = PI2_F/6.0;
-		double aspect = ((double)pScanoutInfo->resolution.width)/((double)pScanoutInfo->resolution.height);
-		double far = 1000.0;
-		double near = 0.01;
-		struct fvec3_32 cameraPosition = {0};
-		struct fvec4_32 lightPosition = {0};
-		struct fvec3_32 cameraTargetPosition = {0};
-		struct fvec3_32 cameraLookupPosition = {0};
-		struct fvec3_32 cameraForwardVector = {0};
-		struct fvec3_32 cameraRightVector = {0};
-		struct fvec3_32 cameraUpVector = {0};
-		cameraPosition.x = 0.0f;
-		cameraPosition.y = 1.0f;
-		cameraPosition.z = -1.0f;
-		lightPosition.x = 1.0f;
-		lightPosition.y = 1.0f;
-		lightPosition.z = -1.0f;
-		lightPosition.w = 1.0f;
-		cameraTargetPosition.x = 0.0f;
-		cameraTargetPosition.y = 0.0f;
-		cameraTargetPosition.z = 0.0f;
-		cameraLookupPosition.x = 0.0f;
-		cameraLookupPosition.y = 1.0f;
-		cameraLookupPosition.z = 0.0f;
-		cameraForwardVector = normf3_32(fvec3_32_sub(cameraTargetPosition, cameraPosition));
-		cameraRightVector = crossf3_32(cameraForwardVector, cameraLookupPosition);
-		cameraRightVector = normf3_32(cameraRightVector);
-		cameraUpVector = crossf3_32(cameraForwardVector, cameraRightVector);
-		float projectionMatrix[16] = {0};
-		memset((void*)projectionMatrix, 0, sizeof(float)*16);
-		projectionMatrix[0] = (float)(1.0/(aspect*tanf(verticalFieldOfView*0.5)));
-		projectionMatrix[5] = (float)(1.0/(tanf(verticalFieldOfView*0.5)));
-		projectionMatrix[10] = -(float)((far+near)/(far-near));
-		projectionMatrix[11] = -1.0f;
-		projectionMatrix[14] = -(float)(((2.0f*far*near)/(far-near)));
-		float viewMatrix[16] = {0};
-		memset((void*)viewMatrix, 0, sizeof(float)*16);
-		viewMatrix[0] = cameraRightVector.x;
-		viewMatrix[4] = cameraRightVector.y;
-		viewMatrix[8] = cameraRightVector.z;
-		viewMatrix[1] = cameraUpVector.x;
-		viewMatrix[5] = cameraUpVector.y;
-		viewMatrix[9] = cameraUpVector.z;
-		viewMatrix[2] = cameraForwardVector.x;
-		viewMatrix[6] = cameraForwardVector.y;
-		viewMatrix[10] = cameraForwardVector.z;
-		viewMatrix[12] = -((cameraRightVector.x*cameraPosition.x)+(cameraRightVector.y*cameraPosition.y)+(cameraRightVector.z*cameraPosition.z));
-		viewMatrix[13] = -((cameraUpVector.x*cameraPosition.x)+(cameraUpVector.y*cameraPosition.y)+(cameraUpVector.z*cameraPosition.z));
-		viewMatrix[14] = ((cameraForwardVector.x*cameraPosition.x)+(cameraForwardVector.y*cameraPosition.y)+(cameraForwardVector.z*cameraPosition.z));
-		viewMatrix[15] = 1.0f;
-		float translationMatrix[16] = {0};
-		memset((void*)translationMatrix, 0, sizeof(float)*16);
-		float scaleMatrix[16] = {0};
-		memset((void*)scaleMatrix, 0, sizeof(float)*16);
-		scaleMatrix[0] = cubeScale.x;
-		scaleMatrix[5] = cubeScale.y;
-		scaleMatrix[10] = cubeScale.z;
-		scaleMatrix[15] = 1.0f;
-		translationMatrix[0] = 1.0f;
-		translationMatrix[5] = 1.0f;
-		translationMatrix[10] = 1.0f;
-		translationMatrix[3] = cubeTranslate.x;
-		translationMatrix[7] = cubeTranslate.y;
-		translationMatrix[11] = cubeTranslate.z;
-		translationMatrix[15] = 1.0f;
-		float rotationMatrixX[16] = {0};
-		memset((void*)rotationMatrixX, 0, sizeof(float)*16);
-		rotationMatrixX[0] = 1.0f;
-		rotationMatrixX[5] = cosf(cubeRotate.x);
-		rotationMatrixX[6] = -sinf(cubeRotate.x);
-		rotationMatrixX[9] = sinf(cubeRotate.x);
-		rotationMatrixX[10] = cosf(cubeRotate.x);
-		rotationMatrixX[15] = 1.0f;
-		float rotationMatrixY[16] = {0};
-		memset((void*)rotationMatrixY, 0, sizeof(float)*16);
-		rotationMatrixY[0] = cosf(cubeRotate.y);
-		rotationMatrixY[2] = sinf(cubeRotate.y);
-		rotationMatrixY[5] = 1.0f;
-		rotationMatrixY[8] = -sinf(cubeRotate.y);
-		rotationMatrixY[10] = cosf(cubeRotate.y);
-		rotationMatrixY[15] = 1.0f;
-		float rotationMatrixZ[16] = {0};
-		memset((void*)rotationMatrixZ, 0, sizeof(float)*16);
-		rotationMatrixZ[0] = cosf(cubeRotate.z);
-		rotationMatrixZ[1] = -sinf(cubeRotate.z);
-		rotationMatrixZ[4] = sinf(cubeRotate.z);
-		rotationMatrixZ[5] = cosf(cubeRotate.z);
-		rotationMatrixZ[10] = 1.0f;
-		rotationMatrixZ[15] = 1.0f;
-		float tempMatrix[16] = {0};
-		float rotationMatrix[16] = {0};
-		matrix4x4_f32_multiply((float*)rotationMatrixY, (float*)rotationMatrixX, (float*)tempMatrix);
-		matrix4x4_f32_multiply((float*)rotationMatrixZ, (float*)tempMatrix, (float*)rotationMatrix);
-		float modelMatrix[16] = {0};
-		matrix4x4_f32_multiply((float*)rotationMatrix, (float*)scaleMatrix, (float*)tempMatrix);
-		matrix4x4_f32_multiply((float*)tempMatrix, (float*)translationMatrix, (float*)modelMatrix);
-		float modelViewProjectionMatrix[16] = {0};
-		matrix4x4_f32_multiply((float*)viewMatrix, (float*)modelMatrix, (float*)tempMatrix);
-		matrix4x4_f32_multiply((float*)projectionMatrix, (float*)tempMatrix, (float*)modelViewProjectionMatrix);
-		matrix4x4_f32_transpose((float*)modelViewProjectionMatrix, (float*)modelViewProjectionMatrix);
-		matrix4x4_f32_transpose((float*)modelMatrix, (float*)modelMatrix);
-/*		printf("forward vector: (%f, %f, %f)\r\n", cameraForwardVector.x, cameraForwardVector.y, cameraForwardVector.z);
-		printf("right vector: (%f, %f, %f)\r\n", cameraRightVector.x, cameraRightVector.y, cameraRightVector.z);
-		printf("up vector: (%f, %f, %f)\r\n", cameraUpVector.x, cameraUpVector.y, cameraUpVector.z);
-		printf("projection matrix: ");
-		for (uint64_t i = 0;i<16;i++){
-			printf("%f, ", projectionMatrix[i]);
-		}
-		putchar('\n');
-		printf("view matrix: ");
-		for (uint64_t i = 0;i<16;i++){
-			printf("%f, ", viewMatrix[i]);
-		}
-		putchar('\n');
-		printf("translation matrix: ");
-		for (uint64_t i = 0;i<16;i++){
-			printf("%f, ", translationMatrix[i]);
-		}
-		putchar('\n');
-		printf("scale matrix: ");
-		for (uint64_t i = 0;i<16;i++){
-			printf("%f, ", scaleMatrix[i]);
-		}
-		putchar('\n');
-		printf("model matrix: ");
-		for (uint64_t i = 0;i<16;i++){
-			printf("%f, ", modelMatrix[i]);
-		}
-		putchar('\n');
-		printf("model view projection matrix: ");
-		for (uint64_t i = 0;i<16;i++){
-			printf("%f, ", modelViewProjectionMatrix[i]);
-		}
-		putchar('\n');
-		printf("vertex position list: \r\n");
-		for (uint64_t i = 0;i<8;i++){
-			struct fvec4_32 vertexPosition = vertexBuffer.vertex_list[i].position;
-			printf("%f, %f, %f, %f\r\n", vertexPosition.x, vertexPosition.y, vertexPosition.z, vertexPosition.w);
-		}
-		printf("index buffer: ");
-		for (uint64_t i = 0;i<indexBufferSize;i++){
-			printf("%d, ", pIndexBuffer[i]);
-		}
-		putchar('\n');*/
-		struct gpu_set_constant_buffer_cmd_info setConstantBufferCmdInfo = {0};
-		memset((void*)&setConstantBufferCmdInfo, 0, sizeof(struct gpu_set_constant_buffer_cmd_info));
-		setConstantBufferCmdInfo.header.commandType = GPU_CMD_TYPE_SET_CONSTANT_BUFFER;
-		setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
-		setConstantBufferCmdInfo.index = 0x00;
-		setConstantBufferCmdInfo.bufferSize = sizeof(float)*16;
-		setConstantBufferCmdInfo.pBuffer = (unsigned char*)modelViewProjectionMatrix;
-		gpu_cmd_context_reset(gpuId, cmdContextId);
-		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
-		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
-		setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
-		setConstantBufferCmdInfo.index = 0x00;
-		setConstantBufferCmdInfo.bufferSize = sizeof(struct fvec4_32);
-		setConstantBufferCmdInfo.pBuffer = (unsigned char*)&lightPosition;
-		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
-		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&drawVboCmdInfo);
-		time_us = get_time_us();
-		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
-			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
+		for (uint64_t frameCount = 0;;frameCount++){
+			static struct fvec3_32 cameraAngle = {0.0f, 0.0f, 0.0f};
+			static struct fvec3_32 cameraOffset = {0.0f, 0.0f, 0.0f};
+			static struct fvec3_32 cubeScale = {0.25f, 0.25f, 0.25f};
+			static struct fvec3_32 cubeTranslate = {0.0f, 0.0f, 0.0f};
+			static struct fvec3_32 cubeRotate = {0.0f, 0.0f, 0.0f};
+			cubeRotate.y = (float)PI2_F/8.0f;
+			static double verticalFieldOfView = PI2_F/6.0;
+			double aspect = ((double)pScanoutInfo->resolution.width)/((double)pScanoutInfo->resolution.height);
+			double far = 1000.0;
+			double near = 0.01;
+			struct fvec3_32 cameraPosition = {0};
+			struct fvec4_32 lightPosition = {0};
+			struct fvec3_32 cameraTargetPosition = {0};
+			struct fvec3_32 cameraLookupPosition = {0};
+			struct fvec3_32 cameraForwardVector = {0};
+			struct fvec3_32 cameraRightVector = {0};
+			struct fvec3_32 cameraUpVector = {0};
+			cameraPosition.x = 0.0f;
+			cameraPosition.y = 1.0f;
+			cameraPosition.z = -1.0f;
+			lightPosition.x = 1.0f;
+			lightPosition.y = 1.0f;
+			lightPosition.z = -1.0f;
+			lightPosition.w = 1.0f;
+			cameraTargetPosition.x = 0.0f;
+			cameraTargetPosition.y = 0.0f;
+			cameraTargetPosition.z = 0.0f;
+			cameraLookupPosition.x = 0.0f;
+			cameraLookupPosition.y = 1.0f;
+			cameraLookupPosition.z = 0.0f;
+			cameraForwardVector = normf3_32(fvec3_32_sub(cameraTargetPosition, cameraPosition));
+			cameraRightVector = crossf3_32(cameraForwardVector, cameraLookupPosition);
+			cameraRightVector = normf3_32(cameraRightVector);
+			cameraUpVector = crossf3_32(cameraForwardVector, cameraRightVector);
+			float projectionMatrix[16] = {0};
+			memset((void*)projectionMatrix, 0, sizeof(float)*16);
+			projectionMatrix[0] = (float)(1.0/(aspect*tanf(verticalFieldOfView*0.5)));
+			projectionMatrix[5] = (float)(1.0/(tanf(verticalFieldOfView*0.5)));
+			projectionMatrix[10] = -(float)((far+near)/(far-near));
+			projectionMatrix[11] = -1.0f;
+			projectionMatrix[14] = -(float)(((2.0f*far*near)/(far-near)));
+			float viewMatrix[16] = {0};
+			memset((void*)viewMatrix, 0, sizeof(float)*16);
+			viewMatrix[0] = cameraRightVector.x;
+			viewMatrix[4] = cameraRightVector.y;
+			viewMatrix[8] = cameraRightVector.z;
+			viewMatrix[1] = cameraUpVector.x;
+			viewMatrix[5] = cameraUpVector.y;
+			viewMatrix[9] = cameraUpVector.z;
+			viewMatrix[2] = cameraForwardVector.x;
+			viewMatrix[6] = cameraForwardVector.y;
+			viewMatrix[10] = cameraForwardVector.z;
+			viewMatrix[12] = -((cameraRightVector.x*cameraPosition.x)+(cameraRightVector.y*cameraPosition.y)+(cameraRightVector.z*cameraPosition.z));
+			viewMatrix[13] = -((cameraUpVector.x*cameraPosition.x)+(cameraUpVector.y*cameraPosition.y)+(cameraUpVector.z*cameraPosition.z));
+			viewMatrix[14] = ((cameraForwardVector.x*cameraPosition.x)+(cameraForwardVector.y*cameraPosition.y)+(cameraForwardVector.z*cameraPosition.z));
+			viewMatrix[15] = 1.0f;
+			float translationMatrix[16] = {0};
+			memset((void*)translationMatrix, 0, sizeof(float)*16);
+			float scaleMatrix[16] = {0};
+			memset((void*)scaleMatrix, 0, sizeof(float)*16);
+			scaleMatrix[0] = cubeScale.x;
+			scaleMatrix[5] = cubeScale.y;
+			scaleMatrix[10] = cubeScale.z;
+			scaleMatrix[15] = 1.0f;
+			translationMatrix[0] = 1.0f;
+			translationMatrix[5] = 1.0f;
+			translationMatrix[10] = 1.0f;
+			translationMatrix[3] = cubeTranslate.x;
+			translationMatrix[7] = cubeTranslate.y;
+			translationMatrix[11] = cubeTranslate.z;
+			translationMatrix[15] = 1.0f;
+			float rotationMatrixX[16] = {0};
+			memset((void*)rotationMatrixX, 0, sizeof(float)*16);
+			rotationMatrixX[0] = 1.0f;
+			rotationMatrixX[5] = cosf(cubeRotate.x);
+			rotationMatrixX[6] = -sinf(cubeRotate.x);
+			rotationMatrixX[9] = sinf(cubeRotate.x);
+			rotationMatrixX[10] = cosf(cubeRotate.x);
+			rotationMatrixX[15] = 1.0f;
+			float rotationMatrixY[16] = {0};
+			memset((void*)rotationMatrixY, 0, sizeof(float)*16);
+			rotationMatrixY[0] = cosf(cubeRotate.y);
+			rotationMatrixY[2] = sinf(cubeRotate.y);
+			rotationMatrixY[5] = 1.0f;
+			rotationMatrixY[8] = -sinf(cubeRotate.y);
+			rotationMatrixY[10] = cosf(cubeRotate.y);
+			rotationMatrixY[15] = 1.0f;
+			float rotationMatrixZ[16] = {0};
+			memset((void*)rotationMatrixZ, 0, sizeof(float)*16);
+			rotationMatrixZ[0] = cosf(cubeRotate.z);
+			rotationMatrixZ[1] = -sinf(cubeRotate.z);
+			rotationMatrixZ[4] = sinf(cubeRotate.z);
+			rotationMatrixZ[5] = cosf(cubeRotate.z);
+			rotationMatrixZ[10] = 1.0f;
+			rotationMatrixZ[15] = 1.0f;
+			float tempMatrix[16] = {0};
+			float rotationMatrix[16] = {0};
+			matrix4x4_f32_multiply((float*)rotationMatrixY, (float*)rotationMatrixX, (float*)tempMatrix);
+			matrix4x4_f32_multiply((float*)rotationMatrixZ, (float*)tempMatrix, (float*)rotationMatrix);
+			float modelMatrix[16] = {0};
+			matrix4x4_f32_multiply((float*)rotationMatrix, (float*)scaleMatrix, (float*)tempMatrix);
+			matrix4x4_f32_multiply((float*)tempMatrix, (float*)translationMatrix, (float*)modelMatrix);
+			float modelViewProjectionMatrix[16] = {0};
+			matrix4x4_f32_multiply((float*)viewMatrix, (float*)modelMatrix, (float*)tempMatrix);
+			matrix4x4_f32_multiply((float*)projectionMatrix, (float*)tempMatrix, (float*)modelViewProjectionMatrix);
+			matrix4x4_f32_transpose((float*)modelViewProjectionMatrix, (float*)modelViewProjectionMatrix);
+			matrix4x4_f32_transpose((float*)modelMatrix, (float*)modelMatrix);
+	/*		printf("forward vector: (%f, %f, %f)\r\n", cameraForwardVector.x, cameraForwardVector.y, cameraForwardVector.z);
+			printf("right vector: (%f, %f, %f)\r\n", cameraRightVector.x, cameraRightVector.y, cameraRightVector.z);
+			printf("up vector: (%f, %f, %f)\r\n", cameraUpVector.x, cameraUpVector.y, cameraUpVector.z);
+			printf("projection matrix: ");
+			for (uint64_t i = 0;i<16;i++){
+				printf("%f, ", projectionMatrix[i]);
+			}
+			putchar('\n');
+			printf("view matrix: ");
+			for (uint64_t i = 0;i<16;i++){
+				printf("%f, ", viewMatrix[i]);
+			}
+			putchar('\n');
+			printf("translation matrix: ");
+			for (uint64_t i = 0;i<16;i++){
+				printf("%f, ", translationMatrix[i]);
+			}
+			putchar('\n');
+			printf("scale matrix: ");
+			for (uint64_t i = 0;i<16;i++){
+				printf("%f, ", scaleMatrix[i]);
+			}
+			putchar('\n');
+			printf("model matrix: ");
+			for (uint64_t i = 0;i<16;i++){
+				printf("%f, ", modelMatrix[i]);
+			}
+			putchar('\n');
+			printf("model view projection matrix: ");
+			for (uint64_t i = 0;i<16;i++){
+				printf("%f, ", modelViewProjectionMatrix[i]);
+			}
+			putchar('\n');
+			printf("vertex position list: \r\n");
+			for (uint64_t i = 0;i<8;i++){
+				struct fvec4_32 vertexPosition = vertexBuffer.vertex_list[i].position;
+				printf("%f, %f, %f, %f\r\n", vertexPosition.x, vertexPosition.y, vertexPosition.z, vertexPosition.w);
+			}
+			printf("index buffer: ");
+			for (uint64_t i = 0;i<indexBufferSize;i++){
+				printf("%d, ", pIndexBuffer[i]);
+			}
+			putchar('\n');*/
+			struct gpu_set_constant_buffer_cmd_info setConstantBufferCmdInfo = {0};
+			memset((void*)&setConstantBufferCmdInfo, 0, sizeof(struct gpu_set_constant_buffer_cmd_info));
+			setConstantBufferCmdInfo.header.commandType = GPU_CMD_TYPE_SET_CONSTANT_BUFFER;
+			setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
+			setConstantBufferCmdInfo.index = 0x00;
+			setConstantBufferCmdInfo.bufferSize = sizeof(float)*16;
+			setConstantBufferCmdInfo.pBuffer = (unsigned char*)modelViewProjectionMatrix;
+			gpu_cmd_context_reset(gpuId, cmdContextId);
+			gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
+			gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
+			setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
+			setConstantBufferCmdInfo.index = 0x00;
+			setConstantBufferCmdInfo.bufferSize = sizeof(struct fvec4_32);
+			setConstantBufferCmdInfo.pBuffer = (unsigned char*)&lightPosition;
+			gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
+			gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&drawVboCmdInfo);
+			time_us = get_time_us();
+			if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
+				printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
+				break;
+			}
+			struct gpu_rect flushRect = {0};
+			flushRect.x = 0x00;
+			flushRect.y = 0x00;
+			flushRect.width = pScanoutInfo->resolution.width;
+			flushRect.height = pScanoutInfo->resolution.height;
+			if (gpu_resource_flush(gpuId, subsystemResourceId, flushRect)!=0){
+				printf("failed to flush GPU host controller resource physical pages via GPU subsystem\r\n");
+				break;
+			}
 			break;
 		}
-		uint64_t elapsed_us = get_time_us()-time_us;
-		printf("vertex buffer object rasterized and fragmented in %fms\r\n", ((double)elapsed_us)/1000.0);
 		gpu_resource_delete(gpuId, textureResourceId);
 		gpu_resource_delete(gpuId, vertexBufferResourceId);
 		virtualFree((uint64_t)pTextureBuffer, textureBufferSize);
@@ -1214,12 +1222,12 @@ int virtio_gpu_init(void){
 		transferFromDeviceInfo.boxRect.width = subsystemCreateResourceInfo.resourceInfo.normal.width;
 		transferFromDeviceInfo.boxRect.height = subsystemCreateResourceInfo.resourceInfo.normal.height;
 		transferFromDeviceInfo.boxRect.depth = 1;
-/*		if (gpu_transfer_from_device(gpuId, subsystemResourceId, transferFromDeviceInfo)!=0){
+		if (gpu_transfer_from_device(gpuId, subsystemResourceId, transferFromDeviceInfo)!=0){
 			printf("failed to transfer resource data from virtual I/O GPU host controller via GPU subsystem\r\n");
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
-*/		memset((void*)&transferToDeviceInfo, 0, sizeof(struct gpu_transfer_to_device_info));
+		memset((void*)&transferToDeviceInfo, 0, sizeof(struct gpu_transfer_to_device_info));
 		transferToDeviceInfo.boxRect.width = subsystemCreateResourceInfo.resourceInfo.normal.width;
 		transferToDeviceInfo.boxRect.height = subsystemCreateResourceInfo.resourceInfo.normal.height;
 		transferToDeviceInfo.boxRect.depth = 1;
@@ -3637,8 +3645,6 @@ int virtio_gpu_response_queue_interrupt(uint8_t interruptVector){
 	}	
 	uint64_t responseCount = (pQueueInfo->lastResponseRingIndex>=(1<<16)-1) ? (pQueueInfo->pResponseRing->index+1) : pQueueInfo->pResponseRing->index-pQueueInfo->lastResponseRingIndex;
 	if (!responseCount&&pQueueInfo->pResponseRing->index){
-		serial_print(0, "invalid response count\r\n");
-		while (1){};
 		return -1;
 	}
 	for (uint64_t i = 0;i<responseCount;i++){	
@@ -3781,6 +3787,7 @@ int virtio_gpu_queue_polling_enable(struct virtio_gpu_queue_info* pQueueInfo){
 	gpuInfo.pBaseRegisters->queue_msix_vector = 0xFFFF;
 	gpuInfo.pBaseRegisters->queue_enable = 0x01;
 	pQueueInfo->pResponseRing->flags = VIRTIO_GPU_RESPONSE_RING_FLAG_NO_NOTIFY;
+	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
 int virtio_gpu_queue_polling_disable(struct virtio_gpu_queue_info* pQueueInfo){

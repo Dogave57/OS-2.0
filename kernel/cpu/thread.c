@@ -167,8 +167,9 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	*(pStackEntry) = (uint64_t)argument;
-	*(pStackEntry-1) = 64;
+	*pStackEntry = (uint64_t)thread_exit_safe;
+	*(pStackEntry+1) = (uint64_t)argument;
+	*(pStackEntry+2) = 64;
 	uint64_t rflags = (1<<1)|(1<<21)|(1<<14);
 	pContext->rip = rip;
 	pContext->rsp = rsp;
