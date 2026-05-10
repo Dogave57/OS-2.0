@@ -19,46 +19,6 @@ int threads_init(void){
 	schedulerHalt = 0;
 	return 0;
 }
-int thread_link(struct thread_t* pThread, struct thread_t* pLink){
-	if (!pThread)
-		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-	if (!pLink)
-		pLink = pLastThread;
-	if (!pFirstThread)
-		pFirstThread = pThread;
-	if (pLink){
-		pLink->pFlink = pThread;
-		pThread->pBlink = pLink;
-		if (pLink==pLastThread)
-			pThread->pFlink = pFirstThread;
-	}
-	if (pLink==pLastThread)
-		pLastThread = pThread;
-	mutex_unlock(&mutex);
-	return 0;
-}
-int thread_unlink(struct thread_t* pThread){
-	if (!pThread)
-		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-	if (pFirstThread==pThread){
-		pFirstThread = pThread->pFlink;
-	}
-	if (pLastThread==pThread){
-		pLastThread = pThread->pBlink;
-	}
-	if (pThread->pFlink){
-		pThread->pFlink->pBlink = pThread->pBlink;
-	}
-	if (pThread->pBlink){
-		pThread->pBlink->pFlink = pThread->pFlink;
-	}
-	mutex_unlock(&mutex);
-	return 0;
-}
 int thread_register(struct thread_t* pThread, uint64_t* pTid){
 	if (!pThread||!pTid)
 		return -1;
@@ -69,11 +29,13 @@ int thread_register(struct thread_t* pThread, uint64_t* pTid){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (thread_link(pThread, (struct thread_t*)0x0)!=0){
-		subsystem_free_entry(pSubsystemDesc, tid);
-		mutex_unlock(&mutex);
-		return -1;
+	if (!pFirstThread)
+		pFirstThread = pThread;
+	if (pLastThread){
+		pLastThread->pFlink = pThread;
+		pThread->pBlink = pLastThread;
 	}
+	pLastThread = pThread;
 	*pTid = tid;
 	mutex_unlock(&mutex);
 	return 0;
@@ -94,10 +56,14 @@ int thread_unregister(uint64_t tid){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (thread_unlink(pThread)!=0){
-		mutex_unlock(&mutex);
-		return -1;
-	}
+	if (pThread->pBlink)
+		pThread->pBlink->pFlink = pThread->pFlink;
+	if (pThread->pFlink)
+		pThread->pFlink->pBlink = pThread->pBlink;
+	if (pThread==pLastThread)
+		pLastThread = pThread->pBlink;
+	if (pThread==pFirstThread)
+		pFirstThread = pThread->pFlink;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -159,6 +125,7 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 	pThread->stackReserve = stackReserve;
 	uint64_t rsp = ((uint64_t)pStack)+stackReserve-64;
 	uint64_t* pStackEntry = (uint64_t*)rsp;
+//	pStackEntry = (uint64_t*)(((uint64_t)pStack)+(PAGE_SIZE*4));
 	struct thread_context_t* pContext = &pThread->context;
 	uint64_t tid = 0;
 	if (thread_register(pThread, &tid)!=0){
@@ -167,15 +134,15 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	*pStackEntry = (uint64_t)thread_exit_safe;
+	pStackEntry-=2;
+	*(pStackEntry) = tid;
 	*(pStackEntry+1) = (uint64_t)argument;
-	*(pStackEntry+2) = 64;
+	pStackEntry--;
 	uint64_t rflags = (1<<1)|(1<<21)|(1<<14);
 	pContext->rip = rip;
-	pContext->rsp = rsp;
+	pContext->rsp = (uint64_t)pStackEntry;
 	pContext->rbp = pContext->rsp;
-	pContext->rbp = 0x0;
-	pContext->rcx = 64;
+	pContext->rcx = tid;
 	pContext->rdx = argument;
 	pContext->rflags = rflags;
 	pThread->priority = THREAD_PRIORITY_NORMAL;
@@ -187,7 +154,6 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 }
 KAPI int thread_destroy(uint64_t tid){
 	__asm__ volatile("cli");
-	printf("destroying thread with TID: %d\r\n", tid);
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	uint64_t current_tid = 0;

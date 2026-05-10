@@ -2,6 +2,7 @@
 #include "mem/vmm.h"
 #include "mem/heap.h"
 #include "subsystem/filesystem.h"
+#include "subsystem/gpu.h"
 #include "subsystem/subsystem.h"
 #include "drivers/timer.h"
 #include "drivers/serial.h"
@@ -48,6 +49,14 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 	pKextDesc->pElfHandle = pHandle;
 	pArgs->pKextDesc = pKextDesc;
 	uint64_t tid = 0x00;	
+	printf("kext args: %p\r\n", (uint64_t)pArgs);
+	uint64_t* pKextEntry = (uint64_t*)0x00;
+	if (elf_get_entry(pHandle, (uint64_t*)&pKextEntry)!=0){
+		printf("failed to get ELF binary entry\r\n");
+		elf_unload(pHandle);
+		kfree((void*)pKextDesc);
+		return -1;
+	}
 	if (thread_create((uint64_t)kext_bootstrap, 0, 0, &tid, (uint64_t)pArgs)!=0){
 		printf("failed to create thread\r\n");
 		kfree((void*)pArgs);
@@ -62,8 +71,7 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 		return -1;
 	}
 	elf_unload(pHandle);
-	printf("finished kext\r\n");
-	printf("kext finished\r\n");
+	printf("kext execution complete\r\n");
 	return 0;
 }
 int kext_unload(uint64_t pid){
@@ -111,10 +119,22 @@ int kext_get_entry(uint64_t pid, struct kext_desc_t** ppEntry){
 	return 0;
 }
 __attribute__((ms_abi)) int kext_bootstrap(uint64_t tid, struct kext_bootstrap_args_t* pArgs){
-	lapic_send_eoi();
-	printf("kext TID: %d\r\n", tid);
-//	printf("kext arguments: %p\r\n", (uint64_t)pArgs);
-	while (1){};
+	uint64_t startTime = get_time_us();
+	printf("kext TID: %p\r\n", tid);
+	printf("test\r\n");
+	uint64_t contextId = 0x00;
+	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x00;
+	if (gpu_monitor_get_desc(0x01, &pMonitorDesc)!=0){
+		printf("failed to get monitor descriptor\r\n");
+		while (1){};
+	}
+	printf("monitor descriptor: %p\r\n", (uint64_t)pMonitorDesc);
+	printf("GPU host controller ID: %d\r\n", pMonitorDesc->gpuId);
+	if (gpu_context_create(pMonitorDesc->gpuId, &contextId)!=0){
+		printf("failed to create GPU host controller context\r\n");
+		while (1){};
+	}
+	printf("context ID: %d\r\n", contextId);
 	if (!pArgs){
 		printf("invalid arguments\r\n");
 		while (1){};
@@ -141,8 +161,6 @@ __attribute__((ms_abi)) int kext_bootstrap(uint64_t tid, struct kext_bootstrap_a
 		while (1){};
 		return -1;
 	}
-	printf("triggering kext entry\r\n");
-	while (1){};
 	uint64_t status = entry(pArgs->pKextDesc->pid);
 	printf("program exited with status 0x%x\r\n", status);
 	if (thread_destroy(tid)!=0){

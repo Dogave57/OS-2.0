@@ -20,7 +20,7 @@ int gpu_subsystem_init(void){
 	}
 	return 0;
 }
-int gpu_driver_register(struct gpu_driver_vtable vtable, struct gpu_driver_info driverInfo, uint64_t* pDriverId){
+KAPI int gpu_driver_register(struct gpu_driver_vtable vtable, struct gpu_driver_info driverInfo, uint64_t* pDriverId){
 	if (!pDriverId)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -53,7 +53,7 @@ int gpu_driver_register(struct gpu_driver_vtable vtable, struct gpu_driver_info 
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_driver_unregister(uint64_t driverId){
+KAPI int gpu_driver_unregister(uint64_t driverId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
@@ -76,7 +76,7 @@ int gpu_driver_unregister(uint64_t driverId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_driver_get_desc(uint64_t driverId, struct gpu_driver_desc** ppDriverDesc){
+KAPI int gpu_driver_get_desc(uint64_t driverId, struct gpu_driver_desc** ppDriverDesc){
 	if (!ppDriverDesc)
 		return -1;
 	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x0;
@@ -87,14 +87,14 @@ int gpu_driver_get_desc(uint64_t driverId, struct gpu_driver_desc** ppDriverDesc
 	*ppDriverDesc = pDriverDesc;
 	return 0;
 }
-int gpu_driver_get_first_desc(struct gpu_driver_desc** ppDriverDesc){
+KAPI int gpu_driver_get_first_desc(struct gpu_driver_desc** ppDriverDesc){
 	if (!ppDriverDesc)
 		return -1;
 	struct gpu_driver_desc* pDriverDesc = gpuDriverSubsystemInfo.pFirstDriverDesc;
 	*ppDriverDesc = pDriverDesc;
 	return 0;
 }
-int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpuId){
+KAPI int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpuId){
 	if (!pGpuId)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -179,7 +179,7 @@ int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpuId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_unregister(uint64_t gpuId){
+KAPI int gpu_unregister(uint64_t gpuId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -210,7 +210,7 @@ int gpu_unregister(uint64_t gpuId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_get_desc(uint64_t gpuId, struct gpu_desc** ppGpuDesc){
+KAPI int gpu_get_desc(uint64_t gpuId, struct gpu_desc** ppGpuDesc){
 	if (!ppGpuDesc)
 		return -1;
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -221,7 +221,7 @@ int gpu_get_desc(uint64_t gpuId, struct gpu_desc** ppGpuDesc){
 	*ppGpuDesc = pGpuDesc;
 	return 0;
 }
-int gpu_monitor_register(uint64_t gpuId, struct gpu_monitor_info monitorInfo, uint64_t* pMonitorId){
+KAPI int gpu_monitor_register(uint64_t gpuId, struct gpu_monitor_info monitorInfo, uint64_t* pMonitorId){
 	if (!pMonitorId)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -267,7 +267,7 @@ int gpu_monitor_register(uint64_t gpuId, struct gpu_monitor_info monitorInfo, ui
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_monitor_unregister(uint64_t monitorId){
+KAPI int gpu_monitor_unregister(uint64_t monitorId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
@@ -288,7 +288,7 @@ int gpu_monitor_unregister(uint64_t monitorId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_monitor_get_desc(uint64_t monitorId, struct gpu_monitor_desc** ppMonitorDesc){
+KAPI int gpu_monitor_get_desc(uint64_t monitorId, struct gpu_monitor_desc** ppMonitorDesc){
 	if (!ppMonitorDesc||!gpuMonitorSubsystemInfo.pSubsystemDesc)
 		return -1;
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
@@ -299,7 +299,7 @@ int gpu_monitor_get_desc(uint64_t monitorId, struct gpu_monitor_desc** ppMonitor
 	*ppMonitorDesc = pMonitorDesc;
 	return 0;
 }
-int gpu_monitor_get_info(uint64_t monitorId, struct gpu_monitor_info* pMonitorInfo){
+KAPI int gpu_monitor_get_info(uint64_t monitorId, struct gpu_monitor_info* pMonitorInfo){
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
 	if (gpu_monitor_get_desc(monitorId, &pMonitorDesc)!=0)
 		return -1;
@@ -307,7 +307,7 @@ int gpu_monitor_get_info(uint64_t monitorId, struct gpu_monitor_info* pMonitorIn
 	*pMonitorInfo = monitorInfo;
 	return 0;
 }
-int gpu_monitor_exists(uint64_t monitorId){
+KAPI int gpu_monitor_exists(uint64_t monitorId){
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
 	if (gpu_monitor_get_desc(monitorId, &pMonitorDesc)!=0)
 		return -1;
@@ -377,7 +377,7 @@ int gpu_cmd_context_unregister(uint64_t gpuId, uint64_t cmdContextId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_cmd_context_get_desc(uint64_t gpuId, uint64_t cmdContextId, struct gpu_cmd_context_desc** ppCmdContextDesc){
+KAPI int gpu_cmd_context_get_desc(uint64_t gpuId, uint64_t cmdContextId, struct gpu_cmd_context_desc** ppCmdContextDesc){
 	if (!ppCmdContextDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -471,7 +471,7 @@ int gpu_object_unregister(uint64_t gpuId, uint64_t objectId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_object_get_desc(uint64_t gpuId, uint64_t objectId, struct gpu_object_desc** ppObjectDesc){
+KAPI int gpu_object_get_desc(uint64_t gpuId, uint64_t objectId, struct gpu_object_desc** ppObjectDesc){
 	if (!ppObjectDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -571,7 +571,7 @@ int gpu_context_unregister(uint64_t gpuId, uint64_t contextId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_context_get_desc(uint64_t gpuId, uint64_t contextId, struct gpu_context_desc** ppContextDesc){
+KAPI int gpu_context_get_desc(uint64_t gpuId, uint64_t contextId, struct gpu_context_desc** ppContextDesc){
 	if (!ppContextDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -596,7 +596,7 @@ int gpu_context_get_desc(uint64_t gpuId, uint64_t contextId, struct gpu_context_
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_cmd_context_init(uint64_t gpuId, uint64_t commandListSize, uint64_t* pCmdContextId){
+KAPI int gpu_cmd_context_init(uint64_t gpuId, uint64_t commandListSize, uint64_t* pCmdContextId){
 	if (!pCmdContextId)
 		return -1;
 	if (!commandListSize)
@@ -644,7 +644,7 @@ int gpu_cmd_context_init(uint64_t gpuId, uint64_t commandListSize, uint64_t* pCm
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_cmd_context_deinit(uint64_t gpuId, uint64_t cmdContextId){
+KAPI int gpu_cmd_context_deinit(uint64_t gpuId, uint64_t cmdContextId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -672,7 +672,7 @@ int gpu_cmd_context_deinit(uint64_t gpuId, uint64_t cmdContextId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_cmd_context_reset(uint64_t gpuId, uint64_t cmdContextId){
+KAPI int gpu_cmd_context_reset(uint64_t gpuId, uint64_t cmdContextId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -706,7 +706,7 @@ int gpu_cmd_context_reset(uint64_t gpuId, uint64_t cmdContextId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_cmd_context_push_cmd(uint64_t gpuId, uint64_t cmdContextId, struct gpu_cmd_info_header* pCommandInfo){
+KAPI int gpu_cmd_context_push_cmd(uint64_t gpuId, uint64_t cmdContextId, struct gpu_cmd_info_header* pCommandInfo){
 	if (!pCommandInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -742,7 +742,7 @@ int gpu_cmd_context_push_cmd(uint64_t gpuId, uint64_t cmdContextId, struct gpu_c
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmdContextId){
+KAPI int gpu_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmdContextId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -851,7 +851,7 @@ int gpu_resource_unregister(uint64_t gpuId, uint64_t resourceId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_resource_desc** ppResourceDesc){
+KAPI int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_resource_desc** ppResourceDesc){
 	if (!ppResourceDesc)
 		return -1;
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -865,7 +865,7 @@ int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_resour
 	*ppResourceDesc = pResourceDesc;
 	return 0;
 }
-int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel){
+KAPI int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel){
 	if (!pPixel)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -891,7 +891,7 @@ int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pP
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel){
+KAPI int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
@@ -919,7 +919,7 @@ int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pi
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_sync(uint64_t monitorId, struct uvec4 rect){
+KAPI int gpu_sync(uint64_t monitorId, struct uvec4 rect){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
@@ -943,7 +943,7 @@ int gpu_sync(uint64_t monitorId, struct uvec4 rect){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_commit(uint64_t monitorId, struct uvec4 rect){
+KAPI int gpu_commit(uint64_t monitorId, struct uvec4 rect){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
@@ -967,7 +967,7 @@ int gpu_commit(uint64_t monitorId, struct uvec4 rect){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_push(uint64_t monitorId, struct uvec4 rect){
+KAPI int gpu_push(uint64_t monitorId, struct uvec4 rect){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
@@ -992,7 +992,7 @@ int gpu_push(uint64_t monitorId, struct uvec4 rect){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_set_scanout(uint64_t monitorId, uint64_t resourceId){
+KAPI int gpu_set_scanout(uint64_t monitorId, uint64_t resourceId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x0;
@@ -1028,7 +1028,7 @@ int gpu_set_scanout(uint64_t monitorId, uint64_t resourceId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_object_create(uint64_t gpuId, uint64_t contextId, struct gpu_create_object_info* pCreateObjectInfo, uint64_t* pObjectId){
+KAPI int gpu_object_create(uint64_t gpuId, uint64_t contextId, struct gpu_create_object_info* pCreateObjectInfo, uint64_t* pObjectId){
 	if (!pCreateObjectInfo||!pObjectId)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -1066,7 +1066,7 @@ int gpu_object_create(uint64_t gpuId, uint64_t contextId, struct gpu_create_obje
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_object_delete(uint64_t gpuId, uint64_t objectId){
+KAPI int gpu_object_delete(uint64_t gpuId, uint64_t objectId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -1099,7 +1099,7 @@ int gpu_object_delete(uint64_t gpuId, uint64_t objectId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_object_bind(uint64_t gpuId, uint64_t objectId){
+KAPI int gpu_object_bind(uint64_t gpuId, uint64_t objectId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -1127,7 +1127,7 @@ int gpu_object_bind(uint64_t gpuId, uint64_t objectId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_context_create(uint64_t gpuId, uint64_t* pContextId){
+KAPI int gpu_context_create(uint64_t gpuId, uint64_t* pContextId){
 	if (!pContextId)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -1164,7 +1164,7 @@ int gpu_context_create(uint64_t gpuId, uint64_t* pContextId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_context_delete(uint64_t gpuId, uint64_t contextId){
+KAPI int gpu_context_delete(uint64_t gpuId, uint64_t contextId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -1197,7 +1197,7 @@ int gpu_context_delete(uint64_t gpuId, uint64_t contextId){
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_context_attach_resource(uint64_t gpuId, uint64_t contextId, uint64_t resourceId){
+KAPI int gpu_context_attach_resource(uint64_t gpuId, uint64_t contextId, uint64_t resourceId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -1225,7 +1225,7 @@ int gpu_context_attach_resource(uint64_t gpuId, uint64_t contextId, uint64_t res
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_resource_create(uint64_t gpuId, struct gpu_create_resource_info createResourceInfo, uint64_t* pResourceId){
+KAPI int gpu_resource_create(uint64_t gpuId, struct gpu_create_resource_info createResourceInfo, uint64_t* pResourceId){
 	if (!pResourceId)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -1263,7 +1263,7 @@ int gpu_resource_create(uint64_t gpuId, struct gpu_create_resource_info createRe
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_resource_delete(uint64_t gpuId, uint64_t resourceId){
+KAPI int gpu_resource_delete(uint64_t gpuId, uint64_t resourceId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -1298,7 +1298,7 @@ int gpu_resource_delete(uint64_t gpuId, uint64_t resourceId){
 	mutex_unlock(&mutex);
 	return 0;	
 }
-int gpu_resource_attach_backing(uint64_t gpuId, uint64_t resourceId, unsigned char* pBuffer, uint64_t bufferSize){
+KAPI int gpu_resource_attach_backing(uint64_t gpuId, uint64_t resourceId, unsigned char* pBuffer, uint64_t bufferSize){
 	if (!pBuffer||!bufferSize)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -1328,7 +1328,7 @@ int gpu_resource_attach_backing(uint64_t gpuId, uint64_t resourceId, unsigned ch
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_resource_flush(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect){
+KAPI int gpu_resource_flush(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -1356,7 +1356,7 @@ int gpu_resource_flush(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_transfer_to_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_to_device_info transferToDeviceInfo){
+KAPI int gpu_transfer_to_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_to_device_info transferToDeviceInfo){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
@@ -1384,7 +1384,7 @@ int gpu_transfer_to_device(uint64_t gpuId, uint64_t resourceId, struct gpu_trans
 	mutex_unlock(&mutex);
 	return 0;
 }
-int gpu_transfer_from_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_from_device_info transferFromDeviceInfo){
+KAPI int gpu_transfer_from_device(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_from_device_info transferFromDeviceInfo){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;

@@ -502,7 +502,7 @@ mov qword rax, [rel pCurrentThread]
 cmp rax, 0
 je dump_thread_info_end
 mov qword rcx, tid_dump_msg
-mov qword rdx, [rax+432]
+mov qword rdx, [rax+416]
 sub rsp, 8
 push rax
 sub qword rsp, 32
@@ -511,7 +511,7 @@ add qword rsp, 32
 pop rax
 add rsp, 8
 mov qword rcx, thread_rip_dump_msg
-mov qword rdx, [rax+448]
+mov qword rdx, [rax+424]
 sub rsp, 8
 push rax
 sub qword rsp, 32
@@ -520,7 +520,7 @@ add qword rsp, 32
 pop rax
 add rsp, 8
 mov qword rcx, thread_rsp_dump_msg
-mov qword rdx, [rax+464]
+mov qword rdx, [rax+432]
 sub rsp, 8
 push rax
 sub qword rsp, 32
@@ -572,19 +572,19 @@ add qword rsp, 32
 pop rbp
 mov qword rsp, rbp
 popaq
-push rax
-push rbx
-mov qword rax, [rel pFirstThread]
-mov qword rbx, [rax+128]
-mov qword [rsp+16], rbx
-mov qword rbx, [rax+112]
-mov qword [rsp+24+16], rbx
-mov qword rbx, [rax+136]
-mov qword [rsp+16+16], rbx
-mov qword [rel schedulerHalt], 1
-pop rbx
-pop rax
-iretq
+;push rax
+;push rbx
+;mov qword rax, [rel pFirstThread]
+;mov qword rbx, [rax+128]
+;mov qword [rsp+16], rbx
+;mov qword rbx, [rax+112]
+;mov qword [rsp+24+16], rbx
+;mov qword rbx, [rax+136]
+;mov qword [rsp+16+16], rbx
+;mov qword [rel schedulerHalt], 1
+;pop rbx
+;pop rax
+;iretq
 mov qword [rel ctx_switch_args], rax
 mov qword rax, [rel pCurrentThread]
 cmp rax, 0
@@ -597,8 +597,6 @@ mov qword rbx, [rax+112]
 mov qword [rsp+24], rbx
 mov qword rbx, [rax+136]
 mov qword [rsp+16], rbx
-mov qword [rel schedulerHalt], 1
-iretq
 jmp ctx_switch_next_thread_end
 ctx_switch_next_thread:
 mov qword [rax+8], rbx
@@ -639,13 +637,13 @@ mov qword rbx, [rel ctx_switch_args]
 mov qword [rax], rbx
 mov qword rbx, [rsp+16]
 mov qword [rax+136], rbx
-mov qword rax, [rax+528]
+mov qword rax, [rax+464]
 cmp rax, 0
 je ctx_switch_first_thread
 ctx_switch_next_thread_end:
 mov qword [rel pCurrentThread], rax
 priority_check:
-mov qword rbx, [rax+416]
+mov qword rbx, [rax+408]
 cmp rbx, 0
 je priority_case_low
 cmp rbx, 2
@@ -703,7 +701,6 @@ movdqu xmm13, [rax+352]
 movdqu xmm14, [rax+368]
 movdqu xmm15, [rax+384]
 mov qword rax, [rax]
-mov qword [rel schedulerHalt], 1
 iretq
 ctx_switch_end:
 jmp timer_isr_end

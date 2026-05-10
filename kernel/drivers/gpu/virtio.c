@@ -391,6 +391,7 @@ int virtio_gpu_init(void){
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
+		pSubsystemMonitorDesc->monitorInfo.framebufferSurfaceObjectId = surfaceObjectId;
 		struct gpu_set_framebuffer_state_list_cmd_info setFramebufferStateCmdInfo = {0};
 		memset((void*)&setFramebufferStateCmdInfo, 0, sizeof(struct gpu_set_framebuffer_state_list_cmd_info));
 		uint32_t colorBufferHandle = surfaceObjectId;

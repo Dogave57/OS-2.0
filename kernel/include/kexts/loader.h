@@ -1,6 +1,6 @@
 #ifndef _KEXT_LOADER
 #define _KEXT_LOADER
-typedef int(*kextEntry)(uint64_t pid);
+typedef __attribute__((ms_abi)) int(*kextEntry)(uint64_t pid);
 struct kext_desc_t{
 	struct elf_handle* pElfHandle;
 	uint64_t pid;

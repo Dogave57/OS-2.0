@@ -369,7 +369,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	while (1){};
 	uint64_t pid = 0;
 	if (kext_load(mountId, "KEXTS/TEST.ELF", &pid)!=0){
 		printf("failed to load kext\r\n");
