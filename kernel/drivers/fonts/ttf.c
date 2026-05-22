@@ -1,0 +1,570 @@
+#include "mem/pmm.h"
+#include "mem/vmm.h"
+#include "mem/heap.h"
+#include "cpu/mutex.h"
+#include "stdlib/stdlib.h"
+#include "subsystem/text.h"
+#include "align.h"
+#include "drivers/timer.h"
+#include "drivers/fonts/unicode.h"
+#include "drivers/fonts/macintosh.h"
+#include "drivers/fonts/windows.h"
+#include "drivers/fonts/ttf.h"
+static struct font_driver_ttf_info fontDriverInfo = {0};
+int font_driver_ttf_init(void){
+	struct text_subsystem_font_driver_vtable vtable = {0};
+	memset((void*)&vtable, 0, sizeof(struct text_subsystem_font_driver_vtable));
+	vtable.fontLoad = ttf_font_load;
+	vtable.fontUnload = ttf_font_unload;
+	vtable.fontVerify = ttf_font_verify;
+	vtable.fontGlyphGetId = ttf_font_glyph_get_id;
+	vtable.fontGlyphTesselate = ttf_font_glyph_tesselate;
+	struct text_subsystem_font_driver_info subsystemFontDriverInfo = {0};
+	memset((void*)&subsystemFontDriverInfo, 0, sizeof(struct text_subsystem_font_driver_info));
+	subsystemFontDriverInfo.vtable = vtable;
+	uint64_t fontDriverId = 0x00;
+	if (text_subsystem_font_driver_register(subsystemFontDriverInfo, &fontDriverId)!=0){
+		printf("failed to register GPU host controller TTF font driver with text subsystem\r\n");
+		return -1;
+	}
+	fontDriverInfo.fontDriverId = fontDriverId;
+	fontDriverInfo.subsystemFontDriverInfo = subsystemFontDriverInfo;
+	return 0;
+}
+int ttf_get_checksum(struct ttf_font_desc* pFontDesc, uint32_t* pChecksum){
+	if (!pFontDesc||!pChecksum)
+		return -1;
+	uint32_t checksum = 0x00;
+	for (uint64_t i = 0;i<pFontDesc->fontBufferSize/sizeof(uint32_t);i++){
+		uint32_t value = __builtin_bswap32(*(((uint32_t*)pFontDesc->pFontBuffer)+i));
+		checksum+=value;
+	}
+	checksum = TTF_CHECKSUM_MAGIC-((uint64_t)checksum%((uint64_t)1<<32));
+	*pChecksum = checksum;
+	return 0;
+}
+int ttf_table_get_desc(struct ttf_font_desc* pFontDesc, uint64_t tableId, struct ttf_table_desc** ppTableDesc){
+	if (!pFontDesc||!ppTableDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_table_desc* pTableDesc = pFontDesc->tableDescList[tableId];
+	if (!pTableDesc){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	*ppTableDesc = pTableDesc;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_glyph_get_id_fmt_4(struct ttf_font_desc* pFontDesc, struct ttf_subtable_cmap_header* pCharacterMapSubtableHeader, uint32_t characterCode, uint32_t* pGlyphId){
+	if (!pFontDesc||!pCharacterMapSubtableHeader||!pGlyphId)
+		return -1;
+	uint32_t* pGlyphIdMapping = pFontDesc->pGlyphIdMappingTable+characterCode;
+	uint32_t* pGlyphIdMappingPage = (uint32_t*)align_down((uint64_t)pGlyphIdMapping, PAGE_SIZE);
+	uint64_t mappingPhysicalAddress = 0x00;
+	if (virtualToPhysical((uint64_t)pGlyphIdMappingPage, &mappingPhysicalAddress)!=0){
+		printf("failed to get glyph ID mapping page physical address\r\n");
+		return -1;
+	}
+	if (mappingPhysicalAddress){
+		uint32_t glyphId = *pGlyphIdMapping;
+		if (glyphId!=0xFFFFFFFF){
+			*pGlyphId = glyphId;
+			return 0;
+		}
+	}
+	struct ttf_subtable_cmap4* pCharacterMapSubtable = (struct ttf_subtable_cmap4*)pCharacterMapSubtableHeader;
+	uint16_t segmentCount = __builtin_bswap16(pCharacterMapSubtable->segment_count_x2)/2;
+	uint16_t searchRange = __builtin_bswap16(pCharacterMapSubtable->search_range);
+	uint16_t entrySelector = __builtin_bswap16(pCharacterMapSubtable->entry_selector);
+	uint16_t rangeShift = __builtin_bswap16(pCharacterMapSubtable->range_shift);
+	uint16_t* pEndCodeList = (uint16_t*)(pCharacterMapSubtable->lookup_data);
+	uint16_t* pStartCodeList = (pEndCodeList+segmentCount+1);
+	int16_t* pDeltaList = pStartCodeList+segmentCount;
+	uint16_t* pRangeOffsetList = pDeltaList+segmentCount;
+	uint16_t* pGlyphIdList = pRangeOffsetList+segmentCount;
+	for (uint16_t i = 0;i<segmentCount;i++){
+		uint16_t segmentIndex = i;
+		uint16_t startCode = __builtin_bswap16(pStartCodeList[segmentIndex]);
+		uint16_t endCode = __builtin_bswap16(pEndCodeList[segmentIndex]);
+		int16_t delta = __builtin_bswap16(pDeltaList[segmentIndex]);
+		uint16_t rangeOffset = __builtin_bswap16(pRangeOffsetList[segmentIndex]);
+		if (characterCode<startCode||characterCode>endCode)
+			continue;
+		if (!rangeOffset){
+			uint32_t glyphId = (characterCode+delta)%(1<<16);
+			*pGlyphId = glyphId;
+			return 0;
+		}
+		uint32_t glyphId = (uint32_t)__builtin_bswap16(*((uint16_t*)(((unsigned char*)(pRangeOffsetList+segmentIndex)+rangeOffset+((characterCode-startCode)*2)))));
+		glyphId = (glyphId+delta)%(1<<16);
+		uint32_t* pGlyphIdMapping = pFontDesc->pGlyphIdMappingTable+characterCode;
+		uint32_t* pGlyphIdMappingPage = (uint32_t*)(align_down((uint64_t)pGlyphIdMapping, PAGE_SIZE));
+		uint64_t mappingPhysicalAddress = 0x00;
+		if (virtualToPhysical((uint64_t)pGlyphIdMappingPage, &mappingPhysicalAddress)!=0){
+			*pGlyphId = glyphId;
+			return 0;
+		}
+		if (!mappingPhysicalAddress){
+			memset_64((void*)pGlyphIdMappingPage, 0xFFFFFFFF, PAGE_SIZE);
+		}
+		*pGlyphIdMapping = glyphId;
+		*pGlyphId = glyphId;
+		return 0;
+	}
+	return -1;
+}
+int ttf_glyph_get_id(struct ttf_font_desc* pFontDesc, uint16_t platformId, uint16_t encodingId, uint32_t characterCode, uint32_t* pGlyphId){
+	if (!pFontDesc||!pGlyphId)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	static const TTFGetGlyphIdFunc getGlyphIdFuncList[32]={
+		[0x04] = (TTFGetGlyphIdFunc)ttf_glyph_get_id_fmt_4,
+	};
+	struct ttf_table_desc* pCharacterMapTableDesc = (struct ttf_table_desc*)0x00;
+	if (ttf_table_get_desc(pFontDesc, TTF_TABLE_ID_CMAP, &pCharacterMapTableDesc)!=0){
+		printf("failed to get TTF CMAP table descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ttf_table_cmap_header* pCharacterMapTableHeader = (struct ttf_table_cmap_header*)(pFontDesc->pFontBuffer+__builtin_bswap32(pCharacterMapTableDesc->table_offset));
+	uint16_t characterMapTableVersion = __builtin_bswap16(pCharacterMapTableHeader->version);
+	uint16_t characterMapTableRecordCount = __builtin_bswap16(pCharacterMapTableHeader->record_count);
+	for (uint16_t i = 0;i<characterMapTableRecordCount;i++){
+		struct ttf_table_cmap_record* pRecord = ((struct ttf_table_cmap_record*)pCharacterMapTableHeader->record_list)+i;
+		uint16_t recordPlatformId = __builtin_bswap16(pRecord->platform_id);
+		uint16_t recordEncodingId = __builtin_bswap16(pRecord->encoding_id);
+		uint32_t subtableOffset = __builtin_bswap32(pRecord->subtable_offset);
+		struct ttf_subtable_cmap_header* pSubtableHeader = (struct ttf_subtable_cmap_header*)(((uint64_t)pCharacterMapTableHeader)+(uint64_t)subtableOffset);
+		uint16_t subtableFormat = __builtin_bswap16(pSubtableHeader->format);
+		if ((recordPlatformId!=platformId&&platformId!=0xFFFF)||(recordEncodingId!=encodingId&&encodingId!=0xFFFF))
+			continue;
+		TTFGetGlyphIdFunc getGlyphId = getGlyphIdFuncList[subtableFormat];
+		if (!getGlyphId){
+			printf("unsupported CMAP subtable format 0x%x\r\n", subtableFormat);
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		uint32_t glyphId = 0x00;
+		if (getGlyphId(pFontDesc, pSubtableHeader, characterCode, &glyphId)!=0){
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		*pGlyphId = glyphId;
+		mutex_unlock(&mutex);
+		return 0;
+	}
+	mutex_unlock(&mutex);
+	return -1;
+}
+int ttf_glyf_get_desc(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct ttf_glyf_header** ppGlyfDesc, uint32_t* pGlyfDescLength){
+	if (!pFontDesc||!ppGlyfDesc||!pGlyfDescLength)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_table_desc* pHeadTableDesc = (struct ttf_table_desc*)0x00;
+	if (ttf_table_get_desc(pFontDesc, TTF_TABLE_ID_HEAD, &pHeadTableDesc)!=0){
+		printf("failed to get TTF HEAD table descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ttf_table_desc* pLocaTableDesc = (struct ttf_table_desc*)0x00;
+	if (ttf_table_get_desc(pFontDesc, TTF_TABLE_ID_LOCA, &pLocaTableDesc)!=0){
+		printf("failed to get TTF LOCA table descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ttf_table_desc* pGlyfTableDesc = (struct ttf_table_desc*)0x00;
+	if (ttf_table_get_desc(pFontDesc, TTF_TABLE_ID_GLYF, &pGlyfTableDesc)!=0){
+		printf("failed to get TTF glyf table descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint32_t headTableOffset = __builtin_bswap32(pHeadTableDesc->table_offset);
+	uint32_t locaTableOffset = __builtin_bswap32(pLocaTableDesc->table_offset);
+	uint32_t glyfTableOffset = __builtin_bswap32(pGlyfTableDesc->table_offset);
+	struct ttf_table_head* pHeadTable = (struct ttf_table_head*)(pFontDesc->pFontBuffer+headTableOffset);
+	uint16_t* pLocaTable = (uint16_t*)(pFontDesc->pFontBuffer+locaTableOffset);
+	uint16_t unitsPerEm = __builtin_bswap16(pHeadTable->units_per_em);
+	uint64_t locaTableEntrySize = __builtin_bswap16(pHeadTable->index_to_loca_format) ? sizeof(uint32_t) : sizeof(uint16_t);
+	printf("LOCA table format: %s\r\n", (locaTableEntrySize==sizeof(uint32_t)) ? "DWORD" : "WORD");
+	uint32_t currentEntry = (locaTableEntrySize==sizeof(uint32_t)) ? __builtin_bswap32(*(((uint32_t*)pLocaTable)+glyphId)) : __builtin_bswap16(*(pLocaTable+glyphId))*2;
+	uint32_t nextEntry = (locaTableEntrySize==sizeof(uint32_t)) ? __builtin_bswap32(*(uint32_t*)(pLocaTable+((glyphId+1)*2))) : __builtin_bswap16(*(pLocaTable+glyphId+1))*2;
+	if (currentEntry==nextEntry){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ttf_glyf_header* pGlyfDesc = (struct ttf_glyf_header*)(pFontDesc->pFontBuffer+glyfTableOffset+currentEntry);
+	uint32_t glyfDescLength = nextEntry-currentEntry;
+	*ppGlyfDesc = pGlyfDesc;
+	*pGlyfDescLength = glyfDescLength;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct text_subsystem_glyph_vertex** ppVertexBuffer, uint64_t* pVertexBufferSize){
+	if (!pFontDesc||!ppVertexBuffer||!pVertexBufferSize)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_table_desc* pHeadTableDesc = (struct ttf_table_desc*)0x00;
+	if (ttf_table_get_desc(pFontDesc, TTF_TABLE_ID_HEAD, &pHeadTableDesc)!=0){
+		printf("failed to get TTF head table descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ttf_glyf_header* pGlyfHeader = (struct ttf_glyf_header*)0x00;
+	uint32_t glyfDescLength = 0x00;
+	if (ttf_glyf_get_desc(pFontDesc, glyphId, &pGlyfHeader, &glyfDescLength)!=0){
+		printf("failed to get true/open type glyf descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint32_t headTableOffset = __builtin_bswap32(pHeadTableDesc->table_offset);
+	struct ttf_table_head* pHeadTable = (struct ttf_table_head*)(pFontDesc->pFontBuffer+headTableOffset);
+	uint16_t unitsPerEm = __builtin_bswap16(pHeadTable->units_per_em);
+	int16_t contourCount = __builtin_bswap16(pGlyfHeader->contour_count);
+	int16_t minX = __builtin_bswap16(pGlyfHeader->min_x);
+	int16_t minY = __builtin_bswap16(pGlyfHeader->min_y);
+	int16_t maxX = __builtin_bswap16(pGlyfHeader->max_x);
+	int16_t maxY = __builtin_bswap16(pGlyfHeader->max_y);
+	uint16_t* pContourEndpointTable = (uint16_t*)(pGlyfHeader+1);
+	uint16_t pointCount = __builtin_bswap16(pContourEndpointTable[contourCount-1]);
+	uint16_t instructionListLength = __builtin_bswap16(*(pContourEndpointTable+contourCount));
+	uint8_t* pInstructionList = (uint8_t*)(pContourEndpointTable+contourCount+0x01);
+	struct ttf_glyf_point_flags* pPointFlagsList = (struct ttf_glyf_point_flags*)(pInstructionList+instructionListLength);
+	int8_t* pCoordListX = (int8_t*)(((uint8_t*)pPointFlagsList)+pointCount);
+	int8_t* pCoordListY = (int8_t*)(pCoordListX+pointCount);
+	printf("GLYF contour count: %d\r\n", contourCount);
+	printf("GLYF point count: %d\r\n", pointCount);
+	printf("GLYF min range: {%f, %f}\r\n", ((float)minX/(float)unitsPerEm), ((float)minY/(float)unitsPerEm));
+	printf("GLYF max range: {%f, %f}\r\n", ((float)maxX/(float)unitsPerEm), ((float)maxY/(float)unitsPerEm));
+	printf("units per em: %d\r\n", unitsPerEm);
+	uint64_t pointFlagsIndex = 0x00;
+	struct uvec2_32 pointCoord = {0};
+	pointCoord.x = 0x00;
+	pointCoord.y = 0x00;
+	struct text_subsystem_glyph_vertex* pVertexBuffer = (struct text_subsystem_glyph_vertex*)0x00;
+	uint64_t vertexBufferSize = PAGE_SIZE*4;
+	if (virtualAlloc((uint64_t*)&pVertexBuffer, vertexBufferSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate physical pages for TTF glyph vertex buffer\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	pointFlagsIndex = 0x00;
+	uint64_t vertexEntryCount = 0x00;
+	float fontWidth = 0.01f;
+	for (uint64_t i = 0;i<pointCount;i++,pointFlagsIndex++){
+		struct ttf_glyf_point_flags* pPointFlags = pPointFlagsList+pointFlagsIndex;
+		if (!pPointFlags->on_curve){
+			printf("unexpected TTF glyph point on curve flag\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		static struct text_subsystem_glyph_vertex pointVertexEntryList[256]={0};
+		uint64_t pointVertexEntryCount = 0x00;
+		if ((pPointFlags+0x01)->on_curve){
+			pointCoord.x = 1.0f/((float)pointCoord.x+pCoordListX[i])/(float)unitsPerEm;
+			pointCoord.y = 1.0f/((float)pointCoord.y+pCoordListY[i])/(float)unitsPerEm;
+			struct fvec3_32 startCoord = {0};
+			pointCoord.x = 1.0f/((float)pointCoord.x+pCoordListX[i+1])/(float)unitsPerEm;
+			pointCoord.y = 1.0f/((float)pointCoord.y+pCoordListY[i+1])/(float)unitsPerEm;
+			struct fvec3_32 endCoord = {0};
+			pointVertexEntryList[0].position.x = startCoord.x-(fontWidth/2.0f);
+			pointVertexEntryList[0].position.y = startCoord.y;
+			pointVertexEntryList[1].position.x = startCoord.x+(fontWidth/2.0f);
+			pointVertexEntryList[1].position.y = startCoord.y;
+			pointVertexEntryList[2].position.x = endCoord.x-(fontWidth/2.0f);
+			pointVertexEntryList[2].position.y = endCoord.y;
+			pointVertexEntryList[3].position.x = endCoord.x-(fontWidth/2.0f);
+			pointVertexEntryList[3].position.y = endCoord.y;
+			pointVertexEntryList[4].position.x = endCoord.x+(fontWidth/2.0f);
+			pointVertexEntryList[4].position.y = endCoord.y;
+			pointVertexEntryList[5].position.x = startCoord.x+(fontWidth/2.0f);
+			pointVertexEntryList[5].position.y = startCoord.y;
+			for (uint64_t i = 0;i<0x06;i++){
+				struct fvec4_32 vertexColor = {0};
+				vertexColor.x = 1.0f;
+				vertexColor.y = 0.0f;
+				vertexColor.z = 1.0f;
+				vertexColor.w = 1.0f;
+				pointVertexEntryList[i].color = vertexColor;
+			}
+			pointVertexEntryCount+=0x06;
+			i++;	
+		}
+		memcpy((void*)(pVertexBuffer+vertexEntryCount), (void*)pointVertexEntryList, sizeof(struct text_subsystem_glyph_vertex)*pointVertexEntryCount);
+		vertexEntryCount+=pointVertexEntryCount;
+		if (pPointFlags->repeat)
+			pointFlagsIndex++;
+	}
+	vertexBufferSize = vertexEntryCount*sizeof(struct text_subsystem_glyph_vertex);
+	*ppVertexBuffer = pVertexBuffer;
+	*pVertexBufferSize = vertexBufferSize;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_font_load(unsigned char* pFontBuffer, uint64_t fontBufferSize, struct text_subsystem_font_desc* pSubsystemFontDesc){
+	if (!pFontBuffer||!fontBufferSize||!pSubsystemFontDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	printf("loading GPU host controller TTF font with ID: %d\r\n", pSubsystemFontDesc->fontId);
+	struct ttf_header* pFontHeader = (struct ttf_header*)pFontBuffer;
+	struct ttf_table_desc* pTableDescList = (struct ttf_table_desc*)(pFontHeader+1);
+	uint32_t signature = __builtin_bswap32(pFontHeader->signature);
+	uint32_t tableCount = __builtin_bswap16(pFontHeader->table_count);
+	if (signature!=TTF_SIGNATURE){
+		printf("invalid GPU host controller TTF font signature\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ttf_font_desc* pFontDesc = (struct ttf_font_desc*)kmalloc(sizeof(struct ttf_font_desc));
+	if (!pFontDesc){
+		printf("failed to allocate GPU host controller TTF font descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pFontDesc, 0, sizeof(struct ttf_font_desc));
+	pFontDesc->pSubsystemFontDesc = pSubsystemFontDesc;
+	pFontDesc->pFontBuffer = pFontBuffer;
+	pFontDesc->fontBufferSize = fontBufferSize;
+	pFontDesc->tableCount = tableCount;
+	pSubsystemFontDesc->extra = (uint64_t)pFontDesc;
+	for (uint64_t i = 0;i<tableCount;i++){
+		struct ttf_table_desc* pTableDesc = pTableDescList+i;
+		uint32_t tableType = pTableDesc->table_type;
+		uint32_t tableOffset = __builtin_bswap32(pTableDesc->table_offset);
+		uint32_t tableLength = __builtin_bswap32(pTableDesc->table_length);
+		unsigned char tableTypeName[8] = {0};
+		*(uint32_t*)tableTypeName = tableType;
+		tableTypeName[4] = 0x00;
+		switch (tableType){
+			case TTF_TABLE_TYPE_CMAP:
+				pFontDesc->tableDescList[TTF_TABLE_ID_CMAP] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_GLYF:
+				pFontDesc->tableDescList[TTF_TABLE_ID_GLYF] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_HEAD:
+				pFontDesc->tableDescList[TTF_TABLE_ID_HEAD] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_LOCA:
+				pFontDesc->tableDescList[TTF_TABLE_ID_LOCA] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_MAXP:
+				pFontDesc->tableDescList[TTF_TABLE_ID_MAXP] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_NAME:{
+				struct ttf_table_name_header* pTableHeader = (struct ttf_table_name_header*)(pFontBuffer+tableOffset);	
+				struct ttf_table_name_record* pTableRecordList = (struct ttf_table_name_record*)(pTableHeader+1);
+				uint16_t stringRecordCount = __builtin_bswap16(pTableHeader->string_record_count);
+				uint16_t stringDataOffset = __builtin_bswap16(pTableHeader->string_data_offset);
+				printf("string record count: %d\r\n", stringRecordCount);
+				printf("string physical page data offset: %d\r\n", stringDataOffset);
+				for (uint16_t i = 0;i<stringRecordCount;i++){
+					struct ttf_table_name_record* pTableRecord = pTableRecordList+i;
+					uint16_t platformId = __builtin_bswap16(pTableRecord->platform_id);
+					uint16_t encodingId = __builtin_bswap16(pTableRecord->encoding_id);
+					uint16_t languageId = __builtin_bswap16(pTableRecord->language_id);
+					uint16_t nameId = __builtin_bswap16(pTableRecord->name_id);
+					uint16_t stringLength = __builtin_bswap16(pTableRecord->string_length);
+					uint16_t stringOffset = __builtin_bswap16(pTableRecord->string_offset);
+					uint16_t* pStringData = (uint16_t*)(((unsigned char*)pTableHeader)+stringDataOffset+stringOffset);
+					if (platformId==0x03&&languageId!=0x0409&&languageId!=0x0809)
+						continue;
+					if (platformId==0x01&&languageId!=0x00)
+						continue;
+					struct text_subsystem_font_name_desc* pFontNameDesc = (struct text_subsystem_font_name_desc*)kmalloc(sizeof(struct text_subsystem_font_name_desc));
+					if (!pFontNameDesc){
+						printf("failed to allocate font name descriptor\r\n");
+						mutex_unlock(&mutex);
+						return -1;
+					}
+					uint64_t nameLength = 0x00;
+					switch (platformId){
+						case TTF_PLATFORM_ID_WINDOWS:{
+							if (encodingId!=WINDOWS_ENCODE_ID_UNICODE_BMP)
+								break;
+							uint64_t characterCount = stringLength/sizeof(uint16_t);
+							for (uint64_t i = 0;i<characterCount;i++){
+								uint16_t* pNameEntry = ((uint16_t*)pStringData)+i;
+								pFontNameDesc->name[i] = (uint8_t)__builtin_bswap16(*pNameEntry);
+							}
+							*(((uint16_t*)pStringData)+characterCount) = 0x00;
+							nameLength = characterCount+1;
+							break;	     
+						}
+						case TTF_PLATFORM_ID_UNICODE:{
+							if (encodingId!=UNICODE_ENCODE_ID_UNICODE2_BMP)
+								break;
+							uint64_t characterCount = stringLength/sizeof(uint16_t);
+							for (uint64_t i = 0;i<characterCount;i++){
+								uint16_t* pNameEntry = ((uint16_t*)pStringData)+i;
+								pFontNameDesc->name[i] = (uint8_t)__builtin_bswap16(*pNameEntry);
+							}
+							*(((uint16_t*)pStringData)+characterCount) = 0x00;
+							nameLength = characterCount+1;
+							break;
+						}	
+						case TTF_PLATFORM_ID_MACINTOSH:{
+							if (encodingId!=MACINTOSH_ENCODE_ID_ROMAN||languageId!=0x01)
+								break;
+							uint64_t characterCount = stringLength;
+							memcpy((void*)pFontNameDesc->name, (void*)pStringData, stringLength);
+							nameLength = characterCount+1;
+							break;
+						}
+						default:{
+							uint64_t characterCount = 20;
+							memcpy((void*)pFontNameDesc->name, (void*)"Unsupported encoding", 21);
+							nameLength = characterCount+1;
+							break;	
+						}
+					}
+					pFontNameDesc->nameLength = nameLength;
+					pFontNameDesc->platformId = platformId;
+					pSubsystemFontDesc->ppFontNameDescList[nameId] = pFontNameDesc;
+				}
+				pFontDesc->tableDescList[TTF_TABLE_ID_NAME] = pTableDesc;
+				break;	
+			}
+			case TTF_TABLE_TYPE_POST:
+				pFontDesc->tableDescList[TTF_TABLE_ID_POST] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_HHEA:
+				pFontDesc->tableDescList[TTF_TABLE_ID_HHEA] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_HMTX:
+				pFontDesc->tableDescList[TTF_TABLE_ID_HMTX] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_VHEA:
+				pFontDesc->tableDescList[TTF_TABLE_ID_VHEA] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_VMTX:
+				pFontDesc->tableDescList[TTF_TABLE_ID_VMTX] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_OS2:
+				pFontDesc->tableDescList[TTF_TABLE_ID_OS2] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_KERN:
+				pFontDesc->tableDescList[TTF_TABLE_ID_KERN] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_CVT:
+				pFontDesc->tableDescList[TTF_TABLE_ID_CVT] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_FPGM:
+				pFontDesc->tableDescList[TTF_TABLE_ID_FPGM] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_PREP:
+				pFontDesc->tableDescList[TTF_TABLE_ID_PREP] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_GASP:
+				pFontDesc->tableDescList[TTF_TABLE_ID_GASP] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_GDEF:
+				pFontDesc->tableDescList[TTF_TABLE_ID_GDEF] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_GSUB:
+				pFontDesc->tableDescList[TTF_TABLE_ID_GSUB] = pTableDesc;
+				break;			 
+			case TTF_TABLE_TYPE_GPOS:
+				pFontDesc->tableDescList[TTF_TABLE_ID_GPOS] = pTableDesc;
+				break;
+			case TTF_TABLE_TYPE_BASE:
+				pFontDesc->tableDescList[TTF_TABLE_ID_BASE] = pTableDesc;
+				break;
+		}
+	}
+	uint32_t* pGlyphIdMappingTable = (uint32_t*)0x00;
+	uint64_t glyphIdMappingTableSize = 0x10FFFF*sizeof(uint32_t);
+	if (virtualAlloc((uint64_t*)&pGlyphIdMappingTable, glyphIdMappingTableSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate physical pages for glyph ID sparse direct mapping table\r\n");
+		kfree((void*)pFontDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	pFontDesc->pGlyphIdMappingTable = pGlyphIdMappingTable;
+	pFontDesc->glyphIdMappingTableSize = glyphIdMappingTableSize;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_font_unload(struct text_subsystem_font_desc* pSubsystemFontDesc){
+	if (!pSubsystemFontDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	printf("unloading GPU host controller TTF font with ID: %d\r\n", pSubsystemFontDesc->fontId);
+	struct ttf_font_desc* pFontDesc = (struct ttf_font_desc*)pSubsystemFontDesc->extra;
+	if (!pFontDesc){
+		printf("text subsystem font descriptor not linked with TTF driver font descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pFontDesc->pGlyphIdMappingTable)
+		virtualFree((uint64_t)pFontDesc->pGlyphIdMappingTable, pFontDesc->glyphIdMappingTableSize);
+	kfree((void*)pFontDesc);
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_font_verify(unsigned char* pFontBuffer, uint64_t fontBufferSize){
+	if (!pFontBuffer||!fontBufferSize)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	printf("verifying GPU host controller TTF font of %d physical pages\r\n", fontBufferSize/PAGE_SIZE);
+	struct ttf_header* pFontHeader = (struct ttf_header*)pFontBuffer;
+	uint32_t signature = __builtin_bswap32(pFontHeader->signature);
+	if (signature!=TTF_SIGNATURE){
+		printf("invalid TTF signature: 0x%x\r\n", signature);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_font_glyph_get_id(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId){
+	if (!pSubsystemFontDesc||!pGlyphId)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_font_desc* pFontDesc = (struct ttf_font_desc*)pSubsystemFontDesc->extra;
+	if (!pFontDesc){
+		printf("TTF driver font descriptor not linked with text subsystem font descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint32_t glyphId = 0x00;
+	if (ttf_glyph_get_id(pFontDesc, 0xFFFF, 0xFFFF, characterCode, &glyphId)!=0){
+		printf("failed to get TTF glyph ID\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	*pGlyphId = (uint64_t)glyphId;	
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t glyphId, struct text_subsystem_glyph_vertex** ppVertexBuffer, uint64_t* pVertexBufferSize){
+	if (!pSubsystemFontDesc||!ppVertexBuffer||!pVertexBufferSize)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_font_desc* pFontDesc = (struct ttf_font_desc*)pSubsystemFontDesc->extra;
+	if (!pFontDesc){
+		printf("TTF driver font descriptor not linked with text subsystem font descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct text_subsystem_glyph_vertex* pVertexBuffer = (struct text_subsystem_glyph_vertex*)0x00;
+	uint64_t vertexBufferSize = 0x00;
+	if (ttf_glyf_tesselate(pFontDesc, glyphId, &pVertexBuffer, &vertexBufferSize)!=0){
+		printf("failed to tesselate TTF glyph\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	*ppVertexBuffer = pVertexBuffer;
+	*pVertexBufferSize = vertexBufferSize;
+	mutex_unlock(&mutex);
+	return 0;
+}

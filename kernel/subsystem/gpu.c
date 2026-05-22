@@ -3,6 +3,7 @@
 #include "stdlib/stdlib.h"
 #include "drivers/serial.h"
 #include "cpu/mutex.h"
+#include "align.h"
 #include "panic.h"
 #include "subsystem/subsystem.h"
 #include "subsystem/gpu.h"
@@ -1303,6 +1304,7 @@ KAPI int gpu_resource_attach_backing(uint64_t gpuId, uint64_t resourceId, unsign
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
+	bufferSize = align_up(bufferSize, PAGE_SIZE);
 	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x0;
 	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
 		printf("failed to get GPU host controller descriptor\r\n");

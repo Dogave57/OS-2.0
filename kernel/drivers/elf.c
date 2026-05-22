@@ -260,13 +260,13 @@ int elf_load_dl(struct elf_handle* pHandle, unsigned char* dlname, struct elf_ha
 	struct elf_handle* pCurrentDl = pHandle->pDynamicLibs;
 	struct elf_handle* pLastDlEntry = pCurrentDl;
 	while (pCurrentDl){
-		if (strcmp(pCurrentDl->fileInfo.filename, dlname)==0)
+		if (strcmp(pCurrentDl->fileInfo.fileName, dlname)==0)
 			return -1;
 		pLastDlEntry = pCurrentDl;
 		pCurrentDl = pCurrentDl->pFlink;
 	}
 	struct elf_handle* pDlHandle = (struct elf_handle*)0x0;
-	if (elf_load(pHandle->fileInfo.mount_id, dlname, &pDlHandle)!=0)
+	if (elf_load(pHandle->fileInfo.mountId, dlname, &pDlHandle)!=0)
 		return -1;
 	pLastDlEntry->pFlink = pDlHandle;
 	pDlHandle->pBlink = pLastDlEntry;

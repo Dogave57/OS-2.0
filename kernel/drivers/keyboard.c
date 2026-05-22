@@ -68,7 +68,7 @@ void ps2_keyboard_handler(void){
 	putchar(mapping);
 	return;
 }
-int key_register_press(uint8_t key){
+KAPI int key_register_press(uint8_t key){
 	struct key_desc* pKeyDesc = (struct key_desc*)0x0;
 	if (key_get_desc(key, &pKeyDesc)!=0)
 		return -1;
@@ -78,7 +78,7 @@ int key_register_press(uint8_t key){
 	pKeyDesc->time_us = get_time_us();
 	return 0;
 }
-int key_register_release(uint8_t key){
+KAPI int key_register_release(uint8_t key){
 	struct key_desc* pKeyDesc = (struct key_desc*)0x0;
 	if (key_get_desc(key, &pKeyDesc)!=0)
 		return -1;
@@ -87,13 +87,13 @@ int key_register_release(uint8_t key){
 	pKeyDesc->isPressed = 0;
 	return 0;
 }
-int key_pressed(uint8_t key){
+KAPI int key_pressed(uint8_t key){
 	struct key_desc* pKeyDesc = (struct key_desc*)0x0;
 	if (key_get_desc(key, &pKeyDesc)!=0)
 		return -1;
 	return (pKeyDesc->isPressed) ? 0 : -1;
 }
-int key_get_press_time_us(uint8_t key, uint64_t* pTime){
+KAPI int key_get_press_time_us(uint8_t key, uint64_t* pTime){
 	if (!pTime)
 		return -1;
 	struct key_desc* pKeyDesc = (struct key_desc*)0x0;
@@ -103,7 +103,7 @@ int key_get_press_time_us(uint8_t key, uint64_t* pTime){
 	*pTime = elapsedTime;	
 	return 0;
 }
-int key_get_desc(uint8_t key, struct key_desc** ppKeyDesc){
+KAPI int key_get_desc(uint8_t key, struct key_desc** ppKeyDesc){
 	if (!ppKeyDesc)
 		return -1;
 	struct key_desc* pKeyDesc = keyboardContext.keyList+key;

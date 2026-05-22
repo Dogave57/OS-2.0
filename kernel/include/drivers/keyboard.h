@@ -105,9 +105,9 @@ struct keyboard_context{
 	struct key_desc keyList[255];
 };
 void ps2_keyboard_handler(void);
-int key_register_press(uint8_t key);
-int key_register_release(uint8_t key);
-int key_pressed(uint8_t key);
-int key_get_press_time_us(uint8_t key, uint64_t* pTime);
-int key_get_desc(uint8_t key, struct key_desc** ppKeyDesc);
+KAPI int key_register_press(uint8_t key);
+KAPI int key_register_release(uint8_t key);
+KAPI int key_pressed(uint8_t key);
+KAPI int key_get_press_time_us(uint8_t key, uint64_t* pTime);
+KAPI int key_get_desc(uint8_t key, struct key_desc** ppKeyDesc);
 #endif

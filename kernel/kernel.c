@@ -28,6 +28,7 @@
 #include "drivers/filesystem/fluxfs.h"
 #include "drivers/usb/xhci.h"
 #include "drivers/dma-device.h"
+#include "drivers/fonts/ttf.h"
 #include "crypto/guid.h"
 #include "crypto/random.h"
 #include "kexts/loader.h"
@@ -209,6 +210,12 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	uint64_t espMountId = 0x00;
+	if (fs_mount(0x01, pbootargs->driveInfo.espNumber, &espMountId)!=0){
+		printf("failed to mount non-volatile memory device ESP partition\r\n");
+		while (1){};
+		return -1;
+	}
 	if (kext_subsystem_init()!=0){
 		printf("failed to initialize kext subsystem\r\n");
 		while (1){};
@@ -240,6 +247,10 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (text_subsystem_init()!=0){
 		printf("failed to fully initialize graphical text subsystem\r\n");
 		while (1){};
+		return -1;
+	}
+	if (font_driver_ttf_init()!=0){
+		printf("failed to initialize GPU host controller .TTF font driver\r\n");
 		return -1;
 	}
 	if (xhci_driver_init()!=0){
@@ -308,30 +319,23 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	uint64_t size = (partition.end_lba-partition.start_lba)*DRIVE_SECTOR_SIZE;
-	struct fat32_mount_handle* pEspHandle = (struct fat32_mount_handle*)0x0;
-	if (fat32_mount(1, espNumber, &pEspHandle)!=0){
-		printf("failed to mount ESP\r\n");
-		while (1){};
-		return -1;
-	}
-	struct fat32_dir_handle* pDirHandle = (struct fat32_dir_handle*)0x0;
-	if (fat32_opendir(pEspHandle, "EFI/BOOT", &pDirHandle)!=0){
+	uint64_t dirHandle = 0x00;
+	if (fs_opendir(espMountId, "FONTS", &dirHandle)!=0){
 		printf("failed to open root\r\n");
 		while (1){};
 		return -1;
 	}
-	struct fat32_simple_file_entry fileEntry = {0};
-	while (fat32_read_dir(pDirHandle, &fileEntry)==0){
-		if (fileEntry.fileAttribs&FAT32_FILE_ATTRIBUTE_HIDDEN)
+	struct fs_file_info fileInfo = {0};
+	while (fs_read_dir(espMountId, dirHandle, &fileInfo)==0){
+		if (fileInfo.fileAttribs&FILE_ATTRIBUTE_HIDDEN)
 			continue;
-		if (fileEntry.fileAttribs&FAT32_FILE_ATTRIBUTE_DIRECTORY){
-			printf("directory: %s\r\n", fileEntry.filename);
+		if (fileInfo.fileAttribs&FILE_ATTRIBUTE_DIRECTORY){
+			printf("directory: %s\r\n", fileInfo.fileName);
 			continue;
-		}	
-		printf("file: %s\r\n", fileEntry.filename);
+		}
+		printf("file: %s\r\n", fileInfo.fileName);
 	}
-	fat32_closedir(pDirHandle);
-	fat32_unmount(pEspHandle);
+	fs_closedir(espMountId, dirHandle);
 	uint64_t rootPartition = 0xFFFFFFFFFFFFFFFF;
 	uint64_t rootPartitionSector = 0;
 	unsigned char rootPartitionType[] = GPT_BASIC_DATA_GUID;
@@ -363,20 +367,12 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	uint64_t mountId = 0;
-	if (fs_mount(1, espNumber, &mountId)!=0){
-		printf("failed to mount ESP\r\n");
-		while (1){};
-		return -1;
-	}
 	uint64_t pid = 0;
-	if (kext_load(mountId, "KEXTS/TEST.ELF", &pid)!=0){
+	if (kext_load(0x01, "KEXTS/TEST.ELF", &pid)!=0){
 		printf("failed to load kext\r\n");
-		fs_unmount(mountId);
 		while (1){};
 		return -1;
 	}
-	fs_unmount(mountId);
 	while (1){};
 	return 0;	
 }

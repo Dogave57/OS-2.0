@@ -138,7 +138,7 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 	*(pStackEntry) = tid;
 	*(pStackEntry+1) = (uint64_t)argument;
 	pStackEntry--;
-	uint64_t rflags = (1<<1)|(1<<21)|(1<<14);
+	uint64_t rflags = (1<<1)|(1<<9)|(1<<21)|(1<<14);
 	pContext->rip = rip;
 	pContext->rsp = (uint64_t)pStackEntry;
 	pContext->rbp = pContext->rsp;

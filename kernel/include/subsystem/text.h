@@ -4,6 +4,48 @@
 #include "math/vector.h"
 #include "subsystem/subsystem.h"
 #include "kernel_include.h"
+#define TEXT_SUBSYSTEM_MAX_FONT_DRIVER_COUNT (16384)
+#define TEXT_SUBSYSTEM_MAX_FONT_COUNT (16384)
+#define TEXT_SUBSYSTEM_MAX_FONT_NAME_COUNT (65536)
+
+#define FONT_PLATFORM_ID_UNICODE (0x00)
+#define FONT_PLATFORM_ID_MACINTOSH (0x01)
+#define FONT_PLATFORM_ID_WINDOWS (0x03)
+
+#define FONT_NAME_TYPE_COPYRIGHT (0x00)
+#define FONT_NAME_TYPE_FAMILY_NAME (0x01)
+#define FONT_NAME_TYPE_SUBFAMILY_NAME (0x02)
+#define FONT_NAME_TYPE_UNIQUE_IDENT (0x03)
+#define FONT_NAME_TYPE_FULL_NAME (0x04)
+#define FONT_NAME_TYPE_VERSION_STRING (0x05)
+#define FONT_NAME_TYPE_POSTSCRIPT_NAME (0x06)
+#define FONT_NAME_TYPE_TRADEMARK (0x07)
+#define FONT_NAME_TYPE_MANUFACTURER_NAME (0x08)
+#define FONT_NAME_TYPE_DESIGNER (0x09)
+#define FONT_NAME_TYPE_DESC (0x0A)
+#define FONT_NAME_TYPE_URL_VENDOR (0x0B)
+#define FONT_NAME_TYPE_URL_DESIGNER (0x0C)
+#define FONT_NAME_TYPE_LICENSE_DESC (0x0D)
+#define FONT_NAME_TYPE_LICENSE_INFO_URL (0x0E)
+#define FONT_NAME_TYPE_RESERVED0 (0x0F)
+#define FONT_NAME_TYPE_TYPOGRAPHIC_FAMILY_NAME (0x10)
+#define FONT_NAME_TYPE_TYPOGRAPHIC_SUBFAMILY_NAME (0x11)
+#define FONT_NAME_TYPE_COMPATIBLE_FULL (0x12)
+#define FONT_NAME_TYPE_SAMPLE_TEXT (0x13)
+#define FONT_NAME_TYPE_POSTSCRIPT_CID_FONT_LOOKUP_NAME (0x14)
+#define FONT_NAME_TYPE_WWS_FAMILY_NAME (0x15)
+#define FONT_NAME_TYPE_WWS_SUBFAMILY_NAME (0x16)
+#define FONT_NAME_TYPE_LIGHT_BACKGROUND_PALETTE (0x17)
+#define FONT_NAME_TYPE_DARK_BACKGROUND_PALETTE (0x18)
+#define FONT_NAME_TYPE_POSTSCRIPT_NAME_PREFIX (0x19)
+
+struct text_subsystem_glyph_vertex;
+struct text_subsystem_font_desc;
+typedef int(*fontDriverFontLoadFunc)(unsigned char* pFontBuffer, uint64_t fontBufferSize, struct text_subsystem_font_desc* pSubsystemFontDesc);
+typedef int(*fontDriverFontUnloadFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc);
+typedef int(*fontDriverFontVerifyFunc)(unsigned char* pFontBuffer, uint64_t fontBufferSize);
+typedef int(*fontDriverFontGlyphGetId)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId);
+typedef int(*fontDriverFontGlyphTesselate)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t glyphId, struct text_subsystem_glyph_vertex** ppVertexBuffer, uint64_t* pVertexBufferSize);
 static unsigned char mainfont_data[255][16]={
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x00 
         { 0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD, 0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00  },       //0x01 
@@ -134,6 +176,52 @@ static unsigned char mainfont_data[255][16]={
         { 0x00, 0x00, 0x76, 0xDC, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x7E '~'
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x7F delete
 };
+struct text_subsystem_font_driver_vtable{
+	fontDriverFontLoadFunc fontLoad;
+	fontDriverFontUnloadFunc fontUnload;
+	fontDriverFontVerifyFunc fontVerify;
+	fontDriverFontGlyphGetId fontGlyphGetId;
+	fontDriverFontGlyphTesselate fontGlyphTesselate;
+};
+struct text_subsystem_font_driver_info{
+	struct text_subsystem_font_driver_vtable vtable;
+};
+struct text_subsystem_font_driver_desc{
+	uint64_t fontDriverId;
+	struct text_subsystem_font_driver_info driverInfo;
+	struct text_subsystem_font_driver_desc* pFlink;
+	struct text_subsystem_font_driver_desc* pBlink;
+};
+struct text_subsystem_glyph_vertex{
+	struct fvec2_32 position;
+	struct fvec4_32 color;
+}__attribute__((packed));
+struct text_subsystem_font_name_desc{
+	uint8_t name[256];
+	uint64_t nameLength;
+	uint16_t platformId;
+};
+struct text_subsystem_font_desc{
+	uint64_t fontId;
+	unsigned char* pFontBuffer;
+	uint64_t fontBufferSize;
+	uint64_t characterCount;
+	struct text_subsystem_font_name_desc** ppFontNameDescList;
+	uint64_t fontNameDescListSize;
+	uint64_t extra;
+	struct text_subsystem_font_desc* pFlink;
+	struct text_subsystem_font_desc* pBlink;
+};
+struct font_driver_subsystem_info{
+	struct subsystem_desc* pSubsystemDesc;
+	struct text_subsystem_font_driver_desc* pFirstFontDriverDesc;
+	struct text_subsystem_font_driver_desc* pLastFontDriverDesc;
+};
+struct font_subsystem_info{
+	struct subsystem_desc* pSubsystemDesc;
+	struct text_subsystem_font_desc* pFirstFontDesc;
+	struct text_subsystem_font_desc* pLastFontDesc;
+};
 struct text_subsystem_info{
 	uint64_t contextId;
 	uint64_t commandContextId;
@@ -141,9 +229,18 @@ struct text_subsystem_info{
 	struct gpu_monitor_desc* pMonitorDesc;
 	struct gpu_driver_desc* pDriverDesc;
 	struct gpu_desc* pGpuDesc;
+	struct font_driver_subsystem_info fontDriverSubsystemInfo;
+	struct font_subsystem_info fontSubsystemInfo;
 };
 int text_subsystem_soft_init(void);
 int text_subsystem_init(void);
+int text_subsystem_deinit(void);
+KAPI int text_subsystem_font_driver_register(struct text_subsystem_font_driver_info driverInfo, uint64_t* pFontDriverId);
+KAPI int text_subsystem_font_driver_unregister(uint64_t fontDriverId);
+KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBufferSize, uint64_t* pFontId);
+KAPI int text_subsystem_font_unload(uint64_t fontId);
+KAPI int text_subsystem_font_name_get_desc(uint64_t fontId, uint64_t nameType, struct text_subsystem_font_name_desc** ppFontNameDesc);
+KAPI int text_subsystem_font_name_type_get_name(uint64_t nameType, const unsigned char** ppFontTypeName);
 KAPI int write_pixel(struct uvec2 position, struct uvec4_8 color);
 KAPI int clear(void);
 KAPI int writechar(unsigned int position, unsigned char ch);

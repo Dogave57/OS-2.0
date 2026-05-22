@@ -2,10 +2,10 @@
 #include "mem/vmm.h"
 #include "math/basic.h"
 #include "math/trig.h"
-double anglef_to_radf(double angle){
+KAPI double anglef_to_radf(double angle){
 	return PI_F/(180.0/angle);
 }
-double cosf(double rad){
+KAPI double cosf(double rad){
 	rad = modf(rad, PI_F*2.0);
 	double result = 1.0;
 	double current_term = 1.0;
@@ -15,7 +15,7 @@ double cosf(double rad){
 	}
 	return result;
 }
-double sinf(double rad){
+KAPI double sinf(double rad){
 	rad = modf(rad, PI_F*2.0);
 	double rad2 = rad*rad;
 	double result = rad;
@@ -26,7 +26,7 @@ double sinf(double rad){
 	}
 	return result;
 }
-double tanf(double rad){
+KAPI double tanf(double rad){
 	return sinf(rad)/cosf(rad);
 }
 

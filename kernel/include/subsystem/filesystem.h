@@ -62,10 +62,10 @@ struct fs_handle{
 	void* pHandleData;
 };
 struct fs_file_info{
-	uint64_t mount_id;
+	uint64_t mountId;
 	uint64_t fileSize;
-	uint64_t fileAttributes;
-	unsigned char filename[256];
+	uint64_t fileAttribs;
+	unsigned char fileName[256];
 };
 int fs_subsystem_init(void);
 KAPI int fs_mount(uint64_t drive_id, uint64_t partition_id, uint64_t* pId);

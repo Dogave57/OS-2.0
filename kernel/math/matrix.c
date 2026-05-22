@@ -1,7 +1,7 @@
 #include "mem/vmm.h"
 #include "stdlib/stdlib.h"
 #include "math/matrix.h"
-int matrix4x4_f32_multiply(float* pMatrix1, float* pMatrix2, float* pOutput){
+KAPI int matrix4x4_f32_multiply(float* pMatrix1, float* pMatrix2, float* pOutput){
 	if (!pMatrix1||!pMatrix2||!pOutput)
 		return -1;
 	float temp[16] = {0};
@@ -20,7 +20,7 @@ int matrix4x4_f32_multiply(float* pMatrix1, float* pMatrix2, float* pOutput){
 		memcpy((void*)pOutput, (void*)temp, sizeof(float)*16);
 	return 0;
 }
-int matrix4x4_f64_multiply(double* pMatrix1, double* pMatrix2, double* pOutput){
+KAPI int matrix4x4_f64_multiply(double* pMatrix1, double* pMatrix2, double* pOutput){
 	if (!pMatrix1||!pMatrix2||!pOutput)
 		return -1;
 	double temp[16] = {0};
@@ -39,7 +39,7 @@ int matrix4x4_f64_multiply(double* pMatrix1, double* pMatrix2, double* pOutput){
 		memcpy((void*)pOutput, (void*)temp, sizeof(double)*16);
 	return 0;
 }
-int matrix4x4_f32_transpose(float* pMatrix, float* pOutput){
+KAPI int matrix4x4_f32_transpose(float* pMatrix, float* pOutput){
 	if (!pMatrix||!pOutput)
 		return -1;
 	float temp[16] = {0};
@@ -55,7 +55,7 @@ int matrix4x4_f32_transpose(float* pMatrix, float* pOutput){
 		memcpy((void*)pOutput, (void*)temp, sizeof(float)*16);
 	return 0;
 }
-int matrix4x4_f64_transpose(double* pMatrix, double* pOutput){
+KAPI int matrix4x4_f64_transpose(double* pMatrix, double* pOutput){
 	if (!pMatrix||!pOutput)
 		return -1;
 	double temp[16] = {0};

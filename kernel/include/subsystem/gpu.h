@@ -545,8 +545,15 @@ struct gpu_vertex_basic{
 	struct fvec2_32 textureCoord;
 	struct fvec4_32 normalCoord;
 }__attribute__((packed));
+struct gpu_vertex_triangle{
+	struct fvec4_32 position;
+	struct fvec4_32 color;
+}__attribute__((packed));
 struct gpu_vertex_buffer_triangle{
-	struct gpu_vertex_basic vertex_list[3];
+	struct gpu_vertex_triangle vertex_list[3];
+}__attribute__((packed));
+struct gpu_vertex_buffer_square_face{
+	struct gpu_vertex_triangle vertex_list[4];
 }__attribute__((packed));
 struct gpu_vertex_buffer_cube_face{
 	struct gpu_vertex_basic vertex_list[24];
@@ -730,6 +737,7 @@ struct gpu_desc{
 	uint64_t driverId;
 	uint64_t gpuId;
 	uint64_t extra;
+	uint64_t mainContextId;
 	struct gpu_info gpuInfo;
 	struct gpu_cmd_context_subsystem_info cmdContextSubsystemInfo;
 	struct gpu_object_subsystem_info objectSubsystemInfo;

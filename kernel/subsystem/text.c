@@ -4,6 +4,7 @@
 #include "cpu/mutex.h"
 #include "subsystem/gpu.h"
 #include "mem/vmm.h"
+#include "mem/heap.h"
 #include "drivers/filesystem.h"
 #include "drivers/serial.h"
 #include "subsystem/text.h"
@@ -37,10 +38,23 @@ int text_subsystem_init(void){
 		printf("failed to get GPU host controller descriptor\r\n");
 		return -1;
 	}
+	struct subsystem_desc* pFontDriverSubsystemDesc = (struct subsystem_desc*)0x00;
+	if (subsystem_init(&pFontDriverSubsystemDesc, TEXT_SUBSYSTEM_MAX_FONT_DRIVER_COUNT)!=0){
+		printf("failed to initialize font driver subsystem\r\n");
+		return -1;
+	}
+	struct subsystem_desc* pFontSubsystemDesc = (struct subsystem_desc*)0x00;
+	if (subsystem_init(&pFontSubsystemDesc, TEXT_SUBSYSTEM_MAX_FONT_COUNT)!=0){
+		printf("failed to initialize font subsystem\r\n");
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		return -1;
+	}
 	uint64_t commandContextId = 0x00;
 	uint64_t commandBufferSize = PAGE_SIZE*4;
 	if (gpu_cmd_context_init(pMonitorDesc->gpuId, commandBufferSize, &commandContextId)!=0){
 		printf("failed to initialize GPU host controller command context\r\n");
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
 	textSubsystemInfo.commandContextId = commandContextId;
@@ -48,6 +62,251 @@ int text_subsystem_init(void){
 	textSubsystemInfo.pMonitorDesc = pMonitorDesc;
 	textSubsystemInfo.pDriverDesc = pDriverDesc;
 	textSubsystemInfo.pGpuDesc = pGpuDesc;
+	textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc = pFontDriverSubsystemDesc;
+	textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc = pFontSubsystemDesc;
+	return 0;
+}
+int text_subsystem_deinit(void){
+	if (subsystem_deinit(textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc)!=0){
+		printf("failed to deinitialize font driver subsystem\r\n");
+		return -1;
+	}
+	if (subsystem_deinit(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc)!=0){
+		printf("failed to deinitialize font subsystem\r\n");
+		return -1;
+	}
+	return 0;
+}
+KAPI int text_subsystem_font_driver_register(struct text_subsystem_font_driver_info driverInfo, uint64_t* pFontDriverId){
+	if (!pFontDriverId)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct text_subsystem_font_driver_desc* pFontDriverDesc = (struct text_subsystem_font_driver_desc*)kmalloc(sizeof(struct text_subsystem_font_driver_desc));
+	uint64_t fontDriverId = 0x00;
+	if (!pFontDriverDesc){
+		printf("failed to allocate text subsystem font driver descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (subsystem_alloc_entry(textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc, (unsigned char*)pFontDriverDesc, &fontDriverId)!=0){
+		printf("failed to allocate text subsystem font driver descriptor entry\r\n");
+		kfree((void*)pFontDriverDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pFontDriverDesc, 0, sizeof(struct text_subsystem_font_driver_desc));
+	pFontDriverDesc->fontDriverId = fontDriverId;
+	pFontDriverDesc->driverInfo = driverInfo;
+	if (!textSubsystemInfo.fontDriverSubsystemInfo.pFirstFontDriverDesc)
+		textSubsystemInfo.fontDriverSubsystemInfo.pFirstFontDriverDesc = pFontDriverDesc;
+	if (textSubsystemInfo.fontDriverSubsystemInfo.pLastFontDriverDesc){
+		textSubsystemInfo.fontDriverSubsystemInfo.pLastFontDriverDesc->pFlink = pFontDriverDesc;
+		pFontDriverDesc->pBlink = textSubsystemInfo.fontDriverSubsystemInfo.pLastFontDriverDesc;
+	}
+	textSubsystemInfo.fontDriverSubsystemInfo.pLastFontDriverDesc = pFontDriverDesc;
+	mutex_unlock(&mutex);
+	return 0;
+}
+KAPI int text_subsystem_font_driver_unregister(uint64_t fontDriverId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct text_subsystem_font_driver_desc* pFontDriverDesc = (struct text_subsystem_font_driver_desc*)0x00;
+	if (subsystem_get_entry(textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc, fontDriverId, (uint64_t*)&pFontDriverDesc)!=0){
+		printf("failed to get text subsystem font driver descriptor entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pFontDriverDesc==textSubsystemInfo.fontDriverSubsystemInfo.pLastFontDriverDesc)
+		textSubsystemInfo.fontDriverSubsystemInfo.pLastFontDriverDesc = pFontDriverDesc->pBlink;
+	if (pFontDriverDesc==textSubsystemInfo.fontDriverSubsystemInfo.pFirstFontDriverDesc)
+		textSubsystemInfo.fontDriverSubsystemInfo.pFirstFontDriverDesc = pFontDriverDesc->pFlink;
+	if (pFontDriverDesc->pFlink)	
+		pFontDriverDesc->pFlink->pBlink = pFontDriverDesc->pBlink;
+	if (pFontDriverDesc->pBlink)
+		pFontDriverDesc->pBlink->pFlink = pFontDriverDesc->pFlink;
+	kfree((void*)pFontDriverDesc);
+	mutex_unlock(&mutex);
+	return 0;
+}
+KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBufferSize, uint64_t* pFontId){
+	if (!pFontBuffer||!fontBufferSize||!pFontId)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct text_subsystem_font_desc* pFontDesc = (struct text_subsystem_font_desc*)kmalloc(sizeof(struct text_subsystem_font_desc));
+	uint64_t fontId = 0x00;
+	if (!pFontDesc){
+		printf("failed to allocate text subsystem font descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (subsystem_alloc_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, (unsigned char*)pFontDesc, &fontId)!=0){
+		printf("failed to allocate text subsystem entry for font descriptor\r\n");
+		kfree((void*)pFontDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pFontDesc, 0, sizeof(struct text_subsystem_font_desc));
+	pFontDesc->fontId = fontId;
+	pFontDesc->pFontBuffer = pFontBuffer;
+	pFontDesc->fontBufferSize = fontBufferSize;
+	struct text_subsystem_font_driver_desc* pFontDriverDesc = textSubsystemInfo.fontDriverSubsystemInfo.pFirstFontDriverDesc;
+	uint64_t fontLoaded = 0x00;
+	while (pFontDriverDesc){
+		if (pFontDriverDesc->driverInfo.vtable.fontVerify(pFontBuffer, fontBufferSize)!=0){
+			pFontDriverDesc = pFontDriverDesc->pFlink;
+			continue;
+		}
+		struct text_subsystem_font_name_desc** ppFontNameDescList = (struct text_subsystem_font_name_desc**)0x00;
+		uint64_t fontNameDescListSize = sizeof(struct text_subsystem_font_name_desc*)*TEXT_SUBSYSTEM_MAX_FONT_NAME_COUNT;
+		if (virtualAlloc((uint64_t*)&ppFontNameDescList, fontNameDescListSize, PTE_RW|PTE_NX, 0x00, PAGE_TYPE_NORMAL)!=0){
+			printf("failed to allocate physical pages for font name descriptor list\r\n");
+			subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
+			kfree((void*)pFontDesc);
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		memset((void*)ppFontNameDescList, 0, fontNameDescListSize);
+		pFontDesc->ppFontNameDescList = ppFontNameDescList;
+		pFontDesc->fontNameDescListSize = fontNameDescListSize;
+		if (pFontDriverDesc->driverInfo.vtable.fontLoad(pFontBuffer, fontBufferSize, pFontDesc)!=0){
+			pFontDriverDesc = pFontDriverDesc->pFlink;
+			continue;
+		}
+		fontLoaded = 0x01;
+		break;
+	}
+	if (!fontLoaded){
+		printf("failed to find GPU host controller font driver to load font\r\n");
+		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
+		kfree((void*)pFontDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (!textSubsystemInfo.fontSubsystemInfo.pFirstFontDesc)
+		textSubsystemInfo.fontSubsystemInfo.pFirstFontDesc = pFontDesc;
+	if (textSubsystemInfo.fontSubsystemInfo.pLastFontDesc){
+		textSubsystemInfo.fontSubsystemInfo.pLastFontDesc->pFlink = pFontDesc;
+		pFontDesc->pBlink = textSubsystemInfo.fontSubsystemInfo.pLastFontDesc;
+	}
+	textSubsystemInfo.fontSubsystemInfo.pLastFontDesc = pFontDesc;
+	uint64_t glyphId = 0x00;
+	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, 'Z', &glyphId)!=0){
+		printf("failed to get glyph ID via font driver\r\n");
+		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
+		kfree((void*)pFontDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct text_subsystem_glyph_vertex* pGlyphVertexBuffer = (struct text_subsystem_glyph_vertex*)0x00;
+	uint64_t glyphVertexBufferSize = 0x00;
+	if (pFontDriverDesc->driverInfo.vtable.fontGlyphTesselate(pFontDesc, glyphId, &pGlyphVertexBuffer, &glyphVertexBufferSize)!=0){
+		printf("failed to tesselate font glyph via font driver\r\n");
+		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
+		kfree((void*)pFontDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t glyphVertexCount = glyphVertexBufferSize/sizeof(struct text_subsystem_glyph_vertex);
+	struct gpu_draw_vbo_cmd_info drawVboCmdInfo = {0};
+	memset((void*)&drawVboCmdInfo, 0, sizeof(struct gpu_draw_vbo_cmd_info));
+	struct gpu_draw_vbo_info drawVboInfo = {0};
+	memset((void*)&drawVboInfo, 0, sizeof(struct gpu_draw_vbo_info));
+	drawVboInfo.start = 0x00;
+	drawVboInfo.count = glyphVertexCount;
+	drawVboInfo.mode = GPU_PRIMITIVE_TRIANGLES;
+	drawVboInfo.instance_count = 0x01;
+	drawVboInfo.index_size = 0x00;
+	drawVboInfo.max_index = drawVboInfo.count;
+	drawVboCmdInfo.header.commandType = GPU_CMD_TYPE_DRAW_VBO;
+	drawVboCmdInfo.pDrawVboInfo = &drawVboInfo;
+	virtualFree((uint64_t)pGlyphVertexBuffer, glyphVertexBufferSize);	
+	*pFontId = fontId;
+	mutex_unlock(&mutex);
+	return 0;
+}
+KAPI int text_subsystem_font_unload(uint64_t fontId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct text_subsystem_font_desc* pFontDesc = (struct text_subsystem_font_desc*)0x00;
+	if (subsystem_get_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId, (uint64_t*)&pFontDesc)!=0){
+		printf("failed to get text subsystem font descriptor entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (!pFontDesc){
+		printf("invalid text subsystem font descriptor entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pFontDesc->ppFontNameDescList)
+		virtualFree((uint64_t)pFontDesc->ppFontNameDescList, pFontDesc->fontNameDescListSize);
+	if (pFontDesc==textSubsystemInfo.fontSubsystemInfo.pLastFontDesc)
+		textSubsystemInfo.fontSubsystemInfo.pLastFontDesc = pFontDesc->pBlink;
+	if (pFontDesc==textSubsystemInfo.fontSubsystemInfo.pFirstFontDesc)
+		textSubsystemInfo.fontSubsystemInfo.pFirstFontDesc = pFontDesc->pFlink;
+	if (pFontDesc->pFlink)
+		pFontDesc->pFlink->pBlink = pFontDesc->pBlink;
+	if (pFontDesc->pBlink)
+		pFontDesc->pBlink->pFlink = pFontDesc->pFlink;
+	kfree((void*)pFontDesc);
+	mutex_unlock(&mutex);
+	return 0;
+}
+KAPI int text_subsystem_font_name_get_desc(uint64_t fontId, uint64_t nameType, struct text_subsystem_font_name_desc** ppFontNameDesc){
+	if (!ppFontNameDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct text_subsystem_font_desc* pFontDesc = (struct text_subsystem_font_desc*)0x00;
+	if (subsystem_get_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId, (uint64_t*)&pFontDesc)!=0){
+		printf("failed to get text subsystem font descriptor entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct text_subsystem_font_name_desc* pFontNameDesc = pFontDesc->ppFontNameDescList[nameType];
+	if (!pFontNameDesc){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	*ppFontNameDesc = pFontNameDesc;
+	mutex_unlock(&mutex);
+	return 0;
+}
+KAPI int text_subsystem_font_name_type_get_name(uint64_t nameType, const unsigned char** ppNameType){
+	if (!ppNameType)
+		return -1;
+	static const unsigned char* fontNameTypeNameTable[]={
+		[FONT_NAME_TYPE_COPYRIGHT]="Copyright",
+		[FONT_NAME_TYPE_FAMILY_NAME]="Font family name",
+		[FONT_NAME_TYPE_SUBFAMILY_NAME]="Font subfamily name",
+		[FONT_NAME_TYPE_UNIQUE_IDENT]="Unique identification",
+		[FONT_NAME_TYPE_FULL_NAME]="Full name",
+		[FONT_NAME_TYPE_VERSION_STRING]="Version string",
+		[FONT_NAME_TYPE_POSTSCRIPT_NAME]="Postscript name",
+		[FONT_NAME_TYPE_TRADEMARK]="Trademark",
+		[FONT_NAME_TYPE_MANUFACTURER_NAME]="Manufacturer name",
+		[FONT_NAME_TYPE_DESIGNER]="Designer name",
+		[FONT_NAME_TYPE_DESC]="Description",
+		[FONT_NAME_TYPE_URL_VENDOR]="URL Vendor",
+		[FONT_NAME_TYPE_URL_DESIGNER]="URL Designer",
+		[FONT_NAME_TYPE_LICENSE_DESC]="License description",
+		[FONT_NAME_TYPE_LICENSE_INFO_URL]="License info URL",
+		[FONT_NAME_TYPE_RESERVED0]="Reserved0",
+		[FONT_NAME_TYPE_TYPOGRAPHIC_FAMILY_NAME]="Typographic family name",
+		[FONT_NAME_TYPE_TYPOGRAPHIC_SUBFAMILY_NAME]="Typographic subfamily name",
+		[FONT_NAME_TYPE_COMPATIBLE_FULL]="MacOS search compatibility name",
+		[FONT_NAME_TYPE_SAMPLE_TEXT]="Sample text",
+		[FONT_NAME_TYPE_POSTSCRIPT_CID_FONT_LOOKUP_NAME]="Postscript CID font lookup name",
+		[FONT_NAME_TYPE_WWS_FAMILY_NAME]="WWS family name",
+		[FONT_NAME_TYPE_WWS_SUBFAMILY_NAME]="WWS subfamily name",
+		[FONT_NAME_TYPE_LIGHT_BACKGROUND_PALETTE]="Light background palette",
+		[FONT_NAME_TYPE_DARK_BACKGROUND_PALETTE]="Dark background palette",
+		[FONT_NAME_TYPE_POSTSCRIPT_NAME_PREFIX]="Postscript name prefix",	
+	};
+	const unsigned char* pNameType = (nameType>FONT_NAME_TYPE_POSTSCRIPT_NAME_PREFIX) ? (const unsigned char*)"Unknown font name type" : fontNameTypeNameTable[nameType];
+	*ppNameType = pNameType;
 	return 0;
 }
 int write_pixel(struct uvec2 position, struct uvec4_8 color){
