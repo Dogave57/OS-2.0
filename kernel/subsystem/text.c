@@ -49,19 +49,41 @@ int text_subsystem_init(void){
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		return -1;
 	}
-	uint64_t commandContextId = 0x00;
-	uint64_t commandBufferSize = PAGE_SIZE*4;
-	if (gpu_cmd_context_init(pMonitorDesc->gpuId, commandBufferSize, &commandContextId)!=0){
-		printf("failed to initialize GPU host controller command context\r\n");
+	uint64_t contextId = 0x00;
+	if (gpu_context_create(pMonitorDesc->gpuId, &contextId)!=0){
+		printf("failed to create text subsystem GPU host controller context\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
-	textSubsystemInfo.commandContextId = commandContextId;
-	textSubsystemInfo.commandBufferSize = commandBufferSize;
+	uint64_t surfaceObjectId = 0x00;
+	struct gpu_create_surface_object_info createSurfaceObjectInfo = {0};
+	memset((void*)&createSurfaceObjectInfo, 0, sizeof(struct gpu_create_surface_object_info));
+	createSurfaceObjectInfo.header.objectType = GPU_OBJECT_TYPE_SURFACE;
+	createSurfaceObjectInfo.resourceId = pMonitorDesc->monitorInfo.framebufferResourceId;
+	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createSurfaceObjectInfo, &surfaceObjectId)!=0){
+		printf("failed to create GPU host controller surface object\r\n");
+		gpu_context_delete(pMonitorDesc->gpuId, contextId);
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;
+	}
+	uint64_t commandContextId = 0x00;
+	uint64_t commandBufferSize = PAGE_SIZE*4;
+	if (gpu_cmd_context_init(pMonitorDesc->gpuId, commandBufferSize, &commandContextId)!=0){
+		printf("failed to initialize GPU host controller command context\r\n");
+		gpu_context_delete(pMonitorDesc->gpuId, contextId);
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;
+	}
 	textSubsystemInfo.pMonitorDesc = pMonitorDesc;
 	textSubsystemInfo.pDriverDesc = pDriverDesc;
 	textSubsystemInfo.pGpuDesc = pGpuDesc;
+	textSubsystemInfo.accelerationInfo.contextId = contextId;
+	textSubsystemInfo.accelerationInfo.surfaceObjectId = surfaceObjectId;
+	textSubsystemInfo.accelerationInfo.commandContextId = commandContextId;
+	textSubsystemInfo.accelerationInfo.commandBufferSize = commandBufferSize;
 	textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc = pFontDriverSubsystemDesc;
 	textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc = pFontSubsystemDesc;
 	return 0;
@@ -73,6 +95,14 @@ int text_subsystem_deinit(void){
 	}
 	if (subsystem_deinit(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc)!=0){
 		printf("failed to deinitialize font subsystem\r\n");
+		return -1;
+	}
+	if (gpu_cmd_context_deinit(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId)!=0){
+		printf("failed to deinitialize GPU host controller command context\r\n");
+		return -1;
+	}
+	if (gpu_context_delete(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.contextId)!=0){
+		printf("failed to deinitialize GPU host controller context\r\n");
 		return -1;
 	}
 	return 0;
@@ -366,7 +396,7 @@ KAPI int clear(void){
 		return -1;
 	}
 	if (pGpuDesc->gpuInfo.features.acceleration&&pMonitorDesc->monitorInfo.framebufferContextId){
-		gpu_cmd_context_reset(pGpuDesc->gpuId, textSubsystemInfo.commandContextId);
+		gpu_cmd_context_reset(pGpuDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId);
 		struct gpu_clear_cmd_info clearCmdInfo = {0};
 		memset((void*)&clearCmdInfo, 0, sizeof(struct gpu_clear_cmd_info));
 		clearCmdInfo.header.commandType = GPU_CMD_TYPE_CLEAR;
@@ -376,8 +406,8 @@ KAPI int clear(void){
 		clearCmdInfo.color.w = ((float)text_bg.w)/255.0f;
 		clearCmdInfo.depth = 1.0f;
 		clearCmdInfo.buffers = (1<<0)|(1<<2);
-		gpu_cmd_context_push_cmd(pGpuDesc->gpuId, textSubsystemInfo.commandContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
-		if (gpu_cmd_context_submit(pGpuDesc->gpuId, pMonitorDesc->monitorInfo.framebufferContextId, textSubsystemInfo.commandContextId)!=0){
+		gpu_cmd_context_push_cmd(pGpuDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
+		if (gpu_cmd_context_submit(pGpuDesc->gpuId, pMonitorDesc->monitorInfo.framebufferContextId, textSubsystemInfo.accelerationInfo.commandContextId)!=0){
 			printf("failed to submit GPU host controller command list to GPU host controller via GPU subsystem\r\n");
 			mutex_unlock(&mutex);
 			return -1;

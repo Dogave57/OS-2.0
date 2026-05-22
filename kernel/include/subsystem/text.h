@@ -222,13 +222,17 @@ struct font_subsystem_info{
 	struct text_subsystem_font_desc* pFirstFontDesc;
 	struct text_subsystem_font_desc* pLastFontDesc;
 };
-struct text_subsystem_info{
+struct text_subsystem_acceleration_info{
 	uint64_t contextId;
 	uint64_t commandContextId;
 	uint64_t commandBufferSize;
+	uint64_t surfaceObjectId;
+};
+struct text_subsystem_info{
 	struct gpu_monitor_desc* pMonitorDesc;
 	struct gpu_driver_desc* pDriverDesc;
 	struct gpu_desc* pGpuDesc;
+	struct text_subsystem_acceleration_info accelerationInfo;
 	struct font_driver_subsystem_info fontDriverSubsystemInfo;
 	struct font_subsystem_info fontSubsystemInfo;
 };
