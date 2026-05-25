@@ -627,8 +627,8 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	}
 	virtualFree((uint64_t)pVertexBuffer, vertexBufferSize);
 	virtualFree((uint64_t)pTextureBuffer, textureBufferSize);
-	gpu_resource_delete(gpuId, vertexBufferResourceId);
-	gpu_resource_delete(gpuId, indexBufferResourceId);
+//	gpu_resource_delete(gpuId, vertexBufferResourceId);
+//	gpu_resource_delete(gpuId, indexBufferResourceId);
 	gpu_cmd_context_deinit(gpuId, cmdContextId);
 	uint64_t fontFileId = 0x00;
 	struct fs_file_info fontFileInfo = {0};

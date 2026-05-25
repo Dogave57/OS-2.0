@@ -65,6 +65,15 @@ struct uvec3_32{
 struct uvec4_32{
 	uint32_t x, y, z, w;
 }__attribute__((packed));
+struct vec2_32{
+	int32_t x, y;
+}__attribute__((packed));
+struct vec3_32{
+	int32_t x, y, z;
+}__attribute__((packed));
+struct vec4_32{
+	int32_t x, y, z, w;
+}__attribute__((packed));
 struct fvec2_32{
 	float x, y;
 }__attribute__((packed));

@@ -45,7 +45,7 @@ typedef int(*fontDriverFontLoadFunc)(unsigned char* pFontBuffer, uint64_t fontBu
 typedef int(*fontDriverFontUnloadFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc);
 typedef int(*fontDriverFontVerifyFunc)(unsigned char* pFontBuffer, uint64_t fontBufferSize);
 typedef int(*fontDriverFontGlyphGetId)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId);
-typedef int(*fontDriverFontGlyphTesselate)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t glyphId, struct text_subsystem_glyph_vertex** ppVertexBuffer, uint64_t* pVertexBufferSize);
+typedef int(*fontDriverFontGlyphTesselate)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, struct text_subsystem_glyph_vertex* pVertexBuffer, uint16_t* pIndexBuffer, uint64_t* pVertexBufferSize, uint64_t* pIndexBufferSize);
 static unsigned char mainfont_data[255][16]={
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x00 
         { 0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD, 0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00  },       //0x01 
@@ -194,7 +194,6 @@ struct text_subsystem_font_driver_desc{
 };
 struct text_subsystem_glyph_vertex{
 	struct fvec2_32 position;
-	struct fvec4_32 color;
 }__attribute__((packed));
 struct text_subsystem_font_name_desc{
 	uint8_t name[256];
@@ -224,6 +223,16 @@ struct font_subsystem_info{
 };
 struct text_subsystem_acceleration_info{
 	uint64_t contextId;
+	uint64_t rasterizerStateObjectId;
+	uint64_t dsaStateObjectId;
+	uint64_t blendStateListObjectId;
+	uint64_t vertexElementListObjectId;
+	uint64_t vertexShaderObjectId;
+	uint64_t fragmentShaderObjectId;
+	uint64_t vertexBufferResourceId;
+	uint64_t indexBufferResourceId;
+	unsigned char* pVertexShaderCode;
+	unsigned char* pFragmentShaderCode;
 	uint64_t commandContextId;
 	uint64_t commandBufferSize;
 	uint64_t surfaceObjectId;
@@ -247,7 +256,9 @@ KAPI int text_subsystem_font_name_get_desc(uint64_t fontId, uint64_t nameType, s
 KAPI int text_subsystem_font_name_type_get_name(uint64_t nameType, const unsigned char** ppFontTypeName);
 KAPI int write_pixel(struct uvec2 position, struct uvec4_8 color);
 KAPI int clear(void);
-KAPI int writechar(unsigned int position, unsigned char ch);
+KAPI int writechar(unsigned int position, unsigned char ch, unsigned char sync);
+int text_subsystem_putchar(unsigned char ch, unsigned char sync);
+int text_subsystem_print(unsigned char* pString, unsigned char sync);
 KAPI int putchar(unsigned char ch);
 KAPI int putlchar(uint16_t ch);
 KAPI int puthex(unsigned char hex, unsigned char isUpper);

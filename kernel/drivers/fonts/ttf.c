@@ -203,8 +203,8 @@ int ttf_glyf_get_desc(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct 
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct text_subsystem_glyph_vertex** ppVertexBuffer, uint64_t* pVertexBufferSize){
-	if (!pFontDesc||!ppVertexBuffer||!pVertexBufferSize)
+int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct text_subsystem_glyph_vertex* pVertexBuffer, uint16_t* pIndexBuffer, uint64_t* pVertexBufferSize, uint64_t* pIndexBufferSize){
+	if (!pFontDesc||!pVertexBuffer||!pIndexBuffer||!pVertexBufferSize||!pIndexBufferSize)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -230,78 +230,154 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct
 	int16_t maxX = __builtin_bswap16(pGlyfHeader->max_x);
 	int16_t maxY = __builtin_bswap16(pGlyfHeader->max_y);
 	uint16_t* pContourEndpointTable = (uint16_t*)(pGlyfHeader+1);
-	uint16_t pointCount = __builtin_bswap16(pContourEndpointTable[contourCount-1]);
+	uint16_t pointCount = __builtin_bswap16(pContourEndpointTable[contourCount-1])+0x01;
 	uint16_t instructionListLength = __builtin_bswap16(*(pContourEndpointTable+contourCount));
 	uint8_t* pInstructionList = (uint8_t*)(pContourEndpointTable+contourCount+0x01);
 	struct ttf_glyf_point_flags* pPointFlagsList = (struct ttf_glyf_point_flags*)(pInstructionList+instructionListLength);
-	int8_t* pCoordListX = (int8_t*)(((uint8_t*)pPointFlagsList)+pointCount);
-	int8_t* pCoordListY = (int8_t*)(pCoordListX+pointCount);
+	int8_t* pCoordListX = (int8_t*)0x00;
+	int8_t* pCoordListY = (int8_t*)0x00;
+	struct vec2_32* pPointVectorList = (struct vec2_32*)0x00;
+	uint64_t pointVectorListSize = sizeof(struct vec2_32)*pointCount;
+	if (virtualAlloc((uint64_t*)&pPointVectorList, pointVectorListSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate physical pages for point vector list\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t pointFlagOffset = 0x00;
+	for (uint64_t i = 0;i<pointCount;i++,pointFlagOffset++){
+		struct ttf_glyf_point_flags* pPointFlags = (struct ttf_glyf_point_flags*)(((unsigned char*)pPointFlagsList)+pointFlagOffset);
+		if (!pPointFlags->repeat)
+			continue;
+		uint8_t repeatCount = *(uint8_t*)(pPointFlags+0x01);
+		pointFlagOffset++;
+		i+=repeatCount;
+	}
+	pCoordListX = ((uint8_t*)pPointFlagsList)+pointFlagOffset;
+	uint64_t coordEntryIndex = 0x00;
+	int32_t lastCoordEntry = 0x00;
+	uint64_t pointFlagsIndex = 0x00;
+	uint64_t pointFlagRepeatFence = 0x00;
+	uint64_t indexBufferEntryCount = pointCount;
+	uint64_t indexBufferSize = indexBufferEntryCount*sizeof(uint16_t);
+	for (uint64_t i = 0;i<pointCount;i++){
+		struct ttf_glyf_point_flags* pPointFlags = pPointFlagsList+pointFlagsIndex;
+		uint8_t* pCoordListEntry = (uint8_t*)(pCoordListX+coordEntryIndex);
+		if (pPointFlags->x_short){
+			if (pPointFlags->x_same){
+				lastCoordEntry = (int32_t)(((uint32_t)*pCoordListEntry)+(uint32_t)lastCoordEntry);
+				coordEntryIndex++;
+			}
+			if (!pPointFlags->x_same){
+				lastCoordEntry = (int32_t)((uint32_t)lastCoordEntry-((uint32_t)*pCoordListEntry));
+				coordEntryIndex++;
+			}
+		}
+		if (!pPointFlags->x_short){
+			if (pPointFlags->x_same){
+				
+			}
+			if (!pPointFlags->x_same){
+				int16_t coordEntry = (int16_t)__builtin_bswap16(*(uint16_t*)pCoordListEntry);
+				lastCoordEntry = ((int32_t)coordEntry)+(int32_t)lastCoordEntry;
+				coordEntryIndex+=2;
+			}
+		}
+		pPointVectorList[i].x = lastCoordEntry;
+		if (i<pointFlagRepeatFence)
+			continue;
+		if (!pPointFlags->repeat||(i==pointFlagRepeatFence&&i)){
+			pointFlagsIndex+=(i==pointFlagRepeatFence&&i) ? 0x02 : 0x01;
+			continue;
+		}
+		uint8_t repeatCount = *(uint8_t*)(pPointFlagsList+pointFlagsIndex+0x01);
+		pointFlagRepeatFence = i+repeatCount;
+		continue;
+	}
+	pCoordListY = pCoordListX+coordEntryIndex;
+	coordEntryIndex = 0x00;
+	lastCoordEntry = 0x00;
+	pointFlagsIndex = 0x00;
+	pointFlagRepeatFence = 0x00;
+	printf("point count: %d\r\n", pointCount);
+	uint64_t currentContourIndex = 0x00;
+	for (uint64_t i = 0;i<pointCount;i++){
+		if (i>__builtin_bswap16(pContourEndpointTable[currentContourIndex])){
+			currentContourIndex++;
+			printf("new contour: %d-%d\r\n", i, __builtin_bswap16(pContourEndpointTable[currentContourIndex]));
+		}
+		struct ttf_glyf_point_flags* pPointFlags = pPointFlagsList+pointFlagsIndex;
+		uint8_t* pCoordListEntry = (uint8_t*)(pCoordListY+coordEntryIndex);
+		if (pPointFlags->y_short){
+			if (pPointFlags->y_same){
+				lastCoordEntry = (int32_t)(((uint32_t)*pCoordListEntry)+(uint32_t)lastCoordEntry);
+				coordEntryIndex++;
+			}
+			if (!pPointFlags->y_same){
+				lastCoordEntry = (int32_t)((uint32_t)lastCoordEntry-((uint32_t)*pCoordListEntry));
+				coordEntryIndex++;
+			}
+		}
+		if (!pPointFlags->y_short){
+			if (pPointFlags->y_same){
+			
+			}
+			if (!pPointFlags->y_same){
+				int16_t coordEntry = (int16_t)__builtin_bswap16(*(uint16_t*)pCoordListEntry);
+				lastCoordEntry = ((int32_t)coordEntry)+(int32_t)lastCoordEntry;
+				coordEntryIndex+=0x02;
+			}
+		}
+		pPointVectorList[i].y = lastCoordEntry;
+		if (i<pointFlagRepeatFence)
+			continue;
+		if (!pPointFlags->repeat||(i==pointFlagRepeatFence&&i)){
+			pointFlagsIndex+=(i==pointFlagRepeatFence&&i) ? 0x02 : 0x01;
+			continue;
+		}
+		uint8_t repeatCount = *(uint8_t*)(pPointFlagsList+pointFlagsIndex+0x01);
+		pointFlagRepeatFence = i+repeatCount;
+	}
 	printf("GLYF contour count: %d\r\n", contourCount);
 	printf("GLYF point count: %d\r\n", pointCount);
 	printf("GLYF min range: {%f, %f}\r\n", ((float)minX/(float)unitsPerEm), ((float)minY/(float)unitsPerEm));
 	printf("GLYF max range: {%f, %f}\r\n", ((float)maxX/(float)unitsPerEm), ((float)maxY/(float)unitsPerEm));
 	printf("units per em: %d\r\n", unitsPerEm);
-	uint64_t pointFlagsIndex = 0x00;
 	struct uvec2_32 pointCoord = {0};
 	pointCoord.x = 0x00;
 	pointCoord.y = 0x00;
-	struct text_subsystem_glyph_vertex* pVertexBuffer = (struct text_subsystem_glyph_vertex*)0x00;
-	uint64_t vertexBufferSize = PAGE_SIZE*4;
-	if (virtualAlloc((uint64_t*)&pVertexBuffer, vertexBufferSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate physical pages for TTF glyph vertex buffer\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
 	pointFlagsIndex = 0x00;
-	uint64_t vertexEntryCount = 0x00;
 	float fontWidth = 0.01f;
-	for (uint64_t i = 0;i<pointCount;i++,pointFlagsIndex++){
+	pointFlagsIndex = 0x00;
+	pointFlagRepeatFence = 0x00;
+	for (uint64_t i = 0;i<pointCount;i++){
 		struct ttf_glyf_point_flags* pPointFlags = pPointFlagsList+pointFlagsIndex;
 		if (!pPointFlags->on_curve){
 			printf("unexpected TTF glyph point on curve flag\r\n");
+			virtualFree((uint64_t)pPointVectorList, pointVectorListSize);
 			mutex_unlock(&mutex);
 			return -1;
 		}
-		static struct text_subsystem_glyph_vertex pointVertexEntryList[256]={0};
-		uint64_t pointVertexEntryCount = 0x00;
-		if ((pPointFlags+0x01)->on_curve){
-			pointCoord.x = 1.0f/((float)pointCoord.x+pCoordListX[i])/(float)unitsPerEm;
-			pointCoord.y = 1.0f/((float)pointCoord.y+pCoordListY[i])/(float)unitsPerEm;
-			struct fvec3_32 startCoord = {0};
-			pointCoord.x = 1.0f/((float)pointCoord.x+pCoordListX[i+1])/(float)unitsPerEm;
-			pointCoord.y = 1.0f/((float)pointCoord.y+pCoordListY[i+1])/(float)unitsPerEm;
-			struct fvec3_32 endCoord = {0};
-			pointVertexEntryList[0].position.x = startCoord.x-(fontWidth/2.0f);
-			pointVertexEntryList[0].position.y = startCoord.y;
-			pointVertexEntryList[1].position.x = startCoord.x+(fontWidth/2.0f);
-			pointVertexEntryList[1].position.y = startCoord.y;
-			pointVertexEntryList[2].position.x = endCoord.x-(fontWidth/2.0f);
-			pointVertexEntryList[2].position.y = endCoord.y;
-			pointVertexEntryList[3].position.x = endCoord.x-(fontWidth/2.0f);
-			pointVertexEntryList[3].position.y = endCoord.y;
-			pointVertexEntryList[4].position.x = endCoord.x+(fontWidth/2.0f);
-			pointVertexEntryList[4].position.y = endCoord.y;
-			pointVertexEntryList[5].position.x = startCoord.x+(fontWidth/2.0f);
-			pointVertexEntryList[5].position.y = startCoord.y;
-			for (uint64_t i = 0;i<0x06;i++){
-				struct fvec4_32 vertexColor = {0};
-				vertexColor.x = 1.0f;
-				vertexColor.y = 0.0f;
-				vertexColor.z = 1.0f;
-				vertexColor.w = 1.0f;
-				pointVertexEntryList[i].color = vertexColor;
-			}
-			pointVertexEntryCount+=0x06;
-			i++;	
+		static struct text_subsystem_glyph_vertex pointVertexEntryList[512]={0};
+		uint64_t nextPointIndex = (i+0x01)%pointCount;
+		if ((pPointFlags+nextPointIndex)->on_curve){
+			static struct fvec2_32 startCoord = {0.0f, 0.0f};
+			startCoord.x = ((float)pPointVectorList[i].x)/(float)unitsPerEm;
+			startCoord.y = ((float)pPointVectorList[i].y)/(float)unitsPerEm;
+			static struct fvec2_32 endCoord = {0.0f, 0.0f};
+			endCoord.x = ((float)pPointVectorList[nextPointIndex].x)/(float)unitsPerEm;
+			endCoord.y = ((float)pPointVectorList[nextPointIndex].y)/(float)unitsPerEm;
 		}
-		memcpy((void*)(pVertexBuffer+vertexEntryCount), (void*)pointVertexEntryList, sizeof(struct text_subsystem_glyph_vertex)*pointVertexEntryCount);
-		vertexEntryCount+=pointVertexEntryCount;
-		if (pPointFlags->repeat)
-			pointFlagsIndex++;
+		if (i<pointFlagRepeatFence){
+			continue;
+		}
+		if (!pPointFlags->repeat||(i==pointFlagRepeatFence&&i)){
+			pointFlagsIndex+=(i==pointFlagRepeatFence&&i) ? 0x02 : 0x01;
+			continue;
+		}
+		uint8_t repeatCount = *(uint8_t*)(pPointFlagsList+pointFlagsIndex+0x01);
+		pointFlagRepeatFence = i+repeatCount;
 	}
-	vertexBufferSize = vertexEntryCount*sizeof(struct text_subsystem_glyph_vertex);
-	*ppVertexBuffer = pVertexBuffer;
-	*pVertexBufferSize = vertexBufferSize;
+	virtualFree((uint64_t)pPointVectorList, pointVectorListSize);
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -545,8 +621,8 @@ int ttf_font_glyph_get_id(struct text_subsystem_font_desc* pSubsystemFontDesc, u
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t glyphId, struct text_subsystem_glyph_vertex** ppVertexBuffer, uint64_t* pVertexBufferSize){
-	if (!pSubsystemFontDesc||!ppVertexBuffer||!pVertexBufferSize)
+int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, struct text_subsystem_glyph_vertex* pVertexBuffer, uint16_t* pIndexBuffer, uint64_t* pVertexBufferSize, uint64_t* pIndexBufferSize){
+	if (!pSubsystemFontDesc||!pVertexBuffer||!pIndexBuffer||!pVertexBufferSize||!pIndexBufferSize)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -556,15 +632,15 @@ int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct text_subsystem_glyph_vertex* pVertexBuffer = (struct text_subsystem_glyph_vertex*)0x00;
 	uint64_t vertexBufferSize = 0x00;
-	if (ttf_glyf_tesselate(pFontDesc, glyphId, &pVertexBuffer, &vertexBufferSize)!=0){
+	uint64_t indexBufferSize = 0x00;
+	if (ttf_glyf_tesselate(pFontDesc, glyphId, pVertexBuffer, pIndexBuffer, &vertexBufferSize, &indexBufferSize)!=0){
 		printf("failed to tesselate TTF glyph\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	*ppVertexBuffer = pVertexBuffer;
 	*pVertexBufferSize = vertexBufferSize;
+	*pIndexBufferSize = indexBufferSize;
 	mutex_unlock(&mutex);
 	return 0;
 }

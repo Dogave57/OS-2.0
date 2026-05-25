@@ -120,7 +120,7 @@ sudo mkdir efimnt/KEXTS
 sudo mkdir efimnt/FONTS
 sudo cp build/build/kernel.elf efimnt/KERNEL/KERNEL.ELF
 sudo cp build/build/kexts/test.elf efimnt/KEXTS/TEST.ELF
-sudo cp esp_fs/FONTS/* efimnt/FONTS/
+sudo cp -r fonts/* esp_mnt/FONTS/
 sudo ls -R efimnt
 sudo losetup -d /dev/loop0
 sudo umount -r efimnt

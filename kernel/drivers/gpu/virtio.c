@@ -1220,7 +1220,7 @@ int virtio_gpu_init(void){
 		gpu_object_delete(gpuId, vertexElementListObjectId);
 		gpu_object_delete(gpuId, vertexShaderObjectId);
 		gpu_object_delete(gpuId, fragmentShaderObjectId);
-//		gpu_resource_delete(gpuId, textureResourceId);
+		gpu_resource_delete(gpuId, textureResourceId);
 //		gpu_resource_delete(gpuId, vertexBufferResourceId);
 		virtualFree((uint64_t)pTextureBuffer, textureBufferSize);
 		virtualFreePage((uint64_t)pVertexBuffer, 0);

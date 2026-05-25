@@ -251,7 +251,6 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	}
 	if (font_driver_ttf_init()!=0){
 		printf("failed to initialize GPU host controller .TTF font driver\r\n");
-		return -1;
 	}
 	if (xhci_driver_init()!=0){
 		printf("extensible host controller not available\r\n");
