@@ -1,6 +1,7 @@
 #ifndef _FONT_DRIVER_TTF
 #define _FONT_DRIVER_TTF
 #include "subsystem/text.h"
+#include "math/vector.h"
 struct ttf_font_desc;
 struct ttf_subtable_cmap_header;
 typedef int(*TTFGetGlyphIdFunc)(struct ttf_font_desc* pFontDesc, struct ttf_subtable_cmap_header* pCharacterMapSubtableHeader, uint32_t characterCode, uint32_t* pGlyphId);
@@ -184,6 +185,13 @@ struct ttf_table_name_record{
 	uint16_t string_length;
 	uint16_t string_offset;
 }__attribute__((packed));
+struct ttf_point_entry_desc{
+	struct uvec2_32 position;
+}__attribute__((packed));
+struct ttf_pixel_entry_desc{
+	uint16_t pointIndex;
+	uint16_t pointCount;
+}__attribute__((packed));
 struct ttf_font_desc{
 	struct text_subsystem_font_desc* pSubsystemFontDesc;
 	unsigned char* pFontBuffer; 
@@ -203,10 +211,10 @@ int ttf_glyph_get_id_fmt_4(struct ttf_font_desc* pFontDesc, struct ttf_subtable_
 int ttf_glyph_get_id(struct ttf_font_desc* pFontDesc, uint16_t platformId, uint16_t encodingId, uint32_t characterCode, uint32_t* pGlyphId);
 int ttf_glyph_get_glyf_table(struct ttf_font_desc* pFontDesc, uint32_t glyphId, unsigned char** ppGlyfTableBase, uint32_t* pGlyfTableLength);
 int ttf_glyf_point_get_vector(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint64_t pointFlagsIndex, struct uvec2_32 vectorIndexList, struct uvec2_32* pVector, struct uvec2_32* pNewVectorIndexList);
-int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct text_subsystem_glyph_vertex* pVertexBuffer, uint16_t* pIndexBuffer, uint64_t* pVertexBufferSize, uint64_t* pIndexBufferSize);
+int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float* pTextureBufefr, struct uvec2_32 textureBufferRect);
 int ttf_font_load(unsigned char* pFontBuffer, uint64_t fontBufferSize, struct text_subsystem_font_desc* pSubsystemFontDesc);
 int ttf_font_unload(struct text_subsystem_font_desc* pSubsystemFontDesc);
 int ttf_font_verify(unsigned char* pFontBuffer, uint64_t fontBufferSize);
 int ttf_font_glyph_get_id(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId);
-int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, struct text_subsystem_glyph_vertex* pVertexBuffer, uint16_t* pIndexBuffer, uint64_t* pVertexBufferSize, uint64_t* pIndexBufferSize);
+int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, float* pTextureBuffer, struct uvec2_32 textureBufferRect);
 #endif

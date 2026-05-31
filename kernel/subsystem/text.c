@@ -111,6 +111,59 @@ int text_subsystem_init(void){
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
+	uint64_t glyphTextureResourceId = 0x00;
+	struct uvec2_32 glyphTextureRect = {0};
+	glyphTextureRect.x = 0x20;
+	glyphTextureRect.y = 0x20;
+	glyphTextureRect.x = 0x100;
+	glyphTextureRect.y = 0x100;
+	struct gpu_create_resource_info createResourceInfo = {0};
+	memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
+	createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
+	createResourceInfo.resourceInfo.contextId = contextId;
+	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32_FLOAT;
+	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32G32B32A32_FLOAT;
+	createResourceInfo.resourceInfo.normal.width = glyphTextureRect.x;
+	createResourceInfo.resourceInfo.normal.height = glyphTextureRect.y;
+	createResourceInfo.resourceInfo.normal.depth = 0x01;
+	createResourceInfo.resourceInfo.normal.arraySize = 0x01;
+	createResourceInfo.resourceInfo.normal.target = GPU_TARGET_TEXTURE_2D;
+	createResourceInfo.resourceInfo.normal.bind = GPU_BIND_SAMPLER_VIEW|GPU_BIND_RENDER_TARGET;
+	if (gpu_resource_create(pMonitorDesc->gpuId, createResourceInfo, &glyphTextureResourceId)!=0){
+		printf("failed to create GPU host controller glyph texture buffer resource\r\n");
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;
+	}
+	if (gpu_context_attach_resource(pMonitorDesc->gpuId, contextId, glyphTextureResourceId)!=0){
+		printf("failed to attach GPU host controller resource to GPU host controller context\r\n");
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;
+	}
+	uint64_t glyphVertexBufferResourceId = 0x00;
+	memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
+	createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
+	createResourceInfo.resourceInfo.contextId = contextId;
+	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32G32_FLOAT;
+	createResourceInfo.resourceInfo.normal.width = sizeof(struct text_subsystem_glyph_vertex)*0x06;
+	createResourceInfo.resourceInfo.normal.height = 0x01;
+	createResourceInfo.resourceInfo.normal.depth = 0x01;
+	createResourceInfo.resourceInfo.normal.arraySize = 0x01;
+	createResourceInfo.resourceInfo.normal.target = GPU_TARGET_BUFFER;
+	createResourceInfo.resourceInfo.normal.bind = GPU_BIND_VERTEX_BUFFER;
+	if (gpu_resource_create(pMonitorDesc->gpuId, createResourceInfo, &glyphVertexBufferResourceId)!=0){
+		printf("failed to create GPU host controller vertex buffer resource\r\n");
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;
+	}
+	if (gpu_context_attach_resource(pMonitorDesc->gpuId, contextId, glyphVertexBufferResourceId)!=0){
+		printf("failed to attach GPU host controller resource to GPU host controller context\r\n");
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;
+	}
 	uint64_t rasterizerStateObjectId = 0x00;
 	struct gpu_create_rasterizer_state_object_info createRasterizerStateObjectInfo = {0};
 	memset((void*)&createRasterizerStateObjectInfo, 0, sizeof(struct gpu_create_rasterizer_state_object_info));
@@ -172,15 +225,21 @@ int text_subsystem_init(void){
 	uint64_t vertexElementListObjectId = 0x00;
 	struct gpu_create_vertex_element_list_object_info createVertexElementListObjectInfo = {0};
 	memset((void*)&createVertexElementListObjectInfo, 0, sizeof(struct gpu_create_vertex_element_list_object_info));
-	struct gpu_vertex_element vertexElementList[1] = {0};
-	memset((void*)vertexElementList, 0, sizeof(struct gpu_vertex_element));
+	struct gpu_vertex_element vertexElementList[3] = {0};
+	memset((void*)vertexElementList, 0, sizeof(struct gpu_vertex_element)*0x03);
 	vertexElementList[0].src_offset = 0x00;
 	vertexElementList[0].vertex_buffer_index = 0x00;
 	vertexElementList[0].src_format = GPU_FORMAT_R32G32_FLOAT;
+	vertexElementList[1].src_offset = sizeof(struct fvec2_32);
+	vertexElementList[1].vertex_buffer_index = 0x00;
+	vertexElementList[1].src_format = GPU_FORMAT_R32G32_FLOAT;
+	vertexElementList[2].src_offset = vertexElementList[1].src_offset+sizeof(struct fvec2_32);
+	vertexElementList[2].vertex_buffer_index = 0x00;
+	vertexElementList[2].src_format = GPU_FORMAT_R32G32B32A32_FLOAT;
 	createVertexElementListObjectInfo.header.objectType = GPU_OBJECT_TYPE_VERTEX_ELEMENT_LIST;
 	createVertexElementListObjectInfo.surfaceObjectId = surfaceObjectId;
 	createVertexElementListObjectInfo.pVertexElementList = (struct gpu_vertex_element*)vertexElementList;
-	createVertexElementListObjectInfo.vertexElementCount = 0x01;
+	createVertexElementListObjectInfo.vertexElementCount = 0x03;
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createVertexElementListObjectInfo, &vertexElementListObjectId)!=0){
 		printf("failed to create GPU host controller vertex element list object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
@@ -189,20 +248,29 @@ int text_subsystem_init(void){
 	}
 	static const unsigned char vertexShaderCode[]="VERT\n"
 		"DCL OUT[0], POSITION\n"
-		"DCL OUT[1], COLOR\n"
-		"DCL CONST[0..2]\n"
+		"DCL OUT[1], TEXCOORD\n"
+		"DCL OUT[2], COLOR\n"
+		"DCL CONST[0..1]\n"
 		"DCL TEMP[0]\n"
 		"DCL IN[0]\n"
+		"DCL IN[1]\n"
+		"DCL IN[2]\n"
 		"MOV TEMP[0], IN[0]\n"
-		"MUL TEMP[0].xy, TEMP[0], CONST[2]\n"
-		"ADD TEMP[0].xy, TEMP[0], CONST[1]\n"
+		"MUL TEMP[0].xy, TEMP[0], CONST[1]\n"
+		"ADD TEMP[0].xy, TEMP[0], CONST[0]\n"
 		"MOV OUT[0], TEMP[0]\n"
-		"MOV OUT[1], CONST[0]\n"
+		"MOV OUT[1], IN[1]\n"
+		"MOV OUT[2], IN[2]\n"
 		"END\n";
 	static const unsigned char fragmentShaderCode[]="FRAG\n"
 		"DCL OUT[0], COLOR\n"
 		"DCL IN[0], COLOR, PERSPECTIVE\n"
-		"MOV OUT[0], IN[0]\n"
+		"DCL IN[1], TEXCOORD, PERSPECTIVE\n"
+		"DCL SAMP[0]\n"
+		"DCL SVIEW[0], 2D, FLOAT\n"
+		"DCL TEMP[0]\n"
+		"TEX TEMP[0], IN[1], SAMP[0], 2D\n"
+		"MOV OUT[0], TEMP[0]\n"
 		"END\n";
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
@@ -228,69 +296,124 @@ int text_subsystem_init(void){
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
-	uint64_t vertexBufferResourceId = 0x00;
-	struct gpu_create_resource_info createResourceInfo = {0};
-	memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
-	createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
-	createResourceInfo.resourceInfo.contextId = contextId;
-	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32G32B32A32_FLOAT;
-	createResourceInfo.resourceInfo.normal.format = 0x40;
-	createResourceInfo.resourceInfo.normal.width = PAGE_SIZE;
-	createResourceInfo.resourceInfo.normal.height = 0x01;
-	createResourceInfo.resourceInfo.normal.depth = 0x01;
-	createResourceInfo.resourceInfo.normal.arraySize = 0x00;
-	createResourceInfo.resourceInfo.normal.target = GPU_TARGET_BUFFER;
-	createResourceInfo.resourceInfo.normal.bind = GPU_BIND_VERTEX_BUFFER;
-	createResourceInfo.resourceInfo.normal.flags = 0x00;
-	if (gpu_resource_create(pMonitorDesc->gpuId, createResourceInfo, &vertexBufferResourceId)!=0){
-		printf("failed to create GPU host controller vertex buffer resource\r\n");
-		subsystem_deinit(pFontDriverSubsystemDesc);
-		subsystem_deinit(pFontSubsystemDesc);
-		return-1;
-	}
-	if (gpu_context_attach_resource(pMonitorDesc->gpuId, contextId, vertexBufferResourceId)!=0){
-		printf("failed to attach GPU host controller vertex buffer resource to framebuffer context\r\n");
+	uint64_t samplerStateObjectId = 0x00;
+	struct gpu_create_sampler_state_object_info createSamplerStateObjectInfo = {0};
+	memset((void*)&createSamplerStateObjectInfo, 0, sizeof(struct gpu_create_sampler_state_object_info));
+	struct gpu_sampler_state samplerState = {0};
+	memset((void*)&samplerState, 0, sizeof(struct gpu_sampler_state));
+	samplerState.wrap_s = GPU_TEXTURE_WRAP_CLAMP;
+	samplerState.wrap_t = GPU_TEXTURE_WRAP_CLAMP;
+	samplerState.wrap_r = GPU_TEXTURE_WRAP_CLAMP;
+	samplerState.magImgFilter = GPU_TEXTURE_FILTER_NEAREST;
+	samplerState.minImgFilter = GPU_TEXTURE_FILTER_NEAREST;
+	samplerState.minMipFilter = GPU_TEXTURE_FILTER_NEAREST;
+	samplerState.minDetailLevel = 16.0f;
+	samplerState.maxDetailLevel = 31.0f;
+	createSamplerStateObjectInfo.header.objectType = GPU_OBJECT_TYPE_SAMPLER_STATE;
+	createSamplerStateObjectInfo.samplerState = samplerState;
+	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createSamplerStateObjectInfo, &samplerStateObjectId)!=0){
+		printf("failed to create GPU host controller sampler state object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
-	uint64_t indexBufferResourceId = 0x00;
-	memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
-	createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
-	createResourceInfo.resourceInfo.contextId = contextId;
-	createResourceInfo.resourceInfo.normal.format = 0x40;
-	createResourceInfo.resourceInfo.normal.width = PAGE_SIZE;
-	createResourceInfo.resourceInfo.normal.height = 0x01;
-	createResourceInfo.resourceInfo.normal.depth = 0x01;
-	createResourceInfo.resourceInfo.normal.arraySize = 0x01;
-	createResourceInfo.resourceInfo.normal.target = GPU_TARGET_BUFFER;
-	createResourceInfo.resourceInfo.normal.bind = GPU_BIND_INDEX_BUFFER;
-	createResourceInfo.resourceInfo.normal.flags = 0x00;
-	if (gpu_resource_create(pMonitorDesc->gpuId, createResourceInfo, &indexBufferResourceId)!=0){
-		printf("failed to create GPU host controller index buffer resource\r\n");
+	uint64_t samplerViewObjectId = 0x00;
+	struct gpu_create_sampler_view_object_info createSamplerViewObjectInfo = {0};
+	memset((void*)&createSamplerViewObjectInfo, 0, sizeof(struct gpu_create_sampler_view_object_info));
+	createSamplerViewObjectInfo.header.objectType = GPU_OBJECT_TYPE_SAMPLER_VIEW;
+	createSamplerViewObjectInfo.resourceId = glyphTextureResourceId;
+	createSamplerViewObjectInfo.format = GPU_FORMAT_R32_FLOAT;
+	createSamplerViewObjectInfo.format = GPU_FORMAT_R32G32B32A32_FLOAT;
+	createSamplerViewObjectInfo.firstLevel = 0x00;
+	createSamplerViewObjectInfo.lastLevel = 0x00;
+	createSamplerViewObjectInfo.swizzle.r = 0x00;
+	createSamplerViewObjectInfo.swizzle.g = 0x01;
+	createSamplerViewObjectInfo.swizzle.b = 0x02;
+	createSamplerViewObjectInfo.swizzle.a = 0x03;
+	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createSamplerViewObjectInfo, &samplerViewObjectId)!=0){
+		printf("failed to create GPU host controller sampler view object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
-	if (gpu_context_attach_resource(pMonitorDesc->gpuId, contextId, indexBufferResourceId)!=0){
-		printf("failed to attach GPU host controller index buffer resource to framebuffer context\r\n");
+	struct text_subsystem_glyph_vertex* pGlyphVertexBuffer = (struct text_subsystem_glyph_vertex*)0x00;
+	uint64_t glyphVertexBufferSize = sizeof(struct text_subsystem_glyph_vertex)*0x06;
+	if (virtualAlloc((uint64_t*)&pGlyphVertexBuffer, glyphVertexBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate physical pages for GPU host controller vertex buffer\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
+	}
+	memset((void*)pGlyphVertexBuffer, 0, glyphVertexBufferSize);
+	pGlyphVertexBuffer[0].position.x = -1.0f;
+	pGlyphVertexBuffer[0].position.y = -1.0f;
+	pGlyphVertexBuffer[0].textureCoord.x = 0.0f;	
+	pGlyphVertexBuffer[0].textureCoord.y = 0.0f;
+	pGlyphVertexBuffer[1].position.x = -1.0f;
+	pGlyphVertexBuffer[1].position.y = 1.0f;
+	pGlyphVertexBuffer[1].textureCoord.x = 0.0f;
+	pGlyphVertexBuffer[1].textureCoord.y = 1.0f;
+	pGlyphVertexBuffer[2].position.x = 1.0f;
+	pGlyphVertexBuffer[2].position.y = -1.0f;
+	pGlyphVertexBuffer[2].textureCoord.x = 1.0f;
+	pGlyphVertexBuffer[2].textureCoord.y = 0.0f;
+	pGlyphVertexBuffer[3].position.x = -1.0f;
+	pGlyphVertexBuffer[3].position.y = 1.0f;
+	pGlyphVertexBuffer[3].textureCoord.x = 0.0f;
+	pGlyphVertexBuffer[3].textureCoord.y = 1.0f;
+	pGlyphVertexBuffer[4].position.x = 1.0f;
+	pGlyphVertexBuffer[4].position.y = 1.0f;
+	pGlyphVertexBuffer[4].textureCoord.x = 1.0f;
+	pGlyphVertexBuffer[4].textureCoord.y = 1.0f;
+	pGlyphVertexBuffer[5].position.x = 1.0f;
+	pGlyphVertexBuffer[5].position.y = -1.0f;
+	pGlyphVertexBuffer[5].textureCoord.x = 1.0f;
+	pGlyphVertexBuffer[5].textureCoord.y = 0.0f;
+	for (uint64_t i = 0;i<glyphVertexBufferSize/sizeof(struct text_subsystem_glyph_vertex);i++){
+		struct fvec4_32 vertexColor = {0};
+		vertexColor.x = 1.0f;
+		vertexColor.y = 0.0f;
+		vertexColor.z = 1.0f;
+		vertexColor.w = 1.0f;
+		pGlyphVertexBuffer[i].color = vertexColor;
+	}
+	if (gpu_resource_attach_backing(pMonitorDesc->gpuId, glyphVertexBufferResourceId, (unsigned char*)pGlyphVertexBuffer, PAGE_SIZE)!=0){
+		printf("failed to attach GPU host controller vertex buffer physical pages to GPU host controller vertex buffer resource\r\n");
+		virtualFree((uint64_t)pGlyphVertexBuffer, glyphVertexBufferSize);
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;
+	}
+	struct gpu_transfer_to_device_info transferToDeviceInfo = {0};
+	memset((void*)&transferToDeviceInfo, 0, sizeof(struct gpu_transfer_to_device_info));
+	transferToDeviceInfo.boxRect.width = glyphVertexBufferSize;
+	transferToDeviceInfo.boxRect.height = 0x01;
+	transferToDeviceInfo.boxRect.depth = 0x01;
+	if (gpu_transfer_to_device(pMonitorDesc->gpuId, glyphVertexBufferResourceId, transferToDeviceInfo)!=0){
+		printf("failed to transfer GPU host controller vertex buffer resource physical pages to GPU host controller\r\n");
+		virtualFree((uint64_t)pGlyphVertexBuffer, glyphVertexBufferSize);
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;	
 	}
 	textSubsystemInfo.pMonitorDesc = pMonitorDesc;
 	textSubsystemInfo.pDriverDesc = pDriverDesc;
 	textSubsystemInfo.pGpuDesc = pGpuDesc;
 	textSubsystemInfo.accelerationInfo.contextId = contextId;
 	textSubsystemInfo.accelerationInfo.surfaceObjectId = surfaceObjectId;
+	textSubsystemInfo.accelerationInfo.glyphTextureResourceId = glyphTextureResourceId;
+	textSubsystemInfo.accelerationInfo.glyphTextureRect = glyphTextureRect;
+	textSubsystemInfo.accelerationInfo.glyphVertexBufferResourceId = glyphVertexBufferResourceId;
+	textSubsystemInfo.accelerationInfo.pGlyphVertexBuffer = pGlyphVertexBuffer;
+	textSubsystemInfo.accelerationInfo.glyphVertexBufferSize = glyphVertexBufferSize;
 	textSubsystemInfo.accelerationInfo.rasterizerStateObjectId = rasterizerStateObjectId;
 	textSubsystemInfo.accelerationInfo.dsaStateObjectId = dsaStateObjectId;
 	textSubsystemInfo.accelerationInfo.blendStateListObjectId = blendStateListObjectId;
 	textSubsystemInfo.accelerationInfo.vertexElementListObjectId = vertexElementListObjectId;
 	textSubsystemInfo.accelerationInfo.vertexShaderObjectId = vertexShaderObjectId;
 	textSubsystemInfo.accelerationInfo.fragmentShaderObjectId = fragmentShaderObjectId;
-	textSubsystemInfo.accelerationInfo.vertexBufferResourceId = vertexBufferResourceId;
-	textSubsystemInfo.accelerationInfo.indexBufferResourceId = indexBufferResourceId;
+	textSubsystemInfo.accelerationInfo.glyphSamplerStateObjectId = samplerStateObjectId;
+	textSubsystemInfo.accelerationInfo.glyphSamplerViewObjectId = samplerViewObjectId;
 	textSubsystemInfo.accelerationInfo.commandContextId = commandContextId;
 	textSubsystemInfo.accelerationInfo.commandBufferSize = commandBufferSize;
 	textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc = pFontDriverSubsystemDesc;
@@ -431,7 +554,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	}
 	textSubsystemInfo.fontSubsystemInfo.pLastFontDesc = pFontDesc;
 	uint64_t glyphId = 0x00;
-	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, 'V', &glyphId)!=0){
+	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, 'Z', &glyphId)!=0){
 		printf("failed to get glyph ID via font driver\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		kfree((void*)pFontDesc);
@@ -439,46 +562,39 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		return -1;
 	}
 	printf("glyph ID: %d\r\n", glyphId);
-	struct text_subsystem_glyph_vertex* pGlyphVertexBuffer = (struct text_subsystem_glyph_vertex*)0x00;
-	uint64_t glyphVertexBufferSize = 0x00;
-	uint64_t glyphVertexEntryCount = 0x00;
-	if (virtualAllocPage((uint64_t*)&pGlyphVertexBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
-		printf("failed to allocate physical page for GPU host controller glyph vertex buffer\r\n");
+	float* pGlyphTextureBuffer = (float*)0x00;
+	struct uvec2_32 glyphTextureBufferRect = {0};
+	glyphTextureBufferRect.x = textSubsystemInfo.accelerationInfo.glyphTextureRect.x;
+	glyphTextureBufferRect.y = textSubsystemInfo.accelerationInfo.glyphTextureRect.y;
+	uint64_t glyphTextureBufferSize = sizeof(float)*glyphTextureBufferRect.x*glyphTextureBufferRect.y;
+	glyphTextureBufferSize = sizeof(struct fvec4_32)*glyphTextureBufferRect.x*glyphTextureBufferRect.y;
+	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate physical pages for glyph texture buffer\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	uint16_t* pGlyphIndexBuffer = (uint16_t*)0x00;
-	uint64_t glyphIndexBufferSize = 0x00;
-	uint64_t glyphIndexEntryCount = 0x00;
-	if (virtualAllocPage((uint64_t*)&pGlyphIndexBuffer, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
-		printf("failed to allocate physical page for GPU host controller glyph index buffer\r\n");
-		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		kfree((void*)pFontDesc);
-		mutex_unlock(&mutex);
-		return -1;
+	struct fvec4_32 backgroundColor = {0};
+	backgroundColor.x = 1.0f;
+	backgroundColor.y = 1.0f;
+	backgroundColor.z = 1.0f;
+	backgroundColor.w = 1.0f;
+	for (uint64_t i = 0;i<glyphTextureBufferSize/sizeof(struct fvec4_32);i++){
+		*(((struct fvec4_32*)pGlyphTextureBuffer)+i) = backgroundColor;
 	}
-	if (pFontDriverDesc->driverInfo.vtable.fontGlyphTesselate(pFontDesc, glyphId, pGlyphVertexBuffer, pGlyphIndexBuffer, &glyphVertexBufferSize, &glyphIndexBufferSize)!=0){
+	if (pFontDriverDesc->driverInfo.vtable.fontGlyphTesselate(pFontDesc, glyphId, pGlyphTextureBuffer, glyphTextureBufferRect)!=0){
 		printf("failed to tesselate font glyph via font driver\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	glyphVertexEntryCount = glyphVertexBufferSize/sizeof(struct text_subsystem_glyph_vertex);
-	glyphIndexEntryCount = glyphIndexBufferSize/sizeof(uint16_t);
-	virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-	virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
-	while (1){};
 	if (gpu_object_bind(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.rasterizerStateObjectId)!=0){
 		printf("failed to bind GPU host controller rasterizer state object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
@@ -486,8 +602,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	if (gpu_object_bind(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.dsaStateObjectId)!=0){
 		printf("failed to bind GPU Host controller DSA state object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
@@ -495,8 +610,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	if (gpu_object_bind(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.blendStateListObjectId)!=0){
 		printf("failed to bind GPU host controller blend state list object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
@@ -504,8 +618,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	if (gpu_object_bind(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.vertexElementListObjectId)!=0){
 		printf("failed to bind GPU host controller vertex element list object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
@@ -513,8 +626,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	if (gpu_object_bind(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.vertexShaderObjectId)!=0){
 		printf("failed to bind GPU host controller vertex shader object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
@@ -522,70 +634,41 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	if (gpu_object_bind(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.fragmentShaderObjectId)!=0){
 		printf("failed to bind GPU host controller fragment shader object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (gpu_resource_attach_backing(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.vertexBufferResourceId, (unsigned char*)pGlyphVertexBuffer, PAGE_SIZE)!=0){
-		printf("failed to attach GPU host controller vertex buffer resource physical pages to GPU host controller vertex buffer resource\r\n");
+	if (gpu_resource_attach_backing(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.glyphTextureResourceId, (unsigned char*)pGlyphTextureBuffer, glyphTextureBufferSize)!=0){
+		printf("failed to attach GPU host controller texture resource physical pages to GPU host controller resource\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
-		kfree((void*)pFontDesc);
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	if (gpu_resource_attach_backing(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.indexBufferResourceId, (unsigned char*)pGlyphIndexBuffer, PAGE_SIZE)!=0){
-		printf("failed to attach GPU host controller index buffer resource physical pages to GPU host controller index buffer resource\r\n");
-		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	struct gpu_transfer_to_device_info transferToDeviceInfo = {0};
 	memset((void*)&transferToDeviceInfo, 0, sizeof(struct gpu_transfer_to_device_info));
-	transferToDeviceInfo.boxRect.width = glyphVertexBufferSize;
-	transferToDeviceInfo.boxRect.height = 0x01;
+	transferToDeviceInfo.boxRect.width = glyphTextureBufferRect.x;
+	transferToDeviceInfo.boxRect.height = glyphTextureBufferRect.y;
 	transferToDeviceInfo.boxRect.depth = 0x01;
-	if (gpu_transfer_to_device(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.vertexBufferResourceId, transferToDeviceInfo)!=0){
-		printf("failed to transfer GPU host controller vertex buffer resource data to GPU host controller\r\n");
+	if (gpu_transfer_to_device(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.glyphTextureResourceId, transferToDeviceInfo)!=0){
+		printf("failed to transfer GPU host controller texture buffer resource physical pages to GPU host controller\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	transferToDeviceInfo.boxRect.width = glyphIndexBufferSize;
-	transferToDeviceInfo.boxRect.height = 0x01;
-	transferToDeviceInfo.boxRect.depth = 0x01;
-	if (gpu_transfer_to_device(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.indexBufferResourceId, transferToDeviceInfo)!=0){
-		printf("failed to transfer GPU host controller index buffer resource data to GPU host controller\r\n");
-		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
-		kfree((void*)pFontDesc);
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	struct fvec4_32 constantBuffer[3] = {0};
-	struct fvec4_32* pGlyphColor = (struct fvec4_32*)constantBuffer;
-	pGlyphColor->x = 1.0f;
-	pGlyphColor->y = 0.0f;
-	pGlyphColor->z = 1.0f;
-	pGlyphColor->w = 1.0f;
-	struct fvec4_32* pTranslationVector = pGlyphColor+0x01;
+	struct fvec4_32 constantBuffer[2] = {0};
+	struct fvec4_32* pTranslationVector = (struct fvec4_32*)constantBuffer;
 	pTranslationVector->x = 0.5f;
 	pTranslationVector->y = 0.5f;
 	pTranslationVector->z = 0.0f;
 	pTranslationVector->w = 1.0f;
-	struct fvec4_32* pScaleVector = pGlyphColor+0x02;
-	pScaleVector->x = 0.05f;
-	pScaleVector->y = 0.1f;
+	struct fvec4_32* pScaleVector = pTranslationVector+0x01;
+	pScaleVector->x = 0.2f;
+	pScaleVector->y = 0.4f;
 	pScaleVector->z = 0.0f;
 	pScaleVector->w = 1.0f;
 	gpu_cmd_context_reset(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId);
@@ -594,35 +677,47 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	struct gpu_vertex_buffer vertexBufferList[1] = {0};
 	memset((void*)vertexBufferList, 0, sizeof(struct gpu_vertex_buffer));
 	vertexBufferList[0].stride = sizeof(struct text_subsystem_glyph_vertex);
-	vertexBufferList[0].resource_id = textSubsystemInfo.accelerationInfo.vertexBufferResourceId;
+	vertexBufferList[0].resource_id = textSubsystemInfo.accelerationInfo.glyphVertexBufferResourceId;
 	setVertexBufferListCmdInfo.header.commandType = GPU_CMD_TYPE_SET_VERTEX_BUFFER_LIST;
 	setVertexBufferListCmdInfo.vertexBufferCount = 0x01;
 	setVertexBufferListCmdInfo.pVertexBufferList = (struct gpu_vertex_buffer*)vertexBufferList;
 	gpu_cmd_context_push_cmd(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId, (struct gpu_cmd_info_header*)&setVertexBufferListCmdInfo);
-	struct gpu_set_index_buffer_cmd_info setIndexBufferCmdInfo = {0};
-	memset((void*)&setIndexBufferCmdInfo, 0, sizeof(struct gpu_set_index_buffer_cmd_info));
-	setIndexBufferCmdInfo.header.commandType = GPU_CMD_TYPE_SET_INDEX_BUFFER;
-	setIndexBufferCmdInfo.resourceId = textSubsystemInfo.accelerationInfo.indexBufferResourceId;
-	setIndexBufferCmdInfo.length = sizeof(uint16_t);
-	setIndexBufferCmdInfo.offset = 0x00;
-	gpu_cmd_context_push_cmd(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId, (struct gpu_cmd_info_header*)&setIndexBufferCmdInfo);
+	struct gpu_bind_sampler_state_list_cmd_info bindSamplerStateListCmdInfo = {0};
+	memset((void*)&bindSamplerStateListCmdInfo, 0, sizeof(struct gpu_bind_sampler_state_list_cmd_info));
+	uint32_t samplerStateList[1] = {0};
+	samplerStateList[0] = (uint32_t)textSubsystemInfo.accelerationInfo.glyphSamplerStateObjectId;
+	bindSamplerStateListCmdInfo.header.commandType = GPU_CMD_TYPE_BIND_SAMPLER_STATE_LIST;
+	bindSamplerStateListCmdInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
+	bindSamplerStateListCmdInfo.startSlot = 0x00;
+	bindSamplerStateListCmdInfo.samplerStateCount = 0x01;
+	bindSamplerStateListCmdInfo.pSamplerStateList = (uint32_t*)samplerStateList;
+	gpu_cmd_context_push_cmd(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId, (struct gpu_cmd_info_header*)&bindSamplerStateListCmdInfo);
+	struct gpu_set_sampler_view_list_cmd_info setSamplerViewListCmdInfo = {0};
+	memset((void*)&setSamplerViewListCmdInfo, 0, sizeof(struct gpu_set_sampler_view_list_cmd_info));
+	uint32_t samplerViewList[1] = {0};
+	samplerViewList[0] = (uint32_t)textSubsystemInfo.accelerationInfo.glyphSamplerViewObjectId;
+	setSamplerViewListCmdInfo.header.commandType = GPU_CMD_TYPE_SET_SAMPLER_VIEW_LIST;
+	setSamplerViewListCmdInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
+	setSamplerViewListCmdInfo.startSlot = 0x00;
+	setSamplerViewListCmdInfo.samplerViewCount = 0x01;
+	setSamplerViewListCmdInfo.pSamplerViewList = (uint32_t*)samplerViewList;
+	gpu_cmd_context_push_cmd(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId, (struct gpu_cmd_info_header*)&setSamplerViewListCmdInfo);
 	struct gpu_set_constant_buffer_cmd_info setConstantBufferCmdInfo = {0};
 	memset((void*)&setConstantBufferCmdInfo, 0, sizeof(struct gpu_set_constant_buffer_cmd_info));
 	setConstantBufferCmdInfo.header.commandType = GPU_CMD_TYPE_SET_CONSTANT_BUFFER;
 	setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
 	setConstantBufferCmdInfo.index = 0x00;
 	setConstantBufferCmdInfo.pBuffer = (unsigned char*)constantBuffer;
-	setConstantBufferCmdInfo.bufferSize = sizeof(struct fvec4_32)*0x03;
+	setConstantBufferCmdInfo.bufferSize = sizeof(struct fvec4_32)*0x02;
 	gpu_cmd_context_push_cmd(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
 	struct gpu_draw_vbo_cmd_info drawVboCmdInfo = {0};
 	memset((void*)&drawVboCmdInfo, 0, sizeof(struct gpu_draw_vbo_cmd_info));
 	struct gpu_draw_vbo_info drawVboInfo = {0};
 	memset((void*)&drawVboInfo, 0, sizeof(struct gpu_draw_vbo_info));
 	drawVboInfo.start = 0x00;
-	drawVboInfo.count = glyphIndexEntryCount;
+	drawVboInfo.count = textSubsystemInfo.accelerationInfo.glyphVertexBufferSize/sizeof(struct text_subsystem_glyph_vertex);
 	drawVboInfo.mode = GPU_PRIMITIVE_TRIANGLES;
 	drawVboInfo.instance_count = 0x01;
-	drawVboInfo.index_size = glyphIndexEntryCount;
 	drawVboInfo.max_index = drawVboInfo.count-1;
 	drawVboCmdInfo.header.commandType = GPU_CMD_TYPE_DRAW_VBO;
 	drawVboCmdInfo.pDrawVboInfo = &drawVboInfo;
@@ -630,14 +725,12 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	if (gpu_cmd_context_submit(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.contextId, textSubsystemInfo.accelerationInfo.commandContextId)!=0){
 		printf("failed to submit GPU host controller command list to GPU host controller\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-		virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	virtualFreePage((uint64_t)pGlyphVertexBuffer, 0);
-	virtualFreePage((uint64_t)pGlyphIndexBuffer, 0);
+	virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 	struct gpu_transfer_from_device_info transferFromDeviceInfo = {0};
 	memset((void*)&transferFromDeviceInfo, 0, sizeof(struct gpu_transfer_from_device_info));
 	transferFromDeviceInfo.boxRect.x = 0x00;

@@ -130,4 +130,10 @@ KAPI struct fvec3_32 normf3_32(struct fvec3_32 vec);
 KAPI struct fvec3_64 normf3_64(struct fvec3_64 vec);
 KAPI struct fvec3_32 crossf3_32(struct fvec3_32 vec1, struct fvec3_32 vec2);
 KAPI struct fvec3_64 crossf3_64(struct fvec3_64 vec1, struct fvec3_64 vec2);
+KAPI struct fvec2_32 lerpf32(struct fvec2_32 vec1, struct fvec2_32 vec2, float ratio);
+KAPI struct fvec2_64 lerpf64(struct fvec2_64 vec1, struct fvec2_64 vec2, double ratio);
+KAPI struct vec2_32 lerp32(struct vec2_32 vec1, struct vec2_32 vec2, float ratio);
+KAPI struct vec2_64 lerp64(struct vec2_64 vec1, struct vec2_64 vec2, double ratio);
+KAPI struct uvec2_32 lerpu32(struct uvec2_32 vec1, struct uvec2_32 vec2, float ratio);
+KAPI struct uvec2_64 lerpu64(struct uvec2_64 vec1, struct uvec2_64 vec2, double ratio);
 #endif

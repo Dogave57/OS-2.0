@@ -45,7 +45,7 @@ typedef int(*fontDriverFontLoadFunc)(unsigned char* pFontBuffer, uint64_t fontBu
 typedef int(*fontDriverFontUnloadFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc);
 typedef int(*fontDriverFontVerifyFunc)(unsigned char* pFontBuffer, uint64_t fontBufferSize);
 typedef int(*fontDriverFontGlyphGetId)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId);
-typedef int(*fontDriverFontGlyphTesselate)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, struct text_subsystem_glyph_vertex* pVertexBuffer, uint16_t* pIndexBuffer, uint64_t* pVertexBufferSize, uint64_t* pIndexBufferSize);
+typedef int(*fontDriverFontGlyphTesselate)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, float* pTextureBuffer, struct uvec2_32 textureBufferRect);
 static unsigned char mainfont_data[255][16]={
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x00 
         { 0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD, 0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00  },       //0x01 
@@ -194,6 +194,8 @@ struct text_subsystem_font_driver_desc{
 };
 struct text_subsystem_glyph_vertex{
 	struct fvec2_32 position;
+	struct fvec2_32 textureCoord;
+	struct fvec4_32 color;
 }__attribute__((packed));
 struct text_subsystem_font_name_desc{
 	uint8_t name[256];
@@ -223,14 +225,19 @@ struct font_subsystem_info{
 };
 struct text_subsystem_acceleration_info{
 	uint64_t contextId;
+	uint64_t glyphTextureResourceId;
+	struct uvec2_32 glyphTextureRect;
+	uint64_t glyphVertexBufferResourceId;
+	struct text_subsystem_glyph_vertex* pGlyphVertexBuffer;
+	uint64_t glyphVertexBufferSize;
 	uint64_t rasterizerStateObjectId;
 	uint64_t dsaStateObjectId;
 	uint64_t blendStateListObjectId;
 	uint64_t vertexElementListObjectId;
 	uint64_t vertexShaderObjectId;
 	uint64_t fragmentShaderObjectId;
-	uint64_t vertexBufferResourceId;
-	uint64_t indexBufferResourceId;
+	uint64_t glyphSamplerViewObjectId;
+	uint64_t glyphSamplerStateObjectId;
 	unsigned char* pVertexShaderCode;
 	unsigned char* pFragmentShaderCode;
 	uint64_t commandContextId;

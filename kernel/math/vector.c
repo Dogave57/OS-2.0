@@ -158,3 +158,39 @@ KAPI struct fvec3_64 crossf3_64(struct fvec3_64 vec1, struct fvec3_64 vec2){
 	result.z = (vec1.x*vec2.y)-(vec1.y*vec2.x);
 	return result;
 }
+KAPI struct fvec2_32 lerpf32(struct fvec2_32 vec1, struct fvec2_32 vec2, float ratio){
+	struct fvec2_32 result = {0};
+	result.x = vec1.x+(ratio*(float)(vec2.x-vec1.x));
+	result.y = vec1.y+(ratio*(float)(vec2.y-vec1.y));
+	return result;
+}
+KAPI struct fvec2_64 lerpf64(struct fvec2_64 vec1, struct fvec2_64 vec2, double ratio){
+	struct fvec2_64 result = {0};
+	result.x = vec1.x+(ratio*(double)(vec2.x-vec1.x));
+	result.y = vec1.y+(ratio*(double)(vec2.y-vec1.y));
+	return result;
+}
+KAPI struct vec2_32 lerp32(struct vec2_32 vec1, struct vec2_32 vec2, float ratio){
+	struct vec2_32 result = {0};
+	result.x = vec1.x+(int32_t)(ratio*(float)(vec2.x-vec1.x));
+	result.y = vec1.y+(int32_t)(ratio*(float)(vec2.y-vec1.y));
+	return result;
+}
+KAPI struct vec2_64 lerp64(struct vec2_64 vec1, struct vec2_64 vec2, double ratio){
+	struct vec2_64 result = {0};
+	result.x = vec1.x+(int64_t)(ratio*(double)(vec2.x-vec1.x));
+	result.y = vec1.y+(int64_t)(ratio*(double)(vec2.y-vec1.y));
+	return result;
+}
+KAPI struct uvec2_32 lerpu32(struct uvec2_32 vec1, struct uvec2_32 vec2, float ratio){
+	struct uvec2_32 result = {0};
+	result.x = vec1.x+(uint32_t)(ratio*(float)((int64_t)vec2.x-(int64_t)vec1.x));
+	result.y = vec1.y+(uint32_t)(ratio*(float)((int64_t)vec2.y-(int64_t)vec1.y));
+	return result;
+}
+KAPI struct uvec2_64 lerpu64(struct uvec2_64 vec1, struct uvec2_64 vec2, double ratio){
+	struct uvec2_64 result = {0};
+	result.x = vec1.x+(uint64_t)(ratio*(double)((int64_t)vec2.x-(int64_t)vec1.x));
+	result.y = vec1.y+(uint64_t)(ratio*(double)((int64_t)vec2.y-(int64_t)vec1.y));
+	return result;
+}

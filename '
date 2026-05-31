@@ -239,8 +239,6 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	int8_t* pCoordListY = (int8_t*)0x00;
 	uint64_t textureBufferSize = sizeof(struct fvec4_32)*textureBufferRect.x*textureBufferRect.y;
 	uint64_t pointFlagOffset = 0x00;
-	maxX+=absq(minX);
-	maxY+=absq(minY);
 	for (uint64_t i = 0;i<pointCount;i++,pointFlagOffset++){
 		struct ttf_glyf_point_flags* pPointFlags = (struct ttf_glyf_point_flags*)(((unsigned char*)pPointFlagsList)+pointFlagOffset);
 		if (!pPointFlags->repeat)
@@ -287,7 +285,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 			}
 		}
 		memset((void*)(pPointDescList+i), 0, sizeof(struct ttf_point_entry_desc));
-		pPointDescList[i].position.x = (uint32_t)(((int32_t)lastCoordEntry)+absq(minX));
+		pPointDescList[i].position.x = (uint16_t)lastCoordEntry;
 		if (i<pointFlagRepeatFence)
 			continue;
 		if (!pPointFlags->repeat||(i==pointFlagRepeatFence&&i)){
@@ -303,6 +301,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	lastCoordEntry = 0x00;
 	pointFlagsIndex = 0x00;
 	pointFlagRepeatFence = 0x00;
+	printf("point count: %d\r\n", pointCount);
 	for (uint64_t i = 0;i<pointCount;i++){
 		struct ttf_glyf_point_flags* pPointFlags = pPointFlagsList+pointFlagsIndex;
 		uint8_t* pCoordListEntry = (uint8_t*)(pCoordListY+coordEntryIndex);
@@ -326,7 +325,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 				coordEntryIndex+=0x02;
 			}
 		}
-		pPointDescList[i].position.y = (uint32_t)(((int32_t)lastCoordEntry)+absq(minY));
+		pPointDescList[i].position.y = (uint16_t)lastCoordEntry;
 		if (i<pointFlagRepeatFence)
 			continue;
 		if (!pPointFlags->repeat||(i==pointFlagRepeatFence&&i)){
@@ -338,8 +337,8 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	}
 	printf("GLYF contour count: %d\r\n", contourCount);
 	printf("GLYF point count: %d\r\n", pointCount);
-	printf("GLYF min range: {%d, %d}\r\n", minX, minY);
-	printf("GLYF max range: {%d, %d}\r\n", maxX, maxY);
+	printf("GLYF min range: {%f, %f}\r\n", ((float)minX/(float)unitsPerEm), ((float)minY/(float)unitsPerEm));
+	printf("GLYF max range: {%f, %f}\r\n", ((float)maxX/(float)unitsPerEm), ((float)maxY/(float)unitsPerEm));
 	printf("units per em: %d\r\n", unitsPerEm);
 	uint64_t textureBufferEntryCount = textureBufferRect.x*textureBufferRect.y;
 	struct ttf_pixel_entry_desc* pPixelDescList = (struct ttf_pixel_entry_desc*)0x00;
@@ -360,21 +359,14 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	pointFlagRepeatFence = 0x00;
 	uint64_t currentContourIndex = 0x00;
 	printf("---contour %d: %d-%d---\r\n", currentContourIndex, 0x00, __builtin_bswap16(pContourEndpointTable[currentContourIndex]));
-	uint64_t pointDelta = 0x00;
-	struct fvec4_32 foregroundColor = {0};
-	foregroundColor.x = 1.0f;
-	foregroundColor.y = 0.0f;
-	foregroundColor.z = 1.0f;
-	foregroundColor.w = 1.0f;
-	for (uint64_t i = 0;i<pointCount;i+=pointDelta){
+	for (uint64_t i = 0;i<pointCount;i++){
 		struct ttf_glyf_point_flags* pPointFlags = pPointFlagsList+pointFlagsIndex;
 		if (i>__builtin_bswap16(pContourEndpointTable[currentContourIndex])){
 			currentContourIndex++;
-			printf("---contour %d: %d-%d---\r\n", currentContourIndex, 0x00, __builtin_bswap16(pContourEndpointTable[currentContourIndex]));
+			printf("---contour %d: %d-%d---\r\n", currentContourIndex, i, __builtin_bswap16(pContourEndpointTable[currentContourIndex]));
 		}
 		static struct text_subsystem_glyph_vertex pointVertexEntryList[512]={0};
 		uint64_t nextPointIndex = (i+0x01)%pointCount;
-		nextPointIndex = (!nextPointIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : nextPointIndex;
 		if (!pPointFlags->on_curve){
 			printf("unexpected TTF glyph point contiguous set curve: {%s, %s}\r\n", pPointFlags->on_curve ? "Yes" : "No", (pPointFlags+nextPointIndex)->on_curve ? "Yes" : "No");
 			virtualFree((uint64_t)pPointDescList, pointDescListSize);
@@ -382,53 +374,46 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 			mutex_unlock(&mutex);
 			return -1;
 		}
-		if ((pPointFlagsList+nextPointIndex)->on_curve){
+		if ((pPointFlags+nextPointIndex)->on_curve){
 			struct uvec2_32 startCoord = {0};
-			startCoord.x = (uint32_t)(roundf((((double)pPointDescList[i].position.x)/((double)maxX))*(double)(textureBufferRect.x-0x01)));
-			startCoord.y = (uint32_t)(roundf((((double)pPointDescList[i].position.y)/((double)maxY))*(double)(textureBufferRect.y-0x01)));
+			startCoord.x = (uint32_t)floorf((((double)pPointDescList[i].position.x)/(double)unitsPerEm)*(double)(textureBufferRect.x-0x01));
+			startCoord.y = (uint32_t)floorf((((double)pPointDescList[i].position.y)/(double)unitsPerEm)*(double)(textureBufferRect.y-0x01));
 			struct uvec2_32 endCoord = {0};
-			endCoord.x = (uint32_t)(roundf((((double)pPointDescList[nextPointIndex].position.x)/((double)maxX))*(double)(textureBufferRect.x-0x01)));
-			endCoord.y = (uint32_t)(roundf((((double)pPointDescList[nextPointIndex].position.y)/((double)maxY))*(double)(textureBufferRect.y-0x01)));
+			endCoord.x = (uint32_t)floorf((((double)pPointDescList[nextPointIndex].position.x)/(double)unitsPerEm)*(double)(textureBufferRect.x-0x01));
+			endCoord.y = (uint32_t)floorf((((double)pPointDescList[nextPointIndex].position.y)/(double)unitsPerEm)*(double)(textureBufferRect.y-0x01));
 			struct vec2_32 deltaCoord = {0};
-			deltaCoord.x = (int32_t)endCoord.x-(int32_t)startCoord.x;
-			deltaCoord.y = (int32_t)endCoord.y-(int32_t)startCoord.y;
-			uint64_t deltaPixelCount = absq((int64_t)deltaCoord.x)+absq((int64_t)deltaCoord.y);
-			printf("linear line start: {%d, %d} end: {%d, %d}\r\n", startCoord.x, startCoord.y, endCoord.x, endCoord.y);
+			deltaCoord.x = (int64_t)endCoord.x-(int64_t)startCoord.x;
+			deltaCoord.y = (int64_t)endCoord.y-(int64_t)startCoord.y;
+			uint64_t deltaPixelCount = absq(deltaCoord.x)+absq(deltaCoord.y);
+			struct fvec4_32 foregroundColor = {0};
+			foregroundColor.x = 1.0f;
+			foregroundColor.y = 0.0f;
+			foregroundColor.z = 1.0f;
+			foregroundColor.w = 1.0f;
 			for (uint64_t pixelEntry = 0;pixelEntry<deltaPixelCount;pixelEntry++){
 				struct uvec2_32 textureCoord = {0};
-				float lerpRatio = ((float)pixelEntry/(float)deltaPixelCount);
-				textureCoord = lerpu32(startCoord, endCoord, lerpRatio);
+				double coordDelta = ((((double)deltaCoord.x)/(double)deltaPixelCount)*(double)pixelEntry);
+				textureCoord.x = (uint32_t)floorf((double)startCoord.x+coordDelta);
+				coordDelta = ((((double)deltaCoord.y)/(double)deltaPixelCount)*(double)pixelEntry);
+				textureCoord.y = (uint32_t)floorf((double)startCoord.y+coordDelta);
 				uint64_t pixelOffset = ((textureCoord.y)*textureBufferRect.x)+textureCoord.x;
 				struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
 				pPixelDesc->pointIndex = i+0x01;
 				pPixelDesc->pointCount = 0x02;
 				*(((struct fvec4_32*)pTextureBuffer)+pixelOffset) = foregroundColor;
 			}
-			pointDelta = 0x01;
 		}
-		if (!(pPointFlagsList+nextPointIndex)->on_curve){
-			printf("bezier curve at point %d: \r\n", i);
-			uint64_t curvePointOffset = 0x00;
-			struct ttf_point_entry_desc* pControlPointDescList = pPointDescList+nextPointIndex;
-			struct ttf_glyf_point_flags* pControlPointFlagsList = pPointFlagsList+nextPointIndex;
-			uint64_t controlPointCount = 0x00;
-			for (controlPointCount = 0x00;!(pControlPointFlagsList+controlPointCount)->on_curve;controlPointCount++){};
-			printf("    control point count: %d\r\n", controlPointCount);
-			uint64_t curveSegmentCount = 0x10;
-			struct vec2_32 startCoord = {0};
-			startCoord.x = (uint32_t)(roundf(((double)pPointDescList[i].position.x)/(double)maxX)*(double)(textureBufferRect.x-0x01));
-			startCoord.y = (uint32_t)(roundf(((double)pPointDescList[i].position.y)/(double)maxY)*(double)(textureBufferRect.y-0x01));
-			struct vec2_32 endCoord = {0};
-			endCoord.x = (uint32_t)(roundf(((double)(pPointDescList[i+controlPointCount].position.x)/(double)maxX)*(double)(textureBufferRect.x-0x01)));
-			endCoord.y = (uint32_t)(roundf(((double)(pPointDescList[i+controlPointCount].position.y)/(double)maxY)*(double)(textureBufferRect.y-0x01)));
-			for (uint64_t curveSegment = 0;curveSegment<curveSegmentCount;curveSegment++){
-				double step = (1.0/(double)curveSegmentCount)*(double)curveSegment;
-				for (uint64_t controlPointIndex = 0;controlPointIndex<controlPointCount;controlPointIndex++){
-					struct ttf_point_entry_desc* pControlPointDesc = pControlPointDescList+controlPointIndex;
-					struct ttf_glyf_point_flags* pControlPointFlags = pControlPointFlagsList+controlPointIndex;
-				}
-			}
-			pointDelta = 0x01+controlPointCount;
+		if (!(pPointFlags+nextPointIndex)->on_curve&&(pPointFlags+((nextPointIndex+0x01)%pointCount))->on_curve){
+			uint64_t lastCoordIndex = (nextPointIndex+0x01)%pointCount;
+			struct uvec2_32 startCoord = {0};
+			startCoord.x = (uint32_t)floorf((((double)pPointDescList[i].position.x)/(double)unitsPerEm)*(double)(textureBufferRect.x-0x01));
+			startCoord.y = (uint32_t)floorf((((double)pPointDescList[i].position.y)/(double)unitsPerEm)*(double)(textureBufferRect.y-0x01));
+			struct uvec2_32 controlCoord = {0};
+			controlCoord.x = (uint32_t)floorf(((double)pPointDescList[nextPointIndex].position.x/(double)unitsPerEm)*(double)(textureBufferRect.x-0x01));
+			controlCoord.y = (uint32_t)floorf(((double)pPointDescList[nextPointIndex].position.y/(double)unitsPerEm)*(double)(textureBufferRect.y-0x01));
+			struct uvec2_32 lastCoord = {0};
+			lastCoord.x = (uint32_t)floorf(((double)pPointDescList[lastCoordIndex].position.x/(double)unitsPerEm)*(double)(textureBufferRect.x-0x01));
+			lastCoord.y = (uint32_t)floorf(((double)pPointDescList[lastCoordIndex].position.y/(double)unitsPerEm)*(double)(textureBufferRect.y-0x01));
 		}
 		if (i<pointFlagRepeatFence){
 			continue;
@@ -448,6 +433,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 		pixelCoord.x = i%textureBufferRect.x;
 		pixelCoord.y = i/textureBufferRect.y;
 	}
+	printf("test: %f\r\n", absf(-64.0f));
 	virtualFree((uint64_t)pPointDescList, pointDescListSize);
 	virtualFree((uint64_t)pPixelDescList, pixelDescListSize);
 	mutex_unlock(&mutex);

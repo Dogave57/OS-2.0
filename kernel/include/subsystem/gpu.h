@@ -341,7 +341,7 @@ struct gpu_set_sampler_view_list_cmd_info{
 	uint32_t shaderType;
 	uint32_t startSlot;
 	uint32_t samplerViewCount;
-	uint32_t samplerViewList[1];
+	uint32_t* pSamplerViewList;
 };
 struct gpu_set_index_buffer_cmd_info{
 	struct gpu_cmd_info_header header;
@@ -361,7 +361,7 @@ struct gpu_bind_sampler_state_list_cmd_info{
 	uint32_t shaderType;
 	uint32_t startSlot;
 	uint32_t samplerStateCount;
-	uint32_t samplerStateList[1];
+	uint32_t* pSamplerStateList;
 }__attribute__((packed));
 struct gpu_set_uniform_buffer_cmd_info{
 	struct gpu_cmd_info_header header;

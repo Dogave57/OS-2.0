@@ -987,17 +987,23 @@ int virtio_gpu_init(void){
 		gpu_cmd_context_reset(gpuId, cmdContextId);
 		struct gpu_bind_sampler_state_list_cmd_info bindSamplerStateListCmdInfo = {0};
 		memset((void*)&bindSamplerStateListCmdInfo, 0, sizeof(struct gpu_bind_sampler_state_list_cmd_info));
+		uint32_t samplerStateList[1] = {0};
+		samplerStateList[0] = (uint32_t)samplerStateObjectId;
 		bindSamplerStateListCmdInfo.header.commandType = GPU_CMD_TYPE_BIND_SAMPLER_STATE_LIST;
 		bindSamplerStateListCmdInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
 		bindSamplerStateListCmdInfo.startSlot = 0x00;
-		bindSamplerStateListCmdInfo.samplerStateList[0] = samplerStateObjectId;
+		bindSamplerStateListCmdInfo.samplerStateCount = 0x01;
+		bindSamplerStateListCmdInfo.pSamplerStateList = (uint32_t*)samplerStateList;
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&bindSamplerStateListCmdInfo);
 		struct gpu_set_sampler_view_list_cmd_info setSamplerViewListCmdInfo = {0};
 		memset((void*)&setSamplerViewListCmdInfo, 0, sizeof(struct gpu_set_sampler_view_list_cmd_info));
+		uint32_t samplerViewList[1] = {0};
+		samplerViewList[0] = (uint32_t)samplerViewObjectId;
 		setSamplerViewListCmdInfo.header.commandType = GPU_CMD_TYPE_SET_SAMPLER_VIEW_LIST;
 		setSamplerViewListCmdInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
 		setSamplerViewListCmdInfo.startSlot = 0x00;
-		setSamplerViewListCmdInfo.samplerViewList[0] = samplerViewObjectId;
+		setSamplerViewListCmdInfo.samplerViewCount = 0x01;
+		setSamplerViewListCmdInfo.pSamplerViewList = (uint32_t*)samplerViewList;
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&setSamplerViewListCmdInfo);
 		if (gpu_cmd_context_submit(gpuId, subsystemContextId, cmdContextId)!=0){
 			printf("failed to submit command list to GPU host controller via GPU subsystem\r\n");
@@ -4266,7 +4272,7 @@ int virtio_gpu_subsystem_push_set_sampler_view_list_cmd(struct gpu_desc* pGpuDes
 	mutex_lock(&mutex);
 	struct virtio_gpu_gl_set_sampler_view_list_command* pGlCommand = (struct virtio_gpu_gl_set_sampler_view_list_command*)0x0;
 	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
-	virtio_gpu_gl_write_set_sampler_view_list(pGlCommand, pCommandInfo->shaderType, pCommandInfo->startSlot, pCommandInfo->samplerViewCount, (uint32_t*)pCommandInfo->samplerViewList);
+	virtio_gpu_gl_write_set_sampler_view_list(pGlCommand, pCommandInfo->shaderType, pCommandInfo->startSlot, pCommandInfo->samplerViewCount, (uint32_t*)pCommandInfo->pSamplerViewList);
 	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
 	mutex_unlock(&mutex);
 	return 0;	
@@ -4302,7 +4308,7 @@ int virtio_gpu_subsystem_push_bind_sampler_state_list_cmd(struct gpu_desc* pGpuD
 	mutex_lock(&mutex);
 	struct virtio_gpu_gl_bind_sampler_state_list_command* pGlCommand = (struct virtio_gpu_gl_bind_sampler_state_list_command*)0x0;
 	virtio_gpu_cmd_context_get_current_cmd(pCmdContextDesc, (unsigned char**)&pGlCommand);
-	virtio_gpu_gl_write_bind_sampler_state_list(pGlCommand, pCommandInfo->shaderType, pCommandInfo->startSlot, pCommandInfo->samplerStateCount, (uint32_t*)pCommandInfo->samplerStateList);
+	virtio_gpu_gl_write_bind_sampler_state_list(pGlCommand, pCommandInfo->shaderType, pCommandInfo->startSlot, pCommandInfo->samplerStateCount, (uint32_t*)pCommandInfo->pSamplerStateList);
 	virtio_gpu_cmd_context_push_cmd(pCmdContextDesc, (pGlCommand->header.length+1)*sizeof(uint32_t));
 	mutex_unlock(&mutex);
 	return 0;
