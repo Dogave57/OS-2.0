@@ -190,7 +190,6 @@ int ttf_glyf_get_desc(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct 
 	uint16_t* pLocaTable = (uint16_t*)(pFontDesc->pFontBuffer+locaTableOffset);
 	uint16_t unitsPerEm = __builtin_bswap16(pHeadTable->units_per_em);
 	uint64_t locaTableEntrySize = __builtin_bswap16(pHeadTable->index_to_loca_format) ? sizeof(uint32_t) : sizeof(uint16_t);
-	printf("LOCA table format: %s\r\n", (locaTableEntrySize==sizeof(uint32_t)) ? "DWORD" : "WORD");
 	uint32_t currentEntry = (locaTableEntrySize==sizeof(uint32_t)) ? __builtin_bswap32(*(((uint32_t*)pLocaTable)+glyphId)) : __builtin_bswap16(*(pLocaTable+glyphId))*2;
 	uint32_t nextEntry = (locaTableEntrySize==sizeof(uint32_t)) ? __builtin_bswap32(*(uint32_t*)(pLocaTable+((glyphId+1)*2))) : __builtin_bswap16(*(pLocaTable+glyphId+1))*2;
 	if (currentEntry==nextEntry){
@@ -217,19 +216,32 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	}
 	struct ttf_glyf_header* pGlyfHeader = (struct ttf_glyf_header*)0x00;
 	uint32_t glyfDescLength = 0x00;
+	printf("getting GLYF descriptor\r\n");
 	if (ttf_glyf_get_desc(pFontDesc, glyphId, &pGlyfHeader, &glyfDescLength)!=0){
 		printf("failed to get true/open type glyf descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	printf("done getting GLYF descriptor\r\n");
 	uint32_t headTableOffset = __builtin_bswap32(pHeadTableDesc->table_offset);
 	struct ttf_table_head* pHeadTable = (struct ttf_table_head*)(pFontDesc->pFontBuffer+headTableOffset);
 	uint16_t unitsPerEm = __builtin_bswap16(pHeadTable->units_per_em);
 	int16_t contourCount = __builtin_bswap16(pGlyfHeader->contour_count);
+	if (contourCount==-1){
+		printf("composite GLYF descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	int16_t minX = __builtin_bswap16(pGlyfHeader->min_x);
 	int16_t minY = __builtin_bswap16(pGlyfHeader->min_y);
 	int16_t maxX = __builtin_bswap16(pGlyfHeader->max_x);
 	int16_t maxY = __builtin_bswap16(pGlyfHeader->max_y);
+	maxX+=absq(minX);
+	maxY+=absq(minY);
+	struct uvec2_32 glyphBounds = {0};
+	double glyphMaxScale = (maxX>maxY) ? ((double)maxX)/(double)unitsPerEm : ((double)maxY)/(double)unitsPerEm;
+	glyphBounds.x = (uint32_t)(((double)unitsPerEm)*glyphMaxScale);
+	glyphBounds.y = (uint32_t)(((double)unitsPerEm)*glyphMaxScale);
 	uint16_t* pContourEndpointTable = (uint16_t*)(pGlyfHeader+1);
 	uint16_t pointCount = __builtin_bswap16(pContourEndpointTable[contourCount-1])+0x01;
 	uint16_t instructionListLength = __builtin_bswap16(*(pContourEndpointTable+contourCount));
@@ -239,8 +251,8 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	int8_t* pCoordListY = (int8_t*)0x00;
 	uint64_t textureBufferSize = sizeof(struct fvec4_32)*textureBufferRect.x*textureBufferRect.y;
 	uint64_t pointFlagOffset = 0x00;
-	maxX+=absq(minX);
-	maxY+=absq(minY);
+	printf("glyph contour count: %d\r\n", contourCount);
+	printf("glyph point count: %d\r\n", pointCount);
 	for (uint64_t i = 0;i<pointCount;i++,pointFlagOffset++){
 		struct ttf_glyf_point_flags* pPointFlags = (struct ttf_glyf_point_flags*)(((unsigned char*)pPointFlagsList)+pointFlagOffset);
 		if (!pPointFlags->repeat)
@@ -288,6 +300,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 		}
 		memset((void*)(pPointDescList+i), 0, sizeof(struct ttf_point_entry_desc));
 		pPointDescList[i].position.x = (uint32_t)(((int32_t)lastCoordEntry)+absq(minX));
+		pPointDescList[i].flags = *pPointFlags;
 		if (i<pointFlagRepeatFence)
 			continue;
 		if (!pPointFlags->repeat||(i==pointFlagRepeatFence&&i)){
@@ -327,6 +340,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 			}
 		}
 		pPointDescList[i].position.y = (uint32_t)(((int32_t)lastCoordEntry)+absq(minY));
+		pPointDescList[i].flags = *pPointFlags;
 		if (i<pointFlagRepeatFence)
 			continue;
 		if (!pPointFlags->repeat||(i==pointFlagRepeatFence&&i)){
@@ -359,6 +373,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	pointFlagsIndex = 0x00;
 	pointFlagRepeatFence = 0x00;
 	uint64_t currentContourIndex = 0x00;
+	uint8_t contourOrder = 0x00;
 	printf("---contour %d: %d-%d---\r\n", currentContourIndex, 0x00, __builtin_bswap16(pContourEndpointTable[currentContourIndex]));
 	uint64_t pointDelta = 0x00;
 	struct fvec4_32 foregroundColor = {0};
@@ -367,78 +382,145 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	foregroundColor.z = 1.0f;
 	foregroundColor.w = 1.0f;
 	for (uint64_t i = 0;i<pointCount;i+=pointDelta){
-		struct ttf_glyf_point_flags* pPointFlags = pPointFlagsList+pointFlagsIndex;
 		if (i>__builtin_bswap16(pContourEndpointTable[currentContourIndex])){
 			currentContourIndex++;
-			printf("---contour %d: %d-%d---\r\n", currentContourIndex, 0x00, __builtin_bswap16(pContourEndpointTable[currentContourIndex]));
+			printf("---contour %d: %d-%d---\r\n", currentContourIndex, i, __builtin_bswap16(pContourEndpointTable[currentContourIndex]));
 		}
 		static struct text_subsystem_glyph_vertex pointVertexEntryList[512]={0};
-		uint64_t nextPointIndex = (i+0x01)%pointCount;
+		uint64_t nextPointIndex = (i+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
 		nextPointIndex = (!nextPointIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : nextPointIndex;
-		if (!pPointFlags->on_curve){
-			printf("unexpected TTF glyph point contiguous set curve: {%s, %s}\r\n", pPointFlags->on_curve ? "Yes" : "No", (pPointFlags+nextPointIndex)->on_curve ? "Yes" : "No");
-			virtualFree((uint64_t)pPointDescList, pointDescListSize);
-			virtualFree((uint64_t)pPixelDescList, pixelDescListSize);
-			mutex_unlock(&mutex);
-			return -1;
-		}
-		if ((pPointFlagsList+nextPointIndex)->on_curve){
+		pointDelta = 0x00;
+		if ((pPointDescList+i)->flags.on_curve&&(pPointDescList+nextPointIndex)->flags.on_curve&&!pointDelta){
 			struct uvec2_32 startCoord = {0};
-			startCoord.x = (uint32_t)(roundf((((double)pPointDescList[i].position.x)/((double)maxX))*(double)(textureBufferRect.x-0x01)));
-			startCoord.y = (uint32_t)(roundf((((double)pPointDescList[i].position.y)/((double)maxY))*(double)(textureBufferRect.y-0x01)));
+			startCoord.x = (uint32_t)(roundf((((double)pPointDescList[i].position.x)/((double)glyphBounds.x))*(double)(textureBufferRect.x-0x01)));
+			startCoord.y = (uint32_t)(roundf((((double)pPointDescList[i].position.y)/((double)glyphBounds.y))*(double)(textureBufferRect.y-0x01)));
 			struct uvec2_32 endCoord = {0};
-			endCoord.x = (uint32_t)(roundf((((double)pPointDescList[nextPointIndex].position.x)/((double)maxX))*(double)(textureBufferRect.x-0x01)));
-			endCoord.y = (uint32_t)(roundf((((double)pPointDescList[nextPointIndex].position.y)/((double)maxY))*(double)(textureBufferRect.y-0x01)));
+			endCoord.x = (uint32_t)(roundf((((double)pPointDescList[nextPointIndex].position.x)/((double)glyphBounds.x))*(double)(textureBufferRect.x-0x01)));
+			endCoord.y = (uint32_t)(roundf((((double)pPointDescList[nextPointIndex].position.y)/((double)glyphBounds.y))*(double)(textureBufferRect.y-0x01)));
 			struct vec2_32 deltaCoord = {0};
 			deltaCoord.x = (int32_t)endCoord.x-(int32_t)startCoord.x;
 			deltaCoord.y = (int32_t)endCoord.y-(int32_t)startCoord.y;
 			uint64_t deltaPixelCount = absq((int64_t)deltaCoord.x)+absq((int64_t)deltaCoord.y);
-			printf("linear line start: {%d, %d} end: {%d, %d}\r\n", startCoord.x, startCoord.y, endCoord.x, endCoord.y);
 			for (uint64_t pixelEntry = 0;pixelEntry<deltaPixelCount;pixelEntry++){
 				struct uvec2_32 textureCoord = {0};
 				float lerpRatio = ((float)pixelEntry/(float)deltaPixelCount);
 				textureCoord = lerpu32(startCoord, endCoord, lerpRatio);
 				uint64_t pixelOffset = ((textureCoord.y)*textureBufferRect.x)+textureCoord.x;
 				struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
-				pPixelDesc->pointIndex = i+0x01;
+				pPixelDesc->pointIndex = i;
 				pPixelDesc->pointCount = 0x02;
 				*(((struct fvec4_32*)pTextureBuffer)+pixelOffset) = foregroundColor;
 			}
 			pointDelta = 0x01;
 		}
-		if (!(pPointFlagsList+nextPointIndex)->on_curve){
-			printf("bezier curve at point %d: \r\n", i);
-			uint64_t curvePointOffset = 0x00;
-			struct ttf_point_entry_desc* pControlPointDescList = pPointDescList+nextPointIndex;
-			struct ttf_glyf_point_flags* pControlPointFlagsList = pPointFlagsList+nextPointIndex;
+		if ((pPointDescList+i)->flags.on_curve&&!((pPointDescList+nextPointIndex)->flags.on_curve)&&!pointDelta){
+			printf("bezier curve point descriptor set: %d\r\n", i);
+			uint64_t curvePointCount = 0x00;
 			uint64_t controlPointCount = 0x00;
-			for (controlPointCount = 0x00;!(pControlPointFlagsList+controlPointCount)->on_curve;controlPointCount++){};
+			for (uint64_t controlPointIndex = i+0x01;;){
+				if ((pPointDescList+controlPointIndex)->flags.on_curve)
+					break;
+				controlPointIndex = (controlPointIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
+				controlPointIndex = (!controlPointIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : controlPointIndex;
+				controlPointCount++;
+			}
+			curvePointCount = 0x02+controlPointCount;
 			printf("    control point count: %d\r\n", controlPointCount);
-			uint64_t curveSegmentCount = 0x10;
-			struct vec2_32 startCoord = {0};
-			startCoord.x = (uint32_t)(roundf(((double)pPointDescList[i].position.x)/(double)maxX)*(double)(textureBufferRect.x-0x01));
-			startCoord.y = (uint32_t)(roundf(((double)pPointDescList[i].position.y)/(double)maxY)*(double)(textureBufferRect.y-0x01));
-			struct vec2_32 endCoord = {0};
-			endCoord.x = (uint32_t)(roundf(((double)(pPointDescList[i+controlPointCount].position.x)/(double)maxX)*(double)(textureBufferRect.x-0x01)));
-			endCoord.y = (uint32_t)(roundf(((double)(pPointDescList[i+controlPointCount].position.y)/(double)maxY)*(double)(textureBufferRect.y-0x01)));
-			for (uint64_t curveSegment = 0;curveSegment<curveSegmentCount;curveSegment++){
-				double step = (1.0/(double)curveSegmentCount)*(double)curveSegment;
-				for (uint64_t controlPointIndex = 0;controlPointIndex<controlPointCount;controlPointIndex++){
-					struct ttf_point_entry_desc* pControlPointDesc = pControlPointDescList+controlPointIndex;
-					struct ttf_glyf_point_flags* pControlPointFlags = pControlPointFlagsList+controlPointIndex;
+			uint64_t maxCurveCount = (controlPointCount/0x02)+(controlPointCount%0x02);
+			maxCurveCount = controlPointCount;
+			for (uint64_t curveCount = 0x00;curveCount<maxCurveCount;curveCount++){
+				struct uvec2_32 startCoord = {0x00, 0x00};
+				if (!curveCount){
+					startCoord.x = 0x00;
+					startCoord.y = 0x00;
+				}
+				struct uvec2_32 controlCoord = {0};
+				controlCoord.x = 0x00;
+				controlCoord.y = 0x00;
+				struct uvec2_32 endCoord = {0};
+				endCoord.x = 0x00;
+				endCoord.y = 0x00;
+				if (controlPointCount==0x01){
+					uint64_t startCoordIndex = i;
+					uint64_t controlCoordIndex = nextPointIndex;
+					uint64_t endCoordIndex = (controlCoordIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
+					endCoordIndex = (!endCoordIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : endCoordIndex;
+					startCoord.x = (uint32_t)((((double)pPointDescList[startCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
+					startCoord.y = (uint32_t)((((double)pPointDescList[startCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+					controlCoord.x = (uint32_t)((((double)pPointDescList[controlCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
+					controlCoord.y = (uint32_t)((((double)pPointDescList[controlCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+					endCoord.x = (uint32_t)((((double)pPointDescList[endCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
+					endCoord.y = (uint32_t)((((double)pPointDescList[endCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+				}
+				if (controlPointCount!=0x01){
+					static uint64_t controlCoordIndex = 0x00;
+					static struct uvec2_32 nextStartCoord = {0x00, 0x00};
+					if (!curveCount){
+						controlCoordIndex = nextPointIndex;
+						startCoord.x = (uint32_t)((((double)pPointDescList[i].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
+						startCoord.y = (uint32_t)((((double)pPointDescList[i].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+						nextStartCoord.x = 0x00;
+						nextStartCoord.y = 0x00;
+					}
+					uint64_t nextControlCoordIndex = (controlCoordIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
+					nextControlCoordIndex = (!nextControlCoordIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : nextControlCoordIndex;
+					uint8_t controlCoordSingle = (pPointDescList+nextControlCoordIndex)->flags.on_curve ? 0x01 : 0x00;
+					if (curveCount){
+						startCoord = nextStartCoord;
+					}
+					controlCoord.x = (uint32_t)((((double)pPointDescList[controlCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
+					controlCoord.y = (uint32_t)((((double)pPointDescList[controlCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+					if (controlCoordSingle){
+						endCoord.x = (uint32_t)((((double)pPointDescList[nextControlCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
+						endCoord.y = (uint32_t)((((double)pPointDescList[nextControlCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+					}
+					if (!controlCoordSingle){
+						uint64_t nextControlCoordIndex = (controlCoordIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
+						nextControlCoordIndex = (!nextControlCoordIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : nextControlCoordIndex;
+						endCoord.x = controlCoord.x+(uint32_t)((((double)pPointDescList[nextControlCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
+						endCoord.y = controlCoord.y+(uint32_t)((((double)pPointDescList[nextControlCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+						endCoord.x/=0x02;
+						endCoord.y/=0x02;
+					}
+					controlCoordIndex = (controlCoordIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
+					controlCoordIndex = (!controlCoordIndex&&currentContourIndex) ? (__builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01) : controlCoordIndex;
+					nextStartCoord = endCoord;
+				}
+				uint64_t curveSegmentCount = 0x08;
+				for (uint64_t curveSegment = 0x00;curveSegment<curveSegmentCount-0x01;curveSegment++){
+					double curveStep = ((double)curveSegment)/(double)(curveSegmentCount-0x01);
+					double nextCurveStep = ((double)(curveSegment+0x01))/(double)(curveSegmentCount-0x01);
+					struct uvec2_32 segmentStartCoord = {0};
+					segmentStartCoord.x = (uint32_t)((((1.0-curveStep)*(1.0-curveStep))*startCoord.x)+(((2.0*(1.0-curveStep))*curveStep)*controlCoord.x)+((curveStep*curveStep)*endCoord.x));
+					segmentStartCoord.y = (uint32_t)((((1.0-curveStep)*(1.0-curveStep))*startCoord.y)+(((2.0*(1.0-curveStep))*curveStep)*controlCoord.y)+((curveStep*curveStep)*endCoord.y));
+					struct uvec2_32 segmentEndCoord = {0};
+					segmentEndCoord.x = (uint32_t)((((1.0-nextCurveStep)*(1.0-nextCurveStep))*startCoord.x)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*controlCoord.x)+((nextCurveStep*nextCurveStep)*endCoord.x));
+					segmentEndCoord.y = (uint32_t)((((1.0-nextCurveStep)*(1.0-nextCurveStep))*startCoord.y)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*controlCoord.y)+((nextCurveStep*nextCurveStep)*endCoord.y));
+					struct vec2_32 deltaCoord = {0};
+					deltaCoord.x = (int32_t)segmentEndCoord.x-(int32_t)segmentStartCoord.x;
+					deltaCoord.y = (int32_t)segmentEndCoord.y-(int32_t)segmentStartCoord.y;
+					uint64_t deltaPixelCount = absq(deltaCoord.x)+absq(deltaCoord.y);
+					for (uint64_t pixelEntry = 0x00;pixelEntry<deltaPixelCount;pixelEntry++){
+						struct uvec2_32 textureCoord = {0};
+						float step = ((float)pixelEntry)/(float)deltaPixelCount;
+						textureCoord = lerpu32(segmentStartCoord, segmentEndCoord, step);
+						uint64_t pixelOffset = (textureCoord.y*textureBufferRect.x)+textureCoord.x;
+						struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
+						pPixelDesc->pointIndex = i;
+						pPixelDesc->pointCount = curvePointCount;
+						*(((struct fvec4_32*)pTextureBuffer)+pixelOffset) = foregroundColor;
+					}
 				}
 			}
-			pointDelta = 0x01+controlPointCount;
+			pointDelta = curvePointCount-0x01;
 		}
-		if (i<pointFlagRepeatFence){
-			continue;
+		if (!pointDelta){
+			printf("unexpected true type point %d\r\n", i);
+			virtualFree((uint64_t)pPointDescList, pointDescListSize);
+			virtualFree((uint64_t)pPixelDescList, pixelDescListSize);
+			mutex_unlock(&mutex);
+			return -1;
 		}
-		if (!pPointFlags->repeat||(i==pointFlagRepeatFence&&i)){
-			pointFlagsIndex+=(i==pointFlagRepeatFence&&i) ? 0x02 : 0x01;
-			continue;
-		}
-		uint8_t repeatCount = *(uint8_t*)(pPointFlagsList+pointFlagsIndex+0x01);
-		pointFlagRepeatFence = i+repeatCount;
 	}
 	for (uint64_t i = 0;i<textureBufferSize/sizeof(struct fvec4_32);i++){
 		struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+i;
@@ -685,7 +767,6 @@ int ttf_font_glyph_get_id(struct text_subsystem_font_desc* pSubsystemFontDesc, u
 	}
 	uint32_t glyphId = 0x00;
 	if (ttf_glyph_get_id(pFontDesc, 0xFFFF, 0xFFFF, characterCode, &glyphId)!=0){
-		printf("failed to get TTF glyph ID\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -705,7 +786,6 @@ int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc
 		return -1;
 	}
 	if (ttf_glyf_tesselate(pFontDesc, glyphId, pTextureBuffer, textureBufferRect)!=0){
-		printf("failed to tesselate TTF glyph\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}

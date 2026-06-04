@@ -187,6 +187,7 @@ struct ttf_table_name_record{
 }__attribute__((packed));
 struct ttf_point_entry_desc{
 	struct uvec2_32 position;
+	struct ttf_glyf_point_flags flags;
 }__attribute__((packed));
 struct ttf_pixel_entry_desc{
 	uint16_t pointIndex;

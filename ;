@@ -554,13 +554,14 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	}
 	textSubsystemInfo.fontSubsystemInfo.pLastFontDesc = pFontDesc;
 	uint64_t glyphId = 0x00;
-	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, (uint64_t)'a', &glyphId)!=0){
+	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, 'Z', &glyphId)!=0){
 		printf("failed to get glyph ID via font driver\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	glyphId = 0x00;
 	printf("glyph ID: %d\r\n", glyphId);
 	float* pGlyphTextureBuffer = (float*)0x00;
 	struct uvec2_32 glyphTextureBufferRect = {0};
@@ -758,7 +759,6 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		return -1;
 	}	
 	*pFontId = fontId;
-	while (1){};
 	mutex_unlock(&mutex);
 	return 0;
 }
