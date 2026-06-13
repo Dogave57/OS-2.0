@@ -41,11 +41,12 @@
 
 struct text_subsystem_glyph_vertex;
 struct text_subsystem_font_desc;
+typedef int(*fontDriverDeinitFunc)(void);
 typedef int(*fontDriverFontLoadFunc)(unsigned char* pFontBuffer, uint64_t fontBufferSize, struct text_subsystem_font_desc* pSubsystemFontDesc);
 typedef int(*fontDriverFontUnloadFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc);
 typedef int(*fontDriverFontVerifyFunc)(unsigned char* pFontBuffer, uint64_t fontBufferSize);
-typedef int(*fontDriverFontGlyphGetId)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId);
-typedef int(*fontDriverFontGlyphTesselate)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, float* pTextureBuffer, struct uvec2_32 textureBufferRect);
+typedef int(*fontDriverFontGlyphGetIdFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId);
+typedef int(*fontDriverFontGlyphTesselateFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, int16_t* pTextureBuffer, struct uvec2_32 textureBufferRect);
 static unsigned char mainfont_data[255][16]={
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x00 
         { 0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD, 0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00  },       //0x01 
@@ -177,17 +178,19 @@ static unsigned char mainfont_data[255][16]={
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x7F delete
 };
 struct text_subsystem_font_driver_vtable{
+	fontDriverDeinitFunc fontDriverDeinit;
 	fontDriverFontLoadFunc fontLoad;
 	fontDriverFontUnloadFunc fontUnload;
 	fontDriverFontVerifyFunc fontVerify;
-	fontDriverFontGlyphGetId fontGlyphGetId;
-	fontDriverFontGlyphTesselate fontGlyphTesselate;
+	fontDriverFontGlyphGetIdFunc fontGlyphGetId;
+	fontDriverFontGlyphTesselateFunc fontGlyphTesselate;
 };
 struct text_subsystem_font_driver_info{
+	uint64_t fontDriverId;
+	struct uvec2_32 maxTextureBufferRect;
 	struct text_subsystem_font_driver_vtable vtable;
 };
 struct text_subsystem_font_driver_desc{
-	uint64_t fontDriverId;
 	struct text_subsystem_font_driver_info driverInfo;
 	struct text_subsystem_font_driver_desc* pFlink;
 	struct text_subsystem_font_driver_desc* pBlink;
@@ -255,7 +258,7 @@ struct text_subsystem_info{
 int text_subsystem_soft_init(void);
 int text_subsystem_init(void);
 int text_subsystem_deinit(void);
-KAPI int text_subsystem_font_driver_register(struct text_subsystem_font_driver_info driverInfo, uint64_t* pFontDriverId);
+KAPI int text_subsystem_font_driver_register(struct text_subsystem_font_driver_info* pSubsystemFontDriverInfo);
 KAPI int text_subsystem_font_driver_unregister(uint64_t fontDriverId);
 KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBufferSize, uint64_t* pFontId);
 KAPI int text_subsystem_font_unload(uint64_t fontId);

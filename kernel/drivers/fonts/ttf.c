@@ -15,21 +15,33 @@ static struct font_driver_ttf_info fontDriverInfo = {0};
 int font_driver_ttf_init(void){
 	struct text_subsystem_font_driver_vtable vtable = {0};
 	memset((void*)&vtable, 0, sizeof(struct text_subsystem_font_driver_vtable));
-	vtable.fontLoad = ttf_font_load;
-	vtable.fontUnload = ttf_font_unload;
-	vtable.fontVerify = ttf_font_verify;
-	vtable.fontGlyphGetId = ttf_font_glyph_get_id;
-	vtable.fontGlyphTesselate = ttf_font_glyph_tesselate;
+	vtable.fontDriverDeinit = (fontDriverDeinitFunc)font_driver_ttf_deinit;
+	vtable.fontLoad = (fontDriverFontLoadFunc)ttf_font_load;
+	vtable.fontUnload = (fontDriverFontUnloadFunc)ttf_font_unload;
+	vtable.fontVerify = (fontDriverFontVerifyFunc)ttf_font_verify;
+	vtable.fontGlyphGetId = (fontDriverFontGlyphGetIdFunc)ttf_font_glyph_get_id;
+	vtable.fontGlyphTesselate = (fontDriverFontGlyphTesselateFunc)ttf_font_glyph_tesselate;
 	struct text_subsystem_font_driver_info subsystemFontDriverInfo = {0};
 	memset((void*)&subsystemFontDriverInfo, 0, sizeof(struct text_subsystem_font_driver_info));
 	subsystemFontDriverInfo.vtable = vtable;
-	uint64_t fontDriverId = 0x00;
-	if (text_subsystem_font_driver_register(subsystemFontDriverInfo, &fontDriverId)!=0){
+	if (text_subsystem_font_driver_register(&subsystemFontDriverInfo)!=0){
 		printf("failed to register GPU host controller TTF font driver with text subsystem\r\n");
 		return -1;
 	}
-	fontDriverInfo.fontDriverId = fontDriverId;
+	struct subsystem_desc* pBytecodeSubsystemDesc = (struct subsystem_desc*)0x00;
+	if (subsystem_init(&pBytecodeSubsystemDesc, TTF_MAX_BYTECODE_CONTEXT_COUNT)!=0){
+		printf("failed to initialize true type bytecode context subsystem descriptor\r\n");
+		text_subsystem_font_driver_unregister(subsystemFontDriverInfo.fontDriverId);
+		return -1;
+	}
 	fontDriverInfo.subsystemFontDriverInfo = subsystemFontDriverInfo;
+	fontDriverInfo.bytecodeSubsystemInfo.pSubsystemDesc = pBytecodeSubsystemDesc;
+	fontDriverInfo.bytecodeSubsystemInfo.maxBytecodeContextCount = TTF_MAX_BYTECODE_CONTEXT_COUNT;
+	return 0;
+}
+int font_driver_ttf_deinit(void){
+	if (fontDriverInfo.bytecodeSubsystemInfo.pSubsystemDesc)
+		subsystem_deinit(fontDriverInfo.bytecodeSubsystemInfo.pSubsystemDesc);	
 	return 0;
 }
 int ttf_get_checksum(struct ttf_font_desc* pFontDesc, uint32_t* pChecksum){
@@ -55,6 +67,460 @@ int ttf_table_get_desc(struct ttf_font_desc* pFontDesc, uint64_t tableId, struct
 		return -1;
 	}
 	*ppTableDesc = pTableDesc;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_control_get_value(struct ttf_font_desc* pFontDesc, uint32_t controlValueIndex, double* pControlValue){
+	if (!pFontDesc||!pControlValue)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_table_desc* pCvtTableDesc = (struct ttf_table_desc*)0x00;
+	if (ttf_table_get_desc(pFontDesc, TTF_TABLE_ID_CVT, &pCvtTableDesc)!=0){
+		printf("failed to get true type control value table descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint32_t* pCvtTable = (uint32_t*)(pFontDesc->pFontBuffer+__builtin_bswap32(pCvtTableDesc->table_offset));
+	uint32_t controlValue = __builtin_bswap32(pCvtTable[controlValueIndex]);
+	int32_t controlValueInteger = (int32_t)(controlValue>>0x06);
+	uint8_t controlValueFraction = (uint8_t)(controlValue&0x3F);
+	double controlValueFloat = (double)controlValueInteger;
+	controlValueFloat+=((((double)controlValueFraction)/64.0)*(absf(controlValueFloat)/controlValueFloat));
+	*pControlValue = controlValueFloat;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_opcode_get_name(uint8_t opcode, const unsigned char** ppOpcodeName){
+	if (!ppOpcodeName)
+		return -1;
+	static const unsigned char* opcodeNameList[255]={
+		[TTF_OPCODE_NPUSHB]="NPUSHB",            [TTF_OPCODE_NPUSHW]="NPUSHW",            [TTF_OPCODE_PUSHB]="PUSHB",
+	     	[TTF_OPCODE_PUSHW]="PUSHW",
+
+		[TTF_OPCODE_AA]="AA",                    [TTF_OPCODE_ABS]="ABS",	          [TTF_OPCODE_ADD]="ADD",
+	 	[TTF_OPCODE_ALIGNPTS]="ALIGNPTS",         [TTF_OPCODE_ALIGNRP]="ALIGNRP",           [TTF_OPCODE_AND]="AND",
+		
+		[TTF_OPCODE_CALL]="CALL",                [TTF_OPCODE_CEILING]="CEILING",          [TTF_OPCODE_CINDEX]="CINDEX",
+	       	[TTF_OPCODE_CLEAR]="CLEAR",
+
+		[TTF_OPCODE_DEBUG]="DEBUG",              [TTF_OPCODE_DELTAC1]="DELTAC1",          [TTF_OPCODE_DELTAC2]="DELTAC2",
+	       	[TTF_OPCODE_DELTAC3]="DELTAC3",          [TTF_OPCODE_DELTAP1]="DELTAP1",          [TTF_OPCODE_DELTAP2]="DELTAP2",
+		[TTF_OPCODE_DELTAP3]="DELTAP3",          [TTF_OPCODE_DEPTH]="DEPTH",              [TTF_OPCODE_DIV]="DIV",
+	       	[TTF_OPCODE_DUP]="DUP",
+
+		[TTF_OPCODE_EIF]="EIF",                  [TTF_OPCODE_ELSE]="ELSE",                [TTF_OPCODE_ENDF]="ENDF", 
+		[TTF_OPCODE_EQ]="EQ",                    [TTF_OPCODE_EVEN]="EVEN", 
+		
+		[TTF_OPCODE_FDEF]="FDEF",                [TTF_OPCODE_FLIP_OFF]="FLIPOFF",         [TTF_OPCODE_FLIP_ON]="FLIPON",
+		[TTF_OPCODE_FLIP_PT]="FLIPPT",           [TTF_OPCODE_FLIP_PRGOFF]="FLIPPRGOFF",   [TTF_OPCODE_FLIP_PRGON]="FLIPPRGON", 
+		[TTF_OPCODE_FLOOR]="FLOOR",
+
+		[TTF_OPCODE_GC]="GC",                    [TTF_OPCODE_GETINFO]="GETINFO",          [TTF_OPCODE_GFV]="GFV", 
+		[TTF_OPCODE_GPV]="GPV",                  [TTF_OPCODE_GT]="GT",                    [TTF_OPCODE_GTEQ]="GTEQ",
+		[TTF_OPCODE_IDEF]="IDEF",                [TTF_OPCODE_IF]="IF",
+		[TTF_OPCODE_INSTCTRL]="INSTRCTRL",       [TTF_OPCODE_IP]="IP",                    [TTF_OPCODE_ISECT]="ISECT", 
+		[TTF_OPCODE_IUP]="IUP",
+
+		[TTF_OPCODE_JMPR]="JMPR",                [TTF_OPCODE_JROF]="JROF",                [TTF_OPCODE_JROT]="JROT",
+	       
+		[TTF_OPCODE_LOOPCALL]="LOOPCALL",        [TTF_OPCODE_LT]="LT",                    [TTF_OPCODE_LTEQ]="LTEQ",
+
+		[TTF_OPCODE_MAX]="MAX",                  [TTF_OPCODE_MD]="MD",                    [TTF_OPCODE_MDAP]="MDAP",
+		[TTF_OPCODE_MDRP]="MDRP",                [TTF_OPCODE_MIAP]="MIAP",                [TTF_OPCODE_MIN]="MIN",
+		[TTF_OPCODE_MINDEX]="MINDEX",        [TTF_OPCODE_MIRP]="MIRP",                [TTF_OPCODE_MPPEM]="MPPEM",
+		[TTF_OPCODE_MPS]="MPS",                  [TTF_OPCODE_MSIRP]="MSIRP",              [TTF_OPCODE_MUL]="MUL",
+
+		[TTF_OPCODE_NEG]="NEG",                  [TTF_OPCODE_NEQ]="NEQ",                  [TTF_OPCODE_NOT]="NOT",
+		[TTF_OPCODE_NROUND]="NROUND",            
+	
+		[TTF_OPCODE_ODD]="ODD",                  [TTF_OPCODE_OR]="OR",
+		
+		[TTF_OPCODE_POP]="POP",                  
+		
+		[TTF_OPCODE_RCVT]="RCVT",                [TTF_OPCODE_RDTG]="RDTG",                [TTF_OPCODE_ROFF]="ROFF",
+		[TTF_OPCODE_ROLL]="ROLL",                [TTF_OPCODE_ROUND]="ROUND",              [TTF_OPCODE_RS]="RS",
+		[TTF_OPCODE_RTDG]="RTDG",                [TTF_OPCODE_RTG]="RTG",                  [TTF_OPCODE_RTHG]="RTHG",
+		[TTF_OPCODE_RUTG]="RUTG",
+
+		[TTF_OPCODE_S45ROUND]="S45ROUND",        [TTF_OPCODE_SANGW]="SANGW",              [TTF_OPCODE_SCANCTRL]="SCANCTRL",
+		[TTF_OPCODE_SCANTYPE]="SCANTYPE",        [TTF_OPCODE_SCFS]="SCFS",                [TTF_OPCODE_SCVTCI]="SCVTCI",
+		[TTF_OPCODE_SDB]="SDB",                  [TTF_OPCODE_SDPVTL]="SDPVTL",            [TTF_OPCODE_SDS]="SDS",
+		[TTF_OPCODE_SFVFS]="SFVFS",              [TTF_OPCODE_SFVTCA]="SFVTCA",            [TTF_OPCODE_SFVTL]="SFVTL",
+		[TTF_OPCODE_SFVTPV]="SFVTPV",            [TTF_OPCODE_SHC]="SHC",                  [TTF_OPCODE_SHP]="SHP",
+		[TTF_OPCODE_SHPIX]="SHPIX",              [TTF_OPCODE_SHZ]="SHZ",                  [TTF_OPCODE_SLOOP]="SLOOP",
+		[TTF_OPCODE_SMD]="SMD",                  [TTF_OPCODE_SPVFS]="SPVFS",              [TTF_OPCODE_SPVTCA]="SPVTCA",
+		[TTF_OPCODE_SPVTL]="SPVTL",              [TTF_OPCODE_SROUND]="SROUND",            [TTF_OPCODE_SRP0]="SRP0",
+		[TTF_OPCODE_SRP1]="SRP1",                [TTF_OPCODE_SRP2]="SRP2",                [TTF_OPCODE_SSW]="SSW",
+		[TTF_OPCODE_SSWCI]="SSWCI",              [TTF_OPCODE_SUB]="SUB",                  [TTF_OPCODE_SVTCA]="SVTCA",
+		[TTF_OPCODE_SWAP]="SWAP",                [TTF_OPCODE_SZP0]="SZP0",                [TTF_OPCODE_SZP1]="SZP1",
+		[TTF_OPCODE_SZP2]="SZP2",                [TTF_OPCODE_SZPS]="SZPS",                [TTF_OPCODE_UTP]="UTP",
+		[TTF_OPCODE_WCVTF]="WCVTF",              [TTF_OPCODE_WCVTP]="WCVTP",              [TTF_OPCODE_WS]="WS",
+	};
+	const unsigned char* pOpcodeName = opcodeNameList[opcode];
+	pOpcodeName = (!pOpcodeName) ? (const unsigned char*)"Unknown true type opcode" : pOpcodeName;
+	*ppOpcodeName = pOpcodeName;
+	return 0;
+}
+int ttf_execution_code_get_name(uint64_t executionCode, const unsigned char** ppExecutionCodeName){
+	if (!ppExecutionCodeName)
+		return -1;
+	static const unsigned char* executionCodeNameList[]={
+		[TTF_EXECUTION_CODE_UNKNOWN]="Unknown",
+		[TTF_EXECUTION_CODE_SUCCESS]="Success",
+		[TTF_EXECUTION_CODE_OPERATION_FAILURE]="Operation failure",
+		[TTF_EXECUTION_CODE_OPERATION_UNSUPPORTED]="Operation unsupported",
+	};
+	const unsigned char* pExecutionCodeName = (executionCode>(sizeof(executionCodeNameList)/sizeof(const unsigned char*))-0x01) ? (const unsigned char*)"Invalid" : executionCodeNameList[executionCode];
+	*ppExecutionCodeName = pExecutionCodeName;
+	return 0;
+}
+int ttf_bytecode_context_init(struct ttf_font_desc* pFontDesc, uint64_t stackSize, uint64_t* pBytecodeContextId){
+	if (!pFontDesc||!pBytecodeContextId)
+		return -1;
+	if (!stackSize)
+		stackSize = TTF_DEFAULT_BYTECODE_STACK_SIZE;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_bytecode_context_desc* pBytecodeContextDesc = (struct ttf_bytecode_context_desc*)kmalloc(sizeof(struct ttf_bytecode_context_desc));
+	if (!pBytecodeContextDesc){
+		printf("failed to allocate true type bytecode context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pBytecodeContextDesc, 0, sizeof(struct ttf_bytecode_context_desc));
+	pBytecodeContextDesc->pFontDesc = pFontDesc;
+	uint8_t* pStack = (uint8_t*)0x00;
+	if (virtualAlloc((uint64_t*)&pStack, stackSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate true type bytecode context descriptor execution stack physical pages\r\n");
+		kfree((void*)pBytecodeContextDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t bytecodeContextId = 0x00;
+	if (subsystem_alloc_entry(fontDriverInfo.bytecodeSubsystemInfo.pSubsystemDesc, (unsigned char*)pBytecodeContextDesc, &bytecodeContextId)!=0){
+		printf("failed to allocate true type bytecode context subsystem descriptor entry\r\n");
+		virtualFree((uint64_t)pStack, stackSize);
+		kfree((void*)pBytecodeContextDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	pBytecodeContextDesc->pStack = pStack;
+	pBytecodeContextDesc->pStackEntry = pStack;
+	pBytecodeContextDesc->stackSize = stackSize;
+	pBytecodeContextDesc->bytecodeContextId = bytecodeContextId;
+	*pBytecodeContextId = bytecodeContextId;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_bytecode_context_deinit(uint64_t bytecodeContextId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_bytecode_context_desc* pBytecodeContextDesc = (struct ttf_bytecode_context_desc*)0x00;
+	if (subsystem_get_entry(fontDriverInfo.bytecodeSubsystemInfo.pSubsystemDesc, bytecodeContextId, (uint64_t*)&pBytecodeContextDesc)!=0){
+		printf("failed to get true type bytecode context subsystem descriptor entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pBytecodeContextDesc->pStack)
+		virtualFree((uint64_t)pBytecodeContextDesc->pStack, pBytecodeContextDesc->stackSize);
+	kfree((void*)pBytecodeContextDesc);
+	subsystem_free_entry(fontDriverInfo.bytecodeSubsystemInfo.pSubsystemDesc, bytecodeContextId);
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_bytecode_context_get_desc(uint64_t bytecodeContextId, struct ttf_bytecode_context_desc** ppBytecodeContextDesc){
+	if (!ppBytecodeContextDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_bytecode_context_desc* pBytecodeContextDesc = (struct ttf_bytecode_context_desc*)0x00;
+	if (subsystem_get_entry(fontDriverInfo.bytecodeSubsystemInfo.pSubsystemDesc, bytecodeContextId, (uint64_t*)&pBytecodeContextDesc)!=0){
+		printf("failed to get true type bytecode context subsystem entry descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	*ppBytecodeContextDesc = pBytecodeContextDesc;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_bytecode_context_set_bytecode(uint64_t bytecodeContextId, uint8_t* pBytecode, uint64_t bytecodeLength){
+	if (!pBytecode||!bytecodeLength)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_bytecode_context_desc* pBytecodeContextDesc = (struct ttf_bytecode_context_desc*)0x00;
+	if (ttf_bytecode_context_get_desc(bytecodeContextId, &pBytecodeContextDesc)!=0){
+		printf("failed to get true type bytecode context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	pBytecodeContextDesc->pBytecode = pBytecode;
+	pBytecodeContextDesc->bytecodeLength = bytecodeLength;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_bytecode_context_stack_clear(uint64_t bytecodeContextId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_bytecode_context_desc* pBytecodeContextDesc = (struct ttf_bytecode_context_desc*)0x00;
+	if (ttf_bytecode_context_get_desc(bytecodeContextId, &pBytecodeContextDesc)!=0){
+		printf("failed to get true type bytecode context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	pBytecodeContextDesc->pStackEntry = pBytecodeContextDesc->pStack;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_bytecode_context_push(uint64_t bytecodeContextId, uint8_t* pStackData, uint64_t stackDataSize){
+	if (!pStackData||!stackDataSize)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_bytecode_context_desc* pBytecodeContextDesc = (struct ttf_bytecode_context_desc*)0x00;
+	if (ttf_bytecode_context_get_desc(bytecodeContextId, &pBytecodeContextDesc)!=0){
+		printf("failed to get true type bytecode context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memcpy((void*)pBytecodeContextDesc->pStackEntry, (void*)pStackData, stackDataSize);
+	pBytecodeContextDesc->pStackEntry+=stackDataSize;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_bytecode_context_pop(uint64_t bytecodeContextId, uint8_t** ppStackData, uint64_t stackDataSize){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_bytecode_context_desc* pBytecodeContextDesc = (struct ttf_bytecode_context_desc*)0x00;
+	if (ttf_bytecode_context_get_desc(bytecodeContextId, &pBytecodeContextDesc)!=0){
+		printf("failed to get true type bytecode context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	pBytecodeContextDesc->pStackEntry-=stackDataSize;
+	if (ppStackData)
+		*ppStackData = pBytecodeContextDesc->pStackEntry;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ttf_bytecode_context_svtca(struct ttf_bytecode_context_desc* pBytecodeContextDesc, uint8_t* pInstructionData, uint8_t argument, struct ttf_execution_code* pExecutionCode){
+	if (!pBytecodeContextDesc||!pInstructionData||!pExecutionCode)
+		return -1;
+	
+	return 0;
+}
+int ttf_bytecode_context_clear(struct ttf_bytecode_context_desc* pBytecodeContextDesc, uint8_t* pInstructionData, uint8_t argument, struct ttf_execution_code* pExecutionCode){
+	if (!pBytecodeContextDesc||!pInstructionData||!pExecutionCode)
+		return -1;
+	if (ttf_bytecode_context_stack_clear(pBytecodeContextDesc->bytecodeContextId)!=0)
+		return -1;
+	return 0;
+}
+int ttf_bytecode_context_miap(struct ttf_bytecode_context_desc* pBytecodeContextDesc, uint8_t* pInstructionData, uint8_t argument, struct ttf_execution_code* pExecutionCode){
+	if (!pBytecodeContextDesc||!pInstructionData||!pExecutionCode)
+		return -1;
+	
+	return 0;
+}
+int ttf_bytecode_context_npushb(struct ttf_bytecode_context_desc* pBytecodeContextDesc, uint8_t* pInstructionData, uint8_t argument, struct ttf_execution_code* pExecutionCode){
+	if (!pBytecodeContextDesc||!pInstructionData||!pExecutionCode)
+		return -1;
+
+	return 0;
+}
+int ttf_bytecode_context_npushw(struct ttf_bytecode_context_desc* pBytecodeContextDesc, uint8_t* pInstructionData, uint8_t argument, struct ttf_execution_code* pExecutionCode){
+	if (!pBytecodeContextDesc||!pInstructionData||!pExecutionCode)
+		return -1;
+
+	return 0;
+}
+int ttf_bytecode_context_pushb(struct ttf_bytecode_context_desc* pBytecodeContextDesc, uint8_t* pInstructionData, uint8_t argument, struct ttf_execution_code* pExecutionCode){
+	if (!pBytecodeContextDesc||!pInstructionData||!argument||!pExecutionCode)
+		return -1;
+
+	return 0;
+}
+int ttf_bytecode_context_pushw(struct ttf_bytecode_context_desc* pBytecodeContextDesc, uint8_t* pInstructionData, uint8_t argument, struct ttf_execution_code* pExecutionCode){
+	if (!pBytecodeContextDesc||!pInstructionData||!argument||!pExecutionCode)
+		return -1;
+	
+	return 0;
+}
+int ttf_bytecode_context_execute(uint64_t bytecodeContextId, struct ttf_execution_code* pExecutionCode){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ttf_bytecode_context_desc* pBytecodeContextDesc = (struct ttf_bytecode_context_desc*)0x00;
+	if (ttf_bytecode_context_get_desc(bytecodeContextId, &pBytecodeContextDesc)!=0){
+		printf("failed to get true type bytecode context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ttf_font_desc* pFontDesc = pBytecodeContextDesc->pFontDesc;
+	if (!pFontDesc){
+		printf("true type bytecode context descriptor not linked with true type font descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint8_t* pBytecode = pBytecodeContextDesc->pBytecode;
+	uint64_t bytecodeLength = pBytecodeContextDesc->bytecodeLength;
+	struct ttf_execution_code executionCode = {0};
+	memset((void*)&executionCode, 0, sizeof(struct ttf_execution_code));
+	executionCode.mainCode = TTF_EXECUTION_CODE_SUCCESS;
+	executionCode.subCode = TTF_EXECUTION_CODE_SUCCESS;
+	struct fvec2_64 projectionVector = {0};
+	projectionVector.x = 0.0;
+	projectionVector.y = 0.0;
+	struct fvec2_64 freedomVector = {0};
+	freedomVector.x = 0.0;
+	freedomVector.y = 0.0;
+	for (uint64_t bytecodeOffset = 0x00;bytecodeOffset<bytecodeLength;bytecodeOffset++){
+		struct ttf_instruction* pInstruction = (struct ttf_instruction*)(pBytecode+bytecodeOffset);
+		uint8_t* pInstructionData = (uint8_t*)(pInstruction+0x01);
+		static const uint8_t argumentRangeList[] = {
+			[0xB0]=0xB7,
+			[0xB8]=0xBF,
+			[0x46]=0x47,
+			[0x30]=0x31,
+			[0x49]=0x4A,
+			[0x2E]=0x2F,
+			[0xC0]=0xDF,
+			[0x3E]=0x3F,
+			[0xE0]=0xFF,
+			[0x3A]=0x3B,
+			[0x6C]=0x6F,
+			[0x68]=0x6B,
+			[0x86]=0x87,
+			[0x04]=0x05,
+			[0x08]=0x09,
+			[0x34]=0x35,
+			[0x32]=0x33,
+			[0x36]=0x37,
+			[0x02]=0x03,
+			[0x06]=0x07,
+			[0x00]=0x01,
+		};
+		static uint8_t argumentListSet = 0x00;
+		static uint8_t argumentList[255]={
+			
+		};
+		static const TTFBytecodeInstructionFunc bytecodeInstructionFuncList[255]={
+			[TTF_OPCODE_SVTCA]=ttf_bytecode_context_svtca,
+			[TTF_OPCODE_CLEAR]=ttf_bytecode_context_clear,
+			[TTF_OPCODE_MIAP]=ttf_bytecode_context_miap,
+			[TTF_OPCODE_NPUSHB]=ttf_bytecode_context_npushb,
+			[TTF_OPCODE_NPUSHW]=ttf_bytecode_context_npushw,
+			[TTF_OPCODE_PUSHB]=ttf_bytecode_context_pushb,
+			[TTF_OPCODE_PUSHW]=ttf_bytecode_context_pushw,
+		};
+		if (!argumentListSet){
+			for (uint64_t i = 0;i<sizeof(argumentRangeList);i++){
+				if (!argumentRangeList[i])
+					continue;
+				uint64_t argumentRange = argumentRangeList[i]-i+0x01;
+				for (uint64_t argument = 0x00;argument<argumentRange;argument++){
+					argumentList[i+argument] = (uint8_t)(argument+0x01);
+				}
+			}
+			argumentListSet = 0x01;
+		}
+		uint8_t opcode = pInstruction->opcode;
+		uint8_t argument = argumentList[pInstruction->opcode];
+		const unsigned char* opcodeName = (const unsigned char*)"Unsupported opcode";
+		if (argument){
+			opcode-=argument-0x01;
+		}
+		ttf_opcode_get_name(opcode, &opcodeName);
+		printf("opcode: %s\r\n", opcodeName);
+		TTFBytecodeInstructionFunc instructionFunc = bytecodeInstructionFuncList[opcode];
+		if (!instructionFunc){
+			printf("unsupported opcode: %s\r\n", opcodeName);
+		//	executionCode.mainCode = TTF_EXECUTION_CODE_OPERATION_UNSUPPORTED;
+			break;
+		}
+		continue;
+		struct ttf_execution_code instructionExecutionCode = {0};
+		memset((void*)&instructionExecutionCode, 0, sizeof(struct ttf_execution_code));
+		instructionExecutionCode.mainCode = TTF_EXECUTION_CODE_SUCCESS;
+		instructionExecutionCode.subCode = 0x00;
+		instructionFunc(pBytecodeContextDesc, pInstructionData, argument, &instructionExecutionCode);
+		if (instructionExecutionCode.mainCode!=TTF_EXECUTION_CODE_SUCCESS){
+			printf("true type execution failure at opcode: %s\r\n", opcodeName);
+			executionCode.mainCode = TTF_EXECUTION_CODE_OPERATION_FAILURE;
+			executionCode.subCode = instructionExecutionCode.mainCode;
+			break;
+		}
+		switch (opcode){
+			case TTF_OPCODE_SVTCA:{
+				if (argument==0x01){
+					freedomVector.x = 0.0;
+					freedomVector.y = 1.0;
+					projectionVector.x = 0.0;
+					projectionVector.y = 1.0;
+				}
+				freedomVector.x = 1.0;
+				freedomVector.y = 0.0;
+				projectionVector.x = 1.0;
+				projectionVector.y = 0.0;
+				break;		      
+			}
+			case TTF_OPCODE_CLEAR:{
+				ttf_bytecode_context_stack_clear(bytecodeContextId);
+				break;
+			}
+			case TTF_OPCODE_MIAP:{
+				uint16_t pointIndex = 0x00;
+				uint16_t cvtIndex = 0x00;
+				uint16_t* pStackLocation = (uint16_t*)0x00;
+				ttf_bytecode_context_pop(bytecodeContextId, (uint8_t**)&pStackLocation, sizeof(uint16_t)*0x02);
+				cvtIndex = __builtin_bswap16(*pStackLocation);
+				pointIndex = __builtin_bswap16(*(pStackLocation+0x01));
+				double controlValue = 0.0;
+				ttf_control_get_value(pFontDesc, cvtIndex, &controlValue);
+				printf("point index: %d\r\n", pointIndex);
+				printf("CVT table index: %d\r\n", cvtIndex);
+				printf("control value: %f\r\n", controlValue);
+				printf("rounded: %s\r\n", argument ? "Yes" : "No");
+				break;		     
+			}
+			case TTF_OPCODE_NPUSHB:{
+				uint64_t pushDataSize = (uint64_t)(*pInstructionData);
+				uint8_t* pPushData = pInstructionData+0x01;
+				ttf_bytecode_context_push(bytecodeContextId, (uint8_t*)pPushData, pushDataSize);
+				bytecodeOffset+=pushDataSize+0x01;
+				printf("NPUSHB %d\r\n", pushDataSize);
+				break;	  
+			}
+			case TTF_OPCODE_NPUSHW:{
+				uint64_t pushDataSize = (*pInstructionData)*sizeof(uint16_t);
+				uint16_t* pPushData = (uint16_t*)(pInstructionData+0x01);
+				ttf_bytecode_context_push(bytecodeContextId, (uint8_t*)pPushData, pushDataSize);
+				bytecodeOffset+=pushDataSize+0x01;
+				printf("NPUSHW %d\r\n", *(pInstructionData));
+				break;	  
+			}
+			case TTF_OPCODE_PUSHB:{
+				ttf_bytecode_context_push(bytecodeContextId, (uint8_t*)pInstructionData, argument);
+				bytecodeOffset+=argument;
+				break;
+			}
+			case TTF_OPCODE_PUSHW:{
+				ttf_bytecode_context_push(bytecodeContextId, (uint8_t*)pInstructionData, (argument*sizeof(uint16_t)));
+				bytecodeOffset+=(argument*sizeof(uint16_t));
+				break;	  
+			}
+			default:{
+				break;
+				mutex_unlock(&mutex);
+				return -1;
+			}
+		}
+	}
+	*pExecutionCode = executionCode;
+	if (executionCode.mainCode!=TTF_EXECUTION_CODE_SUCCESS){
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -203,26 +669,33 @@ int ttf_glyf_get_desc(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct 
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float* pTextureBuffer, struct uvec2_32 textureBufferRect){
+int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, int16_t* pTextureBuffer, struct uvec2_32 textureBufferRect){
 	if (!pFontDesc||!pTextureBuffer)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	struct ttf_table_desc* pHeadTableDesc = (struct ttf_table_desc*)0x00;
 	if (ttf_table_get_desc(pFontDesc, TTF_TABLE_ID_HEAD, &pHeadTableDesc)!=0){
-		printf("failed to get TTF head table descriptor\r\n");
+		printf("failed to get true type HEAD table descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	struct ttf_table_desc* pCvtTableDesc = (struct ttf_table_desc*)0x00;
+	if (ttf_table_get_desc(pFontDesc, TTF_TABLE_ID_CVT, &pCvtTableDesc)!=0){
+		printf("failed to get true type CVT table descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint32_t* pCvtTable = (uint32_t*)(pFontDesc->pFontBuffer+__builtin_bswap32(pCvtTableDesc->table_offset));
+	uint64_t cvtTableLength = __builtin_bswap32(pCvtTableDesc->table_length);
+	printf("control value table length: %d\r\n", cvtTableLength);
 	struct ttf_glyf_header* pGlyfHeader = (struct ttf_glyf_header*)0x00;
 	uint32_t glyfDescLength = 0x00;
-	printf("getting GLYF descriptor\r\n");
 	if (ttf_glyf_get_desc(pFontDesc, glyphId, &pGlyfHeader, &glyfDescLength)!=0){
-		printf("failed to get true/open type glyf descriptor\r\n");
+		printf("failed to get true type GLYF descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	printf("done getting GLYF descriptor\r\n");
 	uint32_t headTableOffset = __builtin_bswap32(pHeadTableDesc->table_offset);
 	struct ttf_table_head* pHeadTable = (struct ttf_table_head*)(pFontDesc->pFontBuffer+headTableOffset);
 	uint16_t unitsPerEm = __builtin_bswap16(pHeadTable->units_per_em);
@@ -251,6 +724,10 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	int8_t* pCoordListY = (int8_t*)0x00;
 	uint64_t textureBufferSize = sizeof(struct fvec4_32)*textureBufferRect.x*textureBufferRect.y;
 	uint64_t pointFlagOffset = 0x00;
+	if (!pointCount){
+		mutex_unlock(&mutex);
+		return 0;
+	}
 	printf("glyph contour count: %d\r\n", contourCount);
 	printf("glyph point count: %d\r\n", pointCount);
 	for (uint64_t i = 0;i<pointCount;i++,pointFlagOffset++){
@@ -262,10 +739,18 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 		i+=repeatCount;
 	}
 	pCoordListX = ((uint8_t*)pPointFlagsList)+pointFlagOffset;
+	struct ttf_contour_entry_desc* pContourDescList = (struct ttf_contour_entry_desc*)0x00;
+	uint64_t contourDescListSize = sizeof(struct ttf_contour_entry_desc)*contourCount;
+	if (virtualAlloc((uint64_t*)&pContourDescList, contourDescListSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate physical pages for true type contour descriptor list\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	struct ttf_point_entry_desc* pPointDescList = (struct ttf_point_entry_desc*)0x00;
 	uint64_t pointDescListSize = sizeof(struct ttf_point_entry_desc)*pointCount;
 	if (virtualAlloc((uint64_t*)&pPointDescList, pointDescListSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate physical pages for true/open type point descriptor list\r\n");
+		printf("failed to allocate physical pages for true type point descriptor list\r\n");
+		virtualFree((uint64_t)pContourDescList, contourDescListSize);
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -284,7 +769,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 				coordEntryIndex++;
 			}
 			if (!pPointFlags->x_same){
-				lastCoordEntry = (int32_t)((uint32_t)lastCoordEntry-((uint32_t)*pCoordListEntry));
+				lastCoordEntry = (int32_t)(((int32_t)lastCoordEntry)-(int32_t)*pCoordListEntry);
 				coordEntryIndex++;
 			}
 		}
@@ -299,7 +784,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 			}
 		}
 		memset((void*)(pPointDescList+i), 0, sizeof(struct ttf_point_entry_desc));
-		pPointDescList[i].position.x = (uint32_t)(((int32_t)lastCoordEntry)+absq(minX));
+		pPointDescList[i].position.x = (uint32_t)(((int64_t)lastCoordEntry)+absq(minX));
 		pPointDescList[i].flags = *pPointFlags;
 		if (i<pointFlagRepeatFence)
 			continue;
@@ -316,7 +801,18 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	lastCoordEntry = 0x00;
 	pointFlagsIndex = 0x00;
 	pointFlagRepeatFence = 0x00;
+	uint64_t currentContourIndex = 0x00;
+	double nextMinY = (double)(textureBufferRect.y);
+	double nextMaxY = 0.0;
 	for (uint64_t i = 0;i<pointCount;i++){
+		if (i>__builtin_bswap16(pContourEndpointTable[currentContourIndex])||!i){
+			currentContourIndex+=(i ? 0x01 : 0x00);
+			struct ttf_contour_entry_desc* pContourDesc = pContourDescList+currentContourIndex;
+			memset((void*)pContourDesc, 0, sizeof(struct ttf_contour_entry_desc));
+			nextMinY = (double)(textureBufferRect.y);
+			nextMaxY = 0.0;
+		}
+		struct ttf_contour_entry_desc* pCurrentContourDesc = pContourDescList+currentContourIndex;
 		struct ttf_glyf_point_flags* pPointFlags = pPointFlagsList+pointFlagsIndex;
 		uint8_t* pCoordListEntry = (uint8_t*)(pCoordListY+coordEntryIndex);
 		if (pPointFlags->y_short){
@@ -339,7 +835,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 				coordEntryIndex+=0x02;
 			}
 		}
-		pPointDescList[i].position.y = (uint32_t)(((int32_t)lastCoordEntry)+absq(minY));
+		pPointDescList[i].position.y = (uint32_t)(((int64_t)lastCoordEntry)+absq(minY));
 		pPointDescList[i].flags = *pPointFlags;
 		if (i<pointFlagRepeatFence)
 			continue;
@@ -350,21 +846,38 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 		uint8_t repeatCount = *(uint8_t*)(pPointFlagsList+pointFlagsIndex+0x01);
 		pointFlagRepeatFence = i+repeatCount;
 	}
+	printf("setting true type bytecode context descriptor bytecode\r\n");
+	ttf_bytecode_context_set_bytecode(pFontDesc->bytecodeContextId, (uint8_t*)pInstructionList, instructionListLength);
+	printf("done setting true type bytecode context descriptor bytecode\r\n");
+	struct ttf_execution_code executionCode = {0};
+	ttf_bytecode_context_execute(pFontDesc->bytecodeContextId, &executionCode);
+	if (executionCode.mainCode!=TTF_EXECUTION_CODE_SUCCESS){
+		const unsigned char* executionCodeName = "Unknown true type execution code";
+		const unsigned char* executionSubCodeName = "Unknown true type execution code";
+		ttf_execution_code_get_name(executionCode.mainCode, &executionCodeName);
+		ttf_execution_code_get_name(executionCode.subCode, &executionSubCodeName);
+		printf("failed to execute true type execution context (%s, %s)\r\n", executionCodeName, executionSubCodeName);
+		virtualFree((uint64_t)pContourDescList, contourDescListSize);
+		virtualFree((uint64_t)pPointDescList, pointDescListSize);
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	printf("GLYF contour count: %d\r\n", contourCount);
 	printf("GLYF point count: %d\r\n", pointCount);
 	printf("GLYF min range: {%d, %d}\r\n", minX, minY);
 	printf("GLYF max range: {%d, %d}\r\n", maxX, maxY);
 	printf("units per em: %d\r\n", unitsPerEm);
+	while (1){};
 	uint64_t textureBufferEntryCount = textureBufferRect.x*textureBufferRect.y;
 	struct ttf_pixel_entry_desc* pPixelDescList = (struct ttf_pixel_entry_desc*)0x00;
-	uint64_t pixelDescListSize = textureBufferEntryCount*sizeof(struct ttf_pixel_entry_desc);
+	uint64_t pixelDescListSize = (textureBufferRect.x*textureBufferRect.y)*sizeof(struct ttf_pixel_entry_desc);
 	if (virtualAlloc((uint64_t*)&pPixelDescList, pixelDescListSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate physical pages for pixel descriptor list\r\n");
+		printf("failed to allocate physical pages for true type glyph pixel descriptor list\r\n");
+		virtualFree((uint64_t)pContourDescList, contourDescListSize);
 		virtualFree((uint64_t)pPointDescList, pointDescListSize);
-		mutex_unlock(&mutex);	
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	memset((void*)pPixelDescList, 0, pixelDescListSize);
 	struct uvec2_32 pointCoord = {0};
 	pointCoord.x = 0x00;
 	pointCoord.y = 0x00;
@@ -372,52 +885,60 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 	float fontWidth = 0.01f;
 	pointFlagsIndex = 0x00;
 	pointFlagRepeatFence = 0x00;
-	uint64_t currentContourIndex = 0x00;
-	uint8_t contourOrder = 0x00;
-	printf("---contour %d: %d-%d---\r\n", currentContourIndex, 0x00, __builtin_bswap16(pContourEndpointTable[currentContourIndex]));
-	uint64_t pointDelta = 0x00;
 	struct fvec4_32 foregroundColor = {0};
-	foregroundColor.x = 1.0f;
 	foregroundColor.y = 0.0f;
 	foregroundColor.z = 1.0f;
 	foregroundColor.w = 1.0f;
-	for (uint64_t i = 0;i<pointCount;i+=pointDelta){
-		if (i>__builtin_bswap16(pContourEndpointTable[currentContourIndex])){
-			currentContourIndex++;
-			printf("---contour %d: %d-%d---\r\n", currentContourIndex, i, __builtin_bswap16(pContourEndpointTable[currentContourIndex]));
+	struct ttf_pixel_entry_desc* pFirstActivePixelDesc = (struct ttf_pixel_entry_desc*)0x00;
+	struct ttf_pixel_entry_desc* pLastActivePixelDesc = (struct ttf_pixel_entry_desc*)0x00;
+	uint64_t currentPointIndex = 0x00;
+	uint64_t pointDelta = 0x00;
+	uint64_t startTime = get_time_us();
+	currentContourIndex = 0x00;
+	for (uint64_t i = 0;currentPointIndex<pointCount;i++,currentPointIndex+=pointDelta){
+		if (currentPointIndex>__builtin_bswap16(pContourEndpointTable[currentContourIndex])||!currentPointIndex){
+			currentContourIndex+=(currentPointIndex ? 0x01 : 0x00);
+			struct ttf_contour_entry_desc* pContourDesc = pContourDescList+currentContourIndex;
 		}
-		static struct text_subsystem_glyph_vertex pointVertexEntryList[512]={0};
-		uint64_t nextPointIndex = (i+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
+		struct ttf_contour_entry_desc* pContourDesc = pContourDescList+currentContourIndex;
+		uint64_t nextPointIndex = (currentPointIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
 		nextPointIndex = (!nextPointIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : nextPointIndex;
 		pointDelta = 0x00;
-		if ((pPointDescList+i)->flags.on_curve&&(pPointDescList+nextPointIndex)->flags.on_curve&&!pointDelta){
+		if ((pPointDescList+currentPointIndex)->flags.on_curve&&(pPointDescList+nextPointIndex)->flags.on_curve&&!pointDelta){
 			struct uvec2_32 startCoord = {0};
-			startCoord.x = (uint32_t)(roundf((((double)pPointDescList[i].position.x)/((double)glyphBounds.x))*(double)(textureBufferRect.x-0x01)));
-			startCoord.y = (uint32_t)(roundf((((double)pPointDescList[i].position.y)/((double)glyphBounds.y))*(double)(textureBufferRect.y-0x01)));
+			startCoord = pPointDescList[currentPointIndex].position;
 			struct uvec2_32 endCoord = {0};
-			endCoord.x = (uint32_t)(roundf((((double)pPointDescList[nextPointIndex].position.x)/((double)glyphBounds.x))*(double)(textureBufferRect.x-0x01)));
-			endCoord.y = (uint32_t)(roundf((((double)pPointDescList[nextPointIndex].position.y)/((double)glyphBounds.y))*(double)(textureBufferRect.y-0x01)));
+			endCoord = pPointDescList[nextPointIndex].position;
 			struct vec2_32 deltaCoord = {0};
-			deltaCoord.x = (int32_t)endCoord.x-(int32_t)startCoord.x;
-			deltaCoord.y = (int32_t)endCoord.y-(int32_t)startCoord.y;
-			uint64_t deltaPixelCount = absq((int64_t)deltaCoord.x)+absq((int64_t)deltaCoord.y);
+			deltaCoord.x = ((int32_t)endCoord.x)-(int32_t)startCoord.x;
+			deltaCoord.y = ((int32_t)endCoord.y)-(int32_t)endCoord.y;
+			uint64_t deltaPixelCount = (uint64_t)ceilf(sqrtf((double)((absq(deltaCoord.x)*absq(deltaCoord.x))+(absq(deltaCoord.y)*absq(deltaCoord.y)))));
 			for (uint64_t pixelEntry = 0;pixelEntry<deltaPixelCount;pixelEntry++){
 				struct uvec2_32 textureCoord = {0};
-				float lerpRatio = ((float)pixelEntry/(float)deltaPixelCount);
+				double lerpRatio = ((double)(pixelEntry))/(double)(deltaPixelCount);
 				textureCoord = lerpu32(startCoord, endCoord, lerpRatio);
-				uint64_t pixelOffset = ((textureCoord.y)*textureBufferRect.x)+textureCoord.x;
+				uint64_t pixelOffset = (textureCoord.y*textureBufferRect.x)+textureCoord.x;
+				uint8_t pixelIntersection = (*((((int16_t*)pTextureBuffer)+pixelOffset))==0x00) ? 0x01 : 0x00;
 				struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
-				pPixelDesc->pointIndex = i;
-				pPixelDesc->pointCount = 0x02;
-				*(((struct fvec4_32*)pTextureBuffer)+pixelOffset) = foregroundColor;
+				*(uint64_t*)pPixelDesc = 0x00;
+				pPixelDesc->contourIndex = currentContourIndex;
+				pPixelDesc->windingDelta = 0x00;
+				pPixelDesc->nextActivePixelOffset = 0x00;
+				pPixelDesc->windingDelta+=(deltaCoord.y>0x00) ? 1 : -1;
+				if (!pFirstActivePixelDesc)
+					pFirstActivePixelDesc = pPixelDesc;
+				if (pLastActivePixelDesc){
+					pLastActivePixelDesc->nextActivePixelOffset = pixelOffset;
+				}
+				pLastActivePixelDesc = pPixelDesc;
+				*(((int16_t*)pTextureBuffer)+pixelOffset) = 0x00;
 			}
 			pointDelta = 0x01;
 		}
-		if ((pPointDescList+i)->flags.on_curve&&!((pPointDescList+nextPointIndex)->flags.on_curve)&&!pointDelta){
-			printf("bezier curve point descriptor set: %d\r\n", i);
+		if ((pPointDescList+currentPointIndex)->flags.on_curve&&!((pPointDescList+nextPointIndex)->flags.on_curve)&&!pointDelta){
 			uint64_t curvePointCount = 0x00;
 			uint64_t controlPointCount = 0x00;
-			for (uint64_t controlPointIndex = i+0x01;;){
+			for (uint64_t controlPointIndex = currentPointIndex+0x01;;){
 				if ((pPointDescList+controlPointIndex)->flags.on_curve)
 					break;
 				controlPointIndex = (controlPointIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
@@ -425,15 +946,12 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 				controlPointCount++;
 			}
 			curvePointCount = 0x02+controlPointCount;
-			printf("    control point count: %d\r\n", controlPointCount);
-			uint64_t maxCurveCount = (controlPointCount/0x02)+(controlPointCount%0x02);
-			maxCurveCount = controlPointCount;
-			for (uint64_t curveCount = 0x00;curveCount<maxCurveCount;curveCount++){
-				struct uvec2_32 startCoord = {0x00, 0x00};
-				if (!curveCount){
-					startCoord.x = 0x00;
-					startCoord.y = 0x00;
-				}
+		//	printf("    control point count: %d\r\n", controlPointCount);
+			uint64_t maxCurveCount = controlPointCount;
+			for (uint64_t curveCount = 0x00;curveCount<maxCurveCount+0x02;curveCount++){
+				struct uvec2_32 startCoord = {0};
+				startCoord.x = 0x00;
+				startCoord.y = 0x00;
 				struct uvec2_32 controlCoord = {0};
 				controlCoord.x = 0x00;
 				controlCoord.y = 0x00;
@@ -441,26 +959,22 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 				endCoord.x = 0x00;
 				endCoord.y = 0x00;
 				if (controlPointCount==0x01){
-					uint64_t startCoordIndex = i;
+					uint64_t startCoordIndex = currentPointIndex;
 					uint64_t controlCoordIndex = nextPointIndex;
 					uint64_t endCoordIndex = (controlCoordIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
 					endCoordIndex = (!endCoordIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : endCoordIndex;
-					startCoord.x = (uint32_t)((((double)pPointDescList[startCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
-					startCoord.y = (uint32_t)((((double)pPointDescList[startCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
-					controlCoord.x = (uint32_t)((((double)pPointDescList[controlCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
-					controlCoord.y = (uint32_t)((((double)pPointDescList[controlCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
-					endCoord.x = (uint32_t)((((double)pPointDescList[endCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
-					endCoord.y = (uint32_t)((((double)pPointDescList[endCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+					startCoord = pPointDescList[startCoordIndex].position;
+					controlCoord = pPointDescList[controlCoordIndex].position;
+					endCoord = pPointDescList[endCoordIndex].position;
 				}
 				if (controlPointCount!=0x01){
 					static uint64_t controlCoordIndex = 0x00;
-					static struct uvec2_32 nextStartCoord = {0x00, 0x00};
+					static struct uvec2_32 nextStartCoord = {0};
 					if (!curveCount){
 						controlCoordIndex = nextPointIndex;
-						startCoord.x = (uint32_t)((((double)pPointDescList[i].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
-						startCoord.y = (uint32_t)((((double)pPointDescList[i].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
-						nextStartCoord.x = 0x00;
-						nextStartCoord.y = 0x00;
+						startCoord = pPointDescList[currentPointIndex].position;
+						nextStartCoord.x = 0.0;
+						nextStartCoord.y = 0.0;
 					}
 					uint64_t nextControlCoordIndex = (controlCoordIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
 					nextControlCoordIndex = (!nextControlCoordIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : nextControlCoordIndex;
@@ -468,17 +982,15 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 					if (curveCount){
 						startCoord = nextStartCoord;
 					}
-					controlCoord.x = (uint32_t)((((double)pPointDescList[controlCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
-					controlCoord.y = (uint32_t)((((double)pPointDescList[controlCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+					controlCoord = pPointDescList[controlCoordIndex].position;
 					if (controlCoordSingle){
-						endCoord.x = (uint32_t)((((double)pPointDescList[nextControlCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
-						endCoord.y = (uint32_t)((((double)pPointDescList[nextControlCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+						endCoord = pPointDescList[nextControlCoordIndex].position;
 					}
 					if (!controlCoordSingle){
 						uint64_t nextControlCoordIndex = (controlCoordIndex+0x01)%(__builtin_bswap16(pContourEndpointTable[currentContourIndex])+0x01);
 						nextControlCoordIndex = (!nextControlCoordIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : nextControlCoordIndex;
-						endCoord.x = controlCoord.x+(uint32_t)((((double)pPointDescList[nextControlCoordIndex].position.x)/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
-						endCoord.y = controlCoord.y+(uint32_t)((((double)pPointDescList[nextControlCoordIndex].position.y)/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+						endCoord.x = controlCoord.x+pPointDescList[nextControlCoordIndex].position.x;
+						endCoord.y = controlCoord.y+pPointDescList[nextControlCoordIndex].position.y;
 						endCoord.x/=0x02;
 						endCoord.y/=0x02;
 					}
@@ -487,50 +999,79 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, float*
 					nextStartCoord = endCoord;
 				}
 				uint64_t curveSegmentCount = 0x08;
-				for (uint64_t curveSegment = 0x00;curveSegment<curveSegmentCount-0x01;curveSegment++){
-					double curveStep = ((double)curveSegment)/(double)(curveSegmentCount-0x01);
-					double nextCurveStep = ((double)(curveSegment+0x01))/(double)(curveSegmentCount-0x01);
+				for (uint64_t curveSegment = 0x00;curveSegment<curveSegmentCount;curveSegment++){
+					double curveStep = ((double)curveSegment)/(double)(curveSegmentCount);
+					double nextCurveStep = ((double)(curveSegment+0x01))/(double)(curveSegmentCount);
 					struct uvec2_32 segmentStartCoord = {0};
-					segmentStartCoord.x = (uint32_t)((((1.0-curveStep)*(1.0-curveStep))*startCoord.x)+(((2.0*(1.0-curveStep))*curveStep)*controlCoord.x)+((curveStep*curveStep)*endCoord.x));
-					segmentStartCoord.y = (uint32_t)((((1.0-curveStep)*(1.0-curveStep))*startCoord.y)+(((2.0*(1.0-curveStep))*curveStep)*controlCoord.y)+((curveStep*curveStep)*endCoord.y));
+					segmentStartCoord.x = (uint32_t)floorf((((1.0-curveStep)*(1.0-curveStep))*(double)startCoord.x)+(((2.0*(1.0-curveStep))*curveStep)*(double)controlCoord.x)+((curveStep*curveStep)*(double)endCoord.x));
+					segmentStartCoord.y = (uint32_t)floorf((((1.0-curveStep)*(1.0-curveStep))*(double)startCoord.y)+(((2.0*(1.0-curveStep))*curveStep)*(double)controlCoord.y)+((curveStep*curveStep)*(double)endCoord.y));
 					struct uvec2_32 segmentEndCoord = {0};
-					segmentEndCoord.x = (uint32_t)((((1.0-nextCurveStep)*(1.0-nextCurveStep))*startCoord.x)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*controlCoord.x)+((nextCurveStep*nextCurveStep)*endCoord.x));
-					segmentEndCoord.y = (uint32_t)((((1.0-nextCurveStep)*(1.0-nextCurveStep))*startCoord.y)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*controlCoord.y)+((nextCurveStep*nextCurveStep)*endCoord.y));
+					segmentEndCoord.x = (uint32_t)floorf((((1.0-nextCurveStep)*(1.0-nextCurveStep))*(double)startCoord.x)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*(double)controlCoord.x)+((nextCurveStep*nextCurveStep)*(double)endCoord.x));
+					segmentEndCoord.y = (uint32_t)floorf((((1.0-nextCurveStep)*(1.0-nextCurveStep))*(double)startCoord.y)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*(double)controlCoord.y)+((nextCurveStep*nextCurveStep)*(double)endCoord.y));
 					struct vec2_32 deltaCoord = {0};
-					deltaCoord.x = (int32_t)segmentEndCoord.x-(int32_t)segmentStartCoord.x;
-					deltaCoord.y = (int32_t)segmentEndCoord.y-(int32_t)segmentStartCoord.y;
-					uint64_t deltaPixelCount = absq(deltaCoord.x)+absq(deltaCoord.y);
+					deltaCoord.x = ((int32_t)segmentEndCoord.x)-(int32_t)segmentStartCoord.x;
+					deltaCoord.y = ((int32_t)segmentEndCoord.y)-(int32_t)segmentStartCoord.y;
+					uint64_t deltaPixelCount = (uint64_t)ceilf(sqrtf((double)((absq(deltaCoord.x)*absq(deltaCoord.x))+(absq(deltaCoord.y)*absq(deltaCoord.y)))));
 					for (uint64_t pixelEntry = 0x00;pixelEntry<deltaPixelCount;pixelEntry++){
 						struct uvec2_32 textureCoord = {0};
-						float step = ((float)pixelEntry)/(float)deltaPixelCount;
+						double step = ((double)pixelEntry)/(double)(deltaPixelCount);
 						textureCoord = lerpu32(segmentStartCoord, segmentEndCoord, step);
 						uint64_t pixelOffset = (textureCoord.y*textureBufferRect.x)+textureCoord.x;
+						uint8_t pixelIntersection = (*(((int16_t*)pTextureBuffer)+pixelOffset)==0x00) ? 0x01 : 0x00;
 						struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
-						pPixelDesc->pointIndex = i;
-						pPixelDesc->pointCount = curvePointCount;
-						*(((struct fvec4_32*)pTextureBuffer)+pixelOffset) = foregroundColor;
+						*(uint64_t*)pPixelDesc = 0x00;			
+						pPixelDesc->contourIndex = currentContourIndex;
+						pPixelDesc->windingDelta = 0x00;
+						pPixelDesc->nextActivePixelOffset = 0x00;
+						pPixelDesc->windingDelta+=((deltaCoord.y>0x00) ? 1 : -1);
+						if (!pFirstActivePixelDesc)
+							pFirstActivePixelDesc = pPixelDesc;
+						if (pLastActivePixelDesc){
+							pLastActivePixelDesc->nextActivePixelOffset = pixelOffset;
+						}
+						pLastActivePixelDesc = pPixelDesc;
+						*(((int16_t*)pTextureBuffer)+pixelOffset) = 0x00;
 					}
 				}
 			}
 			pointDelta = curvePointCount-0x01;
 		}
 		if (!pointDelta){
-			printf("unexpected true type point %d\r\n", i);
+			printf("unexpected true type point descriptor set: %d\r\n", currentPointIndex);
 			virtualFree((uint64_t)pPointDescList, pointDescListSize);
+			virtualFree((uint64_t)pContourDescList, contourDescListSize);
 			virtualFree((uint64_t)pPixelDescList, pixelDescListSize);
-			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
-	for (uint64_t i = 0;i<textureBufferSize/sizeof(struct fvec4_32);i++){
-		struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+i;
-		if (!pPixelDesc->pointIndex)
-			continue;
-		struct uvec2_32 pixelCoord = {0};
-		pixelCoord.x = i%textureBufferRect.x;
-		pixelCoord.y = i/textureBufferRect.y;
+	uint64_t elapsedTime = get_time_us()-startTime;
+	printf("prefragmentation time: %fms\r\n", ((double)elapsedTime)/(double)1000);
+	for (uint64_t row = 0x00;row<textureBufferRect.y;row++){
+		uint64_t activePixelCount = 0x00;
+		uint64_t inactivePixelCount = 0x00;
+		uint64_t lastInactivePixelCount = 0xFFFFFFFFFFFFFFFF;
+		int16_t winding = 0x00;
+		for (uint64_t column = 0x00;column<textureBufferRect.x;column++){
+			struct uvec2_32 pixelCoord = {0};
+			pixelCoord.x = column;
+			pixelCoord.y = row;
+			uint64_t pixelOffset = (pixelCoord.y*textureBufferRect.x)+pixelCoord.x;
+			struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
+			struct ttf_contour_entry_desc* pContourDesc = pContourDescList+pPixelDesc->contourIndex;
+			if (*(((int16_t*)pTextureBuffer)+pixelOffset)==0x00&&lastInactivePixelCount!=inactivePixelCount){
+				winding+=pPixelDesc->windingDelta;
+				lastInactivePixelCount = inactivePixelCount;
+			}
+			if (*(((int16_t*)pTextureBuffer)+pixelOffset)!=0x00)
+				inactivePixelCount++;
+			if (!winding||0x01){
+				continue;
+			}
+			*(((int16_t*)pTextureBuffer)+pixelOffset) = 0x00;
+		}
 	}
 	virtualFree((uint64_t)pPointDescList, pointDescListSize);
+	virtualFree((uint64_t)pContourDescList, contourDescListSize);
 	virtualFree((uint64_t)pPixelDescList, pixelDescListSize);
 	mutex_unlock(&mutex);
 	return 0;
@@ -715,6 +1256,15 @@ int ttf_font_load(unsigned char* pFontBuffer, uint64_t fontBufferSize, struct te
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	uint64_t bytecodeContextId = 0x00;
+	if (ttf_bytecode_context_init(pFontDesc, PAGE_SIZE*0x04, &bytecodeContextId)!=0){
+		printf("failed to initialize true type bytecode context descriptor\r\n");
+		virtualFree((uint64_t)pGlyphIdMappingTable, glyphIdMappingTableSize);
+		kfree((void*)pFontDesc);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	pFontDesc->bytecodeContextId = bytecodeContextId;
 	pFontDesc->pGlyphIdMappingTable = pGlyphIdMappingTable;
 	pFontDesc->glyphIdMappingTableSize = glyphIdMappingTableSize;
 	mutex_unlock(&mutex);
@@ -734,6 +1284,8 @@ int ttf_font_unload(struct text_subsystem_font_desc* pSubsystemFontDesc){
 	}
 	if (pFontDesc->pGlyphIdMappingTable)
 		virtualFree((uint64_t)pFontDesc->pGlyphIdMappingTable, pFontDesc->glyphIdMappingTableSize);
+	if (pFontDesc->bytecodeContextId)
+		ttf_bytecode_context_deinit(pFontDesc->bytecodeContextId);
 	kfree((void*)pFontDesc);
 	mutex_unlock(&mutex);
 	return 0;
@@ -774,7 +1326,7 @@ int ttf_font_glyph_get_id(struct text_subsystem_font_desc* pSubsystemFontDesc, u
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, float* pTextureBuffer, struct uvec2_32 textureBufferRect){
+int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, int16_t* pTextureBuffer, struct uvec2_32 textureBufferRect){
 	if (!pSubsystemFontDesc||!pTextureBuffer)
 		return -1;
 	static struct mutex_t mutex = {0};

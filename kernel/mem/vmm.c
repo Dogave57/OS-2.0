@@ -15,7 +15,7 @@ int vmm_init(void){
 		return -1;
 	}
 	memset((void*)pml4, 0, PAGE_SIZE);
-	if (virtualMapPage((uint64_t)pml4, (uint64_t)pml4, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 0, 0, PAGE_TYPE_VMM)!=0){
+	if (virtualMapPage((uint64_t)pml4, (uint64_t)pml4, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, 0, PAGE_TYPE_VMM)!=0){
 		printf("failed to map pml4\r\n");
 		return -1;
 	}

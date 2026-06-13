@@ -23,6 +23,9 @@ KAPI uint64_t absq(int64_t value){
 KAPI double floorf(double value){
 	return (double)((int64_t)value);
 }
+KAPI double ceilf(double value){
+	return (double)((int64_t)(value+1.0));
+}
 KAPI double roundf(double value){
 	return (double)floorf(((value-floorf(value))>=0.5) ? value+1.0 : value);
 }

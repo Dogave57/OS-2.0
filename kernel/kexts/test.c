@@ -643,7 +643,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	}
 	unsigned char* pFontBuffer = (unsigned char*)0x00;
 	uint64_t fontBufferSize = fontFileInfo.fileSize;
-	if (virtualAlloc((uint64_t*)&pFontBuffer, fontBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAlloc((uint64_t*)&pFontBuffer, fontBufferSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate physical pages for GPU host controller font physical pages\r\n");
 		fs_close(0x01, fontFileId);
 		return -1;

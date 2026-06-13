@@ -45,6 +45,11 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FORMAT_R16G16B16_UNORM (0x32)
 #define GPU_FORMAT_R16G16B16A16_UNORM (0x33)
 
+#define GPU_FORMAT_R16_SNORM (0x38)
+#define GPU_FORMAT_R16R16_SNORM (0x39)
+#define GPU_FORMAT_R16R16R16_SNORM (0x3A)
+#define GPU_FORMAT_R16R16R16R16_SNORM (0x3B)
+
 #define GPU_FORMAT_R8_UINT (0x70)
 #define GPU_FORMAT_R8G8_UINT (0x71)
 #define GPU_FORMAT_R8G8B8_UINT (0x72)
@@ -79,6 +84,7 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_BIND_COMMAND_ARGS (1<<8)
 #define GPU_BIND_SHADER_BUFFER (1<<14)
 #define GPU_BIND_CURSOR (1<<16)
+#define GPU_BIND_CUSTOM (1<<17)
 #define GPU_BIND_SCANOUT (1<<18)
 
 #define GPU_PRIMITIVE_POINTS (0x00)

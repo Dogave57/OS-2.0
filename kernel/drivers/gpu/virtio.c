@@ -253,7 +253,7 @@ int virtio_gpu_init(void){
 		printf("scanout %d resolution: %d:%d\r\n", i, pScanoutInfo->resolution.width, pScanoutInfo->resolution.height);	
  		uint64_t framebufferSize = pScanoutInfo->resolution.width*pScanoutInfo->resolution.height*sizeof(struct uvec4_8);
 		struct uvec4_8* pFramebuffer = (struct uvec4_8*)0x0;
-		if (virtualAlloc((uint64_t*)&pFramebuffer, framebufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+		if (virtualAlloc((uint64_t*)&pFramebuffer, framebufferSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_MMIO)!=0){
 			printf("failed to allocate physical pages for virtual I/O GPU host controller framebuffer\r\n");
 			continue;
 		}

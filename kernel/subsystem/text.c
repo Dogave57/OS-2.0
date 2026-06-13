@@ -115,18 +115,19 @@ int text_subsystem_init(void){
 	struct uvec2_32 glyphTextureRect = {0};
 	glyphTextureRect.x = 0x20;
 	glyphTextureRect.y = 0x20;
-	glyphTextureRect.x = 0x100;
-	glyphTextureRect.y = 0x100;
+	glyphTextureRect.x = 0x40;
+	glyphTextureRect.y = 0x40;
+	glyphTextureRect.x = 0x200;
+	glyphTextureRect.y = 0x200;
 	struct gpu_create_resource_info createResourceInfo = {0};
 	memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
 	createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
 	createResourceInfo.resourceInfo.contextId = contextId;
-	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32_FLOAT;
-	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32G32B32A32_FLOAT;
+	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R16_SNORM;
 	createResourceInfo.resourceInfo.normal.width = glyphTextureRect.x;
 	createResourceInfo.resourceInfo.normal.height = glyphTextureRect.y;
 	createResourceInfo.resourceInfo.normal.depth = 0x01;
-	createResourceInfo.resourceInfo.normal.arraySize = 0x01;
+	createResourceInfo.resourceInfo.normal.arraySize = 0x00;
 	createResourceInfo.resourceInfo.normal.target = GPU_TARGET_TEXTURE_2D;
 	createResourceInfo.resourceInfo.normal.bind = GPU_BIND_SAMPLER_VIEW|GPU_BIND_RENDER_TARGET;
 	if (gpu_resource_create(pMonitorDesc->gpuId, createResourceInfo, &glyphTextureResourceId)!=0){
@@ -270,7 +271,16 @@ int text_subsystem_init(void){
 		"DCL SVIEW[0], 2D, FLOAT\n"
 		"DCL TEMP[0]\n"
 		"TEX TEMP[0], IN[1], SAMP[0], 2D\n"
-		"MOV OUT[0], TEMP[0]\n"
+		"DCL TEMP[1]\n"
+		"MOV TEMP[1], IN[0]\n"
+		"DCL TEMP[2]\n"
+		"IMM[0] FLT32 {0.0, 0.0, 0.0, 0.0}\n"
+		"IMM[1] FLT32 {1.0, 1.0, 1.0, 0.0}\n"
+		"SLT TEMP[2].x, IMM[0].xxxx, TEMP[0].xxxx\n"
+		"IF TEMP[2].xxxx\n"
+		"  MOV TEMP[1], IMM[1]\n"
+		"ENDIF\n"
+		"MOV OUT[0], TEMP[1]\n"
 		"END\n";
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
@@ -301,9 +311,9 @@ int text_subsystem_init(void){
 	memset((void*)&createSamplerStateObjectInfo, 0, sizeof(struct gpu_create_sampler_state_object_info));
 	struct gpu_sampler_state samplerState = {0};
 	memset((void*)&samplerState, 0, sizeof(struct gpu_sampler_state));
-	samplerState.wrap_s = GPU_TEXTURE_WRAP_CLAMP;
-	samplerState.wrap_t = GPU_TEXTURE_WRAP_CLAMP;
-	samplerState.wrap_r = GPU_TEXTURE_WRAP_CLAMP;
+	samplerState.wrap_s = GPU_TEXTURE_WRAP_CLAMP_TO_EDGE;
+	samplerState.wrap_t = GPU_TEXTURE_WRAP_CLAMP_TO_EDGE;
+	samplerState.wrap_r = GPU_TEXTURE_WRAP_CLAMP_TO_EDGE;
 	samplerState.magImgFilter = GPU_TEXTURE_FILTER_NEAREST;
 	samplerState.minImgFilter = GPU_TEXTURE_FILTER_NEAREST;
 	samplerState.minMipFilter = GPU_TEXTURE_FILTER_NEAREST;
@@ -322,14 +332,13 @@ int text_subsystem_init(void){
 	memset((void*)&createSamplerViewObjectInfo, 0, sizeof(struct gpu_create_sampler_view_object_info));
 	createSamplerViewObjectInfo.header.objectType = GPU_OBJECT_TYPE_SAMPLER_VIEW;
 	createSamplerViewObjectInfo.resourceId = glyphTextureResourceId;
-	createSamplerViewObjectInfo.format = GPU_FORMAT_R32_FLOAT;
-	createSamplerViewObjectInfo.format = GPU_FORMAT_R32G32B32A32_FLOAT;
+	createSamplerViewObjectInfo.format = GPU_FORMAT_R16_SNORM;
 	createSamplerViewObjectInfo.firstLevel = 0x00;
 	createSamplerViewObjectInfo.lastLevel = 0x00;
 	createSamplerViewObjectInfo.swizzle.r = 0x00;
-	createSamplerViewObjectInfo.swizzle.g = 0x01;
-	createSamplerViewObjectInfo.swizzle.b = 0x02;
-	createSamplerViewObjectInfo.swizzle.a = 0x03;
+	createSamplerViewObjectInfo.swizzle.g = 0x00;
+	createSamplerViewObjectInfo.swizzle.b = 0x00;
+	createSamplerViewObjectInfo.swizzle.a = 0x00;
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createSamplerViewObjectInfo, &samplerViewObjectId)!=0){
 		printf("failed to create GPU host controller sampler view object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
@@ -437,8 +446,8 @@ int text_subsystem_deinit(void){
 	}
 	return 0;
 }
-KAPI int text_subsystem_font_driver_register(struct text_subsystem_font_driver_info driverInfo, uint64_t* pFontDriverId){
-	if (!pFontDriverId||!textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc)
+KAPI int text_subsystem_font_driver_register(struct text_subsystem_font_driver_info* pSubsystemFontDriverInfo){
+	if (!pSubsystemFontDriverInfo||!textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -456,8 +465,9 @@ KAPI int text_subsystem_font_driver_register(struct text_subsystem_font_driver_i
 		return -1;
 	}
 	memset((void*)pFontDriverDesc, 0, sizeof(struct text_subsystem_font_driver_desc));
-	pFontDriverDesc->fontDriverId = fontDriverId;
-	pFontDriverDesc->driverInfo = driverInfo;
+	pSubsystemFontDriverInfo->fontDriverId = fontDriverId;
+	pSubsystemFontDriverInfo->maxTextureBufferRect = textSubsystemInfo.accelerationInfo.glyphTextureRect;
+	pFontDriverDesc->driverInfo = *pSubsystemFontDriverInfo;
 	if (!textSubsystemInfo.fontDriverSubsystemInfo.pFirstFontDriverDesc)
 		textSubsystemInfo.fontDriverSubsystemInfo.pFirstFontDriverDesc = pFontDriverDesc;
 	if (textSubsystemInfo.fontDriverSubsystemInfo.pLastFontDriverDesc){
@@ -476,6 +486,11 @@ KAPI int text_subsystem_font_driver_unregister(uint64_t fontDriverId){
 	struct text_subsystem_font_driver_desc* pFontDriverDesc = (struct text_subsystem_font_driver_desc*)0x00;
 	if (subsystem_get_entry(textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc, fontDriverId, (uint64_t*)&pFontDriverDesc)!=0){
 		printf("failed to get text subsystem font driver descriptor entry\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (pFontDriverDesc->driverInfo.vtable.fontDriverDeinit()!=0){
+		printf("failed to deinitialize text subsystem font driver\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -554,7 +569,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	}
 	textSubsystemInfo.fontSubsystemInfo.pLastFontDesc = pFontDesc;
 	uint64_t glyphId = 0x00;
-	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, (uint64_t)'a', &glyphId)!=0){
+	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, (uint64_t)'O', &glyphId)!=0){
 		printf("failed to get glyph ID via font driver\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		kfree((void*)pFontDesc);
@@ -562,13 +577,12 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		return -1;
 	}
 	printf("glyph ID: %d\r\n", glyphId);
-	float* pGlyphTextureBuffer = (float*)0x00;
+	int16_t* pGlyphTextureBuffer = (int16_t*)0x00;
 	struct uvec2_32 glyphTextureBufferRect = {0};
 	glyphTextureBufferRect.x = textSubsystemInfo.accelerationInfo.glyphTextureRect.x;
 	glyphTextureBufferRect.y = textSubsystemInfo.accelerationInfo.glyphTextureRect.y;
-	uint64_t glyphTextureBufferSize = sizeof(float)*glyphTextureBufferRect.x*glyphTextureBufferRect.y;
-	glyphTextureBufferSize = sizeof(struct fvec4_32)*glyphTextureBufferRect.x*glyphTextureBufferRect.y;
-	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+	uint64_t glyphTextureBufferSize = (glyphTextureBufferRect.x*glyphTextureBufferRect.y)*sizeof(int16_t);
+	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_MMIO)!=0){
 		printf("failed to allocate physical pages for glyph texture buffer\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		kfree((void*)pFontDesc);
@@ -580,8 +594,8 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	backgroundColor.y = 1.0f;
 	backgroundColor.z = 1.0f;
 	backgroundColor.w = 1.0f;
-	for (uint64_t i = 0;i<glyphTextureBufferSize/sizeof(struct fvec4_32);i++){
-		*(((struct fvec4_32*)pGlyphTextureBuffer)+i) = backgroundColor;
+	for (uint64_t i = 0;i<glyphTextureBufferSize/sizeof(int16_t);i++){
+		*(((int16_t*)pGlyphTextureBuffer)+i) = 0x7FFF;
 	}
 	if (pFontDriverDesc->driverInfo.vtable.fontGlyphTesselate(pFontDesc, glyphId, pGlyphTextureBuffer, glyphTextureBufferRect)!=0){
 		printf("failed to tesselate font glyph via font driver\r\n");
