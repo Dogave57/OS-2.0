@@ -468,6 +468,8 @@ int gpu_object_unregister(uint64_t gpuId, uint64_t objectId){
 		pObjectDesc->pBlink->pFlink = pObjectDesc->pFlink;
 	if (pObjectDesc->pFlink)
 		pObjectDesc->pFlink->pBlink = pObjectDesc->pBlink;
+	if (pObjectDesc->pExtraInfo)
+		kfree((void*)pObjectDesc);
 	kfree((void*)pObjectDesc);
 	mutex_unlock(&mutex);
 	return 0;
@@ -866,6 +868,73 @@ KAPI int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_r
 	*ppResourceDesc = pResourceDesc;
 	return 0;
 }
+KAPI int gpu_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId){
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x00;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_context_desc* pContextDesc = (struct gpu_context_desc*)0x00;
+	if (gpu_context_get_desc(gpuId, contextId, &pContextDesc)!=0){
+		printf("failed to get GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_object_desc* pShaderObjectDesc = (struct gpu_object_desc*)0x00;
+	if (gpu_object_get_desc(gpuId, objectId, &pShaderObjectDesc)!=0){
+		printf("failed to get GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_shader_object_info* pShaderObjectInfo = (struct gpu_shader_object_info*)pShaderObjectDesc->pExtraInfo;
+	if (!pShaderObjectInfo){
+		printf("GPU host controller shader object descriptor lacks shader object info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	pShaderObjectInfo->currentInstructionOffset = sizeof(uint32_t)+0x01;
+	mutex_unlock(&mutex);
+	return 0;
+}
+KAPI int gpu_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo){
+	if (!pInstructionInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x00;
+	if (gpu_get_desc(gpuId, &pGpuDesc)!=0){
+		printf("failed to get GPU host controller descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_context_desc* pContextDesc = (struct gpu_context_desc*)0x00;
+	if (gpu_context_get_desc(gpuId, contextId, &pContextDesc)!=0){
+		printf("failed to get GPU host controller context descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_object_desc* pShaderObjectDesc = (struct gpu_object_desc*)0x00;
+	if (gpu_object_get_desc(gpuId, objectId, &pShaderObjectDesc)!=0){
+		printf("failed to get GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_shader_object_info* pShaderObjectInfo = (struct gpu_shader_object_info*)pShaderObjectDesc->pExtraInfo;
+	if (!pShaderObjectInfo){
+		printf("GPU host controller shader object descriptor lacks shader object info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_instruction_info instructionInfo = {0};
+	memset((void*)&instructionInfo, 0, sizeof(struct gpu_instruction_info));
+
+	*pInstructionInfo = instructionInfo;
+	mutex_unlock(&mutex);
+	return 0;
+}
 KAPI int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel){
 	if (!pPixel)
 		return -1;
@@ -1058,6 +1127,44 @@ KAPI int gpu_object_create(uint64_t gpuId, uint64_t contextId, struct gpu_create
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	struct gpu_object_desc* pObjectDesc = (struct gpu_object_desc*)0x00;
+	if (gpu_object_get_desc(gpuId, objectId, &pObjectDesc)!=0){
+		printf("failed to get GPU host controller object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	unsigned char* pExtraInfo = (unsigned char*)0x00;
+	switch (objectType){
+		case GPU_OBJECT_TYPE_SHADER:{
+			struct gpu_create_shader_object_info* pCreateShaderObjectInfo = (struct gpu_create_shader_object_info*)pCreateObjectInfo;
+			if (pCreateShaderObjectInfo->languageType==GPU_LANGUAGE_TYPE_GGSL&&*(uint32_t*)pCreateShaderObjectInfo->pShaderCode!=GPU_GGSL_SIGNATURE){
+				printf("invalid GPU host controller GGSL shader language signature\r\n");
+				gpu_object_unregister(gpuId, objectId);
+				mutex_unlock(&mutex);
+				return -1;
+			}
+			struct gpu_shader_object_info* pShaderObjectInfo = (struct gpu_shader_object_info*)kmalloc(sizeof(struct gpu_shader_object_info));
+			if (!pShaderObjectInfo){
+				printf("failed to allocate GPU host controller shader object info descriptor\r\n");
+				gpu_object_unregister(gpuId, objectId);
+				mutex_unlock(&mutex);
+				return -1;
+			}
+			memset((void*)pShaderObjectInfo, 0, sizeof(struct gpu_shader_object_info));
+			pShaderObjectInfo->pShaderCode = pCreateShaderObjectInfo->pShaderCode;
+			pShaderObjectInfo->shaderCodeSize = pCreateShaderObjectInfo->shaderCodeSize;
+			pShaderObjectInfo->shaderType = pCreateShaderObjectInfo->shaderType;
+			pShaderObjectInfo->languageType = pCreateShaderObjectInfo->languageType;
+			pShaderObjectInfo->currentInstructionOffset = sizeof(uint32_t)+0x01;
+			pExtraInfo = (unsigned char*)pShaderObjectInfo;
+			break;			    
+		}
+		default:{
+			
+			break;	
+		}
+	}
+	pObjectDesc->pExtraInfo = pExtraInfo;
 	if (pDriverDesc->vtable.objectCreate(gpuId, contextId, objectId, pCreateObjectInfo)!=0){
 		printf("GPU host controller driver failed to create object with type 0x%x\r\n", objectType);
 		mutex_unlock(&mutex);

@@ -6,7 +6,6 @@
 #include "subsystem/text.h"
 #include "align.h"
 #include "math/basic.h"
-#include "math/trig.h"
 #include "drivers/timer.h"
 #include "drivers/fonts/unicode.h"
 #include "drivers/fonts/macintosh.h"
@@ -439,21 +438,17 @@ int ttf_bytecode_context_op_mdap(struct ttf_bytecode_context_desc* pBytecodeCont
 		return -1;
 	}
 	uint16_t pointIndex = __builtin_bswap16(*pStackData);
-	struct fvec2_64 projectionVector = pBytecodeContextDesc->executionState.projectionVector;
-	struct fvec2_64 freedomVector = pBytecodeContextDesc->executionState.freedomVector;
 	struct ttf_point_entry_desc* pPointDesc = pBytecodeContextDesc->executionState.pExecutionInfo->pPointDescList+pointIndex;
 	printf("---MDAP---\r\n");
 	printf("    MDAP point index: %d\r\n", pointIndex);
 	printf("    MDAP round: %s\r\n", (argument) ? "Yes" : "No");
 	printf("    MDAP projection vector: {%f, %f}\r\n", pBytecodeContextDesc->executionState.projectionVector.x, pBytecodeContextDesc->executionState.projectionVector.y);
 	printf("    MDAP freedom vector: {%f, %f}\r\n", pBytecodeContextDesc->executionState.freedomVector.x, pBytecodeContextDesc->executionState.freedomVector.y);
-	struct fvec2_64 resultCoord = {0};
-	resultCoord.x = 0.0;
-	resultCoord.y = 0.0;
-	printf("original coord: {%f, %f}\r\n", pPointDesc->position.x, pPointDesc->position.y);
-	printf("result coord: {%f, %f}\r\n", resultCoord.x, resultCoord.y);
-	pBytecodeContextDesc->executionState.referencePointList[0] = pointIndex;
-	pBytecodeContextDesc->executionState.referencePointList[1] = pointIndex;
+	float dotProduct = (freedomVector.x*projectionVector.x)+(freedomVector.y*projectionVector.y);
+	struct fvec2_32 deltaVector = pPointDesc->position;
+	deltaVector.x = (deltaVector.x-pPointDesc->position.x)/dotProduct;
+	deltaVector.y = (deltaVector.y-pPointDesc->position.y)/dotProduct;
+	pPointDesc->position = deltaVector;
 	*pStatusCode = statusCode;
 	return 0;
 }
@@ -906,8 +901,8 @@ int ttf_glyf_get_desc(struct ttf_font_desc* pFontDesc, uint32_t glyphId, struct 
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_t* pTextureBuffer, struct uvec2_32 textureBufferRect, uint8_t glyphSpread){
-	if (!pFontDesc||!pTextureBuffer||glyphSpread>127)
+int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, int16_t* pTextureBuffer, struct uvec2_32 textureBufferRect){
+	if (!pFontDesc||!pTextureBuffer)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -933,7 +928,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 	uint64_t cvtTableLength = (uint64_t)__builtin_bswap32(pCvtTableDesc->table_length);
 	uint8_t* pControlProgramBytecode = (uint8_t*)(pFontDesc->pFontBuffer+__builtin_bswap32(pControlProgramTableDesc->table_offset));
 	uint64_t controlProgramBytecodeSize = (uint64_t)__builtin_bswap32(pControlProgramTableDesc->table_length);
-//	printf("control value table length: %d\r\n", cvtTableLength);
+	printf("control value table length: %d\r\n", cvtTableLength);
 	struct ttf_glyf_header* pGlyfHeader = (struct ttf_glyf_header*)0x00;
 	uint32_t glyfDescLength = 0x00;
 	if (ttf_glyf_get_desc(pFontDesc, glyphId, &pGlyfHeader, &glyfDescLength)!=0){
@@ -973,9 +968,9 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 		mutex_unlock(&mutex);
 		return 0;
 	}
-/*	printf("glyph contour count: %d\r\n", contourCount);
+	printf("glyph contour count: %d\r\n", contourCount);
 	printf("glyph point count: %d\r\n", pointCount);
-*/	for (uint64_t i = 0;i<pointCount;i++,pointFlagOffset++){
+	for (uint64_t i = 0;i<pointCount;i++,pointFlagOffset++){
 		struct ttf_glyf_point_flags* pPointFlags = (struct ttf_glyf_point_flags*)(((unsigned char*)pPointFlagsList)+pointFlagOffset);
 		if (!pPointFlags->repeat)
 			continue;
@@ -1029,7 +1024,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 			}
 		}
 		memset((void*)(pPointDescList+i), 0, sizeof(struct ttf_point_entry_desc));
-		pPointDescList[i].position.x = ((((double)(((int64_t)lastCoordEntry)+absq(minX)))/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
+		pPointDescList[i].position.x = (uint32_t)(((int64_t)lastCoordEntry)+absq(minX));
 		pPointDescList[i].flags = *pPointFlags;
 		if (i<pointFlagRepeatFence)
 			continue;
@@ -1080,7 +1075,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 				coordEntryIndex+=0x02;
 			}
 		}
-		pPointDescList[i].position.y = ((((double)(((int64_t)lastCoordEntry)+absq(minY)))/(double)glyphBounds.y)*(double)(textureBufferRect.y-0x01));
+		pPointDescList[i].position.y = (uint32_t)(((int64_t)lastCoordEntry)+absq(minY));
 		pPointDescList[i].flags = *pPointFlags;
 		if (i<pointFlagRepeatFence)
 			continue;
@@ -1124,8 +1119,8 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 	executionInfo.textureRect = textureBufferRect;
 	struct ttf_status_code statusCode = {0};
 	memset((void*)&statusCode, 0, sizeof(struct ttf_status_code));
-//	ttf_bytecode_context_execute(pFontDesc->bytecodeContextId, &executionInfo, &statusCode);
-	if (statusCode.code!=TTF_STATUS_CODE_SUCCESS&&0x00){
+	ttf_bytecode_context_execute(pFontDesc->bytecodeContextId, &executionInfo, &statusCode);
+	if (statusCode.code!=TTF_STATUS_CODE_SUCCESS){
 		const unsigned char* statusCodeName = "Unknown status code";
 		const unsigned char* statusSubCodeName = "Unknown status code";
 		ttf_status_code_get_name(statusCode.code, &statusCodeName);
@@ -1136,37 +1131,19 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 		mutex_unlock(&mutex);
 		return -1;
 	}
-/*	printf("GLYF contour count: %d\r\n", contourCount);
+	printf("GLYF contour count: %d\r\n", contourCount);
 	printf("GLYF point count: %d\r\n", pointCount);
 	printf("GLYF min range: {%d, %d}\r\n", minX, minY);
 	printf("GLYF max range: {%d, %d}\r\n", maxX, maxY);
 	printf("units per em: %d\r\n", unitsPerEm);
-*/	uint64_t textureBufferEntryCount = textureBufferRect.x*textureBufferRect.y;
-	struct ttf_segment_entry_desc* pSegmentDescList = (struct ttf_segment_entry_desc*)0x00;
-	struct uvec2_32 segmentRect = {0};
-	segmentRect.x = (uint32_t)glyphSpread;
-	segmentRect.y = (uint32_t)glyphSpread;
-	struct uvec2_32 segmentCount = {0};
-	segmentCount.x = (textureBufferRect.x/segmentRect.x);
-	segmentCount.y = (textureBufferRect.y/segmentRect.y);
-	uint64_t segmentEntryCount = (segmentCount.x*segmentCount.y);
-	uint64_t segmentDescListSize = segmentEntryCount*sizeof(struct ttf_segment_entry_desc);
-	if (virtualAlloc((uint64_t*)&pSegmentDescList, segmentDescListSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate physical pages for true type glyph segment descriptor list\r\n");
-		virtualFree((uint64_t)pContourDescList, contourDescListSize);
-		virtualFree((uint64_t)pPointDescList, pointDescListSize);
-		virtualFree((uint64_t)pSegmentDescList, segmentDescListSize);
-		mutex_unlock(&mutex);
-		return -1;	
-	}
-	memset((void*)pSegmentDescList, 0, segmentDescListSize);
+	while (1){};
+	uint64_t textureBufferEntryCount = textureBufferRect.x*textureBufferRect.y;
 	struct ttf_pixel_entry_desc* pPixelDescList = (struct ttf_pixel_entry_desc*)0x00;
 	uint64_t pixelDescListSize = (textureBufferRect.x*textureBufferRect.y)*sizeof(struct ttf_pixel_entry_desc);
-	if (virtualAlloc((uint64_t*)&pPixelDescList, pixelDescListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAlloc((uint64_t*)&pPixelDescList, pixelDescListSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate physical pages for true type glyph pixel descriptor list\r\n");
 		virtualFree((uint64_t)pContourDescList, contourDescListSize);
 		virtualFree((uint64_t)pPointDescList, pointDescListSize);
-		virtualFree((uint64_t)pSegmentDescList, segmentDescListSize);
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -1184,7 +1161,6 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 	struct ttf_pixel_entry_desc* pFirstActivePixelDesc = (struct ttf_pixel_entry_desc*)0x00;
 	struct ttf_pixel_entry_desc* pLastActivePixelDesc = (struct ttf_pixel_entry_desc*)0x00;
 	uint64_t currentPointIndex = 0x00;
-	uint64_t activePixelCount = 0x00;
 	uint64_t pointDelta = 0x00;
 	uint64_t startTime = get_time_us();
 	currentContourIndex = 0x00;
@@ -1198,69 +1174,33 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 		nextPointIndex = (!nextPointIndex&&currentContourIndex) ? __builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01 : nextPointIndex;
 		pointDelta = 0x00;
 		if ((pPointDescList+currentPointIndex)->flags.on_curve&&(pPointDescList+nextPointIndex)->flags.on_curve&&!pointDelta){
-			struct fvec2_64 startCoord = {0};
+			struct uvec2_32 startCoord = {0};
 			startCoord = pPointDescList[currentPointIndex].position;
-			struct fvec2_64 endCoord = {0};
+			struct uvec2_32 endCoord = {0};
 			endCoord = pPointDescList[nextPointIndex].position;
-			struct fvec2_64 deltaCoord = {0};
-			deltaCoord.x = endCoord.x-startCoord.x;
-			deltaCoord.y = endCoord.y-startCoord.y;
-			uint64_t deltaPixelCount = (uint64_t)ceilf(sqrtf((double)((absf(deltaCoord.x)*absf(deltaCoord.x))+(absf(deltaCoord.y)*absf(deltaCoord.y)))));
+			struct vec2_32 deltaCoord = {0};
+			deltaCoord.x = ((int32_t)endCoord.x)-(int32_t)startCoord.x;
+			deltaCoord.y = ((int32_t)endCoord.y)-(int32_t)endCoord.y;
+			uint64_t deltaPixelCount = (uint64_t)ceilf(sqrtf((double)((absq(deltaCoord.x)*absq(deltaCoord.x))+(absq(deltaCoord.y)*absq(deltaCoord.y)))));
 			for (uint64_t pixelEntry = 0;pixelEntry<deltaPixelCount;pixelEntry++){
-				struct fvec2_64 textureFloatingCoord = {0};
 				struct uvec2_32 textureCoord = {0};
 				double lerpRatio = ((double)(pixelEntry))/(double)(deltaPixelCount);
-				textureFloatingCoord = lerpf64(startCoord, endCoord, lerpRatio);
-				textureCoord.x = roundf(textureFloatingCoord.x);
-				textureCoord.y = roundf(textureFloatingCoord.y);
-				struct uvec2_32 segmentEntryCoord = {0};
-				segmentEntryCoord.x = textureCoord.x/segmentRect.x;
-				segmentEntryCoord.y = textureCoord.y/segmentRect.y;
+				textureCoord = lerpu32(startCoord, endCoord, lerpRatio);
 				uint64_t pixelOffset = (textureCoord.y*textureBufferRect.x)+textureCoord.x;
-				uint64_t segmentOffset = (segmentEntryCoord.y*segmentCount.x)+segmentEntryCoord.x;
-				uint8_t pixelIntersection = (*((((int8_t*)pTextureBuffer)+pixelOffset))==0x00) ? 0x01 : 0x00;
+				uint8_t pixelIntersection = (*((((int16_t*)pTextureBuffer)+pixelOffset))==0x00) ? 0x01 : 0x00;
 				struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
-				struct ttf_segment_entry_desc* pSegmentDesc = pSegmentDescList+segmentOffset;
-				if (pixelIntersection)
-					continue;
 				*(uint64_t*)pPixelDesc = 0x00;
 				pPixelDesc->contourIndex = currentContourIndex;
 				pPixelDesc->windingDelta = 0x00;
 				pPixelDesc->nextActivePixelOffset = 0x00;
 				pPixelDesc->windingDelta+=(deltaCoord.y>0x00) ? 1 : -1;
-				*(((int8_t*)pTextureBuffer)+pixelOffset) = 0x00;
-				activePixelCount++;
-				struct uvec2_32 segmentCoord = {0};
-				segmentCoord.x = segmentEntryCoord.x*segmentRect.x;
-				segmentCoord.y = segmentEntryCoord.y*segmentRect.y;
-				for (uint64_t i = 0;i<4;i++){
-					if (!pSegmentDesc->cornerPixelList[i]){
-						pSegmentDesc->cornerPixelList[i] = pixelOffset+0x01;
-						continue;
-					}
-					struct uvec2_32 cornerCoord = {0};
-					cornerCoord.x = (!i||i==0x03) ? segmentCoord.x : segmentCoord.x+segmentRect.x-0x01;
-					cornerCoord.y = (!i||i==0x01) ? segmentCoord.y : segmentCoord.y-segmentRect.y+0x01;
-					uint64_t oldPixelOffset = pSegmentDesc->cornerPixelList[i]-0x01;
-					struct ttf_pixel_entry_desc* pOldPixelDesc = pPixelDescList+oldPixelOffset;
-					struct uvec2_32 oldPixelPosition = {0};
-					oldPixelPosition.x = oldPixelOffset%textureBufferRect.x;
-					oldPixelPosition.y = oldPixelOffset/textureBufferRect.x;
-					uint32_t oldMagnitude = distu32(oldPixelPosition, cornerCoord);
-					uint32_t magnitude = distu32(textureCoord, cornerCoord);
-					if (oldMagnitude<magnitude)
-						continue;
-					pSegmentDesc->cornerPixelList[i] = pixelOffset+0x01;
+				if (!pFirstActivePixelDesc)
+					pFirstActivePixelDesc = pPixelDesc;
+				if (pLastActivePixelDesc){
+					pLastActivePixelDesc->nextActivePixelOffset = pixelOffset;
 				}
-				if (!pSegmentDesc->firstActivePixelOffset){
-					pSegmentDesc->firstActivePixelOffset = pixelOffset+0x01;
-				}
-				if (pSegmentDesc->lastActivePixelOffset){
-					struct ttf_pixel_entry_desc* pLastActivePixelDesc = pPixelDescList+pSegmentDesc->lastActivePixelOffset-0x01;
-					pLastActivePixelDesc->nextActivePixelOffset = pixelOffset+0x01;
-				}
-				pSegmentDesc->lastActivePixelOffset = pixelOffset+0x01;
-				pSegmentDesc->activePixelCount++;
+				pLastActivePixelDesc = pPixelDesc;
+				*(((int16_t*)pTextureBuffer)+pixelOffset) = 0x00;
 			}
 			pointDelta = 0x01;
 		}
@@ -1278,15 +1218,15 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 		//	printf("    control point count: %d\r\n", controlPointCount);
 			uint64_t maxCurveCount = controlPointCount;
 			for (uint64_t curveCount = 0x00;curveCount<maxCurveCount+0x02;curveCount++){
-				struct fvec2_64 startCoord = {0};
-				startCoord.x = 0.0;
-				startCoord.y = 0.0;
-				struct fvec2_64 controlCoord = {0};
-				controlCoord.x = 0.0;
-				controlCoord.y = 0.0;
-				struct fvec2_64 endCoord = {0};
-				endCoord.x = 0.0;
-				endCoord.y = 0.0;
+				struct uvec2_32 startCoord = {0};
+				startCoord.x = 0x00;
+				startCoord.y = 0x00;
+				struct uvec2_32 controlCoord = {0};
+				controlCoord.x = 0x00;
+				controlCoord.y = 0x00;
+				struct uvec2_32 endCoord = {0};
+				endCoord.x = 0x00;
+				endCoord.y = 0x00;
 				if (controlPointCount==0x01){
 					uint64_t startCoordIndex = currentPointIndex;
 					uint64_t controlCoordIndex = nextPointIndex;
@@ -1298,7 +1238,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 				}
 				if (controlPointCount!=0x01){
 					static uint64_t controlCoordIndex = 0x00;
-					static struct fvec2_64 nextStartCoord = {0};
+					static struct uvec2_32 nextStartCoord = {0};
 					if (!curveCount){
 						controlCoordIndex = nextPointIndex;
 						startCoord = pPointDescList[currentPointIndex].position;
@@ -1331,71 +1271,35 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 				for (uint64_t curveSegment = 0x00;curveSegment<curveSegmentCount;curveSegment++){
 					double curveStep = ((double)curveSegment)/(double)(curveSegmentCount);
 					double nextCurveStep = ((double)(curveSegment+0x01))/(double)(curveSegmentCount);
-					struct fvec2_64 segmentStartCoord = {0};
-					segmentStartCoord.x = ((((1.0-curveStep)*(1.0-curveStep))*startCoord.x)+(((2.0*(1.0-curveStep))*curveStep)*controlCoord.x)+((curveStep*curveStep)*endCoord.x));
-					segmentStartCoord.y = ((((1.0-curveStep)*(1.0-curveStep))*startCoord.y)+(((2.0*(1.0-curveStep))*curveStep)*controlCoord.y)+((curveStep*curveStep)*endCoord.y));
-					struct fvec2_64 segmentEndCoord = {0};
-					segmentEndCoord.x = ((((1.0-nextCurveStep)*(1.0-nextCurveStep))*startCoord.x)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*controlCoord.x)+((nextCurveStep*nextCurveStep)*endCoord.x));
-					segmentEndCoord.y = ((((1.0-nextCurveStep)*(1.0-nextCurveStep))*startCoord.y)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*controlCoord.y)+((nextCurveStep*nextCurveStep)*endCoord.y));
-					struct fvec2_64 deltaCoord = {0};
-					deltaCoord.x = segmentEndCoord.x-segmentStartCoord.x;
-					deltaCoord.y = segmentEndCoord.y-segmentStartCoord.y;
-					uint64_t deltaPixelCount = (uint64_t)ceilf(sqrtf((double)((absf(deltaCoord.x)*absf(deltaCoord.x))+(absf(deltaCoord.y)*absf(deltaCoord.y)))));
+					struct uvec2_32 segmentStartCoord = {0};
+					segmentStartCoord.x = (uint32_t)floorf((((1.0-curveStep)*(1.0-curveStep))*(double)startCoord.x)+(((2.0*(1.0-curveStep))*curveStep)*(double)controlCoord.x)+((curveStep*curveStep)*(double)endCoord.x));
+					segmentStartCoord.y = (uint32_t)floorf((((1.0-curveStep)*(1.0-curveStep))*(double)startCoord.y)+(((2.0*(1.0-curveStep))*curveStep)*(double)controlCoord.y)+((curveStep*curveStep)*(double)endCoord.y));
+					struct uvec2_32 segmentEndCoord = {0};
+					segmentEndCoord.x = (uint32_t)floorf((((1.0-nextCurveStep)*(1.0-nextCurveStep))*(double)startCoord.x)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*(double)controlCoord.x)+((nextCurveStep*nextCurveStep)*(double)endCoord.x));
+					segmentEndCoord.y = (uint32_t)floorf((((1.0-nextCurveStep)*(1.0-nextCurveStep))*(double)startCoord.y)+(((2.0*(1.0-nextCurveStep))*nextCurveStep)*(double)controlCoord.y)+((nextCurveStep*nextCurveStep)*(double)endCoord.y));
+					struct vec2_32 deltaCoord = {0};
+					deltaCoord.x = ((int32_t)segmentEndCoord.x)-(int32_t)segmentStartCoord.x;
+					deltaCoord.y = ((int32_t)segmentEndCoord.y)-(int32_t)segmentStartCoord.y;
+					uint64_t deltaPixelCount = (uint64_t)ceilf(sqrtf((double)((absq(deltaCoord.x)*absq(deltaCoord.x))+(absq(deltaCoord.y)*absq(deltaCoord.y)))));
 					for (uint64_t pixelEntry = 0x00;pixelEntry<deltaPixelCount;pixelEntry++){
 						struct uvec2_32 textureCoord = {0};
-						struct fvec2_64 textureFloatingCoord = {0};
-						double step = ((double)pixelEntry)/(double)deltaPixelCount;
-						textureFloatingCoord = lerpf64(segmentStartCoord, segmentEndCoord, step);
-						textureCoord.x = (uint32_t)roundf(textureFloatingCoord.x);
-						textureCoord.y = (uint32_t)roundf(textureFloatingCoord.y);
-						struct uvec2_32 segmentEntryCoord = {0};
-						segmentEntryCoord.x = textureCoord.x/segmentRect.x;
-						segmentEntryCoord.y = textureCoord.y/segmentRect.y;
+						double step = ((double)pixelEntry)/(double)(deltaPixelCount);
+						textureCoord = lerpu32(segmentStartCoord, segmentEndCoord, step);
 						uint64_t pixelOffset = (textureCoord.y*textureBufferRect.x)+textureCoord.x;
-						uint64_t segmentOffset = (segmentEntryCoord.y*segmentCount.x)+segmentEntryCoord.x;
-						uint8_t pixelIntersection = (*(((int8_t*)pTextureBuffer)+pixelOffset)==0x00) ? 0x01 : 0x00;
+						uint8_t pixelIntersection = (*(((int16_t*)pTextureBuffer)+pixelOffset)==0x00) ? 0x01 : 0x00;
 						struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
-						struct ttf_segment_entry_desc* pSegmentDesc = pSegmentDescList+segmentOffset;
-						if (pixelIntersection)
-							continue;
 						*(uint64_t*)pPixelDesc = 0x00;			
 						pPixelDesc->contourIndex = currentContourIndex;
 						pPixelDesc->windingDelta = 0x00;
 						pPixelDesc->nextActivePixelOffset = 0x00;
 						pPixelDesc->windingDelta+=((deltaCoord.y>0x00) ? 1 : -1);
-						pSegmentDesc->activePixelCount++;
-						struct uvec2_32 segmentCoord = {0};
-						segmentCoord.x = segmentRect.x*segmentEntryCoord.x;
-						segmentCoord.y = segmentRect.y*segmentEntryCoord.y;
-						*(((int8_t*)pTextureBuffer)+pixelOffset) = 0x00;
-						for (uint64_t i = 0;i<4;i++){
-							if (!pSegmentDesc->cornerPixelList[i]){
-								pSegmentDesc->cornerPixelList[i] = pixelOffset+0x01;
-								continue;
-							}
-							struct uvec2_32 cornerLocation = {0};
-							cornerLocation.x = (!i||i==0x03) ? segmentCoord.x : (segmentCoord.x+segmentRect.x-0x01);
-							cornerLocation.x = (!i||i==0x01) ? segmentCoord.y : (segmentCoord.y-segmentRect.y+0x01);
-							uint64_t oldPixelOffset = pSegmentDesc->cornerPixelList[i]-0x01;
-							struct uvec2_32 oldPixelCoord = {0};
-							oldPixelCoord.x = oldPixelOffset%textureBufferRect.x;
-							oldPixelCoord.y = oldPixelOffset/textureBufferRect.x;
-							struct ttf_pixel_entry_desc* pOldPixelDesc = pPixelDescList+oldPixelOffset;
-							uint32_t oldMagnitude = distu32(oldPixelCoord, cornerLocation);
-							uint32_t magnitude = distu32(textureCoord, cornerLocation);
-							if (oldMagnitude<magnitude)
-								continue;
-							pSegmentDesc->cornerPixelList[i] = pixelOffset+0x01;
+						if (!pFirstActivePixelDesc)
+							pFirstActivePixelDesc = pPixelDesc;
+						if (pLastActivePixelDesc){
+							pLastActivePixelDesc->nextActivePixelOffset = pixelOffset;
 						}
-						if (!pSegmentDesc->firstActivePixelOffset){
-							pSegmentDesc->firstActivePixelOffset = pixelOffset+0x01;
-						}
-						if (pSegmentDesc->lastActivePixelOffset){
-							struct ttf_pixel_entry_desc* pLastActivePixelDesc = pPixelDescList+pSegmentDesc->lastActivePixelOffset-0x01;
-							pLastActivePixelDesc->nextActivePixelOffset = pixelOffset+0x01;
-						}
-						pSegmentDesc->lastActivePixelOffset = pixelOffset+0x01;
-						pSegmentDesc->activePixelCount++;
+						pLastActivePixelDesc = pPixelDesc;
+						*(((int16_t*)pTextureBuffer)+pixelOffset) = 0x00;
 					}
 				}
 			}
@@ -1410,14 +1314,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 		}
 	}
 	uint64_t elapsedTime = get_time_us()-startTime;
-	printf("prefragmentation time: %f\r\n", ((double)elapsedTime)/1000.0);
-	struct vec2_64 vec1 = {0};
-	vec1.x = 64;
-	vec1.y = -40;
-	struct vec2_64 vec2 = {0};
-	vec2.x = -32;
-	vec2.y = -64;
-	startTime = get_time_us();
+	printf("prefragmentation time: %fms\r\n", ((double)elapsedTime)/(double)1000);
 	for (uint64_t row = 0x00;row<textureBufferRect.y;row++){
 		uint64_t activePixelCount = 0x00;
 		uint64_t inactivePixelCount = 0x00;
@@ -1427,88 +1324,23 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 			struct uvec2_32 pixelCoord = {0};
 			pixelCoord.x = column;
 			pixelCoord.y = row;
-			struct uvec2_32 segmentEntryCoord = {0};
-			segmentEntryCoord.x = pixelCoord.x/segmentRect.x;
-			segmentEntryCoord.y = pixelCoord.y/segmentRect.y;
 			uint64_t pixelOffset = (pixelCoord.y*textureBufferRect.x)+pixelCoord.x;
-			uint64_t segmentEntryOffset = (segmentEntryCoord.y*segmentCount.x)+segmentEntryCoord.x;
-			uint64_t physicalAddress = 0x00;
-			if (virtualToPhysical((uint64_t)(pPixelDescList+pixelOffset), (uint64_t*)&physicalAddress)!=0){
-				printf("failed to get true type pixel descriptor list physical page address\r\n");
-				virtualFree((uint64_t)pPointDescList, pointDescListSize);
-				virtualFree((uint64_t)pContourDescList, contourDescListSize);
-				virtualFree((uint64_t)pPixelDescList, pixelDescListSize);
-				return -1;
-			}
-			if (!physicalAddress&&0x00){
-				pixelOffset+=PAGE_SIZE;
-				inactivePixelCount+=PAGE_SIZE;
-				row = pixelOffset/textureBufferRect.x;
-				column = pixelOffset%textureBufferRect.x;
-				if (row>textureBufferRect.y-0x01)
-					break;
-				continue;
-			}
 			struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
-			struct ttf_segment_entry_desc* pSegmentDesc = pSegmentDescList+segmentEntryOffset;
 			struct ttf_contour_entry_desc* pContourDesc = pContourDescList+pPixelDesc->contourIndex;
-			struct uvec2_32 segmentCoord = {0};
-			segmentCoord.x = segmentEntryCoord.x*segmentRect.x;
-			segmentCoord.y = segmentEntryCoord.y*segmentRect.y;
-			if (*(((int8_t*)pTextureBuffer)+pixelOffset)==0x00&&lastInactivePixelCount!=inactivePixelCount){
+			if (*(((int16_t*)pTextureBuffer)+pixelOffset)==0x00&&lastInactivePixelCount!=inactivePixelCount){
 				winding+=pPixelDesc->windingDelta;
 				lastInactivePixelCount = inactivePixelCount;
-				continue;
 			}
-			if (*(((int8_t*)pTextureBuffer)+pixelOffset)<0x00)
+			if (*(((int16_t*)pTextureBuffer)+pixelOffset)!=0x00)
 				inactivePixelCount++;
-			if (*(((int8_t*)pTextureBuffer)+pixelOffset)==0x00)
-				continue;
-			struct ttf_pixel_entry_desc* pNearestActivePixel = (struct ttf_pixel_entry_desc*)0x00;
-			int8_t magnitude = glyphSpread;
-			for (uint64_t i = 0;i<0x09;i++){
-				struct vec2_32 currentCoord = {0};
-				currentCoord.x = (int32_t)((((int64_t)segmentCoord.x)-segmentRect.x)+((i%0x03)*segmentRect.x));
-				currentCoord.y = (int32_t)((((int64_t)segmentCoord.y)-segmentRect.y)+((i/0x03)*segmentRect.y));
-				if (currentCoord.x<0x00||currentCoord.x>(segmentCount.x-0x01)*segmentRect.x)
-					continue;
-				if (currentCoord.y<0x00||currentCoord.y>(segmentCount.y-0x01)*segmentRect.y)
-					continue;
-				struct uvec2_32 currentEntryCoord = {0};
-				currentEntryCoord.x = ((uint32_t)currentCoord.x)/segmentRect.x;
-				currentEntryCoord.y = ((uint32_t)currentCoord.y)/segmentRect.y;
-				uint64_t currentSegmentOffset = (currentEntryCoord.y*segmentCount.x)+currentEntryCoord.x;
-				struct ttf_segment_entry_desc* pCurrentSegmentDesc = pSegmentDescList+currentSegmentOffset;
-				if (!pCurrentSegmentDesc->activePixelCount)
-					continue;
-				struct ttf_pixel_entry_desc* pCurrentPixelDesc = pPixelDescList+pCurrentSegmentDesc->firstActivePixelOffset-0x01;
-				for (uint64_t activePixelIndex = 0x00;activePixelIndex<pCurrentSegmentDesc->activePixelCount;activePixelIndex++){
-					uint64_t currentPixelOffset = (uint64_t)(pCurrentPixelDesc-pPixelDescList);
-					struct uvec2_32 currentPixelCoord = {0};
-					currentPixelCoord.x = currentPixelOffset%textureBufferRect.x;
-					currentPixelCoord.y = currentPixelOffset/textureBufferRect.x;
-					if (currentPixelCoord.x==pixelCoord.x&&currentPixelCoord.y==pixelCoord.y)
-						continue;
-					int32_t currentMagnitude = (int32_t)distu32(currentPixelCoord, pixelCoord);
-					if (currentMagnitude<(int32_t)magnitude)
-						magnitude = (int8_t)currentMagnitude;
-					if (!pCurrentPixelDesc->nextActivePixelOffset)
-						break;
-					pCurrentPixelDesc = pPixelDescList+pCurrentPixelDesc->nextActivePixelOffset-0x01;
-				}
-			}
-			if (!winding){
-				*(((int8_t*)pTextureBuffer)+pixelOffset) = ((int8_t)magnitude)*-1;
+			if (!winding||0x01){
 				continue;
 			}
-			*(((int8_t*)pTextureBuffer)+pixelOffset) = ((int8_t)magnitude);
+			*(((int16_t*)pTextureBuffer)+pixelOffset) = 0x00;
 		}
 	}
-	elapsedTime = get_time_us()-startTime;
-	printf("SDF floating point DWORD generation time: %fms\r\n", ((double)elapsedTime)/1000.0);
 	virtualFree((uint64_t)pPointDescList, pointDescListSize);
 	virtualFree((uint64_t)pContourDescList, contourDescListSize);
-	virtualFree((uint64_t)pSegmentDescList, segmentDescListSize);
 	virtualFree((uint64_t)pPixelDescList, pixelDescListSize);
 	mutex_unlock(&mutex);
 	return 0;
@@ -1796,7 +1628,7 @@ int ttf_font_glyph_get_id(struct text_subsystem_font_desc* pSubsystemFontDesc, u
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, int8_t* pTextureBuffer, struct uvec2_32 textureBufferRect, uint8_t glyphSpread){
+int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, int16_t* pTextureBuffer, struct uvec2_32 textureBufferRect){
 	if (!pSubsystemFontDesc||!pTextureBuffer)
 		return -1;
 	static struct mutex_t mutex = {0};
@@ -1807,7 +1639,7 @@ int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (ttf_glyf_tesselate(pFontDesc, glyphId, pTextureBuffer, textureBufferRect, glyphSpread)!=0){
+	if (ttf_glyf_tesselate(pFontDesc, glyphId, pTextureBuffer, textureBufferRect)!=0){
 		mutex_unlock(&mutex);
 		return -1;
 	}

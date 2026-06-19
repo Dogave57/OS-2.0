@@ -364,6 +364,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
 	createShaderObjectInfo.surfaceObjectId = surfaceObjectId;
 	createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
+	createShaderObjectInfo.languageType = GPU_LANGUAGE_TYPE_TGSI;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)vertexShader;
 	createShaderObjectInfo.shaderCodeSize = sizeof(vertexShader);
 	if (gpu_object_create(gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
@@ -374,6 +375,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 		return -1;
 	}
 	createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
+	createShaderObjectInfo.languageType = GPU_LANGUAGE_TYPE_TGSI;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)fragmentShader;
 	createShaderObjectInfo.shaderCodeSize = sizeof(fragmentShader);
 	if (gpu_object_create(gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &fragmentShaderObjectId)!=0){
@@ -632,7 +634,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	gpu_cmd_context_deinit(gpuId, cmdContextId);
 	uint64_t fontFileId = 0x00;
 	struct fs_file_info fontFileInfo = {0};
-	if (fs_open(0x01, "FONTS/CALIBRI.TTF", 0x00, &fontFileId)!=0){
+	if (fs_open(0x01, "FONTS/UBUNTU.TTF", 0x00, &fontFileId)!=0){
 		printf("failed to open GPU host controller font file\r\n");
 		return -1;
 	}

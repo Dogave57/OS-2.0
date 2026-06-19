@@ -45,6 +45,12 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FORMAT_R16G16B16_UNORM (0x32)
 #define GPU_FORMAT_R16G16B16A16_UNORM (0x33)
 
+#define GPU_FORMAT_R32_SSCALED (0x2C)
+
+#define GPU_FORMAT_R8_SNORM (0x4A)
+#define GPU_FORMAT_R8G8_SNORM (0x4B)
+#define GPU_FORMAT_R8G8B8_SNORM (0x4C)
+#define GPU_FORMAT_R8G8B8A8_SNORM (0x4D)
 #define GPU_FORMAT_R16_SNORM (0x38)
 #define GPU_FORMAT_R16R16_SNORM (0x39)
 #define GPU_FORMAT_R16R16R16_SNORM (0x3A)
@@ -58,6 +64,15 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FORMAT_R16G16_UINT (0x69)
 #define GPU_FORMAT_R16G16B16_UINT (0x6A)
 #define GPU_FORMAT_R16G16B16A16_UINT (0x6B)
+
+#define GPU_FORMAT_R8_SINT (0xB5)
+#define GPU_FORMAT_R8G8_SINT (0xB6)
+#define GPU_FORMAT_R8G8B8_SINT (0xB7)
+#define GPU_FORMAT_R8G8B8A8_SINT (0xB8)
+#define GPU_FORMAT_R16_SINT (0xBD)
+#define GPU_FORMAT_R16G16_SINT (0xBE)
+#define GPU_FORMAT_R16G16B16_SINT (0xBF)
+#define GPU_FORMAT_R16G16B16A16_SINT (0xC0)
 
 #define GPU_FORMAT_R32G32B32A32_FLOAT (31)
 #define GPU_FORMAT_R32G32B32_FLOAT (30)
@@ -206,6 +221,12 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_TYPE_VERTEX (0x00)
 #define GPU_SHADER_TYPE_FRAGMENT (0x01)
 #define GPU_SHADER_TYPE_GEOMETRY (0x02)
+
+#define GPU_LANGUAGE_TYPE_INVALID (0x00)
+#define GPU_LANGUAGE_TYPE_TGSI (0x01)
+#define GPU_LANGUAGE_TYPE_GGSL (0x02)
+
+#define GPU_GGSL_SIGNATURE ((uint32_t)'LSGG')
 
 #define GPU_DEFAULT_CMD_LIST_SIZE (16384)
 #define GPU_MAX_CMD_CONTEXT_COUNT (16384)
@@ -384,10 +405,26 @@ struct gpu_cmd_context_desc{
 	struct gpu_cmd_context_desc* pFlink;
 	struct gpu_cmd_context_desc* pBlink;
 };
+struct gpu_input_instruction_info{
+	uint8_t vectorSize;
+	uint8_t vectorType;
+};
+struct gpu_instruction_info{
+	uint64_t opcode;
+	uint8_t data[64];
+};
+struct gpu_shader_object_info{
+	unsigned char* pShaderCode;
+	uint64_t shaderCodeSize;
+	uint64_t shaderType;
+	uint64_t languageType;
+	uint64_t currentInstructionOffset;
+};
 struct gpu_object_desc{
 	uint64_t objectId;
-	uint64_t extra;
 	uint64_t objectType;
+	uint64_t extra;
+	unsigned char* pExtraInfo;
 	struct gpu_object_desc* pFlink;
 	struct gpu_object_desc* pBlink;
 };
@@ -645,6 +682,7 @@ struct gpu_create_shader_object_info{
 	struct gpu_create_object_info_header header;
 	uint64_t surfaceObjectId;
 	uint64_t shaderType;
+	uint64_t languageType;
 	unsigned char* pShaderCode;
 	uint64_t shaderCodeSize;
 };
@@ -813,6 +851,8 @@ KAPI int gpu_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmd
 int gpu_resource_register(uint64_t gpuId, struct gpu_resource_info resourceInfo, uint64_t* pResourceId);
 int gpu_resource_unregister(uint64_t gpuId, uint64_t resourceId);
 KAPI int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_resource_desc** ppResourceDesc);
+KAPI int gpu_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
+KAPI int gpu_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
 KAPI int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel);
 KAPI int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel);
 KAPI int gpu_sync(uint64_t monitorId, struct uvec4 rect);

@@ -46,8 +46,8 @@ typedef int(*fontDriverFontLoadFunc)(unsigned char* pFontBuffer, uint64_t fontBu
 typedef int(*fontDriverFontUnloadFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc);
 typedef int(*fontDriverFontVerifyFunc)(unsigned char* pFontBuffer, uint64_t fontBufferSize);
 typedef int(*fontDriverFontGlyphGetIdFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId);
-typedef int(*fontDriverFontGlyphTesselateFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, int16_t* pTextureBuffer, struct uvec2_32 textureBufferRect);
-static unsigned char mainfont_data[255][16]={
+typedef int(*fontDriverFontGlyphTesselateFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, int8_t* pTextureBuffer, struct uvec2_32 textureBufferRect, uint8_t glyphSpread);
+static unsigned char mainfont_data[254][16]={
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x00 
         { 0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD, 0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00  },       //0x01 
         { 0x00, 0x00, 0x7E, 0xFF, 0xDB, 0xFF, 0xFF, 0xC3, 0xE7, 0xFF, 0xFF, 0x7E, 0x00, 0x00, 0x00, 0x00  },       //0x02 

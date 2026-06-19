@@ -1013,6 +1013,7 @@ struct virtio_gpu_vertex_buffer_quad{
 struct virtio_gpu_create_shader_info{
 	unsigned char* pShaderCode;
 	uint64_t shaderCodeSize;
+	uint64_t shaderCodeLength;
 	uint64_t tokenCount;
 	struct virtio_gpu_gl_stream_output* pStreamOutputList;
 	uint64_t streamOutputCount;
@@ -1024,9 +1025,14 @@ struct virtio_gpu_surface_object_desc{
 struct virtio_gpu_shader_object_desc{
 	struct virtio_gpu_object_desc* pObjectDesc;
 	struct virtio_gpu_object_desc* pSurfaceObjectDesc;
+	unsigned char* pShaderCode;
+	uint64_t shaderCodeSize;
+	uint64_t shaderCodeLength;
 	uint64_t shaderType;
+	uint64_t languageType;
 };
 struct virtio_gpu_object_desc{
+	uint64_t gpuId;
 	uint64_t objectId;
 	uint8_t objectType;
 	struct virtio_gpu_context_desc* pContextDesc;
