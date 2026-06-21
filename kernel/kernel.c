@@ -19,8 +19,8 @@
 #include "subsystem/subsystem.h"
 #include "subsystem/filesystem.h"
 #include "subsystem/pcie.h"
-#include "subsystem/gpu.h"
 #include "subsystem/text.h"
+#include "subsystem/gpu.h"
 #include "drivers/gpt.h"
 #include "drivers/gpu/virtio.h"
 #include "drivers/filesystem/fat32.h"
@@ -29,6 +29,8 @@
 #include "drivers/usb/xhci.h"
 #include "drivers/dma-device.h"
 #include "drivers/fonts/ttf.h"
+#include "drivers/shaders/tgsi.h"
+#include "drivers/shaders/ggsl.h"
 #include "crypto/guid.h"
 #include "crypto/random.h"
 #include "kexts/loader.h"
@@ -241,6 +243,10 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
+	if (tgsi_driver_init()!=0)
+		printf("failed to initialize GPU host controller TGSI shader driver\r\n");
+	if (ggsl_driver_init()!=0)
+		printf("failed to initialize GPU host controller GGSL shader driver\r\n");
 	if (virtio_gpu_init()!=0){
 		printf("virtual I/O GPU host controller not available\r\n");
 	}

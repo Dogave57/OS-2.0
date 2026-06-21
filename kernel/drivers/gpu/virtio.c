@@ -1,8 +1,9 @@
+#include "cpu/idt.h"
 #include "stdlib/stdlib.h"
-#include "subsystem/subsystem.h"
 #include "mem/vmm.h"
 #include "mem/heap.h"
 #include "crypto/random.h"
+#include "crypto/guid.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
 #include "cpu/port.h"
@@ -20,6 +21,8 @@
 #include "drivers/apic.h"
 #include "drivers/pcie.h"
 #include "drivers/virtio.h"
+#include "drivers/shaders/tgsi.h"
+#include "drivers/shaders/ggsl.h"
 #include "drivers/gpu/virtio.h"
 static struct virtio_gpu_info gpuInfo = {0};
 int virtio_gpu_init(void){
@@ -620,21 +623,27 @@ int virtio_gpu_init(void){
 		"MUL TEMP[0], TEMP[0], IN[0]\n"
 		"MOV OUT[0], TEMP[0]\n"
 		"END\n";
+		static const unsigned char tgsiShaderDriverIdent[16] = TGSI_DRIVER_IDENT;
+		uint64_t tgsiShaderDriverId = 0x00;
+		if (gpu_shader_driver_get_id((unsigned char*)tgsiShaderDriverIdent, &tgsiShaderDriverId)!=0){
+			printf("failed to get GPU host controller TGSI shader driver ID\r\n");
+			gpu_context_delete(gpuId, subsystemContextId);
+			continue;
+		}
 		struct gpu_create_shader_object_info createShaderObjectInfo = {0};
 		memset((void*)&createShaderObjectInfo, 0, sizeof(struct gpu_create_shader_object_info));
 		createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
 		createShaderObjectInfo.surfaceObjectId = surfaceObjectId;
 		createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
-		createShaderObjectInfo.languageType = GPU_LANGUAGE_TYPE_TGSI;
 		createShaderObjectInfo.pShaderCode = (unsigned char*)vertexShaderCode;
 		createShaderObjectInfo.shaderCodeSize = sizeof(vertexShaderCode);
+		createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
 		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
 			printf("failed to create GPU host controller vertex shader object via GPU subsystem\r\n");
 			gpu_context_delete(gpuId, subsystemContextId);
 			continue;
 		}
 		createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
-		createShaderObjectInfo.languageType = GPU_LANGUAGE_TYPE_TGSI;
 		createShaderObjectInfo.pShaderCode = (unsigned char*)fragmentShaderCode;
 		createShaderObjectInfo.shaderCodeSize = sizeof(fragmentShaderCode);
 		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &fragmentShaderObjectId)!=0){
@@ -4522,11 +4531,60 @@ int virtio_gpu_subsystem_blend_state_list_object_create(struct virtio_gpu_contex
 	mutex_unlock(&mutex);
 	return 0;
 }
+int virtio_gpu_subsystem_shader_tgsi_generate(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_object_desc* pObjectDesc, unsigned char** ppTgsiShaderCode, uint64_t* pTgsiShaderCodeSize, uint64_t* pTgsiShaderCodeLength){
+	if (!pContextDesc||!pObjectDesc||!ppTgsiShaderCode||!pTgsiShaderCodeSize||!pTgsiShaderCodeLength)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_shader_object_desc* pShaderObjectDesc = (struct gpu_shader_object_desc*)0x00;
+	if (gpu_object_get_desc(gpuInfo.gpuId, pObjectDesc->objectId, (struct gpu_object_desc**)&pShaderObjectDesc)!=0){
+		printf("failed to get GPU host controller shader object descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_shader_driver_desc* pSubsystemShaderDriverDesc = (struct gpu_shader_driver_desc*)0x00;
+	if (gpu_shader_driver_get_desc(pShaderObjectDesc->shaderDriverId, &pSubsystemShaderDriverDesc)!=0){
+		printf("failed to get GPU host controller shader driver descriptor with ID: %d\r\n", pShaderObjectDesc->shaderDriverId);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	unsigned char* pTgsiShaderCode = (unsigned char*)0x00;
+	uint64_t tgsiShaderCodeSize = MEM_KB*1024;
+	uint64_t tgsiShaderCodeLength = 0x00;
+	if (virtualAlloc((uint64_t*)&pTgsiShaderCode, tgsiShaderCodeSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_MMIO)!=0){
+		printf("failed to allocate physical pages for GPU host controller TGSI shader code\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t instructionCount = 0x00;
+	for (instructionCount = 0x00;;instructionCount++){
+		struct gpu_instruction_info instructionInfo = {0};
+		if (gpu_instruction_get_info(gpuInfo.gpuId, pContextDesc->contextId, pObjectDesc->objectId, &instructionInfo)!=0){
+			printf("failed to get GPU host controller shader instruction info\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		printf("opcode: 0x%x\r\n", instructionInfo.opcode);
+		if (!instructionInfo.opcode)
+			break;
+	}
+	*ppTgsiShaderCode = pTgsiShaderCode;
+	*pTgsiShaderCodeSize = tgsiShaderCodeSize;
+	*pTgsiShaderCodeLength = tgsiShaderCodeLength;
+	mutex_unlock(&mutex);
+	return 0;
+}
 int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_shader_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
 	if (!pContextDesc||!pCreateObjectInfo||!pObjectDesc||!pResponseHeader)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
+	struct gpu_shader_driver_desc* pSubsystemShaderDriverDesc = (struct gpu_shader_driver_desc*)0x00;
+	if (gpu_shader_driver_get_desc(pCreateObjectInfo->shaderDriverId, &pSubsystemShaderDriverDesc)!=0){
+		printf("failed to get GPU host controller shader driver descriptor with ID: %d\r\n", pCreateObjectInfo->shaderDriverId);
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	struct gpu_object_desc* pSubsystemSurfaceObjectDesc = (struct gpu_object_desc*)0x0;
 	if (gpu_object_get_desc(gpuInfo.gpuId, pCreateObjectInfo->surfaceObjectId, &pSubsystemSurfaceObjectDesc)!=0){
 		printf("failed to get GPU host controller object descriptor\r\n");
@@ -4539,42 +4597,15 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	uint64_t shaderLanguage = pCreateObjectInfo->languageType;
 	unsigned char* pShaderCode = pCreateObjectInfo->pShaderCode;
 	uint64_t shaderCodeSize = pCreateObjectInfo->shaderCodeSize;
 	uint64_t shaderCodeLength = shaderCodeSize;
-	if (shaderLanguage==GPU_LANGUAGE_TYPE_INVALID){
-		printf("invalid GPU subsystem shader language type\r\n");
+	static const unsigned char tgsiDriverIdent[16] = TGSI_DRIVER_IDENT;
+	uint64_t nativeShaderLanguage = (guidcmp((unsigned char*)pSubsystemShaderDriverDesc->driverInfo.ident, (unsigned char*)tgsiDriverIdent)==0x00) ? 0x01 : 0x00;
+	if (!nativeShaderLanguage&&virtio_gpu_subsystem_shader_tgsi_generate(pContextDesc, pObjectDesc, &pShaderCode, &shaderCodeSize, &shaderCodeLength)!=0){
+		printf("failed to translate GPU host controller shader language to virtual I/O GPU host controller TGSI shader language\r\n");
 		mutex_unlock(&mutex);
 		return -1;
-	}
-	switch (shaderLanguage){
-		case GPU_LANGUAGE_TYPE_TGSI:{
-			
-			break;		       
-		}
-		default:{
-			printf("GPU subsystem shader language: 0x%x\r\n", shaderLanguage);
-			shaderCodeSize = MEM_KB*1024;
-			shaderCodeLength = 0x00;
-			if (virtualAlloc((uint64_t*)&pShaderCode, shaderCodeSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_MMIO)!=0){
-				printf("failed to allocate physical pages for virtual I/O GPU host controller shader code\r\n");
-				mutex_unlock(&mutex);
-				return -1;
-			}
-			for (uint64_t instruction = 0x00;;instruction++){
-				struct gpu_instruction_info instructionInfo = {0};
-				printf("object ID: %d\r\n", pObjectDesc->objectId);
-				if (gpu_instruction_get_info(pObjectDesc->gpuId, pObjectDesc->pContextDesc->contextId, pObjectDesc->objectId, &instructionInfo)!=0){
-					printf("failed to get GPU host controller shader language instruction info\r\n");
-					virtualFree((uint64_t)pShaderCode, shaderCodeSize);
-					mutex_unlock(&mutex);
-					return -1;
-				}
-				printf("instruction %d opcode: %d\r\n", instruction, instructionInfo.opcode);
-			}
-			break;	
-		}
 	}
 	struct virtio_gpu_create_shader_info createShaderInfo = {0};
 	memset((void*)&createShaderInfo, 0, sizeof(struct virtio_gpu_create_shader_info));
@@ -4583,9 +4614,10 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 	createShaderInfo.shaderCodeLength = shaderCodeLength;
 	createShaderInfo.tokenCount = pCreateObjectInfo->shaderCodeSize;
 	createShaderInfo.shaderType = pCreateObjectInfo->shaderType;
+	while (!nativeShaderLanguage){};
 	if (virtio_gpu_gl_create_shader_object(pSurfaceObjectDesc, createShaderInfo, pObjectDesc, pResponseHeader)!=0){
 		printf("failed to create virtual I/O GPU host controller shader object\r\n");
-		if (shaderCodeLength!=shaderCodeSize)
+		if (!nativeShaderLanguage)
 			virtualFree((uint64_t)pShaderCode, shaderCodeSize);
 		mutex_unlock(&mutex);
 		return -1;

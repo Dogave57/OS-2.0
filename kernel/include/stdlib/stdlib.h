@@ -11,6 +11,7 @@ KAPI int memset_16(uint16_t* mem, uint16_t value, uint64_t size);
 KAPI int memset_32(uint32_t* mem, uint32_t value, uint64_t size);
 KAPI int memset_64(uint64_t* mem, uint64_t value, uint64_t size);
 KAPI unsigned char toUpper(unsigned char ch);
+KAPI unsigned char toLower(unsigned char ch);
 KAPI int strcpy(unsigned char* dest, unsigned char* src);
 KAPI int strcmp(unsigned char* str1, unsigned char* str2);
 KAPI int memcpy_align64(uint64_t* dest, uint64_t* src, uint64_t qwords);

@@ -12,6 +12,8 @@
 #include "drivers/serial.h"
 #include "drivers/keyboard.h"
 #include "drivers/timer.h"
+#include "drivers/shaders/tgsi.h"
+#include "drivers/shaders/ggsl.h"
 #include "kexts/test.h"
 __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	uint64_t time_us = get_time_us();
@@ -359,14 +361,23 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	"END\n";
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
+	static const unsigned char tgsiShaderDriverIdent[16] = TGSI_DRIVER_IDENT;
+	uint64_t tgsiShaderDriverId = 0x00;
+	if (gpu_shader_driver_get_id((unsigned char*)tgsiShaderDriverIdent, &tgsiShaderDriverId)!=0){
+		printf("failed to get GPU host controller TGSI shader driver ID\r\n");
+		virtualFree((uint64_t)pVertexBuffer, vertexBufferSize);
+		virtualFree((uint64_t)pTextureBuffer, textureBufferSize);
+		gpu_cmd_context_deinit(gpuId, cmdContextId);
+		return -1;
+	}
 	struct gpu_create_shader_object_info createShaderObjectInfo = {0};
 	memset((void*)&createShaderObjectInfo, 0, sizeof(struct gpu_create_shader_object_info));
 	createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
 	createShaderObjectInfo.surfaceObjectId = surfaceObjectId;
 	createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
-	createShaderObjectInfo.languageType = GPU_LANGUAGE_TYPE_TGSI;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)vertexShader;
 	createShaderObjectInfo.shaderCodeSize = sizeof(vertexShader);
+	createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
 	if (gpu_object_create(gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
 		printf("failed to create GPU host controller vertex shader object\r\n");
 		virtualFree((uint64_t)pVertexBuffer, vertexBufferSize);
@@ -375,7 +386,6 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 		return -1;
 	}
 	createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
-	createShaderObjectInfo.languageType = GPU_LANGUAGE_TYPE_TGSI;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)fragmentShader;
 	createShaderObjectInfo.shaderCodeSize = sizeof(fragmentShader);
 	if (gpu_object_create(gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &fragmentShaderObjectId)!=0){

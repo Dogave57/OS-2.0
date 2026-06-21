@@ -1177,10 +1177,6 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 	float fontWidth = 0.01f;
 	pointFlagsIndex = 0x00;
 	pointFlagRepeatFence = 0x00;
-	struct fvec4_32 foregroundColor = {0};
-	foregroundColor.y = 0.0f;
-	foregroundColor.z = 1.0f;
-	foregroundColor.w = 1.0f;
 	struct ttf_pixel_entry_desc* pFirstActivePixelDesc = (struct ttf_pixel_entry_desc*)0x00;
 	struct ttf_pixel_entry_desc* pLastActivePixelDesc = (struct ttf_pixel_entry_desc*)0x00;
 	uint64_t currentPointIndex = 0x00;

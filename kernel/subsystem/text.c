@@ -11,6 +11,8 @@
 #include "drivers/timer.h"
 #include "drivers/filesystem.h"
 #include "drivers/serial.h"
+#include "drivers/shaders/tgsi.h"
+#include "drivers/shaders/ggsl.h"
 #include "subsystem/text.h"
 unsigned int char_position = 0;
 struct uvec4_8 text_fg = {255,255,255,255};
@@ -305,27 +307,41 @@ int text_subsystem_init(void){
 		"END\n";
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
+	uint64_t tgsiShaderDriverId = 0x00;
+	uint64_t ggslShaderDriverId = 0x00;
+	static const unsigned char tgsiDriverIdent[16] = TGSI_DRIVER_IDENT;
+	static const unsigned char ggslDriverIdent[16] = GGSL_DRIVER_IDENT;
+	if (gpu_shader_driver_get_id((unsigned char*)tgsiDriverIdent, &tgsiShaderDriverId)!=0){
+		printf("failed to get GPU host controller TGSI shader driver ID\r\n");
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;
+	}
+	if (gpu_shader_driver_get_id((unsigned char*)ggslDriverIdent, &ggslShaderDriverId)!=0){
+		printf("failed to get GPU host controller GGSL shader driver ID\r\n");
+		subsystem_deinit(pFontDriverSubsystemDesc);
+		subsystem_deinit(pFontSubsystemDesc);
+		return -1;
+	}
 	struct gpu_create_shader_object_info createShaderObjectInfo = {0};
 	memset((void*)&createShaderObjectInfo, 0, sizeof(struct gpu_create_shader_object_info));
 	createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
 	createShaderObjectInfo.surfaceObjectId = surfaceObjectId;
 	createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
-	createShaderObjectInfo.languageType = GPU_LANGUAGE_TYPE_TGSI;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)vertexShaderCode;
 	createShaderObjectInfo.shaderCodeSize = sizeof(vertexShaderCode);
-/*	createShaderObjectInfo.languageType = GPU_LANGUAGE_TYPE_GGSL;
+	createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
+/*	createShaderObjectInfo.shaderDriverId = ggslShaderDriverId;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)testVertexShaderCode;
-	createShaderObjectInfo.shaderCodeSize = sizeof(testVertexShaderCode);
-*/	
-	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
+	createShaderObjectInfo.shaderCodeSize = sizeof(testVertexShaderCode);	
+*/	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
 		printf("failed to create GPU host controller vertex shader object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
-	printf("done with creation of GPU host controller shader object\r\n");
+	createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
 	createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
-	createShaderObjectInfo.languageType = GPU_LANGUAGE_TYPE_TGSI;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)fragmentShaderCode;
 	createShaderObjectInfo.shaderCodeSize = sizeof(fragmentShaderCode);
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &fragmentShaderObjectId)!=0){

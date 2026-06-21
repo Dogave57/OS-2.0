@@ -2,6 +2,7 @@
 #define _SUBSYSTEM_GPU
 #include "kernel_include.h"
 #include "math/vector.h"
+struct gpu_instruction_info;
 struct gpu_create_object_info;
 struct gpu_create_resource_info;
 struct gpu_create_resource_blob_info;
@@ -9,6 +10,7 @@ struct gpu_rect;
 struct gpu_transfer_to_device_info;
 struct gpu_transfer_from_device_info;
 struct gpu_cmd_info_header;
+struct gpu_create_shader_object_info;
 typedef int(*gpuReadPixelFunc)(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel);
 typedef int(*gpuWritePixelFunc)(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel);
 typedef int(*gpuSyncFunc)(uint64_t monitorId, struct uvec4 rect);
@@ -32,6 +34,12 @@ typedef int(*gpuResourceAttachBackingFunc)(uint64_t gpuId, uint64_t resourceId, 
 typedef int(*gpuResourceFlushFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_rect rect);
 typedef int(*gpuTransferToDeviceFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_to_device_info transferToDeviceInfo);
 typedef int(*gpuTransferFromDeviceFunc)(uint64_t gpuId, uint64_t resourceId, struct gpu_transfer_from_device_info transferFromDeviceInfo);
+typedef int(*gpuShaderDriverInitFunc)(uint64_t driverId);
+typedef int(*gpuShaderDriverDeinitFunc)(uint64_t driverId);
+typedef int(*gpuShaderDriverShaderInitFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_create_shader_object_info* pCreateObjectInfo);
+typedef int(*gpuShaderDriverShaderDeinitFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
+typedef int(*gpuShaderDriverInstructionListResetFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
+typedef int(*gpuShaderDriverInstructionGetInfoFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
 typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FORMAT_INVALID (0)
 #define GPU_FORMAT_B8G8R8A8_UNORM (1)
@@ -222,11 +230,13 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_TYPE_FRAGMENT (0x01)
 #define GPU_SHADER_TYPE_GEOMETRY (0x02)
 
-#define GPU_LANGUAGE_TYPE_INVALID (0x00)
-#define GPU_LANGUAGE_TYPE_TGSI (0x01)
-#define GPU_LANGUAGE_TYPE_GGSL (0x02)
+#define GPU_SHADER_OPCODE_INVALID (0x00)
+#define GPU_SHADER_OPCODE_DECLARE (0x01)
 
-#define GPU_GGSL_SIGNATURE ((uint32_t)'LSGG')
+#define GPU_SHADER_DECLARE_TYPE_INVALID (0x00)
+#define GPU_SHADER_DECLARE_TYPE_INPUT (0x01)
+#define GPU_SHADER_DECLARE_TYPE_OUTPUT (0x02)
+#define GPU_SHADER_DECLARE_TYPE_TEMP (0x03)
 
 #define GPU_DEFAULT_CMD_LIST_SIZE (16384)
 #define GPU_MAX_CMD_CONTEXT_COUNT (16384)
@@ -260,32 +270,6 @@ struct gpu_swizzle{
 	uint32_t a:3;
 	uint32_t padding0:20;
 }__attribute__((packed));
-struct gpu_driver_vtable{
-	gpuReadPixelFunc readPixel;
-	gpuWritePixelFunc writePixel;
-	gpuSyncFunc sync;
-	gpuCommitFunc commit;
-	gpuPushFunc push;
-	gpuSetScanoutFunc setScanout;
-	gpuCreateObjectFunc objectCreate;
-	gpuDeleteObjectFunc objectDelete;
-	gpuBindObjectFunc objectBind;
-	gpuCmdContextInitFunc cmdContextInit;
-	gpuCmdContextDeinitFunc cmdContextDeinit;
-	gpuCmdContextResetFunc cmdContextReset;
-	gpuCmdContextPushCmdFunc cmdContextPushCmd;
-	gpuCmdContextSubmitFunc cmdContextSubmit;
-	gpuCreateContextFunc contextCreate;
-	gpuDeleteContextFunc contextDelete;
-	gpuContextAttachResourceFunc contextAttachResource;
-	gpuCreateResourceFunc resourceCreate;
-	gpuDeleteResourceFunc resourceDelete;
-	gpuResourceAttachBackingFunc resourceAttachBacking;
-	gpuResourceFlushFunc resourceFlush;
-	gpuTransferToDeviceFunc transferToDevice;
-	gpuTransferFromDeviceFunc transferFromDevice;
-	gpuPanicFunc panic;
-};
 struct gpu_cmd_info_header{
 	uint64_t commandType;
 	unsigned char commandData[];
@@ -412,21 +396,33 @@ struct gpu_input_instruction_info{
 struct gpu_instruction_info{
 	uint64_t opcode;
 	uint8_t data[64];
-};
-struct gpu_shader_object_info{
-	unsigned char* pShaderCode;
-	uint64_t shaderCodeSize;
-	uint64_t shaderType;
-	uint64_t languageType;
-	uint64_t currentInstructionOffset;
-};
+}__attribute__((packed));
+struct gpu_instruction_info_dcl{
+	uint64_t opcode;
+	uint64_t declareType;
+	uint64_t format;
+	uint64_t identOffset;
+	uint64_t identLength;
+	uint8_t reserved0[32];
+}__attribute__((packed));
 struct gpu_object_desc{
 	uint64_t objectId;
 	uint64_t objectType;
 	uint64_t extra;
-	unsigned char* pExtraInfo;
+	uint64_t shaderDriverExtra;
 	struct gpu_object_desc* pFlink;
 	struct gpu_object_desc* pBlink;
+	uint8_t reserved0[16];
+};
+struct gpu_shader_object_desc{
+	uint64_t objectId;
+	uint64_t objectType;
+	uint64_t extra;
+	uint64_t shaderDriverExtra;
+	struct gpu_object_desc* pFlink;
+	struct gpu_object_desc* poBlink;
+	uint64_t shaderDriverId;
+	uint8_t reserved0[8];
 };
 struct gpu_context_desc{
 	uint64_t contextId;
@@ -680,9 +676,9 @@ struct gpu_create_blend_state_list_object_info{
 }__attribute__((packed));
 struct gpu_create_shader_object_info{
 	struct gpu_create_object_info_header header;
+	uint64_t shaderDriverId;
 	uint64_t surfaceObjectId;
 	uint64_t shaderType;
-	uint64_t languageType;
 	unsigned char* pShaderCode;
 	uint64_t shaderCodeSize;
 };
@@ -747,16 +743,73 @@ struct gpu_resource_blob_subsystem_info{
 	struct gpu_resource_blob_desc* pFirstResourceBlobDesc;
 	struct gpu_resource_blob_desc* pLastResourceBlobDesc;
 };
-struct gpu_driver_features{
-	uint64_t acceleration:1;
-	uint64_t reserved0:63;
+struct gpu_driver_vtable{
+	gpuReadPixelFunc readPixel;
+	gpuWritePixelFunc writePixel;
+	gpuSyncFunc sync;
+	gpuCommitFunc commit;
+	gpuPushFunc push;
+	gpuSetScanoutFunc setScanout;
+	gpuCreateObjectFunc objectCreate;
+	gpuDeleteObjectFunc objectDelete;
+	gpuBindObjectFunc objectBind;
+	gpuCmdContextInitFunc cmdContextInit;
+	gpuCmdContextDeinitFunc cmdContextDeinit;
+	gpuCmdContextResetFunc cmdContextReset;
+	gpuCmdContextPushCmdFunc cmdContextPushCmd;
+	gpuCmdContextSubmitFunc cmdContextSubmit;
+	gpuCreateContextFunc contextCreate;
+	gpuDeleteContextFunc contextDelete;
+	gpuContextAttachResourceFunc contextAttachResource;
+	gpuCreateResourceFunc resourceCreate;
+	gpuDeleteResourceFunc resourceDelete;
+	gpuResourceAttachBackingFunc resourceAttachBacking;
+	gpuResourceFlushFunc resourceFlush;
+	gpuTransferToDeviceFunc transferToDevice;
+	gpuTransferFromDeviceFunc transferFromDevice;
+	gpuPanicFunc panic;
 };
-struct gpu_features{
+struct gpu_driver_features{
 	uint64_t acceleration:1;
 	uint64_t reserved0:63;
 };
 struct gpu_driver_info{
 	struct gpu_driver_features features;
+};
+struct gpu_driver_desc{
+	struct gpu_driver_vtable vtable;
+	struct gpu_driver_info driverInfo;
+	uint64_t driverId;
+	uint64_t extra;
+	struct gpu_driver_desc* pFlink;
+	struct gpu_driver_desc* pBlink;
+};
+struct gpu_shader_driver_vtable{
+	gpuShaderDriverInitFunc driverInit;
+	gpuShaderDriverDeinitFunc driverDeinit;
+	gpuShaderDriverShaderInitFunc shaderInit;
+	gpuShaderDriverShaderDeinitFunc shaderDeinit;
+	gpuShaderDriverInstructionListResetFunc instructionListReset;
+	gpuShaderDriverInstructionGetInfoFunc instructionGetInfo;
+};
+struct gpu_shader_driver_features{
+	uint64_t reserved0;
+};
+struct gpu_shader_driver_info{
+	unsigned char ident[16];
+	struct gpu_shader_driver_features features;
+};
+struct gpu_shader_driver_desc{
+	struct gpu_shader_driver_vtable vtable;
+	struct gpu_shader_driver_info driverInfo;
+	uint64_t driverId;
+	uint64_t extra;
+	struct gpu_shader_driver_desc* pFlink;
+	struct gpu_shader_driver_desc* pBlink;
+};
+struct gpu_features{
+	uint64_t acceleration:1;
+	uint64_t reserved0:63;
 };
 struct gpu_info{
 	uint64_t maxMonitorCount;
@@ -768,14 +821,6 @@ struct gpu_monitor_info{
 	uint64_t framebufferResourceId;
 	uint64_t framebufferSurfaceObjectId;
 	volatile struct uvec4_8* pFramebuffer;
-};
-struct gpu_driver_desc{
-	struct gpu_driver_vtable vtable;
-	struct gpu_driver_info driverInfo;
-	uint64_t driverId;
-	uint64_t extra;
-	struct gpu_driver_desc* pFlink;
-	struct gpu_driver_desc* pBlink;
 };
 struct gpu_desc{
 	uint64_t driverId;
@@ -806,6 +851,11 @@ struct gpu_driver_subsystem_info{
 	struct gpu_driver_desc* pFirstDriverDesc;
 	struct gpu_driver_desc* pLastDriverDesc;
 };
+struct gpu_shader_driver_subsystem_info{
+	struct subsystem_desc* pSubsystemDesc;
+	struct gpu_shader_driver_desc* pFirstDriverDesc;
+	struct gpu_shader_driver_desc* pLastDriverDesc;
+};
 struct gpu_subsystem_info{
 	struct subsystem_desc* pSubsystemDesc;
 	struct gpu_desc* pFirstGpuDesc;
@@ -826,6 +876,10 @@ KAPI int gpu_driver_register(struct gpu_driver_vtable vtable, struct gpu_driver_
 KAPI int gpu_driver_unregister(uint64_t driverId);
 KAPI int gpu_driver_get_desc(uint64_t driverId, struct gpu_driver_desc** ppDriverDesc);
 KAPI int gpu_driver_get_first_desc(struct gpu_driver_desc** ppDriverDesc);
+KAPI int gpu_shader_driver_register(struct gpu_shader_driver_vtable vtable, struct gpu_shader_driver_info driverInfo, uint64_t* pDriverId);
+KAPI int gpu_shader_driver_unregister(uint64_t driverId);
+KAPI int gpu_shader_driver_get_desc(uint64_t driverId, struct gpu_shader_driver_desc** ppDriverDesc);
+KAPI int gpu_shader_driver_get_id(unsigned char* pIdent, uint64_t* pDriverId);
 KAPI int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpuId);
 KAPI int gpu_unregister(uint64_t gpuId);
 KAPI int gpu_get_desc(uint64_t gpuId, struct gpu_desc** ppGpuDesc);
@@ -851,7 +905,11 @@ KAPI int gpu_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmd
 int gpu_resource_register(uint64_t gpuId, struct gpu_resource_info resourceInfo, uint64_t* pResourceId);
 int gpu_resource_unregister(uint64_t gpuId, uint64_t resourceId);
 KAPI int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_resource_desc** ppResourceDesc);
+KAPI int gpu_tgsi_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
+KAPI int gpu_ggsl_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
 KAPI int gpu_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
+KAPI int gpu_instruction_tgsi_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
+KAPI int gpu_instruction_ggsl_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
 KAPI int gpu_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
 KAPI int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel);
 KAPI int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel);

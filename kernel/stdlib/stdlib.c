@@ -249,7 +249,7 @@ KAPI int memset_64(uint64_t* mem, uint64_t value, uint64_t size){
 }
 KAPI unsigned char toUpper(unsigned char ch){
 	unsigned char upper = ch;
-	static const unsigned char mapping[255]={
+	static const unsigned char mapping[256]={
 		['`'] = '~',
 		['1'] = '!',
 		['2'] = '@',
@@ -276,7 +276,42 @@ KAPI unsigned char toUpper(unsigned char ch){
 	};
 	if (upper>='a'&&upper<='z')
 		return 'A'+(upper-'a');
+	if (upper>='A'&&upper<'Z')
+		return upper;
 	return mapping[upper];
+}
+KAPI unsigned char toLower(unsigned char ch){
+	unsigned char lower = ch;
+	static const unsigned char mapping[256]={
+		['~']='`',
+		['!']='1',
+		['@']='2',
+		['#']='3',
+		['$']='4',
+		['%']='5',
+		['^']='6',
+		['&']='7',
+		['*']='8',
+		['(']='9',
+		[')']='0',
+		['<']=',',
+		['>']='.',
+		[';']=':',
+		['\"']='\'',
+		['{']='[',
+		['}']=']',
+		['|']='\\',
+		['+']='=',
+		['_']='-',
+		['\b']='\b',
+		['\t']='\t',
+		['\n']='\n'
+	};
+	if (lower>='A'&&lower<='Z')
+		return 'a'+(lower-'A');
+	if (lower>='a'&&lower<='z')
+		return lower;
+	return mapping[lower];
 }
 KAPI int strcpy(unsigned char* dest, unsigned char* src){
 	if (!dest||!src)
