@@ -21,5 +21,5 @@ int tgsi_driver_subsystem_driver_deinit(uint64_t driverId);
 int tgsi_driver_subsystem_shader_init(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_create_shader_object_info* pCreateObjectInfo);
 int tgsi_driver_subsystem_shader_deinit(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
 int tgsi_driver_subsystem_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
-int tgsi_driver_subsystem_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
+int tgsi_driver_subsystem_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_get_instruction_info* pGetInstructionInfo);
 #endif

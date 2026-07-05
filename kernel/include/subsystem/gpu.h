@@ -11,6 +11,7 @@ struct gpu_transfer_to_device_info;
 struct gpu_transfer_from_device_info;
 struct gpu_cmd_info_header;
 struct gpu_create_shader_object_info;
+struct gpu_get_instruction_info;
 typedef int(*gpuReadPixelFunc)(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel);
 typedef int(*gpuWritePixelFunc)(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel);
 typedef int(*gpuSyncFunc)(uint64_t monitorId, struct uvec4 rect);
@@ -39,7 +40,7 @@ typedef int(*gpuShaderDriverDeinitFunc)(uint64_t driverId);
 typedef int(*gpuShaderDriverShaderInitFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_create_shader_object_info* pCreateObjectInfo);
 typedef int(*gpuShaderDriverShaderDeinitFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
 typedef int(*gpuShaderDriverInstructionListResetFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
-typedef int(*gpuShaderDriverInstructionGetInfoFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
+typedef int(*gpuShaderDriverInstructionGetInfoFunc)(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_get_instruction_info* pGetInstructionInfo);
 typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FORMAT_INVALID (0)
 #define GPU_FORMAT_B8G8R8A8_UNORM (1)
@@ -72,6 +73,10 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FORMAT_R16G16_UINT (0x69)
 #define GPU_FORMAT_R16G16B16_UINT (0x6A)
 #define GPU_FORMAT_R16G16B16A16_UINT (0x6B)
+#define GPU_FORMAT_R32_UINT (0x6C)
+#define GPU_FORMAT_R32G32_UINT (0x6D)
+#define GPU_FORMAT_R32G32B32_UINT (0x6E)
+#define GPU_FORMAT_R32G32B32A32_UINT (0x6F)
 
 #define GPU_FORMAT_R8_SINT (0xB5)
 #define GPU_FORMAT_R8G8_SINT (0xB6)
@@ -81,6 +86,10 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_FORMAT_R16G16_SINT (0xBE)
 #define GPU_FORMAT_R16G16B16_SINT (0xBF)
 #define GPU_FORMAT_R16G16B16A16_SINT (0xC0)
+#define GPU_FORMAT_R32_SINT (0xC5)
+#define GPU_FORMAT_R32G32_SINT (0xC6)
+#define GPU_FORMAT_R32G32B32_SINT (0xC7)
+#define GPU_FORMAT_R32G32B32A32_SINT (0xC8)
 
 #define GPU_FORMAT_R32G32B32A32_FLOAT (31)
 #define GPU_FORMAT_R32G32B32_FLOAT (30)
@@ -125,6 +134,14 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_POLYGON_MODE_LINE (0x01)
 #define GPU_POLYGON_MODE_POINT (0x02)
 #define GPU_POLYGON_MODE_FILL_RECT (0x03)
+
+#define GPU_SWIZZLE_INVALID (0x00)
+#define GPU_SWIZZLE_RED (0x01)
+#define GPU_SWIZZLE_GREEN (0x02)
+#define GPU_SWIZZLE_BLUE (0x03)
+#define GPU_SWIZZLE_ALPHA (0x04)
+#define GPU_SWIZZLE_ZERO (0x05)
+#define GPU_SWIZZLE_ONE (0x06)
 
 #define GPU_FACE_NONE (0x00)
 #define GPU_FACE_FRONT (0x01)
@@ -232,11 +249,27 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 
 #define GPU_SHADER_OPCODE_INVALID (0x00)
 #define GPU_SHADER_OPCODE_DECLARE (0x01)
+#define GPU_SHADER_OPCODE_ADD (0x02)
+#define GPU_SHADER_OPCODE_SUB (0x03)
+#define GPU_SHADER_OPCODE_MUL (0x04)
+#define GPU_SHADER_OPCODE_DIV (0x05)
 
 #define GPU_SHADER_DECLARE_TYPE_INVALID (0x00)
 #define GPU_SHADER_DECLARE_TYPE_INPUT (0x01)
 #define GPU_SHADER_DECLARE_TYPE_OUTPUT (0x02)
-#define GPU_SHADER_DECLARE_TYPE_TEMP (0x03)
+#define GPU_SHADER_DECLARE_TYPE_IMMEDIATE (0x03)
+#define GPU_SHADER_DECLARE_TYPE_TEMP (0x04)
+
+#define GPU_SHADER_SCALAR_TYPE_INVALID (0x00)
+#define GPU_SHADER_SCALAR_TYPE_FLOAT (0x01)
+#define GPU_SHADER_SCALAR_TYPE_UINT (0x02)
+#define GPU_SHADER_SCALAR_TYPE_SINT (0x03)
+
+#define GPU_SHADER_TAG_TYPE_INVALID (0x00)
+#define GPU_SHADER_TAG_TYPE_POSITION (0x01)
+#define GPU_SHADER_TAG_TYPE_COLOR (0x02)
+#define GPU_SHADER_TAG_TYPE_TEXCOORD (0x03)
+#define GPU_SHADER_TAG_TYPE_PERSPECTIVE (0x04)
 
 #define GPU_DEFAULT_CMD_LIST_SIZE (16384)
 #define GPU_MAX_CMD_CONTEXT_COUNT (16384)
@@ -264,11 +297,7 @@ struct gpu_box{
 	uint32_t depth;
 };
 struct gpu_swizzle{
-	uint32_t r:3;
-	uint32_t g:3;
-	uint32_t b:3;
-	uint32_t a:3;
-	uint32_t padding0:20;
+	uint8_t swizzleList[4];
 }__attribute__((packed));
 struct gpu_cmd_info_header{
 	uint64_t commandType;
@@ -389,22 +418,70 @@ struct gpu_cmd_context_desc{
 	struct gpu_cmd_context_desc* pFlink;
 	struct gpu_cmd_context_desc* pBlink;
 };
-struct gpu_input_instruction_info{
-	uint8_t vectorSize;
-	uint8_t vectorType;
-};
+struct gpu_tag_list_info{
+	uint64_t tagCount;
+	uint8_t tagList[8];
+}__attribute__((packed));
+struct gpu_declare_location_info{
+	uint64_t declareId;
+	uint64_t declareType;
+}__attribute__((packed));
+struct gpu_declare_info{
+	struct gpu_declare_location_info declareLocation;
+	struct gpu_tag_list_info tagListInfo;
+	uint8_t scalarType;
+	uint8_t scalarSize;
+	uint8_t scalarCount;
+	uint8_t scalarFormat;
+	uint64_t scalarValueList[4];
+	unsigned char* scalarIdentList[4];
+	uint16_t scalarLengthList[4];
+}__attribute__((packed));
+struct gpu_operand_info{
+	uint64_t declareId;
+	uint64_t declareType;
+	struct gpu_swizzle swizzle;
+	uint8_t reserved0[12];
+}__attribute__((packed));
 struct gpu_instruction_info{
 	uint64_t opcode;
-	uint8_t data[64];
+	uint8_t data[120];
 }__attribute__((packed));
 struct gpu_instruction_info_dcl{
 	uint64_t opcode;
-	uint64_t declareType;
-	uint64_t format;
-	uint64_t identOffset;
-	uint64_t identLength;
-	uint8_t reserved0[32];
+	struct gpu_declare_info declareInfo;
+	uint8_t reserved0[120-sizeof(struct gpu_declare_info)];
 }__attribute__((packed));
+struct gpu_instruction_info_mov{
+	uint64_t opcode;
+	struct gpu_operand_info operandInfoList[2];
+	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x02)];
+}__attribute__((packed));
+struct gpu_instruction_info_add{
+	uint64_t opcode;
+	struct gpu_operand_info operandInfoList[3];
+	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
+}__attribute__((packed));
+struct gpu_instruction_info_sub{
+	uint64_t opcode;
+	struct gpu_operand_info operandInfoList[3];
+	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
+}__attribute__((packed));
+struct gpu_instruction_info_mul{
+	uint64_t opcode;
+	struct gpu_operand_info operandInfoList[3];
+	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
+}__attribute__((packed));
+struct gpu_instruction_info_div{
+	uint64_t opcode;
+	struct gpu_operand_info operandInfoList[3];
+	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
+}__attribute__((packed));
+struct gpu_get_instruction_info{
+	struct gpu_instruction_info* pInstructionInfoList;
+	uint64_t maxInstructionInfoCount;
+	uint64_t instructionInfoCount;
+};
 struct gpu_object_desc{
 	uint64_t objectId;
 	uint64_t objectType;
@@ -420,7 +497,7 @@ struct gpu_shader_object_desc{
 	uint64_t extra;
 	uint64_t shaderDriverExtra;
 	struct gpu_object_desc* pFlink;
-	struct gpu_object_desc* poBlink;
+	struct gpu_object_desc* pBlink;
 	uint64_t shaderDriverId;
 	uint8_t reserved0[8];
 };
@@ -905,12 +982,12 @@ KAPI int gpu_cmd_context_submit(uint64_t gpuId, uint64_t contextId, uint64_t cmd
 int gpu_resource_register(uint64_t gpuId, struct gpu_resource_info resourceInfo, uint64_t* pResourceId);
 int gpu_resource_unregister(uint64_t gpuId, uint64_t resourceId);
 KAPI int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_resource_desc** ppResourceDesc);
-KAPI int gpu_tgsi_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
-KAPI int gpu_ggsl_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
+KAPI int gpu_instruction_opcode_type_get_name(uint8_t opcodeType, const unsigned char** ppOpcodeTypeName);
+KAPI int gpu_instruction_scalar_type_get_name(uint8_t scalarType, const unsigned char** ppScalarTypeName);
+KAPI int gpu_instruction_declare_type_get_name(uint8_t declareType, const unsigned char** ppDeclareTypeName);
+KAPI int gpu_instruction_tag_type_get_name(uint8_t tagType, const unsigned char** ppTagTypeName);
 KAPI int gpu_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId);
-KAPI int gpu_instruction_tgsi_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
-KAPI int gpu_instruction_ggsl_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
-KAPI int gpu_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo);
+KAPI int gpu_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_get_instruction_info* pGetInstructionInfo);
 KAPI int gpu_read_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8* pPixel);
 KAPI int gpu_write_pixel(uint64_t monitorId, struct uvec2 position, struct uvec4_8 pixel);
 KAPI int gpu_sync(uint64_t monitorId, struct uvec4 rect);

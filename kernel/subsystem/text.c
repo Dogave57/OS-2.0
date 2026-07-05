@@ -5,6 +5,7 @@
 #include "subsystem/gpu.h"
 #include "mem/vmm.h"
 #include "mem/heap.h"
+#include "crypto/random.h"
 #include "math/vector.h"
 #include "math/trig.h"
 #include "align.h"
@@ -264,12 +265,14 @@ int text_subsystem_init(void){
 		"MOV OUT[2], IN[2]\n"
 		"END\n";
 	static const unsigned char testVertexShaderCode[]="GGSL\n"
-		"out uvec2 positionOut : POSITION\n";
-		"out uvec4 colorOut : COLOR\n"
-		"out uvec2 textureCoordOut : TEXCOORD\n"
-		"in uvec2 position : 0\n"
-		"in uvec2 textureCoord : TEXCOORD\n"
-		"in uvec4 color : 2\n";
+		"imm fvec4_32 colorImm = { 0.16, 0.032, 0.64, 1.0 }\n"
+		"out fvec2_32 positionOut : @position\n"
+		"out fvec2_32 texCoordOut : @texcoord\n"
+		"out fvec4_32 colorOut : @color\n"
+		"in fvec2_32 position\n"
+		"in fvec2_32 texCoord\n"
+		"in fvec4_32 color\n"
+		"positionOut.x = texCoord.x + colorImm.x\n";
 	static const unsigned char fragmentShaderCode[]="FRAG\n"
 		"DCL OUT[0], COLOR\n"
 		"DCL IN[0], COLOR, PERSPECTIVE\n"
@@ -291,7 +294,7 @@ int text_subsystem_init(void){
 		"DDY TEMP[3].y, TEMP[3].xxxx\n"
 		"ABS TEMP[3].x, TEMP[3].xxxx\n"
 		"ABS TEMP[3].y, TEMP[3].yyyy\n"
-		"ADD TEMP[3].z, TEMP[3].xxxx, TEMP[3].yyyy\n"
+		"ADD TEMP[4].z, TEMP[3].xxxx, TEMP[3].yyyy\n"
 		"MUL TEMP[3].w, TEMP[3].zzzz, IMM[1].wwww\n"
 		"MOV TEMP[3].w, IMM[1].wwww\n"
 		"ADD TEMP[1].x, TEMP[0].xxxx, TEMP[3].wwww\n"
@@ -333,17 +336,23 @@ int text_subsystem_init(void){
 	createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
 /*	createShaderObjectInfo.shaderDriverId = ggslShaderDriverId;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)testVertexShaderCode;
-	createShaderObjectInfo.shaderCodeSize = sizeof(testVertexShaderCode);	
-*/	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
+	createShaderObjectInfo.shaderCodeSize = sizeof(testVertexShaderCode);
+*/	uint64_t startTime = get_time_us();
+	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
 		printf("failed to create GPU host controller vertex shader object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
-	createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
+	uint64_t elapsedTime = get_time_us()-startTime;
+	printf("GPU host controller shader object creation time: %fms\r\n", ((double)elapsedTime)/1000.0);
+	memset((void*)&createShaderObjectInfo, 0, sizeof(struct gpu_create_shader_object_info));
+	createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
+	createShaderObjectInfo.surfaceObjectId = surfaceObjectId;
 	createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_FRAGMENT;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)fragmentShaderCode;
 	createShaderObjectInfo.shaderCodeSize = sizeof(fragmentShaderCode);
+	createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &fragmentShaderObjectId)!=0){
 		printf("failed to create GPU host controller fragment shader object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
@@ -379,10 +388,9 @@ int text_subsystem_init(void){
 	createSamplerViewObjectInfo.format = GPU_FORMAT_R8_SNORM;
 	createSamplerViewObjectInfo.firstLevel = 0x00;
 	createSamplerViewObjectInfo.lastLevel = 0x00;
-	createSamplerViewObjectInfo.swizzle.r = 0x00;
-	createSamplerViewObjectInfo.swizzle.g = 0x00;
-	createSamplerViewObjectInfo.swizzle.b = 0x00;
-	createSamplerViewObjectInfo.swizzle.a = 0x00;
+	for (uint64_t i = 0;i<0x04;i++){
+		createSamplerViewObjectInfo.swizzle.swizzleList[i] = GPU_SWIZZLE_RED;
+	}
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createSamplerViewObjectInfo, &samplerViewObjectId)!=0){
 		printf("failed to create GPU host controller sampler view object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
@@ -642,6 +650,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	for (uint64_t i = 0;i<glyphTextureBufferSize;i++){
 		*(((int8_t*)pGlyphTextureBuffer)+i) = glyphSpread*-1;
 	}
+	uint64_t startTime = get_time_us();
 	if (pFontDriverDesc->driverInfo.vtable.fontGlyphTesselate(pFontDesc, glyphId, pGlyphTextureBuffer, glyphTextureBufferRect, glyphSpread)!=0){
 		printf("failed to tesselate font glyph via font driver\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
@@ -650,6 +659,8 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	uint64_t elapsedTime = get_time_us()-startTime;
+	printf("elapsed time: %fms\r\n", ((double)elapsedTime)/1000.0);
 	if (gpu_object_bind(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.rasterizerStateObjectId)!=0){
 		printf("failed to bind GPU host controller rasterizer state object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);

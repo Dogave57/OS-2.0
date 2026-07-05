@@ -22,7 +22,7 @@
 #include "subsystem/text.h"
 #include "subsystem/gpu.h"
 #include "drivers/gpt.h"
-#include "drivers/gpu/virtio.h"
+#include "drivers/gpu/virtio/virtio.h"
 #include "drivers/filesystem/fat32.h"
 #include "drivers/filesystem/exfat.h"
 #include "drivers/filesystem/fluxfs.h"

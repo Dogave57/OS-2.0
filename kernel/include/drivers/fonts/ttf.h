@@ -355,7 +355,7 @@ struct ttf_segment_entry_desc{
 struct ttf_point_entry_desc{
 	struct fvec2_64 position;
 	struct ttf_glyf_point_flags flags;
-	uint8_t reserved0[7];
+	uint8_t reserved0[15];
 }__attribute__((packed));
 struct ttf_pixel_entry_desc{
 	uint16_t contourIndex;

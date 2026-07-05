@@ -3,9 +3,11 @@
 #include <stdint.h>
 #include "kernel_include.h"
 #include "bootloader.h"
-KAPI int atoi(long long num, unsigned char* buf, unsigned int bufmax);
+KAPI int itoa64(int64_t value, unsigned char* pBuffer, uint64_t bufferSize, uint64_t* pBufferLength);
+KAPI int utoa64(uint64_t value, unsigned char* pBuffer, uint64_t bufferSize, uint64_t* pBufferLength);
 KAPI int printf(unsigned char* fmt, ...);
 KAPI int lprintf(uint16_t* fmt, ...);
+KAPI int snprintf(unsigned char* pData, uint64_t dataSize, uint64_t* pDataLength, unsigned char* pFormat, ...);
 KAPI int memset(uint8_t* mem, uint8_t value, uint64_t size);
 KAPI int memset_16(uint16_t* mem, uint16_t value, uint64_t size);
 KAPI int memset_32(uint32_t* mem, uint32_t value, uint64_t size);

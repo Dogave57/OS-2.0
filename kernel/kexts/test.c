@@ -604,6 +604,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 		drawVboCmdInfo.pDrawVboInfo = &drawVboInfo;
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&clearCmdInfo);
 		gpu_cmd_context_push_cmd(gpuId, cmdContextId, (struct gpu_cmd_info_header*)&drawVboCmdInfo);
+		uint64_t startTime = get_time_us();
 		if (gpu_cmd_context_submit(gpuId, contextId, cmdContextId)!=0){
 			printf("failed to submit GPU host controller command list to GPU host controller via GPU subsystem\r\n");
 			virtualFree((uint64_t)pVertexBuffer, vertexBufferSize);
@@ -611,6 +612,8 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 			gpu_cmd_context_deinit(gpuId, cmdContextId);
 			return -1;
 		}
+		uint64_t elapsedTime = get_time_us()-startTime;
+		printf("elapsed GPU host controller rasterization and fragmentation time: %fms\r\n", ((double)elapsedTime)/1000.0);
 		struct gpu_rect flushRect = {0};
 		flushRect.x = 0x00;
 		flushRect.y = 0x00;

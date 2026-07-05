@@ -2,6 +2,7 @@
 #include "cpu/mutex.h"
 #include "mem/vmm.h"
 #include "mem/heap.h"
+#include "crypto/random.h"
 #include "align.h"
 #include "subsystem/subsystem.h"
 #include "subsystem/gpu.h"
@@ -56,12 +57,16 @@ int ggsl_driver_ident_register(struct ggsl_driver_shader_desc* pShaderDesc, stru
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	if (ggsl_driver_hash16(pShaderDesc->pShaderCode+pIdentInfo->offset, pIdentInfo->length, &pIdentInfo->hash)!=0){
-		printf("failed to obtain GPU host controller GGSL shader driver identifier WORD hash\r\n");
-		mutex_unlock(&mutex);
-		return -1;
+	uint16_t identHash = pIdentInfo->hash ? (uint16_t)(pIdentInfo->hash-0x01) : 0x00;
+	if (!pIdentInfo->hash||0x01){
+		if (ggsl_driver_hash16(pIdentInfo->pName, pIdentInfo->nameLength, &identHash)!=0){
+			printf("failed to get GPU host controller GGSL shader protocol driver identifer WORD hash\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
 	}
-	struct ggsl_driver_ident_list_desc* pIdentListDesc = pShaderDesc->pIdentListDescList+pIdentInfo->hash;
+	pIdentInfo->hash = identHash;
+	struct ggsl_driver_ident_list_desc* pIdentListDesc = pShaderDesc->pIdentListDescList+identHash;
 	struct ggsl_driver_ident_list_desc* pIdentListPageDesc = (struct ggsl_driver_ident_list_desc*)align_down((uint64_t)pIdentListDesc, PAGE_SIZE);
 	uint64_t physicalAddress = 0x00;
 	if (virtualToPhysical((uint64_t)pIdentListPageDesc, (uint64_t*)&physicalAddress)!=0){
@@ -119,17 +124,20 @@ int ggsl_driver_ident_unregister(struct ggsl_driver_shader_desc* pShaderDesc, ui
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ggsl_driver_ident_get_desc(struct ggsl_driver_shader_desc* pShaderDesc, unsigned char* pIdent, uint64_t identLength, struct ggsl_driver_ident_desc** ppIdentDesc){
-	if (!pShaderDesc||!pIdent||!ppIdentDesc)
-		return -1;
+int ggsl_driver_ident_get_desc(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info* pIdentLocationInfo, struct ggsl_driver_ident_desc** ppIdentDesc){
+	if (!pShaderDesc||!pIdentLocationInfo||!ppIdentDesc)
+		return-1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	uint16_t hash = 0x00;
-	if (ggsl_driver_hash16(pIdent, identLength, &hash)!=0){
-		printf("failed to hash GPU host controller GGSL shader driver identifier name\r\n");
-		mutex_unlock(&mutex);
-		return -1;
+	uint16_t hash = pIdentLocationInfo->hash ? pIdentLocationInfo->hash-0x01 : 0x00;
+	if (!hash||0x01){
+		if (ggsl_driver_hash16(pIdentLocationInfo->pName, pIdentLocationInfo->nameLength, &hash)!=0){
+			printf("failed to get GPU host controller GGSL shader protocol driver identifier WORD hash\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
 	}
+	pIdentLocationInfo->hash = hash+0x01;
 	struct ggsl_driver_ident_list_desc* pIdentListDesc = pShaderDesc->pIdentListDescList+hash;
 	struct ggsl_driver_ident_list_desc* pIdentListPageDesc = (struct ggsl_driver_ident_list_desc*)(align_down((uint64_t)pIdentListDesc, PAGE_SIZE));
 	uint64_t physicalAddress = 0x00;
@@ -139,7 +147,7 @@ int ggsl_driver_ident_get_desc(struct ggsl_driver_shader_desc* pShaderDesc, unsi
 		return -1;
 	}
 	if (!physicalAddress){
-		printf("unknown identifier\r\n");
+		printf("unknown GPU host controller GGSL shader driver identifier\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -147,16 +155,16 @@ int ggsl_driver_ident_get_desc(struct ggsl_driver_shader_desc* pShaderDesc, unsi
 	uint64_t shaderCodeSize = pShaderDesc->shaderCodeSize;
 	struct ggsl_driver_ident_desc* pCurrentIdentDesc = pIdentListDesc->pFirstIdentDesc;
 	while (pCurrentIdentDesc){
-		if (pCurrentIdentDesc->identInfo.length!=identLength||pCurrentIdentDesc->identInfo.hash!=hash){
+		if (pCurrentIdentDesc->identInfo.nameLength!=pIdentLocationInfo->nameLength){
 			pCurrentIdentDesc = pCurrentIdentDesc->pFlink;
 			continue;
 		}
 		uint8_t identEqual = 0x01;
-		for (uint64_t i = 0;i<identLength;i++){
-			if (*(pShaderCode+pCurrentIdentDesc->identInfo.offset+i)!=*(pIdent+i)){
-				identEqual = 0x00;
-				break;
-			}
+		for (uint64_t i = 0;i<pIdentLocationInfo->nameLength;i++){
+			if (*(pIdentLocationInfo->pName+i)==*(pCurrentIdentDesc->identInfo.pName+i))
+				continue;
+			identEqual = 0x00;
+			break;
 		}
 		if (!identEqual){
 			pCurrentIdentDesc = pCurrentIdentDesc->pFlink;
@@ -169,56 +177,869 @@ int ggsl_driver_ident_get_desc(struct ggsl_driver_shader_desc* pShaderDesc, unsi
 	mutex_unlock(&mutex);
 	return -1;
 }
-int ggsl_driver_ident_get_next_desc(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_desc** ppIdentDesc){
-	if (!pShaderDesc||!ppIdentDesc)
+int ggsl_driver_get_next_ident(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_get_next_ident_info getNextIdentInfo){
+	if (!pShaderDesc)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
+	struct ggsl_driver_ident_location_info* pIdentLocationInfo = getNextIdentInfo.pIdentLocationInfo;
+	if (!pIdentLocationInfo){
+		printf("invalid GPU host controller GGSL shader protocol driver identifier location info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	unsigned char* pShaderCode = pShaderDesc->pShaderCode;
 	uint64_t shaderCodeSize = pShaderDesc->shaderCodeSize;
 	uint64_t shaderCodeOffset = pShaderDesc->shaderCodeOffset;
 	uint64_t identStart = shaderCodeOffset;
+	uint16_t hash = 0x811C;
 	for (;shaderCodeOffset<shaderCodeSize;shaderCodeOffset++){
 		static const unsigned char identEndList[256]={
+			[0x00]=0x01,
 			[' ']=0x01,
 			['\n']=0x01,
+			[',']=0x01,
+			['.']=0x01,
 		};
-		if (!identEndList[pShaderCode[shaderCodeOffset]])
+		if (!identEndList[pShaderCode[shaderCodeOffset]]){ 
+			hash = (hash^pShaderCode[shaderCodeOffset])*0x8422;
 			continue;
+		}
+		unsigned char* pIdentName = pShaderCode+identStart;
 		uint64_t identLength = shaderCodeOffset-identStart;
-		uint16_t hash = 0x00;
-		ggsl_driver_hash16((unsigned char*)(pShaderCode+identStart), identLength, &hash);
-		struct ggsl_driver_ident_desc* pIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
-		struct ggsl_driver_ident_info identInfo = {0};
-		memset((void*)&identInfo, 0, sizeof(struct ggsl_driver_ident_info));
-		identInfo.offset = identStart;
-		identInfo.length = identLength;
-		identInfo.identType = GGSL_DRIVER_IDENT_TYPE_OPCODE;
-		printf("registering GPU host controller GGSL identifier\r\n");
-		if (ggsl_driver_ident_register(pShaderDesc, &identInfo, &pIdentDesc)!=0){
-			printf("failed to register GPU host controller GGSL shader identifier descriptor\r\n");
+		if (!identLength){
 			mutex_unlock(&mutex);
 			return -1;
 		}
-		printf("getting GPU host controller GGSL identifier descriptor\r\n");
-		uint64_t startTime = get_time_us();
-		if (ggsl_driver_ident_get_desc(pShaderDesc, pShaderCode+identStart, identLength, &pIdentDesc)!=0){
-			printf("unknown reference: ");
-			for (uint64_t i = 0;i<identLength;i++){
-				putchar(pShaderCode[identStart+i]);
-			}
-			putchar('\n');
-			mutex_unlock(&mutex);
-			return -1;
-		}
-		uint64_t elapsedTime = get_time_us()-startTime;
-		printf("elapsed time: %fms\r\n", ((double)elapsedTime)/1000.0);
 		pShaderDesc->shaderCodeOffset = shaderCodeOffset+0x01;
+		for (;pShaderDesc->shaderCodeOffset<shaderCodeSize;pShaderDesc->shaderCodeOffset++){
+			if (!identEndList[pShaderCode[pShaderDesc->shaderCodeOffset]])
+				break;
+		}
+		struct ggsl_driver_ident_location_info identLocationInfo = {0};
+		memset((void*)&identLocationInfo, 0, sizeof(struct ggsl_driver_ident_location_info));
+		identLocationInfo.pName = pIdentName;
+		identLocationInfo.nameLength = identLength;
+		identLocationInfo.hash = hash+0x01;
+		struct ggsl_driver_ident_desc* pIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+		if (getNextIdentInfo.ppIdentDesc&&ggsl_driver_ident_get_desc(pShaderDesc, &identLocationInfo, &pIdentDesc)!=0){
+			printf("failed to get GPU host controller GGSL shader protocol driver next identifier descriptor\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		if (getNextIdentInfo.ppIdentDesc)
+			*getNextIdentInfo.ppIdentDesc = pIdentDesc;
+		*getNextIdentInfo.pIdentLocationInfo = identLocationInfo;
 		mutex_unlock(&mutex);
 		return 0;
 	}
 	mutex_unlock(&mutex);
 	return -1;
+}
+int ggsl_driver_ident_type_get_name(uint8_t identType, const unsigned char** ppIdentTypeName){
+	if (!ppIdentTypeName)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	static const unsigned char* identTypeNameList[256]={
+		[GGSL_DRIVER_IDENT_TYPE_INVALID]="Invalid",
+		[GGSL_DRIVER_IDENT_TYPE_OPCODE]="Opcode",
+		[GGSL_DRIVER_IDENT_TYPE_REFERENCE]="Reference",
+		[GGSL_DRIVER_IDENT_TYPE_SEPARATOR]="Separator",
+		[GGSL_DRIVER_IDENT_TYPE_TAG]="Tag",
+		[GGSL_DRIVER_IDENT_TYPE_FORMAT]="Format",
+		[GGSL_DRIVER_IDENT_TYPE_SCALAR]="Scalar",
+	};
+	const unsigned char* pIdentTypeName = (identTypeNameList[identType]) ? identTypeNameList[identType] : (const unsigned char*)"Unknown identifier type";
+	*ppIdentTypeName = pIdentTypeName;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_tag_list_get_info(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_tag_list_info* pTagListInfo){
+	if (!pShaderDesc||!pTagListInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_tag_list_info tagListInfo = {0};
+	memset((void*)&tagListInfo, 0, sizeof(struct gpu_tag_list_info));
+	uint64_t tagCount = 0x00;
+	struct ggsl_driver_get_next_ident_info getNextIdentInfo = {0};
+	memset((void*)&getNextIdentInfo, 0, sizeof(struct ggsl_driver_get_next_ident_info));
+	struct ggsl_driver_ident_location_info separatorIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &separatorIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver separator identifier location\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (separatorIdentLocationInfo.nameLength!=0x01){
+		printf("unexpected GPU host controller GGSL shader protocol driver separator identifier length\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (*separatorIdentLocationInfo.pName!=':'){
+		printf("unexpected GPU host controller GGSL shader protocol driver separator identifier name\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	for (tagCount = 0x00;;tagCount++){
+		struct ggsl_driver_ident_desc* pIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+		struct ggsl_driver_ident_location_info identLocationInfo = {0};
+		getNextIdentInfo.pIdentLocationInfo = &identLocationInfo;
+		getNextIdentInfo.ppIdentDesc = &pIdentDesc;
+		if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+			printf("failed to get GPU host controller GGSL shader protocol driver tag identifier location\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		if (pIdentDesc->identInfo.identType!=GGSL_DRIVER_IDENT_TYPE_TAG){
+			printf("unexpected GPU host controller GGSL shader protocol driver identifier type\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		struct ggsl_driver_tag_ident_info* pTagIdentInfo = (struct ggsl_driver_tag_ident_info*)pIdentDesc->identInfo.extra0;
+		if (!pTagIdentInfo){
+			printf("GPU host controller GGSL shader protocol driver tag identifier descriptor not linked with tag identifier info\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		tagListInfo.tagList[tagCount] = pTagIdentInfo->tagType;
+		if (identLocationInfo.pName[identLocationInfo.nameLength]=='\n')
+			break;
+	}
+	tagCount++;
+	tagListInfo.tagCount = tagCount;
+	*pTagListInfo = tagListInfo;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_vector_get_declare_info(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_declare_info* pDeclareInfo){
+	if (!pShaderDesc||!pFormatIdentInfo||!pDeclareInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ggsl_driver_get_next_ident_info getNextIdentInfo = {0};
+	memset((void*)&getNextIdentInfo, 0, sizeof(struct ggsl_driver_get_next_ident_info));
+	struct ggsl_driver_ident_location_info separatorIdentLocationInfo = {0};
+	memset((void*)&separatorIdentLocationInfo, 0, sizeof(struct ggsl_driver_ident_location_info));
+	getNextIdentInfo.pIdentLocationInfo = &separatorIdentLocationInfo;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver separator identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (separatorIdentLocationInfo.nameLength!=0x01){
+		printf("unexpected GPU host controller GGSL shader protocol driver separator identifier length\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (*separatorIdentLocationInfo.pName!='{'){
+		printf("unexpected GPU host controller GGSL shader protocol driver separator identifier name\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t scalarFormat = pFormatIdentInfo->format;
+	uint64_t scalarType = pFormatIdentInfo->scalarType;
+	uint64_t scalarSize = pFormatIdentInfo->scalarSize;
+	uint64_t scalarCount = pFormatIdentInfo->scalarCount;
+	pDeclareInfo->scalarFormat = scalarFormat;
+	pDeclareInfo->scalarType = scalarType;
+	pDeclareInfo->scalarSize = scalarSize;
+	pDeclareInfo->scalarCount = scalarCount;
+	for (uint64_t i = 0;i<scalarCount;i++){
+		struct ggsl_driver_ident_location_info preIdentLocationInfo = {0};
+		memset((void*)&preIdentLocationInfo, 0, sizeof(struct ggsl_driver_ident_location_info));
+		getNextIdentInfo.pIdentLocationInfo = &preIdentLocationInfo;
+		getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+		if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+			printf("failed to get GPU host controller GGSL shader protocol driver identifier info\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		if (preIdentLocationInfo.nameLength==0x01&&*preIdentLocationInfo.pName=='}'){
+			printf("unexpected GPU host controller GGSL shader protocol driver end separator identifier\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		struct ggsl_driver_ident_location_info postIdentLocationInfo = {0};
+		memset((void*)&postIdentLocationInfo, 0, sizeof(struct ggsl_driver_ident_location_info));
+		getNextIdentInfo.pIdentLocationInfo = &postIdentLocationInfo;
+		getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+		if (preIdentLocationInfo.pName[preIdentLocationInfo.nameLength]=='.'&&ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+			printf("failed to get GPU host controller GGSL shader protocol driver post identifier location info\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		pDeclareInfo->scalarIdentList[i] = (unsigned char*)preIdentLocationInfo.pName;
+		pDeclareInfo->scalarLengthList[i] = (uint64_t)(preIdentLocationInfo.nameLength+postIdentLocationInfo.nameLength+0x01);
+		switch (scalarType){
+			case GPU_SHADER_SCALAR_TYPE_FLOAT:{
+			uint64_t preValue = 0x00;
+			double postValue = 0.0;
+			double postLevel = 0.1;
+			for (uint64_t i = 0;i<preIdentLocationInfo.nameLength;i++){
+				unsigned char currentEntry = preIdentLocationInfo.pName[i];
+				if (currentEntry<'0'||currentEntry>'9'){
+					printf("unexpected GPU host controller GGSL shader protocol driver pre identiifer name entry\r\n");
+					mutex_unlock(&mutex);
+					return -1;
+				}
+				preValue = (preValue*0x0A)+(uint64_t)(currentEntry-'0');
+			}
+			for (uint64_t i = 0;i<postIdentLocationInfo.nameLength;i++){
+				if (!postIdentLocationInfo.pName){
+					postValue = 0.0;
+					break;
+				}
+				unsigned char currentEntry = postIdentLocationInfo.pName[i];
+				if (currentEntry<'0'||currentEntry>'9'){
+					printf("unexpected GPU host controller GGSL shader protocol driver post identifier name entry\r\n");
+					mutex_unlock(&mutex);
+					return -1;
+				}
+				postValue+=(postLevel*(double)(currentEntry-'0'));
+				postLevel*=0.1;
+			}
+			double value = ((double)preValue)+postValue;
+			*((double*)(pDeclareInfo->scalarValueList+i)) = value;
+			break;				   
+			}
+			case GPU_SHADER_SCALAR_TYPE_UINT:{
+			uint64_t value = 0x00;
+			for (uint64_t i = 0;i<preIdentLocationInfo.nameLength;i++){
+				unsigned char currentEntry = preIdentLocationInfo.pName[i];
+				if (currentEntry<'0'||currentEntry>'9'){
+					printf("unexpected GPU host controller GGSL shader protocol driver pre identifier name entry\r\n");
+					mutex_unlock(&mutex);
+					return -1;
+				}
+				value = (value*0x0A)+(uint64_t)(currentEntry-'0');
+			}
+			*((uint64_t*)(pDeclareInfo->scalarValueList+i)) = value;
+			break;		  
+			}
+			case GPU_SHADER_SCALAR_TYPE_SINT:{
+			int64_t value = 0x00;
+			uint8_t isNegative = 0x00;
+			if (preIdentLocationInfo.pName[0x00]=='-'){
+				preIdentLocationInfo.pName++;
+				preIdentLocationInfo.nameLength--;
+				isNegative = 0x01;
+			}
+			for (uint64_t i = 0;i<preIdentLocationInfo.nameLength;i++){
+				unsigned char currentEntry = preIdentLocationInfo.pName[i];
+				if (currentEntry<'0'||currentEntry>'9'){
+					printf("unexpected GPU host controller GGSL shader protocol driver pre identifier name entry\r\n");
+					mutex_unlock(&mutex);
+					return -1;
+				}
+				value = (value*0x0A)+(uint64_t)(currentEntry-'0');
+			}
+			value*=(isNegative ? -1 : 1);
+			*((int64_t*)(pDeclareInfo->scalarValueList+i)) = value;
+			break;
+			}
+		}
+	}
+	getNextIdentInfo.pIdentLocationInfo = &separatorIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver end separator info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (separatorIdentLocationInfo.nameLength!=0x01){
+		printf("unexpected GPU host controller GGSL shader protocol driver separator identifier length\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (*separatorIdentLocationInfo.pName!='}'){
+		printf("unexpected GPU host controller GGSL shader protocol driver separator identifier name\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_swizzle_get_info(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct gpu_swizzle* pSwizzleInfo){
+	if (!pShaderDesc||!pSwizzleInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_swizzle swizzleInfo = {0};
+	memset((void*)&swizzleInfo, 0, sizeof(struct gpu_swizzle));
+	for (uint64_t i = 0;i<identLocationInfo.nameLength;i++){
+		static const unsigned char swizzleList[256]={
+			['x']=GPU_SWIZZLE_RED,
+			['y']=GPU_SWIZZLE_GREEN,
+			['z']=GPU_SWIZZLE_BLUE,
+			['w']=GPU_SWIZZLE_ALPHA,
+		};
+		unsigned char swizzleValue = swizzleList[identLocationInfo.pName[i]];
+		if (!swizzleValue){
+			printf("unexpected GPU host controller GGSL shader protocol driver swizzle channel\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		swizzleInfo.swizzleList[i] = swizzleValue;
+	}
+	*pSwizzleInfo = swizzleInfo;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_reference_ident_register(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_reference_ident_info referenceIdentInfo, struct ggsl_driver_ident_desc** ppIdentDesc){
+	if (!pShaderDesc||!ppIdentDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ggsl_driver_ident_info identInfo = {0};
+	memset((void*)&identInfo, 0, sizeof(struct ggsl_driver_ident_info));
+	identInfo.identType = GGSL_DRIVER_IDENT_TYPE_REFERENCE;
+	identInfo.pName = referenceIdentInfo.pReferenceName;
+	identInfo.nameLength = referenceIdentInfo.referenceNameLength;
+	identInfo.hash = referenceIdentInfo.referenceHash;
+	struct ggsl_driver_ident_desc* pIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	if (ggsl_driver_ident_register(pShaderDesc, &identInfo, &pIdentDesc)!=0){
+		printf("failed to register GPU host controller GGSL shader protocol driver identifier descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_reference_ident_info* pReferenceIdentInfo = (struct ggsl_driver_reference_ident_info*)kmalloc(sizeof(struct ggsl_driver_reference_ident_info));
+	if (!pReferenceIdentInfo){
+		printf("failed to allocate GPU host controller GGSL shader protocol driver reference identifier info\r\n");
+		ggsl_driver_ident_unregister(pShaderDesc, pIdentDesc->identId);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memcpy((void*)pReferenceIdentInfo, (void*)&referenceIdentInfo, sizeof(struct ggsl_driver_reference_ident_info));
+	pIdentDesc->identInfo.extra0 = (uint64_t)pReferenceIdentInfo;
+	*ppIdentDesc = pIdentDesc;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_reference_unregister(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_desc* pIdentDesc){
+	if (!pShaderDesc||!pIdentDesc)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	kfree((void*)pIdentDesc->identInfo.extra0);
+	if (ggsl_driver_ident_unregister(pShaderDesc, pIdentDesc->identId)!=0){
+		printf("failed to unregister GPU host controller GGSL shader protocol driver identifier descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_get_current_instruction(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct gpu_instruction_info** ppInstructionInfo){
+	if (!pShaderDesc||!pGetInstructionInfo||!ppInstructionInfo)
+		return -1;
+	*ppInstructionInfo = pGetInstructionInfo->pInstructionInfoList+pGetInstructionInfo->instructionInfoCount;
+	return 0;
+}
+int ggsl_driver_instruction_push(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, uint64_t instructionCount){
+	if (!pShaderDesc||!pGetInstructionInfo||!instructionCount)
+		return -1;
+	if ((pGetInstructionInfo->instructionInfoCount+instructionCount)>=pGetInstructionInfo->maxInstructionInfoCount)
+		return -1;
+	pGetInstructionInfo->instructionInfoCount+=instructionCount;
+	return 0;
+}
+int ggsl_driver_instruction_declare_push(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct gpu_instruction_info_dcl* pDeclareInstructionInfo){
+	if (!pShaderDesc||!pGetInstructionInfo||!pDeclareInstructionInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_declare_info* pDeclareInfo = &pDeclareInstructionInfo->declareInfo;
+	uint64_t* pDeclareId = (pShaderDesc->declareCountList+pDeclareInfo->declareLocation.declareType);
+	pDeclareInfo->declareLocation.declareId = *pDeclareId;
+	if (ggsl_driver_instruction_push(pShaderDesc, pGetInstructionInfo, 0x01)!=0){
+		printf("failed to push GPU host controller GGSL shader protocol driver declare instruction\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	(*pDeclareId)++;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_instruction_expression_push(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct gpu_declare_location_info* pDeclareLocationInfo){
+	if (!pShaderDesc||!pGetInstructionInfo||!pDeclareLocationInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ggsl_driver_get_next_ident_info getNextIdentInfo = {0};
+	struct ggsl_driver_ident_desc* pStartReferenceIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_ident_location_info startReferenceLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &startReferenceLocationInfo;
+	getNextIdentInfo.ppIdentDesc = &pStartReferenceIdentDesc;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver start reference identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_reference_ident_info* pStartReferenceIdentInfo = (struct ggsl_driver_reference_ident_info*)pStartReferenceIdentDesc->identInfo.extra0;
+	if (!pStartReferenceIdentInfo){
+		printf("GPU host controller GGSL shader protocol driver start reference identifier descriptor not linked with start reference identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_swizzle startSwizzleInfo = {0};
+	memset((void*)&startSwizzleInfo, 0, sizeof(struct gpu_swizzle));
+	for (uint64_t i = 0;i<0x04;i++){
+		startSwizzleInfo.swizzleList[i] = i+0x01;
+	}
+	struct ggsl_driver_ident_location_info lastIdentLocationInfo = startReferenceLocationInfo;
+	if (startReferenceLocationInfo.pName[startReferenceLocationInfo.nameLength]=='.'){
+		struct ggsl_driver_ident_location_info startSwizzleLocationInfo = {0};
+		getNextIdentInfo.pIdentLocationInfo = &startSwizzleLocationInfo;
+		getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+		if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+			printf("failed to get GPU host controller GGSL shader protocol driver swizzle identifier info\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		if (ggsl_driver_swizzle_get_info(pShaderDesc, startSwizzleLocationInfo, &startSwizzleInfo)!=0){
+			printf("failed to get GPU host controller GGSL shader protocol driver start swizzle info\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		lastIdentLocationInfo = startSwizzleLocationInfo;
+	}
+	if (lastIdentLocationInfo.pName[lastIdentLocationInfo.nameLength]=='\n'){
+		struct gpu_declare_location_info declareLocationInfo = {0};
+		memset((void*)&declareLocationInfo, 0, sizeof(struct gpu_declare_location_info));
+		declareLocationInfo.declareType = pStartReferenceIdentInfo->declareType;
+		declareLocationInfo.declareId = pStartReferenceIdentInfo->declareId;
+		*pDeclareLocationInfo = declareLocationInfo;
+		mutex_unlock(&mutex);
+		return 0;
+	}
+	struct ggsl_driver_ident_location_info operatorIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &operatorIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver operator identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_location_info endReferenceLocationInfo = {0};
+	struct ggsl_driver_ident_desc* pEndReferenceIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	getNextIdentInfo.pIdentLocationInfo = &endReferenceLocationInfo;
+	getNextIdentInfo.ppIdentDesc = &pEndReferenceIdentDesc;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver end reference identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_reference_ident_info* pEndReferenceIdentInfo = (struct ggsl_driver_reference_ident_info*)pEndReferenceIdentDesc->identInfo.extra0;
+	if (!pEndReferenceIdentInfo){
+		printf("GPU host controller GGSL shader protocol driver end reference identifier descriptor not linked with end reference identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_declare_location_info declareLocationInfo = {0};
+	memset((void*)&declareLocationInfo, 0, sizeof(struct gpu_declare_location_info));
+	struct gpu_instruction_info_dcl* pDeclareInstructionInfo = (struct gpu_instruction_info_dcl*)0x00;
+	if (ggsl_driver_get_current_instruction(pShaderDesc, pGetInstructionInfo, (struct gpu_instruction_info**)&pDeclareInstructionInfo)!=0){
+		printf("failed to get current GPU host controller GGSL shader protocol driver instruction info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pDeclareInstructionInfo, 0, sizeof(struct gpu_instruction_info_dcl));
+	struct gpu_declare_info* pDeclareInfo = &pDeclareInstructionInfo->declareInfo;
+	pDeclareInstructionInfo->opcode = GPU_SHADER_OPCODE_DECLARE;
+	pDeclareInfo->declareLocation.declareType = GPU_SHADER_DECLARE_TYPE_TEMP;
+	if (ggsl_driver_instruction_declare_push(pShaderDesc, pGetInstructionInfo, pDeclareInstructionInfo)!=0){
+		printf("failed to push GPU host controller GGSL shader protocol driver declare instruction info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;	
+	}
+	*pDeclareLocationInfo = pDeclareInfo->declareLocation;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_instruction_out(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo){
+	if (!pShaderDesc||!pIdentDesc||!pGetInstructionInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ggsl_driver_get_next_ident_info getNextIdentInfo = {0};
+	memset((void*)&getNextIdentInfo, 0, sizeof(struct ggsl_driver_get_next_ident_info));
+	struct ggsl_driver_ident_desc* pFormatIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_ident_location_info formatIdentLocationInfo = {0};
+	memset((void*)&formatIdentLocationInfo, 0, sizeof(struct ggsl_driver_ident_location_info));
+	getNextIdentInfo.pIdentLocationInfo = &formatIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = &pFormatIdentDesc;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver format identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (ggsl_driver_ident_get_desc(pShaderDesc, &formatIdentLocationInfo, &pFormatIdentDesc)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver format identifier descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_location_info referenceIdentLocationInfo = {0};
+	memset((void*)&referenceIdentLocationInfo, 0, sizeof(struct ggsl_driver_ident_location_info));
+	getNextIdentInfo.pIdentLocationInfo = &referenceIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver reference identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_tag_list_info tagListInfo = {0};
+	memset((void*)&tagListInfo, 0, sizeof(struct gpu_tag_list_info));
+	if (referenceIdentLocationInfo.pName[referenceIdentLocationInfo.nameLength]!='\n'&&ggsl_driver_tag_list_get_info(pShaderDesc, &tagListInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver tag list info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_format_ident_info* pFormatIdentInfo = (struct ggsl_driver_format_ident_info*)pFormatIdentDesc->identInfo.extra0;
+	if (!pFormatIdentInfo){
+		printf("GPU host controller GGSL shader protocol driver identifier descriptor not linked with format identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_instruction_info_dcl* pDeclareInstructionInfo = (struct gpu_instruction_info_dcl*)0x00;
+	if (ggsl_driver_get_current_instruction(pShaderDesc, pGetInstructionInfo, (struct gpu_instruction_info**)&pDeclareInstructionInfo)!=0){
+		printf("failed to get current GPU host controller GGSL shader protocol driver instruction info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pDeclareInstructionInfo, 0, sizeof(struct gpu_instruction_info_dcl));
+	pDeclareInstructionInfo->opcode = GPU_SHADER_OPCODE_DECLARE;
+	struct gpu_declare_info* pDeclareInfo = &pDeclareInstructionInfo->declareInfo;
+	pDeclareInfo->declareLocation.declareType = GPU_SHADER_DECLARE_TYPE_OUTPUT;
+	pDeclareInfo->tagListInfo = tagListInfo;
+	pDeclareInfo->scalarFormat = pFormatIdentInfo->format;
+	pDeclareInfo->scalarType = pFormatIdentInfo->scalarType;
+	pDeclareInfo->scalarSize = pFormatIdentInfo->scalarSize;
+	if (ggsl_driver_instruction_declare_push(pShaderDesc, pGetInstructionInfo, pDeclareInstructionInfo)!=0){
+		printf("failed to push GPU host controller GGSL shader driver declare instruction info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_desc* pReferenceIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_reference_ident_info referenceIdentInfo = {0};
+	memset((void*)&referenceIdentInfo, 0, sizeof(struct ggsl_driver_reference_ident_info));
+	referenceIdentInfo.declareType = GPU_SHADER_DECLARE_TYPE_OUTPUT;
+	referenceIdentInfo.declareId = pDeclareInfo->declareLocation.declareId;
+	referenceIdentInfo.pReferenceName = referenceIdentLocationInfo.pName;
+	referenceIdentInfo.referenceNameLength = referenceIdentLocationInfo.nameLength;
+	referenceIdentInfo.referenceHash = referenceIdentLocationInfo.hash;
+	if (ggsl_driver_reference_ident_register(pShaderDesc, referenceIdentInfo, &pReferenceIdentDesc)!=0){
+		printf("failed to register GPU host controller GGSL shader protocol driver reference identifier descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;	
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_instruction_in(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo){
+	if (!pShaderDesc||!pIdentDesc||!pGetInstructionInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ggsl_driver_get_next_ident_info getNextIdentInfo = {0};
+	memset((void*)&getNextIdentInfo, 0, sizeof(struct ggsl_driver_get_next_ident_info));
+	struct ggsl_driver_ident_desc* pFormatIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_ident_location_info formatIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &formatIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = &pFormatIdentDesc;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver format identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_location_info referenceIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &referenceIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver reference identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_tag_list_info tagListInfo = {0};
+	memset((void*)&tagListInfo, 0, sizeof(struct gpu_tag_list_info));
+	if (referenceIdentLocationInfo.pName[referenceIdentLocationInfo.nameLength]!='\n'&&ggsl_driver_tag_list_get_info(pShaderDesc, &tagListInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver tag list info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_format_ident_info* pFormatIdentInfo = (struct ggsl_driver_format_ident_info*)pFormatIdentDesc->identInfo.extra0;
+	if (!pFormatIdentInfo){
+		printf("GPU host controller GGSL shader protocol driver format identifier descriptor not linked with format identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_instruction_info_dcl* pDeclareInstructionInfo = (struct gpu_instruction_info_dcl*)0x00;
+	if (ggsl_driver_get_current_instruction(pShaderDesc, pGetInstructionInfo, (struct gpu_instruction_info**)&pDeclareInstructionInfo)!=0){
+		printf("failed to get current GPU host controller GGSL shader protocol driver instruction info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pDeclareInstructionInfo, 0, sizeof(struct gpu_instruction_info_dcl));
+	pDeclareInstructionInfo->opcode = GPU_SHADER_OPCODE_DECLARE;
+	struct gpu_declare_info* pDeclareInfo = &pDeclareInstructionInfo->declareInfo;
+	pDeclareInfo->declareLocation.declareType = GPU_SHADER_DECLARE_TYPE_INPUT;
+	pDeclareInfo->tagListInfo = tagListInfo;
+	pDeclareInfo->scalarFormat = pFormatIdentInfo->format;
+	pDeclareInfo->scalarType = pFormatIdentInfo->scalarType;
+	pDeclareInfo->scalarSize = pFormatIdentInfo->scalarSize;
+	pDeclareInfo->scalarCount = pFormatIdentInfo->scalarCount;
+	if (ggsl_driver_instruction_declare_push(pShaderDesc, pGetInstructionInfo, pDeclareInstructionInfo)!=0){
+		printf("failed to push GPU host controller GGSL shader protocol driver declare instruction info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_desc* pReferenceIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_reference_ident_info referenceIdentInfo = {0};
+	memset((void*)&referenceIdentInfo, 0, sizeof(struct ggsl_driver_reference_ident_info));
+	referenceIdentInfo.declareType = GPU_SHADER_DECLARE_TYPE_INPUT;
+	referenceIdentInfo.declareId = pDeclareInfo->declareLocation.declareId;
+	referenceIdentInfo.pReferenceName = referenceIdentLocationInfo.pName;
+	referenceIdentInfo.referenceNameLength = referenceIdentLocationInfo.nameLength;
+	referenceIdentInfo.referenceHash = referenceIdentLocationInfo.hash;
+	if (ggsl_driver_reference_ident_register(pShaderDesc, referenceIdentInfo, &pReferenceIdentDesc)!=0){
+		printf("failed to register GPU host controller GGSL shader protocol driver reference identifier descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_instruction_imm(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo){
+	if (!pShaderDesc||!pIdentDesc||!pGetInstructionInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ggsl_driver_ident_desc* pFormatIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_get_next_ident_info getNextIdentInfo = {0};
+	memset((void*)&getNextIdentInfo, 0, sizeof(struct ggsl_driver_get_next_ident_info));
+	struct ggsl_driver_ident_location_info formatIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &formatIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = &pFormatIdentDesc;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_location_info referenceIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &referenceIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver reference identifier descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_location_info operatorIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &operatorIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver operator identifier descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (operatorIdentLocationInfo.nameLength!=0x01){
+		printf("unexpected GPU host controller GGSL shader protocol driver operator identifier name length\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (*operatorIdentLocationInfo.pName!='='){
+		printf("unexpected GPU host controller GGSL shader protocol driver operator identifier name\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_format_ident_info* pFormatIdentInfo = (struct ggsl_driver_format_ident_info*)pFormatIdentDesc->identInfo.extra0;
+	if (!pFormatIdentInfo){
+		printf("GPU host controller GGSL shader protocol driver format identifier descriptor not linked with format identifier info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	const unsigned char* scalarTypeName = (const unsigned char*)"Unknown scalar type";
+	gpu_instruction_scalar_type_get_name(pFormatIdentInfo->scalarType, &scalarTypeName);
+	struct gpu_declare_info vectorDeclareInfo = {0};
+	memset((void*)&vectorDeclareInfo, 0, sizeof(struct gpu_declare_info));
+	if (ggsl_driver_vector_get_declare_info(pShaderDesc, pFormatIdentInfo, &vectorDeclareInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver vector declaration info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	printf("immediate reference ident name: ");
+	for (uint64_t i = 0;i<referenceIdentLocationInfo.nameLength;i++){
+		putchar(referenceIdentLocationInfo.pName[i]);
+	}
+	putchar('\n');
+	struct gpu_instruction_info_dcl* pDeclareInstructionInfo = (struct gpu_instruction_info_dcl*)0x00;
+	if (ggsl_driver_get_current_instruction(pShaderDesc, pGetInstructionInfo, (struct gpu_instruction_info**)&pDeclareInstructionInfo)!=0){
+		printf("failed to get current GPU host controller GGSL shader protocol driver instruction info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pDeclareInstructionInfo, 0, sizeof(struct gpu_instruction_info_dcl));
+	pDeclareInstructionInfo->opcode = GPU_SHADER_OPCODE_DECLARE;
+	struct gpu_declare_info* pDeclareInfo = &pDeclareInstructionInfo->declareInfo;
+	*pDeclareInfo = vectorDeclareInfo;
+	pDeclareInfo->declareLocation.declareType = GPU_SHADER_DECLARE_TYPE_IMMEDIATE;
+	pDeclareInfo->scalarFormat = pFormatIdentInfo->format;
+	pDeclareInfo->scalarType = pFormatIdentInfo->scalarType;
+	pDeclareInfo->scalarSize = pFormatIdentInfo->scalarSize;
+	pDeclareInfo->scalarCount = pFormatIdentInfo->scalarCount;
+	if (ggsl_driver_instruction_declare_push(pShaderDesc, pGetInstructionInfo, pDeclareInstructionInfo)!=0){
+		printf("failed to push GPU host controller GGSL shader protocol driver immediate declare instruction\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_desc* pReferenceIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_reference_ident_info referenceIdentInfo = {0};
+	memset((void*)&referenceIdentInfo, 0, sizeof(struct ggsl_driver_reference_ident_info));
+	referenceIdentInfo.declareType = GPU_SHADER_DECLARE_TYPE_IMMEDIATE;
+	referenceIdentInfo.declareId = pDeclareInfo->declareLocation.declareId;
+	referenceIdentInfo.pReferenceName = referenceIdentLocationInfo.pName;
+	referenceIdentInfo.referenceNameLength = referenceIdentLocationInfo.nameLength;
+	referenceIdentInfo.referenceHash = referenceIdentLocationInfo.hash;
+	if (ggsl_driver_reference_ident_register(pShaderDesc, referenceIdentInfo, &pReferenceIdentDesc)!=0){
+		printf("failed to register GPU host controller GGSL shader protocol driver reference identifier\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_instruction_temp(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo){
+	if (!pShaderDesc||!pIdentDesc||!pGetInstructionInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ggsl_driver_ident_desc* pFormatIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_get_next_ident_info getNextIdentInfo = {0};
+	memset((void*)&getNextIdentInfo, 0, sizeof(struct ggsl_driver_get_next_ident_info));
+	struct ggsl_driver_ident_location_info formatIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &formatIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = &pFormatIdentDesc;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver format identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_location_info referenceIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &referenceIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver reference identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_format_ident_info* pFormatIdentInfo = (struct ggsl_driver_format_ident_info*)pFormatIdentDesc->identInfo.extra0;
+	if (!pFormatIdentInfo){
+		printf("GPU host controller GGSL shader protocol driver format identifier descriptor not linked with format identifier info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_instruction_info_dcl* pDeclareInstructionInfo = (struct gpu_instruction_info_dcl*)0x00;
+	if (ggsl_driver_get_current_instruction(pShaderDesc, pGetInstructionInfo, (struct gpu_instruction_info**)&pDeclareInstructionInfo)!=0){
+		printf("failed to get current GPU host controller GGSL shader protocol driver instruction info descriptor\r\n");	
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	memset((void*)pDeclareInstructionInfo, 0, sizeof(struct gpu_instruction_info_dcl));
+	pDeclareInstructionInfo->opcode = GPU_SHADER_OPCODE_DECLARE;
+	struct gpu_declare_info* pDeclareInfo = &pDeclareInstructionInfo->declareInfo;
+	pDeclareInfo->declareLocation.declareType = GPU_SHADER_DECLARE_TYPE_TEMP;
+	pDeclareInfo->scalarFormat = (uint64_t)pFormatIdentInfo->format;
+	pDeclareInfo->scalarType = pFormatIdentInfo->scalarType;
+	pDeclareInfo->scalarSize = pFormatIdentInfo->scalarSize;
+	pDeclareInfo->scalarCount = pFormatIdentInfo->scalarCount;
+	if (ggsl_driver_instruction_declare_push(pShaderDesc, pGetInstructionInfo, pDeclareInstructionInfo)!=0){
+		printf("failed to push GPU host controller GGSL shader protocol driver declare instruction info descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct ggsl_driver_ident_desc* pReferenceIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_reference_ident_info referenceIdentInfo = {0};
+	memset((void*)&referenceIdentInfo, 0, sizeof(struct ggsl_driver_reference_ident_info));
+	referenceIdentInfo.declareType = GPU_SHADER_DECLARE_TYPE_TEMP;
+	referenceIdentInfo.declareId = pDeclareInfo->declareLocation.declareId;
+	referenceIdentInfo.pReferenceName = referenceIdentLocationInfo.pName;
+	referenceIdentInfo.referenceNameLength = referenceIdentLocationInfo.nameLength;
+	referenceIdentInfo.referenceHash = referenceIdentLocationInfo.hash;
+	if (ggsl_driver_reference_ident_register(pShaderDesc, referenceIdentInfo, &pReferenceIdentDesc)!=0){
+		printf("failed to register GPU host controller GGSL shader protocol driver reference identifier descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	mutex_unlock(&mutex);
+	return 0;
+}
+int ggsl_driver_instruction_reference(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo){
+	if (!pShaderDesc||!pIdentDesc||!pGetInstructionInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct ggsl_driver_get_next_ident_info getNextIdentInfo = {0};
+	memset((void*)&getNextIdentInfo, 0, sizeof(struct ggsl_driver_get_next_ident_info));
+	struct gpu_swizzle referenceSwizzle = {0};
+	memset((void*)&referenceSwizzle, 0, sizeof(struct gpu_swizzle));
+	for (uint64_t i = 0;i<0x04;i++){
+		referenceSwizzle.swizzleList[i] = i;
+	}
+	printf("reference identifier: ");
+	for (uint64_t i = 0;i<pIdentDesc->identInfo.nameLength;i++){
+		putchar(pIdentDesc->identInfo.pName[i]);
+	}
+	putchar('\n');
+	struct ggsl_driver_ident_location_info swizzleIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &swizzleIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver swizzle identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (identLocationInfo.pName[identLocationInfo.nameLength]=='.'&&ggsl_driver_swizzle_get_info(pShaderDesc, swizzleIdentLocationInfo, &referenceSwizzle)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver swizzle info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	printf("swizzle: { ");
+	for (uint64_t i = 0;i<0x04;i++){
+		printf("%d, ", referenceSwizzle.swizzleList[i]);
+	}
+	printf("}\r\n");
+	struct ggsl_driver_ident_location_info operatorIdentLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &operatorIdentLocationInfo;
+	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver operator identifier info\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (operatorIdentLocationInfo.nameLength!=0x01){
+		printf("unexpected GPU host controller GGSL shader protocol driver operator identifier length\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (*operatorIdentLocationInfo.pName!='='){
+		printf("unexpected GPU host controller GGSL shader protocol driver operator identifier name\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	struct gpu_declare_location_info declareLocationInfo = {0};
+	memset((void*)&declareLocationInfo, 0, sizeof(struct gpu_declare_location_info));
+	if (ggsl_driver_instruction_expression_push(pShaderDesc, pGetInstructionInfo, &declareLocationInfo)!=0){
+		printf("failed to push GPU host controller GGSL shader protocol driver expression\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	unsigned char* pDeclareTypeName = (unsigned char*)"Unknown";
+	gpu_instruction_declare_type_get_name(declareLocationInfo.declareType, (const unsigned char**)&pDeclareTypeName);
+	printf("GPU host controller GGSL shader protocol driver declare type: %s\r\n", pDeclareTypeName);
+	printf("GPU host controller GGSL shader protocol driver declare ID: %d\r\n", declareLocationInfo.declareId);
+	mutex_unlock(&mutex);
+	return 0;
 }
 int ggsl_driver_instruction_list_reset(struct ggsl_driver_shader_desc* pShaderDesc){
 	if (!pShaderDesc)
@@ -229,19 +1050,56 @@ int ggsl_driver_instruction_list_reset(struct ggsl_driver_shader_desc* pShaderDe
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ggsl_driver_instruction_get_info(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_instruction_info* pInstructionInfo){
-	if (!pShaderDesc||!pInstructionInfo)
+int ggsl_driver_instruction_get_info(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo){
+	if (!pShaderDesc||!pGetInstructionInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	pInstructionInfo->opcode = 0x00;
-	uint64_t identCount = 0x00;
-	for (identCount = 0x00;;identCount++){
-		struct ggsl_driver_ident_desc* pIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
-		if (ggsl_driver_ident_get_next_desc(pShaderDesc, &pIdentDesc)!=0){
-			printf("failed to get GPU host controller GGSL shader protocol driver identifier descriptor\r\n");
+	struct ggsl_driver_get_next_ident_info getNextIdentInfo = {0};
+	memset((void*)&getNextIdentInfo, 0, sizeof(struct ggsl_driver_get_next_ident_info));
+	struct ggsl_driver_ident_desc* pIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+	struct ggsl_driver_ident_location_info identLocationInfo = {0};
+	getNextIdentInfo.pIdentLocationInfo = &identLocationInfo;
+	getNextIdentInfo.ppIdentDesc = &pIdentDesc;
+	if (ggsl_driver_get_next_ident(pShaderDesc, getNextIdentInfo)!=0){
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (ggsl_driver_ident_get_desc(pShaderDesc, &identLocationInfo, &pIdentDesc)!=0){
+		printf("failed to get GPU host controller GGSL shader protocol driver identifier descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	const unsigned char* pIdentTypeName = (const unsigned char*)"Unknown identifier";
+	ggsl_driver_ident_type_get_name(pIdentDesc->identInfo.identType, &pIdentTypeName);
+	printf("identifier type: %s\r\n", pIdentTypeName);
+	switch (pIdentDesc->identInfo.identType){
+		case GGSL_DRIVER_IDENT_TYPE_OPCODE:{
+			struct ggsl_driver_opcode_ident_info* pOpcodeIdentInfo = (struct ggsl_driver_opcode_ident_info*)pIdentDesc->identInfo.extra0;
+			if (!pOpcodeIdentInfo){
+				printf("GPU host controller GGSL shader protocol driver opcode identifier descriptor not linked with identifier info descriptor\r\n");
+				mutex_unlock(&mutex);
+				return -1;
+			}
+			ggslDriverInstructionFunc instructionFunc = (ggslDriverInstructionFunc)pOpcodeIdentInfo->instructionFunc;
+			if (instructionFunc(pShaderDesc, identLocationInfo, pIdentDesc, pGetInstructionInfo)!=0){
+				printf("failed to push GPU host controller GGSL shader protocol driver opcode instruction info descriptors\r\n");
+				mutex_unlock(&mutex);
+				return -1;
+			}
+			break;	
+		}	
+		case GGSL_DRIVER_IDENT_TYPE_REFERENCE:{
+			if (ggsl_driver_instruction_reference(pShaderDesc, identLocationInfo, pIdentDesc, pGetInstructionInfo)!=0){
+				mutex_unlock(&mutex);
+				return -1;
+			}
+			break;				      
+		}
+		default:{
+			printf("unexpected GPU host controller identifier of type: %s\r\n", pIdentTypeName);
 			mutex_unlock(&mutex);
-			return 0;
+			return -1;	
 		}
 	}
 	mutex_unlock(&mutex);
@@ -331,6 +1189,58 @@ int ggsl_driver_subsystem_shader_init(uint64_t gpuId, uint64_t contextId, uint64
 	pShaderDesc->pIdentListDescList = pIdentListDescList;
 	pShaderDesc->identListDescListSize = identListDescListSize;
 	pShaderObjectDesc->shaderDriverExtra = (uint64_t)pShaderDesc;
+	static const struct ggsl_driver_opcode_ident_info identOpcodeInfoList[]={
+		{(uint64_t)ggsl_driver_instruction_out}, {(uint64_t)ggsl_driver_instruction_in},
+		{(uint64_t)ggsl_driver_instruction_imm}, {(uint64_t)ggsl_driver_instruction_temp},
+	};
+	static const struct ggsl_driver_tag_ident_info identTagInfoList[]={
+		{GPU_SHADER_TAG_TYPE_POSITION}, {GPU_SHADER_TAG_TYPE_COLOR},
+		{GPU_SHADER_TAG_TYPE_TEXCOORD}, {GPU_SHADER_TAG_TYPE_PERSPECTIVE},
+	};
+	static const struct ggsl_driver_format_ident_info identFormatInfoList[]={
+		{GPU_FORMAT_R32_FLOAT, GPU_SHADER_SCALAR_TYPE_FLOAT, sizeof(uint32_t), 0x01}, {GPU_FORMAT_R32G32_FLOAT, GPU_SHADER_SCALAR_TYPE_FLOAT, sizeof(uint32_t), 0x02}, 
+		{GPU_FORMAT_R32G32B32_FLOAT, GPU_SHADER_SCALAR_TYPE_FLOAT, sizeof(uint32_t), 0x03}, {GPU_FORMAT_R32G32B32A32_FLOAT, GPU_SHADER_SCALAR_TYPE_FLOAT, sizeof(uint32_t), 0x04},
+
+		{GPU_FORMAT_R32_UINT, GPU_SHADER_SCALAR_TYPE_UINT, sizeof(uint32_t), 0x01}, {GPU_FORMAT_R32G32_UINT, GPU_SHADER_SCALAR_TYPE_UINT, sizeof(uint32_t), 0x02},
+		{GPU_FORMAT_R32G32B32_UINT, GPU_SHADER_SCALAR_TYPE_UINT, sizeof(uint32_t), 0x03}, {GPU_FORMAT_R32G32B32A32_UINT, GPU_SHADER_SCALAR_TYPE_UINT, sizeof(uint32_t), 0x04},
+
+		{GPU_FORMAT_R32_SINT, GPU_SHADER_SCALAR_TYPE_SINT, sizeof(uint32_t), 0x01}, {GPU_FORMAT_R32G32_SINT, GPU_SHADER_SCALAR_TYPE_SINT, sizeof(uint32_t), 0x02},
+		{GPU_FORMAT_R32G32B32_SINT, GPU_SHADER_SCALAR_TYPE_SINT, sizeof(uint32_t), 0x03}, {GPU_FORMAT_R32G32B32A32_SINT, GPU_SHADER_SCALAR_TYPE_SINT, sizeof(uint32_t), 0x04},
+	};
+	static const struct ggsl_driver_basic_ident_info initIdentInfoList[]={
+		{"out", 0x03, GGSL_DRIVER_IDENT_TYPE_OPCODE, (uint64_t)&identOpcodeInfoList[0x00], 0x00}, {"in", 0x02, GGSL_DRIVER_IDENT_TYPE_OPCODE, (uint64_t)&identOpcodeInfoList[0x01], 0x00},
+		{"imm", 0x03, GGSL_DRIVER_IDENT_TYPE_OPCODE, (uint64_t)&identOpcodeInfoList[0x02], 0x00}, {"temp", 0x04, GGSL_DRIVER_IDENT_TYPE_OPCODE, (uint64_t)&identOpcodeInfoList[0x03], 0x00}, 
+		
+		{":", 0x01, GGSL_DRIVER_IDENT_TYPE_SEPARATOR, 0x00, 0x00},
+
+		{"fvec1_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x00], 0x00}, {"fvec2_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x01], 0x00}, 
+		{"fvec3_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x02], 0x00}, {"fvec4_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x03], 0x00},
+		{"uvec1_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x04], 0x00}, {"uvec2_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x05], 0x00},
+		{"uvec3_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x06], 0x00}, {"uvec4_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x07], 0x00},
+		{"vec1_32", 0x07, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x08], 0x00}, {"vec2_32", 0x07, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x09], 0x00},
+		{"vec3_32", 0x07, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x0A], 0x00}, {"vec4_32", 0x07, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x0B], 0x00},
+
+		{"@position", 0x09, GGSL_DRIVER_IDENT_TYPE_TAG, (uint64_t)&identTagInfoList[0x00], 0x00}, {"@color", 0x06, GGSL_DRIVER_IDENT_TYPE_TAG, (uint64_t)&identTagInfoList[0x01], 0x00},
+	       	{"@texcoord", 0x09, GGSL_DRIVER_IDENT_TYPE_TAG, (uint64_t)&identTagInfoList[0x02], 0x00}, {"@perspective", 0x0C, GGSL_DRIVER_IDENT_TYPE_TAG, (uint64_t)&identTagInfoList[0x03], 0x00},
+	};
+	for (uint64_t i = 0;i<sizeof(initIdentInfoList)/sizeof(struct ggsl_driver_basic_ident_info);i++){
+		struct ggsl_driver_basic_ident_info* pBasicIdentInfo = ((struct ggsl_driver_basic_ident_info*)initIdentInfoList)+i;
+		struct ggsl_driver_ident_info identInfo = {0};
+		memset((void*)&identInfo, 0, sizeof(struct ggsl_driver_ident_info));
+		identInfo.pName = (unsigned char*)pBasicIdentInfo->pName;
+		identInfo.nameLength = pBasicIdentInfo->nameLength;
+		identInfo.identType = pBasicIdentInfo->identType;
+		identInfo.hash = 0x00;
+		identInfo.extra0 = pBasicIdentInfo->extra0;
+		identInfo.extra1 = pBasicIdentInfo->extra1;
+		struct ggsl_driver_ident_desc* pIdentDesc = (struct ggsl_driver_ident_desc*)0x00;
+		if (ggsl_driver_ident_register(pShaderDesc, &identInfo, &pIdentDesc)!=0){
+			printf("failed to register GPU host controller GGSL shader identifier descriptor\r\n");
+			subsystem_deinit(pIdentSubsystemDesc);
+			mutex_unlock(&mutex);
+			return -1;
+		}
+	}
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -402,8 +1312,8 @@ int ggsl_driver_subsystem_instruction_list_reset(uint64_t gpuId, uint64_t contex
 	mutex_unlock(&mutex);
 	return 0;
 }
-int ggsl_driver_subsystem_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo){
-	if (!pInstructionInfo)
+int ggsl_driver_subsystem_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_get_instruction_info* pGetInstructionInfo){
+	if (!pGetInstructionInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -431,8 +1341,7 @@ int ggsl_driver_subsystem_instruction_get_info(uint64_t gpuId, uint64_t contextI
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (ggsl_driver_instruction_get_info(pShaderDesc, pInstructionInfo)!=0){
-		printf("failed to get GPU host controller GGSL shader instruction info\r\n");
+	if (ggsl_driver_instruction_get_info(pShaderDesc, pGetInstructionInfo)!=0){
 		mutex_unlock(&mutex);
 		return -1;
 	}

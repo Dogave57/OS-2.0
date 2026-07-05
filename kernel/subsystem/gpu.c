@@ -978,6 +978,61 @@ KAPI int gpu_resource_get_desc(uint64_t gpuId, uint64_t resourceId, struct gpu_r
 	*ppResourceDesc = pResourceDesc;
 	return 0;
 }
+KAPI int gpu_instruction_opcode_type_get_name(uint8_t opcodeType, const unsigned char** ppOpcodeTypeName){
+	if (!ppOpcodeTypeName)
+		return -1;
+	static const unsigned char* opcodeTypeNameList[256]={
+		[GPU_SHADER_OPCODE_INVALID]="Invalid",
+		[GPU_SHADER_OPCODE_DECLARE]="Declare",
+	};
+	const unsigned char* pOpcodeTypeName = opcodeTypeNameList[opcodeType];
+	pOpcodeTypeName = !pOpcodeTypeName ? (const unsigned char*)"Unknown" : pOpcodeTypeName;
+	*ppOpcodeTypeName = pOpcodeTypeName;
+	return 0;
+}
+KAPI int gpu_instruction_scalar_type_get_name(uint8_t scalarType, const unsigned char** ppScalarTypeName){
+	if (!ppScalarTypeName)
+		return -1;
+	static const unsigned char* scalarTypeNameList[256]={
+		[GPU_SHADER_SCALAR_TYPE_INVALID]="Invalid",
+		[GPU_SHADER_SCALAR_TYPE_FLOAT]="Float",
+		[GPU_SHADER_SCALAR_TYPE_UINT]="Unsigned Integer",
+		[GPU_SHADER_SCALAR_TYPE_SINT]="Signed Integer",
+	};	
+	const unsigned char* pScalarTypeName = scalarTypeNameList[scalarType];
+	pScalarTypeName = !pScalarTypeName ? (const unsigned char*)"Unknown" : pScalarTypeName;
+	*ppScalarTypeName = pScalarTypeName;
+	return 0;
+}
+KAPI int gpu_instruction_declare_type_get_name(uint8_t declareType, const unsigned char** ppDeclareTypeName){
+	if (!ppDeclareTypeName)
+		return -1;
+	static const unsigned char* declareTypeNameList[256]={
+		[GPU_SHADER_DECLARE_TYPE_INVALID]="Invalid",
+		[GPU_SHADER_DECLARE_TYPE_OUTPUT]="Output",
+		[GPU_SHADER_DECLARE_TYPE_INPUT]="Input",
+		[GPU_SHADER_DECLARE_TYPE_IMMEDIATE]="Immediate",
+		[GPU_SHADER_DECLARE_TYPE_TEMP]="Temporary",
+	};
+	const unsigned char* pDeclareTypeName = declareTypeNameList[declareType];
+	pDeclareTypeName = !pDeclareTypeName ? (const unsigned char*)"Unknown" : pDeclareTypeName;
+	*ppDeclareTypeName = pDeclareTypeName;
+	return 0;
+}
+KAPI int gpu_instruction_tag_type_get_name(uint8_t tagType, const unsigned char** ppTagTypeName){
+	if (!ppTagTypeName)
+		return -1;
+	static const unsigned char* tagTypeNameList[256]={
+		[GPU_SHADER_TAG_TYPE_INVALID]="Invalid",
+		[GPU_SHADER_TAG_TYPE_POSITION]="Position",
+		[GPU_SHADER_TAG_TYPE_COLOR]="Color",
+		[GPU_SHADER_TAG_TYPE_TEXCOORD]="Texcoord",
+	};
+	const unsigned char* pTagTypeName = tagTypeNameList[tagType];
+	pTagTypeName = !pTagTypeName ? (const unsigned char*)"Unknown" : pTagTypeName;
+	*ppTagTypeName = pTagTypeName;
+	return 0;
+}
 KAPI int gpu_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t objectId){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -1013,8 +1068,8 @@ KAPI int gpu_instruction_list_reset(uint64_t gpuId, uint64_t contextId, uint64_t
 	mutex_unlock(&mutex);
 	return 0;
 }
-KAPI int gpu_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo){
-	if (!pInstructionInfo)
+KAPI int gpu_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_get_instruction_info* pGetInstructionInfo){
+	if (!pGetInstructionInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
@@ -1042,8 +1097,7 @@ KAPI int gpu_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t o
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (pShaderDriverDesc->vtable.instructionGetInfo(gpuId, contextId, objectId, pInstructionInfo)!=0){
-		printf("failed to get GPU host controller shader instruction info descriptor\r\n");
+	if (pShaderDriverDesc->vtable.instructionGetInfo(gpuId, contextId, objectId, pGetInstructionInfo)!=0){
 		mutex_unlock(&mutex);
 		return -1;
 	}

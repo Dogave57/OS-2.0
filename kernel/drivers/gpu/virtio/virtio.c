@@ -23,7 +23,8 @@
 #include "drivers/virtio.h"
 #include "drivers/shaders/tgsi.h"
 #include "drivers/shaders/ggsl.h"
-#include "drivers/gpu/virtio.h"
+#include "drivers/gpu/virtio/tgsi.h"
+#include "drivers/gpu/virtio/virtio.h"
 static struct virtio_gpu_info gpuInfo = {0};
 int virtio_gpu_init(void){
 	if (virtio_gpu_get_info(&gpuInfo)!=0){
@@ -753,10 +754,9 @@ int virtio_gpu_init(void){
 		createSamplerViewObjectInfo.format = GPU_FORMAT_R8G8B8A8_UNORM;
 		createSamplerViewObjectInfo.firstLevel = 0;
 		createSamplerViewObjectInfo.lastLevel = 0;
-		createSamplerViewObjectInfo.swizzle.r = 0;
-		createSamplerViewObjectInfo.swizzle.g = 1;
-		createSamplerViewObjectInfo.swizzle.b = 2;
-		createSamplerViewObjectInfo.swizzle.a = 3;
+		for (uint64_t i = 0;i<0x04;i++){
+			createSamplerViewObjectInfo.swizzle.swizzleList[i] = i+0x01;
+		}
 		if (gpu_object_create(gpuId, subsystemContextId, (struct gpu_create_object_info*)&createSamplerViewObjectInfo, &samplerViewObjectId)!=0){
 			printf("failed to create GPU host controller sampler view object via GPU subsystem\r\n");
 			gpu_context_delete(gpuId, subsystemContextId);
@@ -2921,6 +2921,7 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	pShaderObjectDesc->pObjectDesc = pObjectDesc;
 	pShaderObjectDesc->pSurfaceObjectDesc = pSurfaceObjectDesc;
 	pShaderObjectDesc->shaderType = createShaderInfo.shaderType;
+	pShaderObjectDesc->shaderCodeInfo = createShaderInfo.shaderCodeInfo;
 	pObjectDesc->objectType = VIRTIO_GPU_GL_OBJECT_TYPE_SHADER;
 	pObjectDesc->pExtra = (unsigned char*)pShaderObjectDesc;
 	uint64_t streamOutputSize = sizeof(struct virtio_gpu_gl_stream_output)*createShaderInfo.streamOutputCount;
@@ -2928,9 +2929,9 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	uint64_t glCommandBufferSize = sizeof(struct virtio_gpu_gl_create_shader_object_command)+streamOutputSize;
 	uint64_t maxFirstSegmentSize = PAGE_SIZE-sizeof(struct virtio_gpu_gl_create_shader_object_command)-sizeof(struct virtio_gpu_submit_3d_command);
 	uint64_t maxSegmentSize = PAGE_SIZE-sizeof(struct virtio_gpu_gl_shader_object_segment_command);
-	uint64_t shaderCodeSizeAligned = align_up(createShaderInfo.shaderCodeSize, sizeof(uint32_t));
-	uint64_t shaderCodeSegmentCount = 1;
-	if (createShaderInfo.shaderCodeSize>maxFirstSegmentSize)
+	uint64_t shaderCodeSizeAligned = align_up(createShaderInfo.shaderCodeInfo.shaderCodeLength, sizeof(uint32_t));
+	uint64_t shaderCodeSegmentCount = 0x01;
+	if (createShaderInfo.shaderCodeInfo.shaderCodeLength>maxFirstSegmentSize)
 		shaderCodeSegmentCount+=((shaderCodeSizeAligned-maxFirstSegmentSize)/maxSegmentSize)+1;
 	glCommandBufferSize+=shaderCodeSizeAligned+((shaderCodeSegmentCount-1)*sizeof(struct virtio_gpu_gl_shader_object_segment_command));
 	commandBufferSize+=glCommandBufferSize;
@@ -2950,9 +2951,9 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	memcpy((void*)pStreamOutputList, (void*)createShaderInfo.pStreamOutputList, createShaderInfo.streamOutputCount*sizeof(struct virtio_gpu_gl_stream_output));
 	unsigned char* pFirstShaderCodeSegment = (unsigned char*)(createShaderInfo.streamOutputCount ? (unsigned char*)pStreamOutputList+createShaderInfo.streamOutputCount : (unsigned char*)(pGlCommand+1));
 	uint64_t firstSegmentSize = (PAGE_SIZE-sizeof(struct virtio_gpu_submit_3d_command)-sizeof(struct virtio_gpu_gl_create_shader_object_command));
-	firstSegmentSize = (createShaderInfo.shaderCodeSize<firstSegmentSize) ? createShaderInfo.shaderCodeSize : firstSegmentSize;
+	firstSegmentSize = (createShaderInfo.shaderCodeInfo.shaderCodeLength<firstSegmentSize) ? createShaderInfo.shaderCodeInfo.shaderCodeLength : firstSegmentSize;
 	uint64_t firstSegmentSizeAligned = align_up(firstSegmentSize, sizeof(uint32_t));
-	memcpy((void*)pFirstShaderCodeSegment, (void*)createShaderInfo.pShaderCode, firstSegmentSize);
+	memcpy((void*)pFirstShaderCodeSegment, (void*)createShaderInfo.shaderCodeInfo.pShaderCode, firstSegmentSize);
 	pGlCommand->header.opcode = VIRTIO_GPU_GL_CMD_CREATE_OBJECT;
 	pGlCommand->header.object_type = VIRTIO_GPU_GL_OBJECT_TYPE_SHADER;
 	pGlCommand->header.length = 5+(firstSegmentSizeAligned/sizeof(uint32_t));
@@ -2962,13 +2963,13 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	pGlCommand->offset_length = shaderCodeSizeAligned;
 	for (uint64_t i = 0;i<shaderCodeSegmentCount-1;i++){
 		struct virtio_gpu_gl_shader_object_segment_command* pSegmentCommand = (struct virtio_gpu_gl_shader_object_segment_command*)(((unsigned char*)pCommandBuffer)+((i+1)*PAGE_SIZE));
-		uint64_t shaderCodeSegmentSize = (i==shaderCodeSegmentCount-2) ? createShaderInfo.shaderCodeSize%maxSegmentSize : maxSegmentSize;
+		uint64_t shaderCodeSegmentSize = (i==shaderCodeSegmentCount-2) ? createShaderInfo.shaderCodeInfo.shaderCodeLength%maxSegmentSize : maxSegmentSize;
 		uint64_t shaderCodeSegmentSizeAligned = align_up(shaderCodeSegmentSize, sizeof(uint32_t));
 		pSegmentCommand->header.opcode = VIRTIO_GPU_GL_CMD_CREATE_OBJECT;
 		pSegmentCommand->header.object_type = VIRTIO_GPU_GL_OBJECT_TYPE_SHADER;
 		pSegmentCommand->header.length = 3+align_up(shaderCodeSegmentSize, sizeof(uint32_t))/sizeof(uint32_t);
 		pSegmentCommand->offset_length = (maxFirstSegmentSize+(i*maxSegmentSize))|(1<<31);
-		memcpy((void*)pSegmentCommand->segment_data, (void*)(createShaderInfo.pShaderCode+maxFirstSegmentSize+(i*maxSegmentSize)), shaderCodeSegmentSize);
+		memcpy((void*)pSegmentCommand->segment_data, (void*)(createShaderInfo.shaderCodeInfo.pShaderCode+maxFirstSegmentSize+(i*maxSegmentSize)), shaderCodeSegmentSize);
 	}
 	pCommandBuffer->size = glCommandBufferSize;
 	if (virtio_gpu_submit(pCommandBuffer, pResponseHeader)!=0){
@@ -3012,8 +3013,8 @@ int virtio_gpu_gl_delete_object(struct virtio_gpu_object_desc* pObjectDesc, stru
 				virtualFreePage((uint64_t)pCommandBuffer, 0);
 				return -1;
 			}
-			if (pShaderObjectDesc->shaderCodeLength!=pShaderObjectDesc->shaderCodeSize)
-				virtualFree((uint64_t)pShaderObjectDesc->pShaderCode, pShaderObjectDesc->shaderCodeSize);
+			if (pShaderObjectDesc->shaderCodeInfo.shaderCodeLength!=pShaderObjectDesc->shaderCodeInfo.shaderCodeSize)
+				virtualFree((uint64_t)pShaderObjectDesc->shaderCodeInfo.pShaderCode, pShaderObjectDesc->shaderCodeInfo.shaderCodeSize);
 			break;			    
 		}
 	}
@@ -4531,49 +4532,6 @@ int virtio_gpu_subsystem_blend_state_list_object_create(struct virtio_gpu_contex
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_subsystem_shader_tgsi_generate(struct virtio_gpu_context_desc* pContextDesc, struct virtio_gpu_object_desc* pObjectDesc, unsigned char** ppTgsiShaderCode, uint64_t* pTgsiShaderCodeSize, uint64_t* pTgsiShaderCodeLength){
-	if (!pContextDesc||!pObjectDesc||!ppTgsiShaderCode||!pTgsiShaderCodeSize||!pTgsiShaderCodeLength)
-		return -1;
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);
-	struct gpu_shader_object_desc* pShaderObjectDesc = (struct gpu_shader_object_desc*)0x00;
-	if (gpu_object_get_desc(gpuInfo.gpuId, pObjectDesc->objectId, (struct gpu_object_desc**)&pShaderObjectDesc)!=0){
-		printf("failed to get GPU host controller shader object descriptor\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	struct gpu_shader_driver_desc* pSubsystemShaderDriverDesc = (struct gpu_shader_driver_desc*)0x00;
-	if (gpu_shader_driver_get_desc(pShaderObjectDesc->shaderDriverId, &pSubsystemShaderDriverDesc)!=0){
-		printf("failed to get GPU host controller shader driver descriptor with ID: %d\r\n", pShaderObjectDesc->shaderDriverId);
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	unsigned char* pTgsiShaderCode = (unsigned char*)0x00;
-	uint64_t tgsiShaderCodeSize = MEM_KB*1024;
-	uint64_t tgsiShaderCodeLength = 0x00;
-	if (virtualAlloc((uint64_t*)&pTgsiShaderCode, tgsiShaderCodeSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_MMIO)!=0){
-		printf("failed to allocate physical pages for GPU host controller TGSI shader code\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
-	uint64_t instructionCount = 0x00;
-	for (instructionCount = 0x00;;instructionCount++){
-		struct gpu_instruction_info instructionInfo = {0};
-		if (gpu_instruction_get_info(gpuInfo.gpuId, pContextDesc->contextId, pObjectDesc->objectId, &instructionInfo)!=0){
-			printf("failed to get GPU host controller shader instruction info\r\n");
-			mutex_unlock(&mutex);
-			return -1;
-		}
-		printf("opcode: 0x%x\r\n", instructionInfo.opcode);
-		if (!instructionInfo.opcode)
-			break;
-	}
-	*ppTgsiShaderCode = pTgsiShaderCode;
-	*pTgsiShaderCodeSize = tgsiShaderCodeSize;
-	*pTgsiShaderCodeLength = tgsiShaderCodeLength;
-	mutex_unlock(&mutex);
-	return 0;
-}
 int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_shader_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader){
 	if (!pContextDesc||!pCreateObjectInfo||!pObjectDesc||!pResponseHeader)
 		return -1;
@@ -4597,28 +4555,47 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	unsigned char* pShaderCode = pCreateObjectInfo->pShaderCode;
-	uint64_t shaderCodeSize = pCreateObjectInfo->shaderCodeSize;
-	uint64_t shaderCodeLength = shaderCodeSize;
+	struct virtio_gpu_shader_code_info shaderCodeInfo = {0};
+	memset((void*)&shaderCodeInfo, 0, sizeof(struct virtio_gpu_shader_code_info));
+	shaderCodeInfo.pOriginalShaderCode = pCreateObjectInfo->pShaderCode;
+	shaderCodeInfo.originalShaderCodeSize = pCreateObjectInfo->shaderCodeSize;
+	shaderCodeInfo.pShaderCode = pCreateObjectInfo->pShaderCode;
+	shaderCodeInfo.shaderCodeSize = pCreateObjectInfo->shaderCodeSize;
+	shaderCodeInfo.shaderCodeLength = pCreateObjectInfo->shaderCodeSize;
 	static const unsigned char tgsiDriverIdent[16] = TGSI_DRIVER_IDENT;
 	uint64_t nativeShaderLanguage = (guidcmp((unsigned char*)pSubsystemShaderDriverDesc->driverInfo.ident, (unsigned char*)tgsiDriverIdent)==0x00) ? 0x01 : 0x00;
-	if (!nativeShaderLanguage&&virtio_gpu_subsystem_shader_tgsi_generate(pContextDesc, pObjectDesc, &pShaderCode, &shaderCodeSize, &shaderCodeLength)!=0){
-		printf("failed to translate GPU host controller shader language to virtual I/O GPU host controller TGSI shader language\r\n");
-		mutex_unlock(&mutex);
-		return -1;
+	if (!nativeShaderLanguage){
+		unsigned char* pShaderCode = (unsigned char*)0x00;
+		uint64_t shaderCodeSize = MEM_KB*0x1000;
+		if (virtualAlloc((uint64_t*)&pShaderCode, shaderCodeSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_MMIO)!=0){
+			printf("failed to allocate physical pages for virtual I/O GPU host controller string-form TGSI shader code\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
+		shaderCodeInfo.pShaderCode = pShaderCode;
+		shaderCodeInfo.shaderCodeSize = shaderCodeSize;
+		shaderCodeInfo.shaderCodeLength = 0x00;
+		if (virtio_gpu_tgsi_shader_translate(gpuInfo.gpuId, pContextDesc->contextId, pObjectDesc->objectId, pCreateObjectInfo, &shaderCodeInfo)!=0){
+			printf("failed to translate GPU host controller shader language to virtual I/O GPU host controller string-form TGSI\r\n");
+			mutex_unlock(&mutex);
+			return -1;
+		}
 	}
 	struct virtio_gpu_create_shader_info createShaderInfo = {0};
 	memset((void*)&createShaderInfo, 0, sizeof(struct virtio_gpu_create_shader_info));
-	createShaderInfo.pShaderCode = pShaderCode;
-	createShaderInfo.shaderCodeSize = shaderCodeSize;
-	createShaderInfo.shaderCodeLength = shaderCodeLength;
-	createShaderInfo.tokenCount = pCreateObjectInfo->shaderCodeSize;
+	createShaderInfo.shaderCodeInfo = shaderCodeInfo;
+	createShaderInfo.tokenCount = shaderCodeInfo.shaderCodeLength;
 	createShaderInfo.shaderType = pCreateObjectInfo->shaderType;
+	for (uint64_t i = 0;i<shaderCodeInfo.shaderCodeLength;i++){
+		if (nativeShaderLanguage)
+			break;
+		serial_putchar(0x00, shaderCodeInfo.pShaderCode[i]);
+	}
 	while (!nativeShaderLanguage){};
 	if (virtio_gpu_gl_create_shader_object(pSurfaceObjectDesc, createShaderInfo, pObjectDesc, pResponseHeader)!=0){
 		printf("failed to create virtual I/O GPU host controller shader object\r\n");
 		if (!nativeShaderLanguage)
-			virtualFree((uint64_t)pShaderCode, shaderCodeSize);
+			virtualFree((uint64_t)shaderCodeInfo.pShaderCode, shaderCodeInfo.shaderCodeSize);
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -4668,7 +4645,12 @@ int virtio_gpu_subsystem_sampler_view_object_create(struct virtio_gpu_context_de
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct virtio_gpu_swizzle swizzle = *(struct virtio_gpu_swizzle*)&pCreateObjectInfo->swizzle;
+	struct virtio_gpu_swizzle swizzle = {0};
+	memset((void*)&swizzle, 0, sizeof(struct virtio_gpu_swizzle));
+	swizzle.r = pCreateObjectInfo->swizzle.swizzleList[0x00]-0x01;
+	swizzle.g = pCreateObjectInfo->swizzle.swizzleList[0x01]-0x01;
+	swizzle.b = pCreateObjectInfo->swizzle.swizzleList[0x02]-0x01;
+	swizzle.a = pCreateObjectInfo->swizzle.swizzleList[0x03]-0x01;
 	if (virtio_gpu_gl_create_sampler_view_object(pResourceDesc, pCreateObjectInfo->format, pCreateObjectInfo->firstLevel, pCreateObjectInfo->lastLevel, swizzle, pObjectDesc, pResponseHeader)!=0){
 		printf("failed to create virtual I/O GPU host controller sampler view object\r\n");
 		mutex_unlock(&mutex);

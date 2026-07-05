@@ -173,8 +173,8 @@ int tgsi_driver_subsystem_instruction_list_reset(uint64_t gpuId, uint64_t contex
 	mutex_unlock(&mutex);
 	return 0;
 }
-int tgsi_driver_subsystem_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_instruction_info* pInstructionInfo){
-	if (!pInstructionInfo)
+int tgsi_driver_subsystem_instruction_get_info(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_get_instruction_info* pGetInstructionInfo){
+	if (!pGetInstructionInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);

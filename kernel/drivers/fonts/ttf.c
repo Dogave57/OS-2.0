@@ -1029,7 +1029,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 			}
 		}
 		memset((void*)(pPointDescList+i), 0, sizeof(struct ttf_point_entry_desc));
-		pPointDescList[i].position.x = ((((double)(((int64_t)lastCoordEntry)+absq(minX)))/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
+		pPointDescList[i].position.x = (double)((((double)(((int64_t)lastCoordEntry)+absq(minX)))/(double)glyphBounds.x)*(double)(textureBufferRect.x-0x01));
 		pPointDescList[i].flags = *pPointFlags;
 		if (i<pointFlagRepeatFence)
 			continue;
@@ -1162,7 +1162,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 	memset((void*)pSegmentDescList, 0, segmentDescListSize);
 	struct ttf_pixel_entry_desc* pPixelDescList = (struct ttf_pixel_entry_desc*)0x00;
 	uint64_t pixelDescListSize = (textureBufferRect.x*textureBufferRect.y)*sizeof(struct ttf_pixel_entry_desc);
-	if (virtualAlloc((uint64_t*)&pPixelDescList, pixelDescListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAlloc((uint64_t*)&pPixelDescList, pixelDescListSize, PTE_RW|PTE_NX, 0x00, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate physical pages for true type glyph pixel descriptor list\r\n");
 		virtualFree((uint64_t)pContourDescList, contourDescListSize);
 		virtualFree((uint64_t)pPointDescList, pointDescListSize);
@@ -1323,7 +1323,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 					controlCoordIndex = (!controlCoordIndex&&currentContourIndex) ? (__builtin_bswap16(pContourEndpointTable[currentContourIndex-0x01])+0x01) : controlCoordIndex;
 					nextStartCoord = endCoord;
 				}
-				uint64_t curveSegmentCount = 0x08;
+				uint64_t curveSegmentCount = 0x04;
 				for (uint64_t curveSegment = 0x00;curveSegment<curveSegmentCount;curveSegment++){
 					double curveStep = ((double)curveSegment)/(double)(curveSegmentCount);
 					double nextCurveStep = ((double)(curveSegment+0x01))/(double)(curveSegmentCount);
@@ -1402,11 +1402,12 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 			virtualFree((uint64_t)pPointDescList, pointDescListSize);
 			virtualFree((uint64_t)pContourDescList, contourDescListSize);
 			virtualFree((uint64_t)pPixelDescList, pixelDescListSize);
+			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
 	uint64_t elapsedTime = get_time_us()-startTime;
-	printf("prefragmentation time: %f\r\n", ((double)elapsedTime)/1000.0);
+//	printf("prefragmentation time: %f\r\n", ((double)elapsedTime)/1000.0);
 	struct vec2_64 vec1 = {0};
 	vec1.x = 64;
 	vec1.y = -40;
@@ -1428,23 +1429,6 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 			segmentEntryCoord.y = pixelCoord.y/segmentRect.y;
 			uint64_t pixelOffset = (pixelCoord.y*textureBufferRect.x)+pixelCoord.x;
 			uint64_t segmentEntryOffset = (segmentEntryCoord.y*segmentCount.x)+segmentEntryCoord.x;
-			uint64_t physicalAddress = 0x00;
-			if (virtualToPhysical((uint64_t)(pPixelDescList+pixelOffset), (uint64_t*)&physicalAddress)!=0){
-				printf("failed to get true type pixel descriptor list physical page address\r\n");
-				virtualFree((uint64_t)pPointDescList, pointDescListSize);
-				virtualFree((uint64_t)pContourDescList, contourDescListSize);
-				virtualFree((uint64_t)pPixelDescList, pixelDescListSize);
-				return -1;
-			}
-			if (!physicalAddress&&0x00){
-				pixelOffset+=PAGE_SIZE;
-				inactivePixelCount+=PAGE_SIZE;
-				row = pixelOffset/textureBufferRect.x;
-				column = pixelOffset%textureBufferRect.x;
-				if (row>textureBufferRect.y-0x01)
-					break;
-				continue;
-			}
 			struct ttf_pixel_entry_desc* pPixelDesc = pPixelDescList+pixelOffset;
 			struct ttf_segment_entry_desc* pSegmentDesc = pSegmentDescList+segmentEntryOffset;
 			struct ttf_contour_entry_desc* pContourDesc = pContourDescList+pPixelDesc->contourIndex;
@@ -1501,7 +1485,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 		}
 	}
 	elapsedTime = get_time_us()-startTime;
-	printf("SDF floating point DWORD generation time: %fms\r\n", ((double)elapsedTime)/1000.0);
+//	printf("SDF floating point DWORD generation time: %fms\r\n", ((double)elapsedTime)/1000.0);
 	virtualFree((uint64_t)pPointDescList, pointDescListSize);
 	virtualFree((uint64_t)pContourDescList, contourDescListSize);
 	virtualFree((uint64_t)pSegmentDescList, segmentDescListSize);
