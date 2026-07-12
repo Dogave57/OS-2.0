@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include "kernel_include.h"
 #include "bootloader.h"
+KAPI int atoi64(unsigned char* pBuffer, uint64_t bufferSize, int64_t* pValue);
+KAPI int atou64(unsigned char* pBuffer, uint64_t bufferSize, uint64_t* pValue);
 KAPI int itoa64(int64_t value, unsigned char* pBuffer, uint64_t bufferSize, uint64_t* pBufferLength);
 KAPI int utoa64(uint64_t value, unsigned char* pBuffer, uint64_t bufferSize, uint64_t* pBufferLength);
 KAPI int printf(unsigned char* fmt, ...);

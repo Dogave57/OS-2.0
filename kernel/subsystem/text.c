@@ -251,7 +251,9 @@ int text_subsystem_init(void){
 		"DCL OUT[1], TEXCOORD\n"
 		"DCL OUT[2], COLOR\n"
 		"DCL OUT[3], GENERIC[0]\n"
-		"DCL CONST[0..2]\n"
+		"DCL CONST[0]\n"
+		"DCL CONST[1]\n"
+		"DCL CONST[2]\n"
 		"DCL TEMP[0]\n"
 		"DCL IN[0]\n"
 		"DCL IN[1]\n"
@@ -265,14 +267,42 @@ int text_subsystem_init(void){
 		"MOV OUT[2], IN[2]\n"
 		"END\n";
 	static const unsigned char testVertexShaderCode[]="GGSL\n"
-		"imm fvec4_32 colorImm = { 0.16, 0.032, 0.64, 1.0 }\n"
 		"out fvec2_32 positionOut : @position\n"
 		"out fvec2_32 texCoordOut : @texcoord\n"
 		"out fvec4_32 colorOut : @color\n"
-		"in fvec2_32 position\n"
-		"in fvec2_32 texCoord\n"
-		"in fvec4_32 color\n"
-		"positionOut.x = texCoord.x + colorImm.x\n";
+		"out fvec4_32 spreadOut : @generic!0\n"
+		"in fvec2_32 positionIn\n"
+		"in fvec2_32 texCoordIn\n"
+		"in fvec4_32 colorIn\n"
+		"const fvec4_32 translation\n"
+		"const fvec4_32 scale\n"
+		"const fvec4_32 spread\n"
+		"positionOut.xy = fadd(fmul(positionIn, scale), translation)\n"
+		"positionOut.w = positionIn\n"
+		"texCoordOut = texCoordIn\n"
+		"colorOut = colorIn\n"
+		"spreadOut = spread\n";
+	static const unsigned char tgsiVertexShaderCode[]="VERT\n"
+"DCL OUT[0], POSITION\n"
+"DCL OUT[1], TEXCOORD\n"
+"DCL OUT[2], COLOR\n"
+"DCL IN[0]\n"
+"DCL IN[1]\n"
+"DCL IN[2]\n"
+"DCL CONST[0]\n"
+"DCL CONST[1]\n"
+"DCL CONST[2]\n"
+"DCL TEMP[0]\n"
+"DCL TEMP[1]\n"
+"MUL TEMP[1].xyzw, IN[0].xyzw, CONST[1].xyzw\n"
+"MOV TEMP[0].xyzw, TEMP[1].xyzw\n"
+"DCL TEMP[2]\n"
+"ADD TEMP[2].xyzw, TEMP[0].xyzw, CONST[0].xyzw\n"
+"MOV TEMP[0].xyzw, TEMP[2].xyzw\n"
+"MOV OUT[0].xyzw, TEMP[0].xyzw\n"
+"MOV OUT[1].xyzw, IN[1].xyzw\n"
+"MOV OUT[2].xyzw, IN[2].xyzw\n"
+"END\n";
 	static const unsigned char fragmentShaderCode[]="FRAG\n"
 		"DCL OUT[0], COLOR\n"
 		"DCL IN[0], COLOR, PERSPECTIVE\n"
@@ -287,6 +317,8 @@ int text_subsystem_init(void){
 		"DCL TEMP[2]\n"
 		"DCL TEMP[3]\n"
 		"TEX TEMP[0], IN[1], SAMP[0], 2D\n"
+		"DCL TEMP[4]\n"
+		"ADD TEMP[4].xy, TEMP[0].xyyy, TEMP[4].xyyy\n"
 		"MUL TEMP[0].x, TEMP[0].xxxx, IMM[1].yyyy\n"
 		"DIV TEMP[0].x, TEMP[0].xxxx, IN[2].xxxx\n"
 		"MOV TEMP[2], IN[0]\n"
@@ -306,8 +338,17 @@ int text_subsystem_init(void){
 		"SUB TEMP[1].y, IMM[1].xxxx, TEMP[1].yyyy\n"
 		"MUL TEMP[1].z, TEMP[1].xxxx, TEMP[1].xxxx\n"
 		"MUL TEMP[2].w, TEMP[1].zzzz, TEMP[1].yyyy\n"
-		"MOV OUT[0], TEMP[2]\n"
+		"MOV OUT[0].xyzw, TEMP[2].xyzw\n"
 		"END\n";
+	static const unsigned char testFragmentShaderCode[]="GGSL\n"
+		"out fvec4_32 colorOut : @color\n"
+		"in fvec4_32 colorIn : @color @perspective\n"
+		"in fvec2_32 texCoordIn : @texcoord @perspective\n"
+		"in fvec4_32 spreadIn : @generic!0\n"
+		"temp fvec4_32 texCoord\n"
+		"temp fvec4_32 color\n"
+		"color = colorIn\n"
+		"colorOut = color\n";	
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
 	uint64_t tgsiShaderDriverId = 0x00;
@@ -326,18 +367,22 @@ int text_subsystem_init(void){
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
+	printf("GPU host controller TGSI shader code length: %d\r\n", sizeof(tgsiVertexShaderCode));
+	uint64_t value = 0x00;
+	atou64((unsigned char*)"1234", 0x04, &value);
+	printf("test: %d\r\n", value);
 	struct gpu_create_shader_object_info createShaderObjectInfo = {0};
 	memset((void*)&createShaderObjectInfo, 0, sizeof(struct gpu_create_shader_object_info));
 	createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
 	createShaderObjectInfo.surfaceObjectId = surfaceObjectId;
 	createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
-	createShaderObjectInfo.pShaderCode = (unsigned char*)vertexShaderCode;
-	createShaderObjectInfo.shaderCodeSize = sizeof(vertexShaderCode);
 	createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
-/*	createShaderObjectInfo.shaderDriverId = ggslShaderDriverId;
+	createShaderObjectInfo.pShaderCode = (unsigned char*)tgsiVertexShaderCode;
+	createShaderObjectInfo.shaderCodeSize = sizeof(tgsiVertexShaderCode);
+	createShaderObjectInfo.shaderDriverId = ggslShaderDriverId;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)testVertexShaderCode;
 	createShaderObjectInfo.shaderCodeSize = sizeof(testVertexShaderCode);
-*/	uint64_t startTime = get_time_us();
+	uint64_t startTime = get_time_us();
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
 		printf("failed to create GPU host controller vertex shader object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
@@ -353,6 +398,9 @@ int text_subsystem_init(void){
 	createShaderObjectInfo.pShaderCode = (unsigned char*)fragmentShaderCode;
 	createShaderObjectInfo.shaderCodeSize = sizeof(fragmentShaderCode);
 	createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
+	createShaderObjectInfo.shaderDriverId = ggslShaderDriverId;
+	createShaderObjectInfo.pShaderCode = (unsigned char*)testFragmentShaderCode;
+	createShaderObjectInfo.shaderCodeSize = sizeof(testFragmentShaderCode);
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &fragmentShaderObjectId)!=0){
 		printf("failed to create GPU host controller fragment shader object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);

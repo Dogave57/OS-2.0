@@ -5,7 +5,41 @@
 #include "math/basic.h"
 #include "subsystem/text.h"
 #include "stdlib/stdlib.h"
-unsigned char printfLock = 0;
+KAPI int atoi64(unsigned char* pBuffer, uint64_t bufferSize, int64_t* pValue){
+	if (!pBuffer||!bufferSize||!pValue)
+		return -1;
+	int64_t value = 0x00;
+	int64_t multiplier = 0x01;
+	if (*pBuffer=='-'){
+		multiplier = -1;
+		pBuffer++;
+		bufferSize--;
+	}
+	for (uint64_t i = 0;i<bufferSize;i++){
+		unsigned char bufferEntry = pBuffer[i];
+		if (bufferEntry<'0'||bufferEntry>'9')
+			return -1;
+		uint64_t digit = (uint64_t)(bufferEntry-'0');
+		value = (value*0x0A)+(int64_t)digit;
+	}
+	value*=multiplier;
+	*pValue = value;
+	return 0;
+}
+KAPI int atou64(unsigned char* pBuffer, uint64_t bufferSize, uint64_t* pValue){
+	if (!pBuffer||!bufferSize||!pValue)
+		return -1;
+	uint64_t value = 0x00;
+	for (uint64_t i = 0;i<bufferSize;i++){
+		unsigned char bufferEntry = pBuffer[i];
+		if (bufferEntry<'0'||bufferEntry>'9')
+			return -1;
+		uint64_t digit = (uint64_t)(bufferEntry-'0');
+		value = (value*0x0A)+digit;
+	}
+	*pValue = value;
+	return 0;
+}
 KAPI int itoa64(int64_t value, unsigned char* pBuffer, uint64_t bufferSize, uint64_t* pBufferLength){
 	if (!pBuffer||!bufferSize||!pBufferLength)
 		return -1;

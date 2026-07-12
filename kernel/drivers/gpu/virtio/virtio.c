@@ -4591,7 +4591,7 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 			break;
 		serial_putchar(0x00, shaderCodeInfo.pShaderCode[i]);
 	}
-	while (!nativeShaderLanguage){};
+	while (!nativeShaderLanguage&&0x00){};
 	if (virtio_gpu_gl_create_shader_object(pSurfaceObjectDesc, createShaderInfo, pObjectDesc, pResponseHeader)!=0){
 		printf("failed to create virtual I/O GPU host controller shader object\r\n");
 		if (!nativeShaderLanguage)
