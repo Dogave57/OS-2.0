@@ -256,6 +256,7 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_OPCODE_DIV (0x06)
 #define GPU_SHADER_OPCODE_DDX (0x07)
 #define GPU_SHADER_OPCODE_DDY (0x08)
+#define GPU_SHADER_OPCODE_TEX (0x09)
 
 #define GPU_SHADER_DECLARE_TYPE_INVALID (0x00)
 #define GPU_SHADER_DECLARE_TYPE_INPUT (0x01)
@@ -277,6 +278,9 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_TAG_TYPE_TEXCOORD (0x03)
 #define GPU_SHADER_TAG_TYPE_PERSPECTIVE (0x04)
 #define GPU_SHADER_TAG_TYPE_GENERIC (0x05)
+#define GPU_SHADER_TAG_TYPE_2D (0x06)
+#define GPU_SHADER_TAG_TYPE_3D (0x07)
+#define GPU_SHADER_TAG_TYPE_FLOAT (0x08)
 
 #define GPU_DEFAULT_CMD_LIST_SIZE (16384)
 #define GPU_MAX_CMD_CONTEXT_COUNT (16384)
@@ -462,16 +466,6 @@ struct gpu_instruction_info_dcl{
 	struct gpu_declare_info declareInfo;
 	uint8_t reserved0[120-sizeof(struct gpu_declare_info)];
 }__attribute__((packed));
-struct gpu_instruction_info_ddx{
-	uint64_t opcode;
-	struct gpu_operand_info operandInfoList[2];
-	uint8_t reserved0[128-(sizeof(struct gpu_operand_info)*0x02)];
-}__attribute__((packed));
-struct gpu_instruction_info_ddy{
-	uint64_t opcode;
-	struct gpu_operand_info operandInfoList[2];
-	uint8_t reserved0[128-(sizeof(struct gpu_operand_info)*0x02)];
-}__attribute__((packed));
 struct gpu_instruction_info_mov{
 	uint64_t opcode;
 	struct gpu_operand_info operandInfoList[2];
@@ -494,6 +488,22 @@ struct gpu_instruction_info_mul{
 }__attribute__((packed));
 struct gpu_instruction_info_div{
 	uint64_t opcode;
+	struct gpu_operand_info operandInfoList[3];
+	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
+}__attribute__((packed));
+struct gpu_instruction_info_ddx{
+	uint64_t opcode;
+	struct gpu_operand_info operandInfoList[2];
+	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x02)];
+}__attribute__((packed));
+struct gpu_instruction_info_ddy{
+	uint64_t opcode;
+	struct gpu_operand_info operandInfoList[2];
+	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x02)];
+}__attribute__((packed));
+struct gpu_instruction_info_tex{
+	uint64_t opcode;
+	struct gpu_tag_list_info tagListInfo;
 	struct gpu_operand_info operandInfoList[3];
 	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
 }__attribute__((packed));

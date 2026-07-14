@@ -29,6 +29,9 @@ int virtio_gpu_tgsi_tag_type_get_name(uint8_t tagType, const unsigned char** ppT
 		[GPU_SHADER_TAG_TYPE_TEXCOORD]="TEXCOORD",
 		[GPU_SHADER_TAG_TYPE_PERSPECTIVE]="PERSPECTIVE",
 		[GPU_SHADER_TAG_TYPE_GENERIC]="GENERIC",
+		[GPU_SHADER_TAG_TYPE_2D]="2D",
+		[GPU_SHADER_TAG_TYPE_3D]="3D",
+		[GPU_SHADER_TAG_TYPE_FLOAT]="FLOAT",
 	};	
 	const unsigned char* pTagTypeName = tagTypeNameList[tagType];
 	pTagTypeName = !pTagTypeName ? (const unsigned char*)"Unknown" : pTagTypeName;
@@ -390,6 +393,24 @@ int virtio_gpu_tgsi_shader_instruction_ddy(struct gpu_instruction_info_ddy* pIns
 	mutex_unlock(&mutex);
 	return 0;
 }
+int virtio_gpu_tgsi_shader_instruction_tex(struct gpu_instruction_info_tex* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo){
+	if (!pInstructionInfo||!pShaderCodeInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_operand_info* pOperandInfoList = (struct gpu_operand_info*)pInstructionInfo->operandInfoList;
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "TEX ", 0x04);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x00)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, ", ", 0x02);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x01)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, ", ", 0x02);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x02)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, ", ", 0x02);
+	virtio_gpu_tgsi_shader_code_push_tag_list(pShaderCodeInfo, pInstructionInfo->tagListInfo);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "\n", 0x01);
+	mutex_unlock(&mutex);
+	return 0;
+}
 int virtio_gpu_tgsi_shader_translate(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_create_shader_object_info* pCreateObjectInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo){
 	if (!pCreateObjectInfo||!pShaderCodeInfo)
 		return -1;
@@ -437,6 +458,7 @@ int virtio_gpu_tgsi_shader_translate(uint64_t gpuId, uint64_t contextId, uint64_
 				[GPU_SHADER_OPCODE_DIV]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_div,
 				[GPU_SHADER_OPCODE_DDX]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_ddx,
 				[GPU_SHADER_OPCODE_DDY]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_ddy,
+				[GPU_SHADER_OPCODE_TEX]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_tex,
 			};	
 			virtioGpuShaderInstructionFunc instructionFunc = instructionFuncList[pInstructionInfo->opcode];
 			if (!instructionFunc){

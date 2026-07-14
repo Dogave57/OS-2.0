@@ -347,7 +347,16 @@ int text_subsystem_init(void){
 		"in fvec4_32 spreadIn : @generic!0\n"
 		"temp fvec4_32 texCoord\n"
 		"temp fvec4_32 color\n"
-		"color = colorIn\n"
+		"samp samplerState\n"
+		"sview samplerView : @2D @float\n"
+		"temp fvec1_32 sdfEntry\n"
+		"temp fvec1_32 derivX\n"
+		"temp fvec1_32 derivY\n"
+		"sdfEntry = tex(texCoordIn, samplerState, @2D)\n"
+		"derivX = fddx(sdfEntry)\n"
+		"derivY = fddy(sdfEntry)\n"
+		"immediate fvec4_32 colorImm = {1.0, 0.25, 1.0, 1.0}\n"
+		"color = fsub(imm(1.0, 0.75, 1.0, 1.0), imm(0.0, 0.75, 0.0, 0.0))\n"
 		"colorOut = color\n";	
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
