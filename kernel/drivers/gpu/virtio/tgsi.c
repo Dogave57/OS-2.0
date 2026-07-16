@@ -361,6 +361,76 @@ int virtio_gpu_tgsi_shader_instruction_div(struct gpu_instruction_info_div* pIns
 	mutex_unlock(&mutex);
 	return 0;
 }
+int virtio_gpu_tgsi_shader_instruction_sqrt(struct gpu_instruction_info_sqrt* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo){
+	if (!pInstructionInfo||!pShaderCodeInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_operand_info* pOperandInfoList = (struct gpu_operand_info*)pInstructionInfo->operandInfoList;
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "SQRT ", 0x05);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x00)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x00)->swizzle, 0x00);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, ", ", 0x02);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x01)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x01)->swizzle, 0x01);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "\n", 0x01);
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_tgsi_shader_instruction_rcp(struct gpu_instruction_info_rcp* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo){
+	if (!pInstructionInfo||!pShaderCodeInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_operand_info* pOperandInfoList = (struct gpu_operand_info*)pInstructionInfo->operandInfoList;
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "RCP ", 0x04);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x00)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x00)->swizzle, 0x00);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, ", ", 0x02);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x01)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x01)->swizzle, 0x01);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "\n", 0x01);
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_tgsi_shader_instruction_min(struct gpu_instruction_info_min* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo){
+	if (!pInstructionInfo||!pShaderCodeInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_operand_info* pOperandInfoList = (struct gpu_operand_info*)pInstructionInfo->operandInfoList;
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "MIN ", 0x04);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x00)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x00)->swizzle, 0x00);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, ", ", 0x02);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x01)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x01)->swizzle, 0x01);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, ", ", 0x02);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x02)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x02)->swizzle, 0x02);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "\n", 0x01);
+	mutex_unlock(&mutex);
+	return 0;
+}
+int virtio_gpu_tgsi_shader_instruction_max(struct gpu_instruction_info_max* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo){
+	if (!pInstructionInfo||!pShaderCodeInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_operand_info* pOperandInfoList = (struct gpu_operand_info*)pInstructionInfo->operandInfoList;
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "MAX ", 0x04);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x00)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x00)->swizzle, 0x00);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, ", ", 0x02);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x01)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x01)->swizzle, 0x01);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, ", ", 0x02);
+	virtio_gpu_tgsi_shader_code_push_declare(pShaderCodeInfo, (pOperandInfoList+0x02)->declareLocationInfo);
+	virtio_gpu_tgsi_shader_code_push_swizzle(pShaderCodeInfo, (pOperandInfoList+0x02)->swizzle, 0x02);
+	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "\n", 0x01);
+	mutex_unlock(&mutex);
+	return 0;
+}
 int virtio_gpu_tgsi_shader_instruction_ddx(struct gpu_instruction_info_ddx* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo){
 	if (!pInstructionInfo||!pShaderCodeInfo)
 		return -1;
@@ -427,12 +497,11 @@ int virtio_gpu_tgsi_shader_translate(uint64_t gpuId, uint64_t contextId, uint64_
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_instruction_info* pInstructionInfoList = (struct gpu_instruction_info*)0x00;
-	uint64_t maxInstructionInfoCount = 0x100;
-	uint64_t instructionInfoListSize = sizeof(struct gpu_instruction_info)*maxInstructionInfoCount;
-	if (virtualAlloc((uint64_t*)&pInstructionInfoList, instructionInfoListSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate physical pages for virtual I/O GPU host controller shader code instruction info descriptor list\r\n");
-		mutex_unlock(&mutex);
+	unsigned char* pInstructionList = (unsigned char*)0x00;
+	uint64_t instructionListSize = PAGE_SIZE*0x40;
+	if (virtualAlloc((uint64_t*)&pInstructionList, instructionListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to lazy allocate physical pages for GPU host controller instruction info descriptor list\r\n");
+		mutex_unlock(&mutex);	
 		return -1;
 	}
 	unsigned char* pShaderTypeName = (unsigned char*)"Unknown";
@@ -440,15 +509,17 @@ int virtio_gpu_tgsi_shader_translate(uint64_t gpuId, uint64_t contextId, uint64_
 	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, pShaderTypeName, 0x00);
 	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "\n", 0x01);
 	uint64_t instructionCount = 0x00;
+	struct gpu_get_instruction_info getInstructionInfo = {0};
+	memset((void*)&getInstructionInfo, 0, sizeof(struct gpu_get_instruction_info));
+	getInstructionInfo.pInstructionList = pInstructionList;
+	getInstructionInfo.instructionListLength = 0x00;
+	getInstructionInfo.instructionListSize = instructionListSize;
 	for (instructionCount = 0x00;;instructionCount++){
-		struct gpu_get_instruction_info getInstructionInfo = {0};
-		memset((void*)&getInstructionInfo, 0, sizeof(struct gpu_get_instruction_info));
-		getInstructionInfo.pInstructionInfoList = pInstructionInfoList;
-		getInstructionInfo.maxInstructionInfoCount = maxInstructionInfoCount;
+		struct gpu_instruction_info* pCurrentInstruction = (struct gpu_instruction_info*)(pInstructionList+getInstructionInfo.instructionListLength);
+		getInstructionInfo.instructionCount = 0x00;
 		if (gpu_instruction_get_info(gpuId, contextId, objectId, &getInstructionInfo)!=0)
 			break;
-		for (uint64_t i = 0;i<getInstructionInfo.instructionInfoCount;i++){
-			struct gpu_instruction_info* pInstructionInfo = pInstructionInfoList+i;
+		for (uint64_t i = 0;i<getInstructionInfo.instructionCount;i++){
 			static const virtioGpuShaderInstructionFunc instructionFuncList[256]={
 				[GPU_SHADER_OPCODE_DECLARE]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_declare,
 				[GPU_SHADER_OPCODE_MOV]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_mov,
@@ -456,25 +527,29 @@ int virtio_gpu_tgsi_shader_translate(uint64_t gpuId, uint64_t contextId, uint64_
 				[GPU_SHADER_OPCODE_SUB]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_sub,
 				[GPU_SHADER_OPCODE_MUL]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_mul,
 				[GPU_SHADER_OPCODE_DIV]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_div,
+				[GPU_SHADER_OPCODE_SQRT]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_sqrt,
+				[GPU_SHADER_OPCODE_RCP]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_rcp,
+				[GPU_SHADER_OPCODE_MIN]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_min,
+				[GPU_SHADER_OPCODE_MAX]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_max,
 				[GPU_SHADER_OPCODE_DDX]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_ddx,
 				[GPU_SHADER_OPCODE_DDY]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_ddy,
 				[GPU_SHADER_OPCODE_TEX]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_tex,
 			};	
-			virtioGpuShaderInstructionFunc instructionFunc = instructionFuncList[pInstructionInfo->opcode];
+			virtioGpuShaderInstructionFunc instructionFunc = (virtioGpuShaderInstructionFunc)instructionFuncList[pCurrentInstruction->opcode];
 			if (!instructionFunc){
-				printf("unsupported GPU host controller shader instruction 0x%x\r\n", pInstructionInfo->opcode);
+				printf("unsupported GPU host controller instruction info descriptor of opcode 0x%x\r\n", pCurrentInstruction->opcode);
 				mutex_unlock(&mutex);
-				return -1;
+				return -1;	
 			}
-		//	printf("instruction opcode: 0x%x\r\n", pInstructionInfo->opcode);
 			uint64_t startTime = get_time_us();
-			if (instructionFunc(pInstructionInfo, pShaderCodeInfo)!=0){
-				printf("failed to translate GPU host controller shader instruction of opcode 0x%x to virtual I/O GPU host controller string-form TGSI\r\n", pInstructionInfo->opcode);
+			if (instructionFunc(pCurrentInstruction, pShaderCodeInfo)!=0){
+				printf("failed to translate GPU host controller instruction info descriptor of opcode 0x%x into string-form TGSI shader code\r\n", pCurrentInstruction->opcode);
 				mutex_unlock(&mutex);	
 				return -1;
 			}
 			uint64_t elapsedTime = get_time_us()-startTime;
 		//	printf("GPU host controller instruction info descriptor translation time: %fms\r\n", ((double)elapsedTime)/1000.0);
+			pCurrentInstruction = (struct gpu_instruction_info*)(((unsigned char*)pCurrentInstruction)+pCurrentInstruction->length);
 		}
 	}
 	virtio_gpu_tgsi_shader_code_push_string(pShaderCodeInfo, "END\n", 0x04);

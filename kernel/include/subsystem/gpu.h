@@ -254,9 +254,13 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_OPCODE_SUB (0x04)
 #define GPU_SHADER_OPCODE_MUL (0x05)
 #define GPU_SHADER_OPCODE_DIV (0x06)
-#define GPU_SHADER_OPCODE_DDX (0x07)
-#define GPU_SHADER_OPCODE_DDY (0x08)
-#define GPU_SHADER_OPCODE_TEX (0x09)
+#define GPU_SHADER_OPCODE_SQRT (0x07)
+#define GPU_SHADER_OPCODE_RCP (0x08)
+#define GPU_SHADER_OPCODE_MIN (0x09)
+#define GPU_SHADER_OPCODE_MAX (0x0A)
+#define GPU_SHADER_OPCODE_DDX (0x0B)
+#define GPU_SHADER_OPCODE_DDY (0x0C)
+#define GPU_SHADER_OPCODE_TEX (0x0D)
 
 #define GPU_SHADER_DECLARE_TYPE_INVALID (0x00)
 #define GPU_SHADER_DECLARE_TYPE_INPUT (0x01)
@@ -455,62 +459,70 @@ struct gpu_declare_info{
 struct gpu_operand_info{
 	struct gpu_declare_location_info declareLocationInfo;
 	struct gpu_swizzle swizzle;
-	uint8_t reserved0[12];
-}__attribute__((packed));
+};
 struct gpu_instruction_info{
-	uint64_t opcode;
-	uint8_t data[120];
-}__attribute__((packed));
+	uint32_t opcode;
+	uint32_t length;
+	uint8_t extra[];
+};
 struct gpu_instruction_info_dcl{
-	uint64_t opcode;
+	struct gpu_instruction_info header;
 	struct gpu_declare_info declareInfo;
-	uint8_t reserved0[120-sizeof(struct gpu_declare_info)];
-}__attribute__((packed));
+};
 struct gpu_instruction_info_mov{
-	uint64_t opcode;
+	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[2];
-	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x02)];
-}__attribute__((packed));
+};
 struct gpu_instruction_info_add{
-	uint64_t opcode;
+	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[3];
-	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
-}__attribute__((packed));
+};
 struct gpu_instruction_info_sub{
-	uint64_t opcode;
+	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[3];
-	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
-}__attribute__((packed));
+};
 struct gpu_instruction_info_mul{
-	uint64_t opcode;
+	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[3];
-	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
-}__attribute__((packed));
+};
 struct gpu_instruction_info_div{
-	uint64_t opcode;
+	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[3];
-	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
-}__attribute__((packed));
+};
+struct gpu_instruction_info_sqrt{
+	struct gpu_instruction_info header;
+	struct gpu_operand_info operandInfoList[2];
+};
+struct gpu_instruction_info_rcp{
+	struct gpu_instruction_info header;
+	struct gpu_operand_info operandInfoList[2];
+};
+struct gpu_instruction_info_min{
+	struct gpu_instruction_info header;
+	struct gpu_operand_info operandInfoList[3];
+};
+struct gpu_instruction_info_max{
+	struct gpu_instruction_info header;
+	struct gpu_operand_info operandInfoList[3];
+};
 struct gpu_instruction_info_ddx{
-	uint64_t opcode;
+	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[2];
-	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x02)];
-}__attribute__((packed));
+};
 struct gpu_instruction_info_ddy{
-	uint64_t opcode;
+	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[2];
-	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x02)];
-}__attribute__((packed));
+};
 struct gpu_instruction_info_tex{
-	uint64_t opcode;
+	struct gpu_instruction_info header;
 	struct gpu_tag_list_info tagListInfo;
 	struct gpu_operand_info operandInfoList[3];
-	uint8_t reserved0[120-(sizeof(struct gpu_operand_info)*0x03)];
-}__attribute__((packed));
+};
 struct gpu_get_instruction_info{
-	struct gpu_instruction_info* pInstructionInfoList;
-	uint64_t maxInstructionInfoCount;
-	uint64_t instructionInfoCount;
+	unsigned char* pInstructionList;
+	uint64_t instructionListSize;
+	uint64_t instructionListLength;
+	uint64_t instructionCount;
 };
 struct gpu_object_desc{
 	uint64_t objectId;
