@@ -254,13 +254,17 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_OPCODE_SUB (0x04)
 #define GPU_SHADER_OPCODE_MUL (0x05)
 #define GPU_SHADER_OPCODE_DIV (0x06)
-#define GPU_SHADER_OPCODE_SQRT (0x07)
-#define GPU_SHADER_OPCODE_RCP (0x08)
-#define GPU_SHADER_OPCODE_MIN (0x09)
-#define GPU_SHADER_OPCODE_MAX (0x0A)
-#define GPU_SHADER_OPCODE_DDX (0x0B)
-#define GPU_SHADER_OPCODE_DDY (0x0C)
-#define GPU_SHADER_OPCODE_TEX (0x0D)
+#define GPU_SHADER_OPCODE_MOD (0x07)
+#define GPU_SHADER_OPCODE_POW (0x08)
+#define GPU_SHADER_OPCODE_SQRT (0x09)
+#define GPU_SHADER_OPCODE_RCP (0x0A)
+#define GPU_SHADER_OPCODE_DP (0x0B)
+#define GPU_SHADER_OPCODE_ABS (0x0C)
+#define GPU_SHADER_OPCODE_MIN (0x0D)
+#define GPU_SHADER_OPCODE_MAX (0x0E)
+#define GPU_SHADER_OPCODE_DDX (0x0F)
+#define GPU_SHADER_OPCODE_DDY (0x10)
+#define GPU_SHADER_OPCODE_TEX (0x11)
 
 #define GPU_SHADER_DECLARE_TYPE_INVALID (0x00)
 #define GPU_SHADER_DECLARE_TYPE_INPUT (0x01)
@@ -448,6 +452,7 @@ struct gpu_declare_location_info{
 struct gpu_declare_info{
 	struct gpu_declare_location_info declareLocation;
 	struct gpu_tag_list_info tagListInfo;
+	uint8_t vectorCount;
 	uint8_t scalarType;
 	uint8_t scalarSize;
 	uint8_t scalarCount;
@@ -489,11 +494,28 @@ struct gpu_instruction_info_div{
 	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[3];
 };
+struct gpu_instruction_info_mod{
+	struct gpu_instruction_info header;
+	struct gpu_operand_info operandInfoList[3];
+};
+struct gpu_instruction_info_pow{
+	struct gpu_instruction_info header;
+	struct gpu_operand_info operandInfoList[3];
+};
 struct gpu_instruction_info_sqrt{
 	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[2];
 };
 struct gpu_instruction_info_rcp{
+	struct gpu_instruction_info header;
+	struct gpu_operand_info operandInfoList[2];
+};
+struct gpu_instruction_info_dp{
+	struct gpu_instruction_info header;
+	uint64_t scalarCount;
+	struct gpu_operand_info operandInfoList[3];
+};
+struct gpu_instruction_info_abs{
 	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[2];
 };

@@ -340,31 +340,38 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 		flipColor = ((i/textureResolution.x)%2);
 		pTextureBuffer[i] = (flipColor ? flipTextureColor : normalTextureColor);
 	}
-	const unsigned char vertexShader[]="VERT\n"
-	"DCL OUT[0], POSITION\n"
-	"DCL OUT[1], COLOR\n"
-	"DCL IN[0]\n"
-	"DCL IN[1]\n"
-	"DCL CONST[0..3]\n"
-	"DCL TEMP[0]\n"
-	"DP4 TEMP[0].x, CONST[0], IN[0]\n"
-	"DP4 TEMP[0].y, CONST[1], IN[0]\n"
-	"DP4 TEMP[0].z, CONST[2], IN[0]\n"
-	"DP4 TEMP[0].w, CONST[3], IN[0]\n"
-	"MOV OUT[0], TEMP[0]\n"
-	"MOV OUT[1], IN[1]\n"
-	"END\n";
-	const unsigned char fragmentShader[]="FRAG\n"
-	"DCL OUT[0], COLOR\n"
-	"DCL IN[0], COLOR, PERSPECTIVE\n"
-	"MOV OUT[0], IN[0]\n"
-	"END\n";
+	const unsigned char vertexShader[]="GGSL\n"
+		"out fvec4_32 positionOut : @position\n"
+		"out fvec4_32 colorOut : @color\n"
+		"in fvec4_32 positionIn\n"
+		"in fvec4_32 colorIn\n"
+		"temp fvec4_32 position\n"
+		"const fvec4_32 mvp!4\n"
+		"position.x = dp(mvp!0, positionIn)\n"
+		"position.y = dp(mvp!1, positionIn)\n"
+		"position.z = dp(mvp!2, positionIn)\n"
+		"position.w = dp(mvp!3, positionIn)\n"
+		"positionOut = position\n"
+		"colorOut = colorIn\n";
+	const unsigned char fragmentShader[]="GGSL\n"
+		"out fvec4_32 colorOut : @color\n"
+		"in fvec4_32 colorIn : @color @perspective\n"
+		"colorOut = colorIn\n";
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
 	static const unsigned char tgsiShaderDriverIdent[16] = TGSI_DRIVER_IDENT;
+	static const unsigned char ggslShaderDriverIdent[16] = GGSL_DRIVER_IDENT;
 	uint64_t tgsiShaderDriverId = 0x00;
+	uint64_t ggslShaderDriverId = 0x00;
 	if (gpu_shader_driver_get_id((unsigned char*)tgsiShaderDriverIdent, &tgsiShaderDriverId)!=0){
 		printf("failed to get GPU host controller TGSI shader driver ID\r\n");
+		virtualFree((uint64_t)pVertexBuffer, vertexBufferSize);
+		virtualFree((uint64_t)pTextureBuffer, textureBufferSize);
+		gpu_cmd_context_deinit(gpuId, cmdContextId);
+		return -1;
+	}
+	if (gpu_shader_driver_get_id((unsigned char*)ggslShaderDriverIdent, &ggslShaderDriverId)!=0){
+		printf("failed to get GPU host controller GGSL shader driver ID\r\n");
 		virtualFree((uint64_t)pVertexBuffer, vertexBufferSize);
 		virtualFree((uint64_t)pTextureBuffer, textureBufferSize);
 		gpu_cmd_context_deinit(gpuId, cmdContextId);
@@ -377,7 +384,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	createShaderObjectInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
 	createShaderObjectInfo.pShaderCode = (unsigned char*)vertexShader;
 	createShaderObjectInfo.shaderCodeSize = sizeof(vertexShader);
-	createShaderObjectInfo.shaderDriverId = tgsiShaderDriverId;
+	createShaderObjectInfo.shaderDriverId = ggslShaderDriverId;
 	if (gpu_object_create(gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
 		printf("failed to create GPU host controller vertex shader object\r\n");
 		virtualFree((uint64_t)pVertexBuffer, vertexBufferSize);
