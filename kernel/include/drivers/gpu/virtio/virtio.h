@@ -1,3 +1,4 @@
+#include "drivers/pcie.h"
 #ifndef _VIRTIO_GPU
 #define _VIRTIO_GPU
 #include "cpu/mutex.h"
@@ -820,7 +821,7 @@ struct virtio_gpu_gl_create_shader_object_command{
 	uint32_t shader_type;
 	uint32_t offset_length;
 	uint32_t token_count;
-	uint32_t shader_stream_output_count;
+	uint32_t stream_output_count;	
 	unsigned char segment_data[];
 }__attribute__((packed));
 struct virtio_gpu_gl_create_shader_object_so_command{
@@ -829,8 +830,8 @@ struct virtio_gpu_gl_create_shader_object_so_command{
 	uint32_t shader_type;
 	uint32_t offset_length;
 	uint32_t token_count;
-	uint32_t shader_stream_output_count;
-	uint32_t shader_stream_output_stride[4];
+	uint32_t stream_output_count;
+	uint32_t stream_output_stride;
 	struct virtio_gpu_gl_stream_output stream_output_list[];
 }__attribute__((packed));
 struct virtio_gpu_gl_bind_object_command{
@@ -1019,6 +1020,9 @@ struct virtio_gpu_shader_declare_desc{
 struct virtio_gpu_shader_code_info{
 	unsigned char* pOriginalShaderCode;
 	uint64_t originalShaderCodeSize;
+	unsigned char* pDeclareInfo;
+	uint64_t declareInfoSize;
+	uint64_t declareInfoLength;
 	unsigned char* pShaderCode;
 	uint64_t shaderCodeSize;
 	uint64_t shaderCodeLength;
@@ -1203,6 +1207,7 @@ int virtio_gpu_gl_create_blend_object(struct virtio_gpu_object_desc* pSurfaceObj
 int virtio_gpu_gl_set_framebuffer_state_list(struct virtio_gpu_context_desc* pContextDesc, uint32_t colorBufferCount, uint32_t depthStencilHandle, uint32_t* pColorBufferHandleList, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_set_viewport_state_list(struct virtio_gpu_context_desc* pContextDesc, uint32_t startSlot, uint32_t viewportStateCount, struct virtio_gpu_gl_viewport_state* pViewportStateList, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_set_scissor_state_list(struct virtio_gpu_context_desc* pContextDesc, uint32_t startSlot, uint32_t scissorStateCount, struct virtio_gpu_gl_scissor_state* pScissorStateList, struct virtio_gpu_response_header* pResponseHeader);
+int virtio_gpu_gl_create_shader_object_push_data(struct virtio_gpu_create_shader_info createShaderInfo, struct virtio_gpu_gl_create_shader_object_command* pCommandBuffer, struct virtio_gpu_gl_shader_object_segment_command* pSegmentList,  unsigned char* pShaderData, uint64_t shaderDataLength);
 int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceObjectDesc, struct virtio_gpu_create_shader_info createShaderInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_delete_shader_object(struct virtio_gpu_object_desc* pShaderObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_gl_delete_object(struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);

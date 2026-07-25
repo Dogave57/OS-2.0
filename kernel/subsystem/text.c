@@ -248,9 +248,9 @@ int text_subsystem_init(void){
 	}
 	static const unsigned char vertexShaderCode[]="GGSL\n"
 		"out fvec2_32 positionOut : @position\n"
-		"out fvec2_32 texCoordOut : @texcoord\n"
 		"out fvec4_32 colorOut : @color\n"
-		"out fvec4_32 spreadOut : @generic!0\n"
+		"out fvec2_32 texCoordOut : @generic!0\n"
+		"out fvec4_32 spreadOut : @generic!1\n"
 		"in fvec2_32 positionIn\n"
 		"in fvec2_32 texCoordIn\n"
 		"in fvec4_32 colorIn\n"
@@ -260,28 +260,42 @@ int text_subsystem_init(void){
 		"temp fvec1_32 test\n"
 		"positionOut.xy = add(mul(positionIn, scale), translation)\n"
 		"positionOut.w = positionIn\n"
-		"texCoordOut = texCoordIn\n"
 		"colorOut = colorIn\n"
+		"texCoordOut = texCoordIn\n"
 		"spreadOut = spread\n";
 	static const unsigned char fragmentShaderCode[]="GGSL\n"
 		"out fvec4_32 colorOut : @color\n"
 		"in fvec4_32 colorIn : @color @perspective\n"
-		"in fvec2_32 texCoordIn : @texcoord @perspective\n"
-		"in fvec4_32 spreadIn : @generic!0\n"
-		"temp fvec4_32 texCoord\n"
+		"in fvec2_32 texCoordIn : @generic!0 @perspective\n"
+		"in fvec4_32 spreadIn : @generic!1\n"
 		"temp fvec4_32 color\n"
 		"samp samplerState\n"
 		"sview samplerView : @2D @float\n"
 		"temp fvec1_32 sdfEntry\n"
-		"temp fvec1_32 derivX\n"
-		"temp fvec1_32 derivY\n"
-		"sdfEntry = div(mul(texCoord.x, vec(127.0)), spreadIn.x)\n"
-		"derivX = ddx(sdfEntry)\n"
-		"derivY = ddy(sdfEntry)\n"
+		"sdfEntry = tex(texCoordIn, samplerState, @2D)\n"
+		"temp fvec2_32 deriv\n"
+		"deriv.x = ddx(sdfEntry)\n"
+		"deriv.y = ddy(sdfEntry)\n"
+		"temp fvec1_32 derivLength\n"
+		"derivLength = sqrt(dp!2(deriv, deriv))\n"
+		"temp fvec1_32 edge0\n"
+		"temp fvec1_32 edge1\n"
+		"edge0 = sub(derivLength, vec(1.0))\n"
+		"edge1 = add(derivLength, vec(1.0))\n"
+		"temp fvec1_32 smoothValue\n"
+		"temp fvec2_32 texCoordFract\n"
+		"temp fvec2_32 texCoord\n"
+		"texCoord = mul(texCoordIn, vec(64.0, 64.0))\n"
+		"texCoordFract = sub(texCoord, floor(texCoord))\n"
+		"sdfEntry = max(sdfEntry, vec(0.0))\n"
+		"smoothValue = div(sub(sdfEntry, edge0), sub(edge1, edge0))\n"
+		"smoothValue = min(max(smoothValue, vec(0.0)), vec(1.0))\n"
+		"smoothValue = mul(mul(smoothValue, smoothValue), sub(vec(3.0), mul(vec(2.0), smoothValue)))\n"
+		"smoothValue = sdfEntry.x\n"
+		"smoothValue = add(smoothValue, dp!2(texCoordFract, texCoordFract))\n"
+		"temp fvec1_32 test\n"
 		"color = vec(1.0, 0.0, 1.0, 1.0)\n"
-		"temp uvec1_32 smoothValue\n"
-		"smoothValue = div(vec(10), vec(10))\n"
-		"color.w = smoothValue\n"
+		"color.w = smoothValue.x\n"
 		"colorOut = color\n";
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
@@ -314,6 +328,7 @@ int text_subsystem_init(void){
 	createShaderObjectInfo.shaderCodeSize = sizeof(vertexShaderCode);
 	uint64_t startTime = get_time_us();
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
+
 		printf("failed to create GPU host controller vertex shader object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		subsystem_deinit(pFontSubsystemDesc);
@@ -342,9 +357,9 @@ int text_subsystem_init(void){
 	samplerState.wrap_s = GPU_TEXTURE_WRAP_CLAMP_TO_BORDER;
 	samplerState.wrap_t = GPU_TEXTURE_WRAP_CLAMP_TO_BORDER;
 	samplerState.wrap_r = GPU_TEXTURE_WRAP_CLAMP_TO_BORDER;
-	samplerState.magImgFilter = GPU_TEXTURE_FILTER_LINEAR;
-	samplerState.minImgFilter = GPU_TEXTURE_FILTER_LINEAR;
-	samplerState.minMipFilter = GPU_TEXTURE_FILTER_LINEAR;
+	samplerState.magImgFilter = GPU_TEXTURE_FILTER_NEAREST;
+	samplerState.minImgFilter = GPU_TEXTURE_FILTER_NEAREST;
+	samplerState.minMipFilter = GPU_TEXTURE_FILTER_NEAREST;
 	samplerState.minDetailLevel = 4.0f;
 	samplerState.maxDetailLevel = 16.0f;
 	createSamplerStateObjectInfo.header.objectType = GPU_OBJECT_TYPE_SAMPLER_STATE;
@@ -610,9 +625,8 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	glyphTextureBufferRect.y = textSubsystemInfo.accelerationInfo.glyphTextureRect.y;
 	uint64_t glyphTextureBufferSize = (glyphTextureBufferRect.x*glyphTextureBufferRect.y)*sizeof(int8_t);
 	uint8_t glyphSpread = 0x04;
-	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_MMIO)!=0){
-		printf("failed to allocate physical pages for glyph texture buffer\r\n");
-		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
+	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
+		printf("failed to allocate physical pages for GPU host controller glyph SDF floating point DWORD sampler view physical page data\r\n");
 		kfree((void*)pFontDesc);
 		mutex_unlock(&mutex);
 		return -1;
@@ -623,7 +637,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	backgroundColor.z = 1.0f;
 	backgroundColor.w = 1.0f;
 	for (uint64_t i = 0;i<glyphTextureBufferSize;i++){
-		*(((int8_t*)pGlyphTextureBuffer)+i) = glyphSpread*-1;
+		*(((int8_t*)pGlyphTextureBuffer)+i) = -127;
 	}
 	uint64_t startTime = get_time_us();
 	if (pFontDriverDesc->driverInfo.vtable.fontGlyphTesselate(pFontDesc, glyphId, pGlyphTextureBuffer, glyphTextureBufferRect, glyphSpread)!=0){
@@ -923,7 +937,7 @@ KAPI int clear(void){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
 	char_position = 0;
-	if (gpu_monitor_exists(1)!=0){
+	if (gpu_monitor_exists(0x01)!=0){
 		for (unsigned int i = 0;i<pbootargs->graphicsInfo.width*pbootargs->graphicsInfo.height;i++){
 			struct uvec2 position = {0};
 			position.x = i%pbootargs->graphicsInfo.width;

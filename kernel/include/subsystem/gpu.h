@@ -260,11 +260,14 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_OPCODE_RCP (0x0A)
 #define GPU_SHADER_OPCODE_DP (0x0B)
 #define GPU_SHADER_OPCODE_ABS (0x0C)
-#define GPU_SHADER_OPCODE_MIN (0x0D)
-#define GPU_SHADER_OPCODE_MAX (0x0E)
-#define GPU_SHADER_OPCODE_DDX (0x0F)
-#define GPU_SHADER_OPCODE_DDY (0x10)
-#define GPU_SHADER_OPCODE_TEX (0x11)
+#define GPU_SHADER_OPCODE_FLOOR (0x0D)
+#define GPU_SHADER_OPCODE_CEIL (0x0E)
+#define GPU_SHADER_OPCODE_MIN (0x0F)
+#define GPU_SHADER_OPCODE_MAX (0x10)
+#define GPU_SHADER_OPCODE_DDX (0x11)
+#define GPU_SHADER_OPCODE_DDY (0x12)
+#define GPU_SHADER_OPCODE_KILL (0x13)
+#define GPU_SHADER_OPCODE_TEX (0x14)
 
 #define GPU_SHADER_DECLARE_TYPE_INVALID (0x00)
 #define GPU_SHADER_DECLARE_TYPE_INPUT (0x01)
@@ -519,6 +522,14 @@ struct gpu_instruction_info_abs{
 	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[2];
 };
+struct gpu_instruction_info_floor{
+	struct gpu_instruction_info header;
+	struct gpu_operand_info operandInfoList[2];
+};
+struct gpu_instruction_info_ceil{
+	struct gpu_instruction_info header;
+	struct gpu_operand_info operandInfoList[2];
+};	
 struct gpu_instruction_info_min{
 	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[3];
@@ -534,6 +545,9 @@ struct gpu_instruction_info_ddx{
 struct gpu_instruction_info_ddy{
 	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[2];
+};
+struct gpu_instruction_info_kill{
+	struct gpu_instruction_info header;
 };
 struct gpu_instruction_info_tex{
 	struct gpu_instruction_info header;

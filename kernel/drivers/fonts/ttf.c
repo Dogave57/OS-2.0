@@ -1477,11 +1477,12 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 					pCurrentPixelDesc = pPixelDescList+pCurrentPixelDesc->nextActivePixelOffset-0x01;
 				}
 			}
+			int8_t sdfEntry = (int8_t)((((double)(magnitude))/(double)glyphSpread)*127.0);
 			if (!winding){
-				*(((int8_t*)pTextureBuffer)+pixelOffset) = ((int8_t)magnitude)*-1;
+				*(((int8_t*)pTextureBuffer)+pixelOffset) = sdfEntry*-1;
 				continue;
 			}
-			*(((int8_t*)pTextureBuffer)+pixelOffset) = ((int8_t)magnitude);
+			*(((int8_t*)pTextureBuffer)+pixelOffset) = sdfEntry;
 		}
 	}
 	elapsedTime = get_time_us()-startTime;
