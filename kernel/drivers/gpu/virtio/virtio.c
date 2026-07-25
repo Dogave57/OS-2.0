@@ -2935,10 +2935,10 @@ int virtio_gpu_gl_create_shader_object_push_data(struct virtio_gpu_create_shader
 			uint64_t segmentOffset = (pCommandBuffer->offset_length>=maxFirstSegmentLength) ? (pCommandBuffer->offset_length-maxFirstSegmentLength)%maxSegmentLength : 0x00;
 			struct virtio_gpu_gl_shader_object_segment_command* pSegmentCommand = (struct virtio_gpu_gl_shader_object_segment_command*)(((unsigned char*)pSegmentList)+(segmentIndex*PAGE_SIZE));
 			pSegmentData = ((unsigned char*)pSegmentCommand->segment_data)+segmentOffset;
-			segmentDataLength = ((i+maxSegmentLength)>=shaderDataLength) ? shaderDataLength%maxSegmentLength : maxSegmentLength;
-			segmentDataLength = segmentDataLength-segmentOffset;
-			printf("virtual I/O GPU host controller shader data physical page data segment offset: %d\r\n", segmentOffset);
-			printf("virtual I/O GPU host controller shader data physical page data segment length: %d\r\n", segmentDataLength);
+			segmentDataLength = maxSegmentLength-segmentOffset;
+			segmentDataLength = ((i+segmentDataLength)>=shaderDataLength) ? (shaderDataLength%maxSegmentLength) : segmentDataLength;
+			printf("virtual I/O GPU host controller shader physical page data segment length: %d\r\n", segmentDataLength);
+			printf("virtual I/O GPU host controller shader physical page data segment offset: %d\r\n", segmentOffset);
 			if (!segmentOffset){
 				memset((void*)pSegmentCommand, 0, sizeof(struct virtio_gpu_gl_shader_object_segment_command));
 				pSegmentCommand->header.opcode = VIRTIO_GPU_GL_CMD_CREATE_OBJECT;
@@ -2951,7 +2951,7 @@ int virtio_gpu_gl_create_shader_object_push_data(struct virtio_gpu_create_shader
 		}
 		memcpy((void*)pSegmentData, (void*)(pShaderData+i), segmentDataLength);
 		for (uint64_t segmentOffset = 0x00;segmentOffset<segmentDataLength;segmentOffset++){
-			serial_putchar(0x00, *(pSegmentData+segmentOffset));
+		//	serial_putchar(*(pSegmentData+segmentOffset));
 		}
 		pCommandBuffer->offset_length+=segmentDataLength;
 		i+=segmentDataLength;
@@ -2996,8 +2996,10 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	uint64_t declareInfoSegmentCount = (declareInfoLength) ? 0x01 : 0x00;
 	if (declareInfoLength>maxFirstSegmentLength)
 		declareInfoSegmentCount+=((declareInfoLength-maxFirstSegmentLength)/maxSegmentLength)+0x01;
-	uint64_t segmentListSize = shaderCodeLengthAligned;
+	uint64_t segmentListSize = shaderCodeLengthAligned+declareInfoLengthAligned;
 	segmentListSize+=((shaderCodeSegmentCount-0x01)*sizeof(struct virtio_gpu_gl_shader_object_segment_command));
+	if (declareInfoSegmentCount)
+		segmentListSize+=((declareInfoSegmentCount-0x01)*sizeof(struct virtio_gpu_gl_shader_object_segment_command));
 	glCommandBufferSize+=segmentListSize;
 	commandBufferSize+=glCommandBufferSize;
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
@@ -4634,11 +4636,12 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 	shaderCodeInfo.pDeclareInfo = pDeclareInfo;
 	shaderCodeInfo.declareInfoSize = declareInfoSize;
 	shaderCodeInfo.declareInfoLength = declareInfoSize;
-	shaderCodeInfo.declareInfoSize = 0x00;
 	shaderCodeInfo.declareInfoLength = 0x00;
 	shaderCodeInfo.pShaderCode = pCreateObjectInfo->pShaderCode;
 	shaderCodeInfo.shaderCodeSize = pCreateObjectInfo->shaderCodeSize;
 	shaderCodeInfo.shaderCodeLength = pCreateObjectInfo->shaderCodeSize;
+	printf("virtual I/O GPU host controller declaration info physical page data length: %d\r\n", shaderCodeInfo.declareInfoLength);
+	printf("virtual I/O GPU host controller shader code physical page data length: %d\r\n", shaderCodeInfo.shaderCodeLength);
 	static const unsigned char tgsiDriverIdent[16] = TGSI_DRIVER_IDENT;
 	uint64_t nativeShaderLanguage = (guidcmp((unsigned char*)pSubsystemShaderDriverDesc->driverInfo.ident, (unsigned char*)tgsiDriverIdent)==0x00) ? 0x01 : 0x00;
 	if (!nativeShaderLanguage){
