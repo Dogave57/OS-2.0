@@ -812,7 +812,10 @@ struct virtio_gpu_gl_stream_output{
 struct virtio_gpu_gl_shader_object_segment_command{
 	struct virtio_gpu_gl_command_header header;
 	uint32_t object_id;
+	uint32_t shader_type;
 	uint32_t offset_length;
+	uint32_t token_count;
+	uint32_t stream_output_count;
 	unsigned char segment_data[];
 }__attribute__((packed));
 struct virtio_gpu_gl_create_shader_object_command{

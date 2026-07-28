@@ -2936,18 +2936,18 @@ int virtio_gpu_gl_create_shader_object_push_data(struct virtio_gpu_create_shader
 			struct virtio_gpu_gl_shader_object_segment_command* pSegmentCommand = (struct virtio_gpu_gl_shader_object_segment_command*)(((unsigned char*)pSegmentList)+(segmentIndex*PAGE_SIZE));
 			pSegmentData = ((unsigned char*)pSegmentCommand->segment_data)+segmentOffset;
 			segmentDataLength = maxSegmentLength-segmentOffset;
-			segmentDataLength = ((i+segmentDataLength)>=shaderDataLength) ? (shaderDataLength%maxSegmentLength) : segmentDataLength;
-			printf("virtual I/O GPU host controller shader physical page data segment length: %d\r\n", segmentDataLength);
-			printf("virtual I/O GPU host controller shader physical page data segment offset: %d\r\n", segmentOffset);
+			segmentDataLength = ((i+segmentDataLength)>=shaderDataLength) ? shaderDataLength-i : segmentDataLength;
 			if (!segmentOffset){
 				memset((void*)pSegmentCommand, 0, sizeof(struct virtio_gpu_gl_shader_object_segment_command));
 				pSegmentCommand->header.opcode = VIRTIO_GPU_GL_CMD_CREATE_OBJECT;
 				pSegmentCommand->header.object_type = VIRTIO_GPU_GL_OBJECT_TYPE_SHADER;
-				pSegmentCommand->header.length = 0x03+(align_up(segmentDataLength, sizeof(uint32_t))/sizeof(uint32_t));
-				pSegmentCommand->offset_length = i|(1<<31);
+				pSegmentCommand->header.length = 0x05;
+				pSegmentCommand->object_id = pCommandBuffer->object_id;
+				pSegmentCommand->shader_type = pCommandBuffer->shader_type;
+				pSegmentCommand->offset_length = pCommandBuffer->offset_length|(1<<31);
 			}
-			if (segmentOffset)
-				pSegmentCommand->header.length+=(align_up(segmentDataLength, sizeof(uint32_t))/sizeof(uint32_t));
+			pSegmentCommand->header.length+=(align_up(segmentDataLength, sizeof(uint32_t))/sizeof(uint32_t));
+			pSegmentCommand->token_count+=segmentDataLength;
 		}
 		memcpy((void*)pSegmentData, (void*)(pShaderData+i), segmentDataLength);
 		for (uint64_t segmentOffset = 0x00;segmentOffset<segmentDataLength;segmentOffset++){
@@ -2986,21 +2986,14 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	uint64_t shaderCodeLength = createShaderInfo.shaderCodeInfo.shaderCodeLength;
 	uint64_t shaderCodeLengthAligned = align_up(shaderCodeLength, sizeof(uint32_t));
 	uint64_t streamOutputSize = sizeof(struct virtio_gpu_gl_stream_output)*createShaderInfo.streamOutputCount;
-	uint64_t commandBufferSize = sizeof(struct virtio_gpu_submit_3d_command);
+	uint64_t commandBufferSize = PAGE_SIZE;
 	uint64_t glCommandBufferSize = sizeof(struct virtio_gpu_gl_create_shader_object_command)+streamOutputSize;
 	uint64_t maxFirstSegmentLength = PAGE_SIZE-sizeof(struct virtio_gpu_gl_create_shader_object_command)-sizeof(struct virtio_gpu_submit_3d_command);
 	uint64_t maxSegmentLength = PAGE_SIZE-sizeof(struct virtio_gpu_gl_shader_object_segment_command);
-	uint64_t shaderCodeSegmentCount = 0x01;
-	if (shaderCodeLength>maxFirstSegmentLength)
-		shaderCodeSegmentCount+=((shaderCodeLength-maxFirstSegmentLength)/maxSegmentLength)+0x01;
-	uint64_t declareInfoSegmentCount = (declareInfoLength) ? 0x01 : 0x00;
-	if (declareInfoLength>maxFirstSegmentLength)
-		declareInfoSegmentCount+=((declareInfoLength-maxFirstSegmentLength)/maxSegmentLength)+0x01;
-	uint64_t segmentListSize = shaderCodeLengthAligned+declareInfoLengthAligned;
-	segmentListSize+=((shaderCodeSegmentCount-0x01)*sizeof(struct virtio_gpu_gl_shader_object_segment_command));
-	if (declareInfoSegmentCount)
-		segmentListSize+=((declareInfoSegmentCount-0x01)*sizeof(struct virtio_gpu_gl_shader_object_segment_command));
-	glCommandBufferSize+=segmentListSize;
+	uint64_t segmentListLength = shaderCodeLengthAligned+declareInfoLengthAligned;
+	uint64_t segmentCount = (segmentListLength>maxFirstSegmentLength) ? (align_up((segmentListLength-maxFirstSegmentLength), maxSegmentLength)/maxSegmentLength) : 0x00;
+	segmentListLength+=(segmentCount*sizeof(struct virtio_gpu_gl_shader_object_segment_command));
+	glCommandBufferSize+=segmentListLength;
 	commandBufferSize+=glCommandBufferSize;
 	struct virtio_gpu_submit_3d_command* pCommandBuffer = (struct virtio_gpu_submit_3d_command*)0x0;
 	if (virtualAlloc((uint64_t*)&pCommandBuffer, commandBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
@@ -4620,7 +4613,7 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 		return -1;
 	}
 	unsigned char* pDeclareInfo = (unsigned char*)0x00;
-	uint64_t declareInfoSize = PAGE_SIZE;
+	uint64_t declareInfoSize = PAGE_SIZE*0x04;
 	if (virtualAlloc((uint64_t*)&pDeclareInfo, declareInfoSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate physical pages for virtual I/O GPU host controller string-form TGSI declaration info physical page data\r\n");
 		mutex_unlock(&mutex);
@@ -4640,8 +4633,6 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 	shaderCodeInfo.pShaderCode = pCreateObjectInfo->pShaderCode;
 	shaderCodeInfo.shaderCodeSize = pCreateObjectInfo->shaderCodeSize;
 	shaderCodeInfo.shaderCodeLength = pCreateObjectInfo->shaderCodeSize;
-	printf("virtual I/O GPU host controller declaration info physical page data length: %d\r\n", shaderCodeInfo.declareInfoLength);
-	printf("virtual I/O GPU host controller shader code physical page data length: %d\r\n", shaderCodeInfo.shaderCodeLength);
 	static const unsigned char tgsiDriverIdent[16] = TGSI_DRIVER_IDENT;
 	uint64_t nativeShaderLanguage = (guidcmp((unsigned char*)pSubsystemShaderDriverDesc->driverInfo.ident, (unsigned char*)tgsiDriverIdent)==0x00) ? 0x01 : 0x00;
 	if (!nativeShaderLanguage){
@@ -4664,7 +4655,7 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 	struct virtio_gpu_create_shader_info createShaderInfo = {0};
 	memset((void*)&createShaderInfo, 0, sizeof(struct virtio_gpu_create_shader_info));
 	createShaderInfo.shaderCodeInfo = shaderCodeInfo;
-	createShaderInfo.tokenCount = shaderCodeInfo.shaderCodeLength;
+	createShaderInfo.tokenCount = shaderCodeInfo.declareInfoLength+shaderCodeInfo.shaderCodeLength;
 	createShaderInfo.shaderType = pCreateObjectInfo->shaderType;
 	for (uint64_t i = 0x00;i<shaderCodeInfo.declareInfoLength;i++){
 		if (nativeShaderLanguage)

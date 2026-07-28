@@ -273,27 +273,13 @@ int text_subsystem_init(void){
 		"sview samplerView : @2D @float\n"
 		"temp fvec1_32 sdfEntry\n"
 		"sdfEntry = tex(texCoordIn, samplerState, @2D)\n"
-		"temp fvec2_32 deriv\n"
-		"deriv.x = ddx(sdfEntry)\n"
-		"deriv.y = ddy(sdfEntry)\n"
-		"temp fvec1_32 derivLength\n"
-		"derivLength = sqrt(dp!2(deriv, deriv))\n"
-		"temp fvec1_32 edge0\n"
-		"temp fvec1_32 edge1\n"
-		"edge0 = sub(derivLength, vec(1.0))\n"
-		"edge1 = add(derivLength, vec(1.0))\n"
-		"temp fvec1_32 smoothValue\n"
 		"temp fvec2_32 texCoordFract\n"
 		"temp fvec2_32 texCoord\n"
 		"texCoord = mul(texCoordIn, vec(64.0, 64.0))\n"
 		"texCoordFract = sub(texCoord, floor(texCoord))\n"
-		"sdfEntry = max(sdfEntry, vec(0.0))\n"
-		"smoothValue = div(sub(sdfEntry, edge0), sub(edge1, edge0))\n"
-		"smoothValue = min(max(smoothValue, vec(0.0)), vec(1.0))\n"
-		"smoothValue = mul(mul(smoothValue, smoothValue), sub(vec(3.0), mul(vec(2.0), smoothValue)))\n"
-		"smoothValue = sdfEntry.x\n"
+		"temp fvec1_32 smoothValue\n"
+		"smoothValue = max(sdfEntry.x, vec(0.0))\n"
 		"smoothValue = add(smoothValue, dp!2(texCoordFract, texCoordFract))\n"
-		"temp fvec1_32 test\n"
 		"color = vec(1.0, 0.0, 1.0, 1.0)\n"
 		"color.w = smoothValue.x\n"
 		"colorOut = color\n";
@@ -936,7 +922,7 @@ int write_pixel(struct uvec2 position, struct uvec4_8 color){
 KAPI int clear(void){
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	char_position = 0;
+	char_position = 0x00;
 	if (gpu_monitor_exists(0x01)!=0){
 		for (unsigned int i = 0;i<pbootargs->graphicsInfo.width*pbootargs->graphicsInfo.height;i++){
 			struct uvec2 position = {0};

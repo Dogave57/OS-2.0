@@ -1441,11 +1441,6 @@ int ggsl_driver_instruction_reference(struct ggsl_driver_shader_desc* pShaderDes
 			return -1;
 		}
 	}
-	printf("reference identifier: ");
-	for (uint64_t i = 0;i<pIdentDesc->identInfo.nameLength;i++){
-		putchar(pIdentDesc->identInfo.pName[i]);
-	}
-	putchar('\n');
 	struct ggsl_driver_ident_location_info operatorIdentLocationInfo = {0};
 	getNextIdentInfo.pIdentLocationInfo = &operatorIdentLocationInfo;
 	getNextIdentInfo.ppIdentDesc = (struct ggsl_driver_ident_desc**)0x00;
@@ -1872,6 +1867,7 @@ int ggsl_driver_method_pow(struct ggsl_driver_shader_desc* pShaderDesc, struct g
 	}
 	struct ggsl_driver_expression_info expressionInfo = {0};
 	memset((void*)&expressionInfo, 0, sizeof(struct ggsl_driver_expression_info));
+	expressionInfo.swizzleInfo = swizzleInfo;
 	expressionInfo.declareLocation = pDeclareInfo->declareLocation;
 	*pExpressionInfo = expressionInfo;
 	return 0;
