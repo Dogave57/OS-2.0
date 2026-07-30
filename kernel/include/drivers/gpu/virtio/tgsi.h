@@ -2,35 +2,40 @@
 #define _VIRTIO_GPU_TGSI
 #include "subsystem/gpu.h"
 #include "drivers/gpu/virtio/virtio.h"
-typedef int(*virtioGpuShaderInstructionFunc)(struct gpu_instruction_info* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
+#define VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_INVALID (0x00)
+#define VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_DECLARE (0x01)
+#define VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE (0x02)
+typedef int(*virtioGpuShaderInstructionFunc)(struct gpu_instruction_info* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
 int virtio_gpu_tgsi_shader_type_get_name(uint8_t shaderType, const unsigned char** ppShaderTypeName);
 int virtio_gpu_tgsi_tag_type_get_name(uint8_t tagType, const unsigned char** ppTagTypeName);
 int virtio_gpu_tgsi_declare_type_get_name(uint8_t declareType, const unsigned char** ppDeclareTypeName);
-int virtio_gpu_tgsi_get_current_shader_code(struct virtio_gpu_shader_code_info* pShaderCodeInfo, unsigned char** ppShaderCode);
-int virtio_gpu_tgsi_shader_code_push_string(struct virtio_gpu_shader_code_info* pShaderCodeInfo, unsigned char* pData, uint64_t dataLength);
-int virtio_gpu_tgsi_shader_code_push_u64(struct virtio_gpu_shader_code_info* pShaderCodeInfo, uint64_t value);
-int virtio_gpu_tgsi_shader_code_push_i64(struct virtio_gpu_shader_code_info* pShaderCodeInfo, int64_t value);
-int virtio_gpu_tgsi_shader_code_push_tag_list(struct virtio_gpu_shader_code_info* pShaderCodeInfo, struct gpu_tag_list_info tagListInfo);
-int virtio_gpu_tgsi_shader_code_push_declare(struct virtio_gpu_shader_code_info* pShaderCodeInfo, struct gpu_declare_location_info declareLocationInfo, uint64_t vectorCount);
-int virtio_gpu_tgsi_shader_code_push_swizzle(struct virtio_gpu_shader_code_info* pShaderCodeInfo, struct gpu_swizzle swizzle, uint8_t operandIndex);
-int virtio_gpu_tgsi_shader_instruction_declare(struct gpu_instruction_info* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_add(struct gpu_instruction_info_add* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_sub(struct gpu_instruction_info_sub* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_mul(struct gpu_instruction_info_mul* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_div(struct gpu_instruction_info_div* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_mod(struct gpu_instruction_info_mod* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_pow(struct gpu_instruction_info_pow* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_sqrt(struct gpu_instruction_info_sqrt* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_rcp(struct gpu_instruction_info_rcp* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_dp(struct gpu_instruction_info_dp* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_abs(struct gpu_instruction_info_abs* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_floor(struct gpu_instruction_info_floor* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_ceil(struct gpu_instruction_info_ceil* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_min(struct gpu_instruction_info_min* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_max(struct gpu_instruction_info_max* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_ddx(struct gpu_instruction_info_ddx* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_ddy(struct gpu_instruction_info_ddy* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_kill(struct gpu_instruction_info_kill* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_instruction_tex(struct gpu_instruction_info_tex* pInstructionInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_tgsi_shader_translate(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_create_shader_object_info* pCreateObjectInfo, struct virtio_gpu_shader_code_info* pShaderCodeInfo);
+int virtio_gpu_tgsi_get_current_shader_data(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, unsigned char** ppShaderData);
+int virtio_gpu_tgsi_get_current_shader_data_size(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, uint64_t* pShaderDataSize);
+int virtio_gpu_tgsi_shader_data_push(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, uint64_t shaderDataLength);
+int virtio_gpu_tgsi_shader_data_push_string(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, unsigned char* pData, uint64_t dataLength);
+int virtio_gpu_tgsi_shader_data_push_u64(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, uint64_t value);
+int virtio_gpu_tgsi_shader_data_push_i64(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, int64_t value);
+int virtio_gpu_tgsi_shader_data_push_tag_list(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, struct gpu_tag_list_info tagListInfo);
+int virtio_gpu_tgsi_shader_data_push_declare(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, struct gpu_declare_location_info declareLocationInfo, uint64_t vectorCount);
+int virtio_gpu_tgsi_shader_data_push_swizzle(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, struct gpu_swizzle swizzle, uint8_t operandIndex);
+int virtio_gpu_tgsi_shader_instruction_declare(struct gpu_instruction_info* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_add(struct gpu_instruction_info_add* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_sub(struct gpu_instruction_info_sub* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_mul(struct gpu_instruction_info_mul* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_div(struct gpu_instruction_info_div* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_mod(struct gpu_instruction_info_mod* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_pow(struct gpu_instruction_info_pow* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_sqrt(struct gpu_instruction_info_sqrt* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_rcp(struct gpu_instruction_info_rcp* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_dp(struct gpu_instruction_info_dp* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_abs(struct gpu_instruction_info_abs* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_floor(struct gpu_instruction_info_floor* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_ceil(struct gpu_instruction_info_ceil* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_min(struct gpu_instruction_info_min* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_max(struct gpu_instruction_info_max* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_ddx(struct gpu_instruction_info_ddx* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_ddy(struct gpu_instruction_info_ddy* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_kill(struct gpu_instruction_info_kill* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_tex(struct gpu_instruction_info_tex* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_translate(uint64_t gpuId, uint64_t contextId, uint64_t objectId, struct gpu_create_shader_object_info* pCreateObjectInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
 #endif

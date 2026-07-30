@@ -2976,14 +2976,14 @@ int virtio_gpu_gl_create_shader_object(struct virtio_gpu_object_desc* pSurfaceOb
 	pShaderObjectDesc->pObjectDesc = pObjectDesc;
 	pShaderObjectDesc->pSurfaceObjectDesc = pSurfaceObjectDesc;
 	pShaderObjectDesc->shaderType = createShaderInfo.shaderType;
-	pShaderObjectDesc->shaderCodeInfo = createShaderInfo.shaderCodeInfo;
+	pShaderObjectDesc->shaderDataInfo = createShaderInfo.shaderDataInfo;
 	pObjectDesc->objectType = VIRTIO_GPU_GL_OBJECT_TYPE_SHADER;
 	pObjectDesc->pExtra = (unsigned char*)pShaderObjectDesc;
-	unsigned char* pDeclareInfo = createShaderInfo.shaderCodeInfo.pDeclareInfo;
-	uint64_t declareInfoLength = createShaderInfo.shaderCodeInfo.declareInfoLength;
+	unsigned char* pDeclareInfo = createShaderInfo.shaderDataInfo.pDeclareInfo;
+	uint64_t declareInfoLength = createShaderInfo.shaderDataInfo.declareInfoLength;
 	uint64_t declareInfoLengthAligned = align_up(declareInfoLength, sizeof(uint32_t));
-	unsigned char* pShaderCode = createShaderInfo.shaderCodeInfo.pShaderCode;
-	uint64_t shaderCodeLength = createShaderInfo.shaderCodeInfo.shaderCodeLength;
+	unsigned char* pShaderCode = createShaderInfo.shaderDataInfo.pShaderCode;
+	uint64_t shaderCodeLength = createShaderInfo.shaderDataInfo.shaderCodeLength;
 	uint64_t shaderCodeLengthAligned = align_up(shaderCodeLength, sizeof(uint32_t));
 	uint64_t streamOutputSize = sizeof(struct virtio_gpu_gl_stream_output)*createShaderInfo.streamOutputCount;
 	uint64_t commandBufferSize = PAGE_SIZE;
@@ -3070,8 +3070,8 @@ int virtio_gpu_gl_delete_object(struct virtio_gpu_object_desc* pObjectDesc, stru
 				virtualFreePage((uint64_t)pCommandBuffer, 0);
 				return -1;
 			}
-			if (pShaderObjectDesc->shaderCodeInfo.shaderCodeLength!=pShaderObjectDesc->shaderCodeInfo.shaderCodeSize)
-				virtualFree((uint64_t)pShaderObjectDesc->shaderCodeInfo.pShaderCode, pShaderObjectDesc->shaderCodeInfo.shaderCodeSize);
+			if (pShaderObjectDesc->shaderDataInfo.shaderCodeLength!=pShaderObjectDesc->shaderDataInfo.shaderCodeSize)
+				virtualFree((uint64_t)pShaderObjectDesc->shaderDataInfo.pShaderCode, pShaderObjectDesc->shaderDataInfo.shaderCodeSize);
 			break;			    
 		}
 	}
@@ -4613,26 +4613,24 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 		return -1;
 	}
 	unsigned char* pDeclareInfo = (unsigned char*)0x00;
-	uint64_t declareInfoSize = PAGE_SIZE*0x04;
-	if (virtualAlloc((uint64_t*)&pDeclareInfo, declareInfoSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
+	uint64_t declareInfoSize = MEM_KB*0x10;
+	if (virtualAlloc((uint64_t*)&pDeclareInfo, declareInfoSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate physical pages for virtual I/O GPU host controller string-form TGSI declaration info physical page data\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	for (uint64_t i = 0x00;i<declareInfoSize;i++){
-		*(pDeclareInfo+i) = '\n';
-	}
-	struct virtio_gpu_shader_code_info shaderCodeInfo = {0};
-	memset((void*)&shaderCodeInfo, 0, sizeof(struct virtio_gpu_shader_code_info));
-	shaderCodeInfo.pOriginalShaderCode = pCreateObjectInfo->pShaderCode;
-	shaderCodeInfo.originalShaderCodeSize = pCreateObjectInfo->shaderCodeSize;
-	shaderCodeInfo.pDeclareInfo = pDeclareInfo;
-	shaderCodeInfo.declareInfoSize = declareInfoSize;
-	shaderCodeInfo.declareInfoLength = declareInfoSize;
-	shaderCodeInfo.declareInfoLength = 0x00;
-	shaderCodeInfo.pShaderCode = pCreateObjectInfo->pShaderCode;
-	shaderCodeInfo.shaderCodeSize = pCreateObjectInfo->shaderCodeSize;
-	shaderCodeInfo.shaderCodeLength = pCreateObjectInfo->shaderCodeSize;
+	memset((void*)pDeclareInfo, '\n', declareInfoSize);
+	struct virtio_gpu_shader_data_info shaderDataInfo = {0};
+	memset((void*)&shaderDataInfo, 0, sizeof(struct virtio_gpu_shader_data_info));
+	shaderDataInfo.pOriginalShaderCode = pCreateObjectInfo->pShaderCode;
+	shaderDataInfo.originalShaderCodeSize = pCreateObjectInfo->shaderCodeSize;
+	shaderDataInfo.pDeclareInfo = pDeclareInfo;
+	shaderDataInfo.declareInfoSize = declareInfoSize;
+	shaderDataInfo.declareInfoLength = declareInfoSize;
+	shaderDataInfo.declareInfoLength = 0x00;
+	shaderDataInfo.pShaderCode = pCreateObjectInfo->pShaderCode;
+	shaderDataInfo.shaderCodeSize = pCreateObjectInfo->shaderCodeSize;
+	shaderDataInfo.shaderCodeLength = pCreateObjectInfo->shaderCodeSize;
 	static const unsigned char tgsiDriverIdent[16] = TGSI_DRIVER_IDENT;
 	uint64_t nativeShaderLanguage = (guidcmp((unsigned char*)pSubsystemShaderDriverDesc->driverInfo.ident, (unsigned char*)tgsiDriverIdent)==0x00) ? 0x01 : 0x00;
 	if (!nativeShaderLanguage){
@@ -4643,37 +4641,47 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 			mutex_unlock(&mutex);
 			return -1;
 		}
-		shaderCodeInfo.pShaderCode = pShaderCode;
-		shaderCodeInfo.shaderCodeSize = shaderCodeSize;
-		shaderCodeInfo.shaderCodeLength = 0x00;
-		if (virtio_gpu_tgsi_shader_translate(gpuInfo.gpuId, pContextDesc->contextId, pObjectDesc->objectId, pCreateObjectInfo, &shaderCodeInfo)!=0){
-			printf("failed to translate GPU host controller shader language to virtual I/O GPU host controller string-form TGSI\r\n");
+		shaderDataInfo.pShaderCode = pShaderCode;
+		shaderDataInfo.shaderCodeSize = shaderCodeSize;
+		shaderDataInfo.shaderCodeLength = 0x00;
+		if (virtio_gpu_tgsi_shader_translate(gpuInfo.gpuId, pContextDesc->contextId, pObjectDesc->objectId, pCreateObjectInfo, &shaderDataInfo)!=0){
+			printf("failed to translate GPU host controller shader code physical page data to string-form TGSI shader code physical page data\r\n");
 			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
+	printf("virtual I/O GPU host controller declaration info physical page data length: %d\r\n", shaderDataInfo.declareInfoLength);
+	printf("virtual I/O GPU host controller shader code physical page data length: %d\r\n", shaderDataInfo.shaderCodeLength);
+	for (uint64_t i = 0x00;i<shaderDataInfo.declareInfoLength%sizeof(uint32_t);i++){
+		*(shaderDataInfo.pDeclareInfo+shaderDataInfo.declareInfoLength+i) = '\n';
+	}
+	shaderDataInfo.declareInfoLength = align_up(shaderDataInfo.declareInfoLength, sizeof(uint32_t));
+	if (!nativeShaderLanguage){
+		for (uint64_t i = 0x00;i<shaderDataInfo.shaderCodeLength%sizeof(uint32_t);i++){
+			*(shaderDataInfo.pShaderCode+shaderDataInfo.shaderCodeLength+i) = '\n';
+		}
+		shaderDataInfo.shaderCodeLength = align_up(shaderDataInfo.shaderCodeLength, sizeof(uint32_t));
+	}
 	struct virtio_gpu_create_shader_info createShaderInfo = {0};
 	memset((void*)&createShaderInfo, 0, sizeof(struct virtio_gpu_create_shader_info));
-	createShaderInfo.shaderCodeInfo = shaderCodeInfo;
-	createShaderInfo.tokenCount = shaderCodeInfo.declareInfoLength+shaderCodeInfo.shaderCodeLength;
+	createShaderInfo.shaderDataInfo = shaderDataInfo;
+	createShaderInfo.tokenCount = shaderDataInfo.declareInfoLength+shaderDataInfo.shaderCodeLength;
 	createShaderInfo.shaderType = pCreateObjectInfo->shaderType;
-	for (uint64_t i = 0x00;i<shaderCodeInfo.declareInfoLength;i++){
+	for (uint64_t i = 0x00;i<shaderDataInfo.declareInfoLength;i++){
 		if (nativeShaderLanguage)
 			break;
-		if (shaderCodeInfo.pShaderCode[i]=='\n')
-			break;
-		serial_putchar(0x00, shaderCodeInfo.pDeclareInfo[i]);
+		serial_putchar(0x00, *(shaderDataInfo.pDeclareInfo+i));
 	}
-	for (uint64_t i = 0;i<shaderCodeInfo.shaderCodeLength;i++){
+	for (uint64_t i = 0;i<shaderDataInfo.shaderCodeLength;i++){
 		if (nativeShaderLanguage)
 			break;
-		serial_putchar(0x00, shaderCodeInfo.pShaderCode[i]);
+		serial_putchar(0x00, *(shaderDataInfo.pShaderCode+i));
 	}
 	while (!nativeShaderLanguage&&0x00){};
 	if (virtio_gpu_gl_create_shader_object(pSurfaceObjectDesc, createShaderInfo, pObjectDesc, pResponseHeader)!=0){
 		printf("failed to create virtual I/O GPU host controller driver shader object descriptor\r\n");
 		if (!nativeShaderLanguage)
-			virtualFree((uint64_t)createShaderInfo.shaderCodeInfo.pShaderCode, createShaderInfo.shaderCodeInfo.shaderCodeSize);
+			virtualFree((uint64_t)shaderDataInfo.pShaderCode, shaderDataInfo.shaderCodeSize);
 		mutex_unlock(&mutex);
 		return -1;
 	}

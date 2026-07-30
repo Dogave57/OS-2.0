@@ -1020,7 +1020,7 @@ struct virtio_gpu_surface_object_desc{
 struct virtio_gpu_shader_declare_desc{
 	uint64_t declareId;
 };
-struct virtio_gpu_shader_code_info{
+struct virtio_gpu_shader_data_info{
 	unsigned char* pOriginalShaderCode;
 	uint64_t originalShaderCodeSize;
 	unsigned char* pDeclareInfo;
@@ -1029,9 +1029,10 @@ struct virtio_gpu_shader_code_info{
 	unsigned char* pShaderCode;
 	uint64_t shaderCodeSize;
 	uint64_t shaderCodeLength;
+	uint16_t declareCountList[GPU_SHADER_DECLARE_TYPE_TEMP];
 };
 struct virtio_gpu_create_shader_info{
-	struct virtio_gpu_shader_code_info shaderCodeInfo;
+	struct virtio_gpu_shader_data_info shaderDataInfo;
 	uint64_t tokenCount;
 	struct virtio_gpu_gl_stream_output* pStreamOutputList;
 	uint64_t streamOutputCount;
@@ -1040,7 +1041,7 @@ struct virtio_gpu_create_shader_info{
 struct virtio_gpu_shader_object_desc{
 	struct virtio_gpu_object_desc* pObjectDesc;
 	struct virtio_gpu_object_desc* pSurfaceObjectDesc;
-	struct virtio_gpu_shader_code_info shaderCodeInfo;
+	struct virtio_gpu_shader_data_info shaderDataInfo;
 	uint64_t shaderType;
 	uint64_t languageType;
 };
@@ -1282,8 +1283,6 @@ int virtio_gpu_subsystem_cmd_context_submit(uint64_t gpuId, uint64_t contextId, 
 int virtio_gpu_subsystem_rasterizer_state_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_rasterizer_state_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_subsystem_dsa_state_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_dsa_state_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_subsystem_blend_state_list_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_blend_state_list_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
-int virtio_gpu_subsystem_shader_code_reset(struct virtio_gpu_shader_code_info* pShaderCodeInfo);
-int virtio_gpu_subsystem_shader_code_push(struct virtio_gpu_shader_code_info* pShaderCodeInfo, unsigned char* pShaderData, uint64_t shaderDataSize);
 int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_shader_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_subsystem_vertex_element_list_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_vertex_element_list_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
 int virtio_gpu_subsystem_sampler_view_object_create(struct virtio_gpu_context_desc* pContextDesc, struct gpu_create_sampler_view_object_info* pCreateObjectInfo, struct virtio_gpu_object_desc* pObjectDesc, struct virtio_gpu_response_header* pResponseHeader);
