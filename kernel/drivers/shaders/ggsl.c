@@ -2124,7 +2124,10 @@ int ggsl_driver_subsystem_shader_init(uint64_t gpuId, uint64_t contextId, uint64
 		{GPU_SHADER_METHOD_TYPE_ROUND, 0x01, {0x00, 0x00, 0x00, 0x00}, (uint64_t)0x00},                            {GPU_SHADER_METHOD_TYPE_MIN, 0x02, {0x00, 0x00, 0x00, 0x00}, (uint64_t)0x00},   
 	  	{GPU_SHADER_METHOD_TYPE_MAX, 0x02, {0x00, 0x00, 0x00, 0x00}, (uint64_t)0x00},                              {GPU_SHADER_METHOD_TYPE_DDX, 0x01, {0x00, 0x00, 0x01, 0x00}, (uint64_t)0x00},  
 	 	{GPU_SHADER_METHOD_TYPE_DDY, 0x01, {0x00, 0x00, 0x00, 0x00}, (uint64_t)0x00},                              {0x00, 0x00, {0x00, 0x00, 0x00, 0x00}, (uint64_t)ggsl_driver_method_vec},
-       		{0x00, 0x00, {0x00, 0x00, 0x00, 0x00}, (uint64_t)ggsl_driver_method_cast},                                 {0x00, 0x00, {0x00, 0x00, 0x00, 0x00}, (uint64_t)ggsl_driver_method_tex},
+       		{0x00, 0x00, {0x00, 0x00, 0x00, 0x00}, (uint64_t)ggsl_driver_method_cast},                                 {GPU_SHADER_METHOD_TYPE_SEQ, 0x02, {0x00, 0x00, 0x01, 0x00}, (uint64_t)0x00},    
+		{GPU_SHADER_METHOD_TYPE_SNE, 0x02, {0x00, 0x00, 0x01, 0x00}, (uint64_t)0x00},                              {GPU_SHADER_METHOD_TYPE_SLT, 0x02, {0x00, 0x00, 0x01, 0x00}, (uint64_t)0x00},
+		{GPU_SHADER_METHOD_TYPE_SGT, 0x02, {0x00, 0x00, 0x01, 0x00}, (uint64_t)0x00},                              {GPU_SHADER_METHOD_TYPE_SLE, 0x02, {0x00, 0x00, 0x01, 0x00}, (uint64_t)0x00},
+		{GPU_SHADER_METHOD_TYPE_SGE, 0x02, {0x00, 0x00, 0x01, 0x00}, (uint64_t)0x00},                              {0x00, 0x00, {0x00, 0x00, 0x00, 0x00}, (uint64_t)ggsl_driver_method_tex},
 	};
 	static const struct ggsl_driver_tag_ident_info identTagInfoList[]={
 		{GPU_SHADER_TAG_TYPE_POSITION},       {GPU_SHADER_TAG_TYPE_COLOR},
@@ -2159,7 +2162,10 @@ int ggsl_driver_subsystem_shader_init(uint64_t gpuId, uint64_t contextId, uint64
 		{"round", 0x05, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x0C], 0x00}, {"min", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x0D], 0x00},  
 	       	{"max", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x0E], 0x00}, {"ddx", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x0F], 0x00},
 	      	{"ddy", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x10], 0x00},  {"vec", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x11], 0x00},
-		{"cast", 0x04, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x12], 0x00}, {"tex", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x13], 0x00},
+		{"cast", 0x04, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x12], 0x00}, {"seq", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x13], 0x00},
+		{"sne", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x14], 0x00}, {"slt", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x15], 0x00},
+		{"sgt", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x16], 0x00}, {"sle", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x17], 0x00},
+		{"sge", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x18], 0x00}, {"tex", 0x03, GGSL_DRIVER_IDENT_TYPE_METHOD, (uint64_t)&identMethodInfoList[0x19], 0x00},
 
 		{"fvec1_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x00], 0x00}, {"fvec2_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x01], 0x00}, 
 		{"fvec3_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x02], 0x00}, {"fvec4_32", 0x08, GGSL_DRIVER_IDENT_TYPE_FORMAT, (uint64_t)&identFormatInfoList[0x03], 0x00},

@@ -79,6 +79,12 @@ int virtio_gpu_tgsi_method_type_get_name(uint8_t methodType, const unsigned char
 		[GPU_SHADER_METHOD_TYPE_MAX]="MAX",
 		[GPU_SHADER_METHOD_TYPE_DDX]="DDX",
 		[GPU_SHADER_METHOD_TYPE_DDY]="DDY",
+		[GPU_SHADER_METHOD_TYPE_SEQ]="SEQ",
+		[GPU_SHADER_METHOD_TYPE_SNE]="SNE",
+		[GPU_SHADER_METHOD_TYPE_SLT]="SLT",
+		[GPU_SHADER_METHOD_TYPE_SGT]="SGT",
+		[GPU_SHADER_METHOD_TYPE_SLE]="SLE",
+		[GPU_SHADER_METHOD_TYPE_SGE]="SGE",
 		[GPU_SHADER_METHOD_TYPE_TEX]="TEX",
 	};
 	const unsigned char* pMethodTypeName = methodTypeNameList[methodType];
