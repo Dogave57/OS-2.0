@@ -257,7 +257,6 @@ int text_subsystem_init(void){
 		"const fvec4_32 translation\n"
 		"const fvec4_32 scale\n"
 		"const fvec4_32 spread\n"
-		"temp fvec1_32 test\n"
 		"positionOut.xy = add(mul(positionIn, scale), translation)\n"
 		"positionOut.w = positionIn\n"
 		"colorOut = colorIn\n"
@@ -268,19 +267,19 @@ int text_subsystem_init(void){
 		"in fvec4_32 colorIn : @color @perspective\n"
 		"in fvec2_32 texCoordIn : @generic!0 @perspective\n"
 		"in fvec4_32 spreadIn : @generic!1\n"
-		"temp fvec4_32 color\n"
 		"samp samplerState\n"
 		"sview samplerView : @2D @float\n"
 		"temp fvec1_32 sdfEntry\n"
-		"sdfEntry = tex(texCoordIn, samplerState, @2D)\n"
+		"sdfEntry = tex(fvec1_32, texCoordIn, samplerState, @2D)\n"
 		"temp fvec2_32 texCoordFract\n"
 		"temp fvec2_32 texCoord\n"
-		"texCoord = mul(texCoordIn, vec(64.0, 64.0))\n"
+		"texCoord = mul(texCoordIn, vec!fvec2_32(64.0, 64.0))\n"
 		"texCoordFract = sub(texCoord, floor(texCoord))\n"
 		"temp fvec1_32 smoothValue\n"
-		"smoothValue = max(sdfEntry.x, vec(0.0))\n"
-		"smoothValue = add(smoothValue, dp!2(texCoordFract, texCoordFract))\n"
-		"color = vec(1.0, 0.0, 1.0, 1.0)\n"
+		"smoothValue = max(sdfEntry.x, vec!fvec1_32(0.0))\n"
+		"smoothValue = add(smoothValue, dp(texCoordFract, texCoordFract))\n"
+		"temp fvec4_32 color\n"
+		"color = vec!fvec4_32(1.0, 0.0, 1.0, 1.0)\n"
 		"color.w = smoothValue.x\n"
 		"colorOut = color\n";
 	uint64_t vertexShaderObjectId = 0x00;
@@ -314,7 +313,6 @@ int text_subsystem_init(void){
 	createShaderObjectInfo.shaderCodeSize = sizeof(vertexShaderCode);
 	uint64_t startTime = get_time_us();
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createShaderObjectInfo, &vertexShaderObjectId)!=0){
-
 		printf("failed to create GPU host controller vertex shader object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		subsystem_deinit(pFontSubsystemDesc);

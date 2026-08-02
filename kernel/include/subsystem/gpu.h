@@ -250,24 +250,11 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_OPCODE_INVALID (0x00)
 #define GPU_SHADER_OPCODE_DECLARE (0x01)
 #define GPU_SHADER_OPCODE_MOV (0x02)
-#define GPU_SHADER_OPCODE_ADD (0x03)
-#define GPU_SHADER_OPCODE_SUB (0x04)
-#define GPU_SHADER_OPCODE_MUL (0x05)
-#define GPU_SHADER_OPCODE_DIV (0x06)
-#define GPU_SHADER_OPCODE_MOD (0x07)
-#define GPU_SHADER_OPCODE_POW (0x08)
-#define GPU_SHADER_OPCODE_SQRT (0x09)
-#define GPU_SHADER_OPCODE_RCP (0x0A)
-#define GPU_SHADER_OPCODE_DP (0x0B)
-#define GPU_SHADER_OPCODE_ABS (0x0C)
-#define GPU_SHADER_OPCODE_FLOOR (0x0D)
-#define GPU_SHADER_OPCODE_CEIL (0x0E)
-#define GPU_SHADER_OPCODE_MIN (0x0F)
-#define GPU_SHADER_OPCODE_MAX (0x10)
-#define GPU_SHADER_OPCODE_DDX (0x11)
-#define GPU_SHADER_OPCODE_DDY (0x12)
-#define GPU_SHADER_OPCODE_KILL (0x13)
-#define GPU_SHADER_OPCODE_TEX (0x14)
+#define GPU_SHADER_OPCODE_METHOD (0x03)
+#define GPU_SHADER_OPCODE_KILL (0x04)
+#define GPU_SHADER_OPCODE_IF (0x05)
+#define GPU_SHADER_OPCODE_ELSE (0x06)
+#define GPU_SHADER_OPCODE_END (0x07)
 
 #define GPU_SHADER_DECLARE_TYPE_INVALID (0x00)
 #define GPU_SHADER_DECLARE_TYPE_INPUT (0x01)
@@ -277,6 +264,26 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_DECLARE_TYPE_SAMP (0x05)
 #define GPU_SHADER_DECLARE_TYPE_SVIEW (0x06)
 #define GPU_SHADER_DECLARE_TYPE_TEMP (0x07)
+
+#define GPU_SHADER_METHOD_TYPE_INVALID (0x00)
+#define GPU_SHADER_METHOD_TYPE_ADD (0x01)
+#define GPU_SHADER_METHOD_TYPE_SUB (0x02)
+#define GPU_SHADER_METHOD_TYPE_MUL (0x03)
+#define GPU_SHADER_METHOD_TYPE_DIV (0x04)
+#define GPU_SHADER_METHOD_TYPE_MOD (0x05)
+#define GPU_SHADER_METHOD_TYPE_POW (0x06)
+#define GPU_SHADER_METHOD_TYPE_SQRT (0x07)
+#define GPU_SHADER_METHOD_TYPE_RCP (0x08)
+#define GPU_SHADER_METHOD_TYPE_DP (0x09)
+#define GPU_SHADER_METHOD_TYPE_ABS (0x0A)
+#define GPU_SHADER_METHOD_TYPE_FLOOR (0x0B)
+#define GPU_SHADER_METHOD_TYPE_CEIL (0x0C)
+#define GPU_SHADER_METHOD_TYPE_ROUND (0x0D)
+#define GPU_SHADER_METHOD_TYPE_MIN (0x0E)
+#define GPU_SHADER_METHOD_TYPE_MAX (0x0F)
+#define GPU_SHADER_METHOD_TYPE_DDX (0x10)
+#define GPU_SHADER_METHOD_TYPE_DDY (0x11)
+#define GPU_SHADER_METHOD_TYPE_TEX (0x12)
 
 #define GPU_SHADER_SCALAR_TYPE_INVALID (0x00)
 #define GPU_SHADER_SCALAR_TYPE_FLOAT (0x01)
@@ -481,78 +488,35 @@ struct gpu_instruction_info_mov{
 	struct gpu_instruction_info header;
 	struct gpu_operand_info operandInfoList[2];
 };
-struct gpu_instruction_info_add{
+struct gpu_instruction_info_method{
 	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[3];
+	struct gpu_tag_list_info tagListInfo;
+	uint64_t methodType;
+	uint64_t operandCount;
+	uint64_t extra[2];
+	struct gpu_operand_info operandInfoList[];
 };
-struct gpu_instruction_info_sub{
+struct gpu_instruction_info_method_dp{
 	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[3];
-};
-struct gpu_instruction_info_mul{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[3];
-};
-struct gpu_instruction_info_div{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[3];
-};
-struct gpu_instruction_info_mod{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[3];
-};
-struct gpu_instruction_info_pow{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[3];
-};
-struct gpu_instruction_info_sqrt{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[2];
-};
-struct gpu_instruction_info_rcp{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[2];
-};
-struct gpu_instruction_info_dp{
-	struct gpu_instruction_info header;
+	struct gpu_tag_list_info tagListInfo;
+	uint64_t methodType;
+	uint64_t operandCount;
 	uint64_t scalarCount;
-	struct gpu_operand_info operandInfoList[3];
-};
-struct gpu_instruction_info_abs{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[2];
-};
-struct gpu_instruction_info_floor{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[2];
-};
-struct gpu_instruction_info_ceil{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[2];
-};	
-struct gpu_instruction_info_min{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[3];
-};
-struct gpu_instruction_info_max{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[3];
-};
-struct gpu_instruction_info_ddx{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[2];
-};
-struct gpu_instruction_info_ddy{
-	struct gpu_instruction_info header;
-	struct gpu_operand_info operandInfoList[2];
+	uint64_t extra;
+	struct gpu_operand_info operandInfoList[];
 };
 struct gpu_instruction_info_kill{
 	struct gpu_instruction_info header;
 };
-struct gpu_instruction_info_tex{
+struct gpu_instruction_info_if{
 	struct gpu_instruction_info header;
-	struct gpu_tag_list_info tagListInfo;
-	struct gpu_operand_info operandInfoList[3];
+	struct gpu_operand_info operandInfo;
+};
+struct gpu_instruction_info_else{
+	struct gpu_instruction_info header;
+};
+struct gpu_instruction_info_end{
+	struct gpu_instruction_info header;
 };
 struct gpu_get_instruction_info{
 	unsigned char* pInstructionList;

@@ -10,7 +10,7 @@ struct ggsl_driver_format_ident_info;
 struct gpu_declare_location_info;
 struct ggsl_driver_expression_info;
 typedef int(*ggslDriverInstructionFunc)(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo);
-typedef int(*ggslDriverMethodFunc)(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
+typedef int(*ggslDriverMethodFunc)(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
 #define GGSL_DRIVER_SIGNATURE ((uint32_t)'LSGG')
 #define GGSL_DRIVER_IDENT {0xC4, 0x94, 0x36, 0xA2,  0x3F, 0x9E, 0x98, 0x96,  0x9E, 0x1D, 0x4B, 0x06,  0xFD, 0x85, 0x2E, 0x4E}
 #define GGSL_DRIVER_MAX_IDENT_COUNT (65536)
@@ -22,7 +22,6 @@ typedef int(*ggslDriverMethodFunc)(struct ggsl_driver_shader_desc* pShaderDesc, 
 #define GGSL_DRIVER_IDENT_TYPE_REFERENCE (0x03)
 #define GGSL_DRIVER_IDENT_TYPE_TAG (0x04)
 #define GGSL_DRIVER_IDENT_TYPE_FORMAT (0x05)
-#define GGSL_DRIVER_IDENT_TYPE_SCALAR (0x06)
 
 struct ggsl_driver_ident_location_info{
 	unsigned char* pName;
@@ -36,10 +35,19 @@ struct ggsl_driver_basic_ident_info{
 	uint64_t extra0;
 	uint64_t extra1;
 };
+struct ggsl_driver_format_ident_info{
+	uint16_t scalarFormat;
+	uint16_t scalarType;
+	uint16_t scalarSize;
+	uint16_t scalarCount;
+};
 struct ggsl_driver_opcode_ident_info{
 	uint64_t instructionFunc;
 };
 struct ggsl_driver_method_ident_info{
+	uint64_t methodType;
+	uint64_t operandCount;
+	struct ggsl_driver_format_ident_info formatIdentInfo;
 	uint64_t methodFunc;
 };
 struct ggsl_driver_reference_ident_info{
@@ -49,13 +57,6 @@ struct ggsl_driver_reference_ident_info{
 	struct ggsl_driver_format_ident_info* pFormatIdentInfo;
 	struct gpu_declare_location_info declareLocation;
 };	
-struct ggsl_driver_format_ident_info{
-	uint32_t format;
-	uint32_t scalarType;
-	uint32_t scalarSize;
-	uint32_t scalarCount;
-	uint32_t reserved0;
-};
 struct ggsl_driver_tag_ident_info{
 	uint16_t tagType;
 };
@@ -82,6 +83,7 @@ struct ggsl_driver_tag_list_info{
 	uint16_t tagInfo;
 };
 struct ggsl_driver_expression_info{
+	struct ggsl_driver_format_ident_info formatIdentInfo;
 	struct gpu_declare_location_info declareLocation;
 	struct gpu_swizzle swizzleInfo;
 };
@@ -128,7 +130,7 @@ int ggsl_driver_swizzle_get_info(struct ggsl_driver_shader_desc* pShaderDesc, st
 int ggsl_driver_reference_ident_register(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_reference_ident_info identInfo, struct ggsl_driver_ident_desc** ppIdentDesc);
 int ggsl_driver_reference_ident_unregister(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_desc* pIdentDesc);
 int ggsl_driver_get_current_instruction(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct gpu_instruction_info** ppInstructionInfo);
-int ggsl_driver_expression_get_info(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
+int ggsl_driver_expression_get_info(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
 int ggsl_driver_temp_ident_get_count(struct ggsl_driver_shader_desc* pShaderDesc, uint64_t* pIdentCount);
 int ggsl_driver_temp_ident_push(struct ggsl_driver_shader_desc* pShaderDesc, uint64_t identId);
 int ggsl_driver_temp_ident_pop(struct ggsl_driver_shader_desc* pShaderDesc, uint64_t* pIdentId);
@@ -141,25 +143,14 @@ int ggsl_driver_instruction_samp(struct ggsl_driver_shader_desc* pShaderDesc, st
 int ggsl_driver_instruction_sview(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo);
 int ggsl_driver_instruction_temp(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo);
 int ggsl_driver_instruction_kill(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo);
+int ggsl_driver_instruction_if(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo);
+int ggsl_driver_instruction_else(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo);
+int ggsl_driver_instruction_end(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo);
 int ggsl_driver_instruction_reference(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_ident_location_info identLocationInfo, struct ggsl_driver_ident_desc* pIdentDesc, struct gpu_get_instruction_info* pGetInstructionInfo);
-int ggsl_driver_method_add(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_sub(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_mul(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_div(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_mod(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_pow(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_sqrt(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_rcp(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_dp(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_abs(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_floor(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_ceil(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_min(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_max(struct ggsl_driver_shader_desc* pshaderdesc, struct ggsl_driver_format_ident_info* pformatidentInfo, struct gpu_get_instruction_info* pgetinstructioninfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_ddx(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_ddy(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_vec(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
-int ggsl_driver_method_tex(struct ggsl_driver_shader_desc* pShaderDesc, struct ggsl_driver_format_ident_info* pFormatIdentInfo, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
+int ggsl_driver_method_dp(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
+int ggsl_driver_method_vec(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
+int ggsl_driver_method_cast(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
+int ggsl_driver_method_tex(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo, struct ggsl_driver_expression_info* pExpressionInfo);
 int ggsl_driver_instruction_list_reset(struct ggsl_driver_shader_desc* pShaderDesc);
 int ggsl_driver_instruction_get_info(struct ggsl_driver_shader_desc* pShaderDesc, struct gpu_get_instruction_info* pGetInstructionInfo);
 int ggsl_driver_subsystem_driver_init(uint64_t driverId);

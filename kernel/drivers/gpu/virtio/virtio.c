@@ -4644,14 +4644,13 @@ int virtio_gpu_subsystem_shader_object_create(struct virtio_gpu_context_desc* pC
 		shaderDataInfo.pShaderCode = pShaderCode;
 		shaderDataInfo.shaderCodeSize = shaderCodeSize;
 		shaderDataInfo.shaderCodeLength = 0x00;
+		shaderDataInfo.declareInfoLength = 0x00;
 		if (virtio_gpu_tgsi_shader_translate(gpuInfo.gpuId, pContextDesc->contextId, pObjectDesc->objectId, pCreateObjectInfo, &shaderDataInfo)!=0){
 			printf("failed to translate GPU host controller shader code physical page data to string-form TGSI shader code physical page data\r\n");
 			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
-	printf("virtual I/O GPU host controller declaration info physical page data length: %d\r\n", shaderDataInfo.declareInfoLength);
-	printf("virtual I/O GPU host controller shader code physical page data length: %d\r\n", shaderDataInfo.shaderCodeLength);
 	for (uint64_t i = 0x00;i<shaderDataInfo.declareInfoLength%sizeof(uint32_t);i++){
 		*(shaderDataInfo.pDeclareInfo+shaderDataInfo.declareInfoLength+i) = '\n';
 	}
