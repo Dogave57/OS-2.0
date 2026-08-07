@@ -66,7 +66,7 @@ int virtio_gpu_tgsi_method_type_get_name(uint8_t methodType, const unsigned char
 		[GPU_SHADER_METHOD_TYPE_SUB]="SUB",
 		[GPU_SHADER_METHOD_TYPE_MUL]="MUL",
 		[GPU_SHADER_METHOD_TYPE_DIV]="DIV",
-		[GPU_SHADER_METHOD_TYPE_MOD]="MOD",
+		[GPU_SHADER_METHOD_TYPE_MOD]="UMOD",
 		[GPU_SHADER_METHOD_TYPE_POW]="POW",
 		[GPU_SHADER_METHOD_TYPE_SQRT]="SQRT",
 		[GPU_SHADER_METHOD_TYPE_RCP]="RCP",
@@ -77,6 +77,8 @@ int virtio_gpu_tgsi_method_type_get_name(uint8_t methodType, const unsigned char
 		[GPU_SHADER_METHOD_TYPE_ROUND]="ROUND",
 		[GPU_SHADER_METHOD_TYPE_MIN]="MIN",
 		[GPU_SHADER_METHOD_TYPE_MAX]="MAX",
+		[GPU_SHADER_METHOD_TYPE_COS]="COS",
+		[GPU_SHADER_METHOD_TYPE_SIN]="SIN",
 		[GPU_SHADER_METHOD_TYPE_DDX]="DDX",
 		[GPU_SHADER_METHOD_TYPE_DDY]="DDY",
 		[GPU_SHADER_METHOD_TYPE_SEQ]="SEQ",
@@ -511,12 +513,12 @@ int virtio_gpu_tgsi_shader_instruction_else(struct gpu_instruction_info_else* pI
 	mutex_unlock(&mutex);
 	return 0;
 }
-int virtio_gpu_tgsi_shader_instruction_end(struct gpu_instruction_info_end* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo){
+int virtio_gpu_tgsi_shader_instruction_endif(struct gpu_instruction_info_endif* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo){
 	if (!pInstructionInfo||!pShaderDataInfo)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, "END\n", 0x04);
+	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, "ENDIF\n", 0x06);
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -566,7 +568,7 @@ int virtio_gpu_tgsi_shader_translate(uint64_t gpuId, uint64_t contextId, uint64_
 				[GPU_SHADER_OPCODE_KILL]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_kill,
 				[GPU_SHADER_OPCODE_IF]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_if,
 				[GPU_SHADER_OPCODE_ELSE]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_else,
-				[GPU_SHADER_OPCODE_END]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_end,
+				[GPU_SHADER_OPCODE_ENDIF]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_endif,
 			};	
 			virtioGpuShaderInstructionFunc instructionFunc = (virtioGpuShaderInstructionFunc)instructionFuncList[pCurrentInstruction->opcode];
 			if (!instructionFunc){

@@ -254,7 +254,7 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_OPCODE_KILL (0x04)
 #define GPU_SHADER_OPCODE_IF (0x05)
 #define GPU_SHADER_OPCODE_ELSE (0x06)
-#define GPU_SHADER_OPCODE_END (0x07)
+#define GPU_SHADER_OPCODE_ENDIF (0x07)
 
 #define GPU_SHADER_DECLARE_TYPE_INVALID (0x00)
 #define GPU_SHADER_DECLARE_TYPE_INPUT (0x01)
@@ -281,15 +281,17 @@ typedef int(*gpuPanicFunc)(uint64_t driverId);
 #define GPU_SHADER_METHOD_TYPE_ROUND (0x0D)
 #define GPU_SHADER_METHOD_TYPE_MIN (0x0E)
 #define GPU_SHADER_METHOD_TYPE_MAX (0x0F)
-#define GPU_SHADER_METHOD_TYPE_DDX (0x10)
-#define GPU_SHADER_METHOD_TYPE_DDY (0x11)
-#define GPU_SHADER_METHOD_TYPE_SEQ (0x12)
-#define GPU_SHADER_METHOD_TYPE_SNE (0x13)
-#define GPU_SHADER_METHOD_TYPE_SLT (0x14)
-#define GPU_SHADER_METHOD_TYPE_SGT (0x15)
-#define GPU_SHADER_METHOD_TYPE_SLE (0x16)
-#define GPU_SHADER_METHOD_TYPE_SGE (0x17)
-#define GPU_SHADER_METHOD_TYPE_TEX (0x18)
+#define GPU_SHADER_METHOD_TYPE_COS (0x10)
+#define GPU_SHADER_METHOD_TYPE_SIN (0x11)
+#define GPU_SHADER_METHOD_TYPE_DDX (0x12)
+#define GPU_SHADER_METHOD_TYPE_DDY (0x13)
+#define GPU_SHADER_METHOD_TYPE_SEQ (0x14)
+#define GPU_SHADER_METHOD_TYPE_SNE (0x15)
+#define GPU_SHADER_METHOD_TYPE_SLT (0x16)
+#define GPU_SHADER_METHOD_TYPE_SGT (0x17)
+#define GPU_SHADER_METHOD_TYPE_SLE (0x18)
+#define GPU_SHADER_METHOD_TYPE_SGE (0x19)
+#define GPU_SHADER_METHOD_TYPE_TEX (0x1A)
 
 #define GPU_SHADER_SCALAR_TYPE_INVALID (0x00)
 #define GPU_SHADER_SCALAR_TYPE_FLOAT (0x01)
@@ -521,7 +523,7 @@ struct gpu_instruction_info_if{
 struct gpu_instruction_info_else{
 	struct gpu_instruction_info header;
 };
-struct gpu_instruction_info_end{
+struct gpu_instruction_info_endif{
 	struct gpu_instruction_info header;
 };
 struct gpu_get_instruction_info{
