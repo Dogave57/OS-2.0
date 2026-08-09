@@ -308,6 +308,8 @@ int virtio_gpu_tgsi_shader_data_push_swizzle(struct virtio_gpu_shader_data_info*
 		mutex_unlock(&mutex);
 		return -1;
 	}
+	if (!*(uint32_t*)swizzle.swizzleList)
+		*(uint32_t*)swizzle.swizzleList = 0x04030201;
 	uint64_t swizzleCount = 0x00;
 	uint8_t lastSwizzleEntry = 0x00;
 	*pShaderData = '.';
@@ -440,6 +442,26 @@ int virtio_gpu_tgsi_shader_instruction_method_dp(struct gpu_instruction_info_met
 	mutex_unlock(&mutex);	
 	return 0;
 }
+int virtio_gpu_tgsi_shader_instruction_method_tex(struct gpu_instruction_info_method* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo){
+	if (!pInstructionInfo||!pShaderDataInfo)
+		return -1;
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct gpu_tag_list_info tagListInfo = pInstructionInfo->tagListInfo;
+	struct gpu_operand_info* pOperandInfoList = (struct gpu_operand_info*)pInstructionInfo->operandInfoList;
+	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, "TEX ", 0x04);
+	virtio_gpu_tgsi_shader_data_push_declare(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, pOperandInfoList->declareLocationInfo, 0x01);
+	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, ", ", 0x02);
+	virtio_gpu_tgsi_shader_data_push_declare(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, (pOperandInfoList+0x01)->declareLocationInfo, 0x01);
+	virtio_gpu_tgsi_shader_data_push_swizzle(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, (pOperandInfoList+0x01)->swizzle, 0x00);
+	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, ", ", 0x02);
+	virtio_gpu_tgsi_shader_data_push_declare(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, (pOperandInfoList+0x02)->declareLocationInfo, 0x01);
+	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, ", ", 0x02);
+	virtio_gpu_tgsi_shader_data_push_tag_list(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, tagListInfo);
+	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, "\n", 0x01);
+	mutex_unlock(&mutex);
+	return 0;
+}
 int virtio_gpu_tgsi_shader_instruction_method(struct gpu_instruction_info_method* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo){
 	if (!pInstructionInfo||!pShaderDataInfo)
 		return -1;
@@ -449,6 +471,7 @@ int virtio_gpu_tgsi_shader_instruction_method(struct gpu_instruction_info_method
 	struct gpu_operand_info* pOperandInfoList = (struct gpu_operand_info*)pInstructionInfo->operandInfoList;
 	static const virtioGpuShaderInstructionFunc methodInstructionFuncList[256]={
 		[GPU_SHADER_METHOD_TYPE_DP]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_method_dp,
+		[GPU_SHADER_METHOD_TYPE_TEX]=(virtioGpuShaderInstructionFunc)virtio_gpu_tgsi_shader_instruction_method_tex,
 	};
 	virtioGpuShaderInstructionFunc instructionFunc = methodInstructionFuncList[pInstructionInfo->methodType];
 	if (instructionFunc&&instructionFunc((struct gpu_instruction_info*)pInstructionInfo, pShaderDataInfo)!=0){

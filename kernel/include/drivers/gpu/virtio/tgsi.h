@@ -21,6 +21,7 @@ int virtio_gpu_tgsi_shader_data_push_declare(struct virtio_gpu_shader_data_info*
 int virtio_gpu_tgsi_shader_data_push_swizzle(struct virtio_gpu_shader_data_info* pShaderDataInfo, uint8_t shaderDataType, struct gpu_swizzle swizzle, uint8_t operandIndex);
 int virtio_gpu_tgsi_shader_instruction_declare(struct gpu_instruction_info* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
 int virtio_gpu_tgsi_shader_instruction_method_dp(struct gpu_instruction_info_method_dp* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
+int virtio_gpu_tgsi_shader_instruction_method_tex(struct gpu_instruction_info_method* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
 int virtio_gpu_tgsi_shader_instruction_method(struct gpu_instruction_info_method* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
 int virtio_gpu_tgsi_shader_instruction_kill(struct gpu_instruction_info_kill* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
 int virtio_gpu_tgsi_shader_instruction_if(struct gpu_instruction_info_if* pInstructionInfo, struct virtio_gpu_shader_data_info* pShaderDataInfo);
