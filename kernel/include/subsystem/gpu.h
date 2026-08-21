@@ -335,6 +335,7 @@ struct gpu_box{
 };
 struct gpu_swizzle{
 	uint8_t swizzleList[4];
+	uint32_t swizzleCount;
 }__attribute__((packed));
 struct gpu_cmd_info_header{
 	uint64_t commandType;

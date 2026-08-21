@@ -126,7 +126,7 @@ int text_subsystem_init(void){
 	createResourceInfo.resourceInfo.normal.width = glyphTextureRect.x;
 	createResourceInfo.resourceInfo.normal.height = glyphTextureRect.y;
 	createResourceInfo.resourceInfo.normal.depth = 0x01;
-	createResourceInfo.resourceInfo.normal.arraySize = 0x00;
+	createResourceInfo.resourceInfo.normal.arraySize = 0x01;
 	createResourceInfo.resourceInfo.normal.target = GPU_TARGET_TEXTURE_2D;
 	createResourceInfo.resourceInfo.normal.bind = GPU_BIND_SAMPLER_VIEW|GPU_BIND_RENDER_TARGET;
 	if (gpu_resource_create(pMonitorDesc->gpuId, createResourceInfo, &glyphTextureResourceId)!=0){
@@ -251,40 +251,46 @@ int text_subsystem_init(void){
 		"out fvec4_32 colorOut : @color\n"
 		"out fvec2_32 texCoordOut : @generic!0\n"
 		"out fvec1_32 spreadOut : @generic!1\n"
-		"out fvec2_32 scaleOut : @generic!2\n"
+		"out fvec4_32 resolutionOut : @generic!2\n"
 		"in fvec2_32 positionIn\n"
 		"in fvec2_32 texCoordIn\n"
 		"in fvec4_32 colorIn\n"
 		"const fvec2_32 translation\n"
 		"const fvec2_32 scale\n"
 		"const fvec4_32 spread\n"
+		"const fvec4_32 resolution\n"
 		"positionOut.xy = add(mul(positionIn, scale), translation)\n"
 		"positionOut.w = positionIn\n"
 		"colorOut = colorIn\n"
 		"texCoordOut = texCoordIn\n"
-		"spreadOut = spread\n";
+		"spreadOut = spread\n"
+		"resolutionOut = resolution\n";
 	static const unsigned char fragmentShaderCode[]="GGSL\n"
 		"out fvec4_32 colorOut : @color\n"
 		"in fvec4_32 colorIn : @color @perspective\n"
 		"in fvec2_32 texCoordIn : @generic!0 @perspective\n"
-		"in fvec4_32 spreadIn : @generic!1\n"
-		"in fvec2_32 scaleIn : @generic!2\n"
+		"in fvec1_32 spreadIn : @generic!1\n"
+		"in fvec4_32 resolutionIn : @generic!2\n"
 		"samp samplerState\n"
 		"sview samplerView : @2D @float\n"
 		"temp fvec1_32 sdfEntry\n"
 		"sdfEntry = tex(fvec1_32, texCoordIn, samplerState, @2D)\n"
-		"if (slt(sdfEntry.x, vec!fvec1_32(0.0)))\n"
+		"if (slt(sdfEntry, vec!fvec1_32(0.0)))\n"
 		"kill\n"
 		"endif\n"
-		"temp fvec2_32 texCoordFract\n"
+		"temp fvec2_32 scaleVector\n"
+		"scaleVector = mul(resolutionIn.xy, rcp(resolutionIn.zw))\n"
+		"temp fvec2_32 frameTexCoord\n"
 		"temp fvec2_32 texCoord\n"
-		"texCoord = mul(texCoordIn, vec!fvec2_32(64.0, 64.0))\n"
+		"temp fvec2_32 texCoordFract\n"
+		"frameTexCoord = mul(texCoordIn, resolutionIn.xy)\n"
+		"texCoord = mul(texCoordIn, resolutionIn.zw)\n"
 		"texCoordFract = fract(texCoord)\n"
-		"temp fvec1_32 smoothDelta\n"
 		"temp fvec1_32 smoothValue\n"
-		"smoothDelta = dp(texCoordFract, texCoordFract)\n"
-		"smoothValue = add(sdfEntry.x, smoothDelta)\n"
-		"smoothValue = clamp(smoothValue, vec!fvec1_32(0.0), vec!fvec1_32(1.0))\n"
+		"temp fvec2_32 smoothDelta\n"
+		"smoothDelta = add(min(div(sdfEntry, abs(sdfEntry)), vec!fvec2_32(0.0, 0.0)), texCoordFract)\n"
+		"sdfEntry = add(sdfEntry, mul(smoothDelta, rcp(spreadIn)))\n"
+		"smoothValue = clamp(sdfEntry, vec!fvec1_32(0.0), vec!fvec1_32(1.0))\n"
 		"temp fvec4_32 color\n"
 		"color = vec!fvec4_32(1.0, 0.0, 1.0, 1.0)\n"
 		"color.w = smoothValue\n"
@@ -710,7 +716,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct fvec4_32 constantBuffer[3] = {0};
+	struct fvec4_32 constantBuffer[4] = {0};
 	struct fvec4_32* pTranslationVector = (struct fvec4_32*)constantBuffer;
 	pTranslationVector->x = 0.5f;
 	pTranslationVector->y = 0.5f;
@@ -726,6 +732,11 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	pSpreadVector->y = 0.0f;
 	pSpreadVector->z = 0.0f;
 	pSpreadVector->w = 1.0f;
+	struct fvec4_32* pResolutionVector = pSpreadVector+0x01;
+	pResolutionVector->x = ((float)textSubsystemInfo.pMonitorDesc->monitorInfo.resolution.width)*pScaleVector->x;
+	pResolutionVector->y = ((float)textSubsystemInfo.pMonitorDesc->monitorInfo.resolution.height)*pScaleVector->y;
+	pResolutionVector->z = (float)glyphTextureBufferRect.x;
+	pResolutionVector->w = (float)glyphTextureBufferRect.y;
 	gpu_cmd_context_reset(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId);
 	struct gpu_set_vertex_buffer_list_cmd_info setVertexBufferListCmdInfo = {0};
 	memset((void*)&setVertexBufferListCmdInfo, 0, sizeof(struct gpu_set_vertex_buffer_list_cmd_info));
@@ -763,7 +774,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
 	setConstantBufferCmdInfo.index = 0x00;
 	setConstantBufferCmdInfo.pBuffer = (unsigned char*)constantBuffer;
-	setConstantBufferCmdInfo.bufferSize = sizeof(struct fvec4_32)*0x03;
+	setConstantBufferCmdInfo.bufferSize = sizeof(struct fvec4_32)*0x04;
 	gpu_cmd_context_push_cmd(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
 	struct gpu_draw_vbo_cmd_info drawVboCmdInfo = {0};
 	memset((void*)&drawVboCmdInfo, 0, sizeof(struct gpu_draw_vbo_cmd_info));

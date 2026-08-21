@@ -180,7 +180,7 @@ static unsigned char mainfont_data[254][16]={
 struct text_subsystem_font_driver_vtable{
 	fontDriverDeinitFunc fontDriverDeinit;
 	fontDriverFontLoadFunc fontLoad;
-	fontDriverFontUnloadFunc fontUnload;
+	fontDriverFontUnloadFunc fontUnload;			
 	fontDriverFontVerifyFunc fontVerify;
 	fontDriverFontGlyphGetIdFunc fontGlyphGetId;
 	fontDriverFontGlyphTesselateFunc fontGlyphTesselate;

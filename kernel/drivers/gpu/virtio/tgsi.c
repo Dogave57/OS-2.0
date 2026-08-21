@@ -401,7 +401,8 @@ int virtio_gpu_tgsi_shader_instruction_declare(struct gpu_instruction_info* pIns
 			break;
 		}
 	}
-	*(pShaderDataInfo->declareCountList+pDeclareInfo->declareLocation.declareType-0x01) = pDeclareInfo->declareLocation.declareId+0x01;
+	uint16_t* pDeclareCount = (pShaderDataInfo->declareCountList+pDeclareInfo->declareLocation.declareType-0x01);
+	*pDeclareCount = (pDeclareInfo->declareLocation.declareId+0x01>*pDeclareCount) ? pDeclareInfo->declareLocation.declareId+0x01 : *pDeclareCount;
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -453,7 +454,6 @@ int virtio_gpu_tgsi_shader_instruction_method_tex(struct gpu_instruction_info_me
 	virtio_gpu_tgsi_shader_data_push_declare(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, pOperandInfoList->declareLocationInfo, 0x01);
 	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, ", ", 0x02);
 	virtio_gpu_tgsi_shader_data_push_declare(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, (pOperandInfoList+0x01)->declareLocationInfo, 0x01);
-	virtio_gpu_tgsi_shader_data_push_swizzle(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, (pOperandInfoList+0x01)->swizzle, 0x00);
 	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, ", ", 0x02);
 	virtio_gpu_tgsi_shader_data_push_declare(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, (pOperandInfoList+0x02)->declareLocationInfo, 0x01);
 	virtio_gpu_tgsi_shader_data_push_string(pShaderDataInfo, VIRTIO_GPU_TGSI_SHADER_DATA_TYPE_CODE, ", ", 0x02);

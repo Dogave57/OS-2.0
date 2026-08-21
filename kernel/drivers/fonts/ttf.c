@@ -1364,14 +1364,14 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 						segmentCoord.x = segmentRect.x*segmentEntryCoord.x;
 						segmentCoord.y = segmentRect.y*segmentEntryCoord.y;
 						*(((int8_t*)pTextureBuffer)+pixelOffset) = 0x00;
-						for (uint64_t i = 0;i<4;i++){
+						for (uint64_t i = 0;i<0x04;i++){
 							if (!pSegmentDesc->cornerPixelList[i]){
 								pSegmentDesc->cornerPixelList[i] = pixelOffset+0x01;
 								continue;
 							}
 							struct uvec2_32 cornerLocation = {0};
 							cornerLocation.x = (!i||i==0x03) ? segmentCoord.x : (segmentCoord.x+segmentRect.x-0x01);
-							cornerLocation.x = (!i||i==0x01) ? segmentCoord.y : (segmentCoord.y-segmentRect.y+0x01);
+							cornerLocation.y = (!i||i==0x01) ? segmentCoord.y : (segmentCoord.y-segmentRect.y+0x01);
 							uint64_t oldPixelOffset = pSegmentDesc->cornerPixelList[i]-0x01;
 							struct uvec2_32 oldPixelCoord = {0};
 							oldPixelCoord.x = oldPixelOffset%textureBufferRect.x;
@@ -1446,6 +1446,7 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 				continue;
 			struct ttf_pixel_entry_desc* pNearestActivePixel = (struct ttf_pixel_entry_desc*)0x00;
 			int8_t magnitude = glyphSpread;
+			uint64_t magnitudeCount = 0x00;
 			for (uint64_t i = 0;i<0x09;i++){
 				struct vec2_32 currentCoord = {0};
 				currentCoord.x = (int32_t)((((int64_t)segmentCoord.x)-segmentRect.x)+((i%0x03)*segmentRect.x));
@@ -1470,14 +1471,16 @@ int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_
 					if (currentPixelCoord.x==pixelCoord.x&&currentPixelCoord.y==pixelCoord.y)
 						continue;
 					int32_t currentMagnitude = (int32_t)distu32(currentPixelCoord, pixelCoord);
-					if (currentMagnitude<(int32_t)magnitude)
+					if (currentMagnitude<(int32_t)magnitude){
 						magnitude = (int8_t)currentMagnitude;
-					if (!pCurrentPixelDesc->nextActivePixelOffset)
+						magnitudeCount++;
+					}
+					if (!currentMagnitude||!pCurrentPixelDesc->nextActivePixelOffset)
 						break;
 					pCurrentPixelDesc = pPixelDescList+pCurrentPixelDesc->nextActivePixelOffset-0x01;
 				}
 			}
-			int8_t sdfEntry = (int8_t)((((double)(magnitude))/(double)glyphSpread)*127.0);
+			int8_t sdfEntry = (int8_t)((((double)magnitude)/(double)glyphSpread)*127.0);
 			if (!winding){
 				*(((int8_t*)pTextureBuffer)+pixelOffset) = sdfEntry*-1;
 				continue;
