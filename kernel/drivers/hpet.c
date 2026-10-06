@@ -11,7 +11,7 @@ int hpet_init(void){
 		return -1;
 	}
 	volatile struct hpet_base_mmio* pBase = hpetInfo.pBaseMmio;
-	if (virtualMapPage((uint64_t)pBase, (uint64_t)pBase, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualMapPage((uint64_t)pBase, (uint64_t)pBase, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x01, 0x00)!=0){
 		printf("failed to map HPET MMIO base\r\n");
 		return -1;
 	}

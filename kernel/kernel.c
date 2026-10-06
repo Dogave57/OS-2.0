@@ -31,6 +31,7 @@
 #include "drivers/fonts/ttf.h"
 #include "drivers/shaders/tgsi.h"
 #include "drivers/shaders/ggsl.h"
+#include "math/basic.h"
 #include "crypto/guid.h"
 #include "crypto/random.h"
 #include "kexts/loader.h"
@@ -87,7 +88,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	EFI_DEVICE_PATH_PROTOCOL* pCurrentPathNode = pbootargs->pDevicePathProtocol;
-	if (virtualMapPages((uint64_t)pCurrentPathNode, (uint64_t)pCurrentPathNode, PTE_RW|PTE_NX, align_up(pbootargs->devicePathProtocolSize, PAGE_SIZE)/PAGE_SIZE, 1, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualMapPages((uint64_t)pCurrentPathNode, (uint64_t)pCurrentPathNode, PTE_RW|PTE_NX, align_up(pbootargs->devicePathProtocolSize, PAGE_SIZE)/PAGE_SIZE, 0x01, 0x00)!=0){
 		printf("failed to map device path protocol chain\r\n");
 		while (1){};
 		return -1;
@@ -156,8 +157,19 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}	
-	if (heap_init()!=0){
-		printf("failed to initialize heap\r\n");
+	if (subsystem_mem_init()!=0){
+		printf("failed to initialize subsystem allocator volatile memory\r\n");
+		while (1){};
+		return -1;
+	}
+	if (heap_mem_init()!=0){
+		printf("failed to initialize heap volatile memory\r\n");
+		while (1){};
+		return -1;
+	}
+	uint64_t heapId = 0x00;
+	if (heap_init(MEM_MB*0x04, 0x10, PAGE_SIZE, &heapId)!=0){
+		printf("failed to initialize heap volatile memory descriptor\r\n");
 		while (1){};
 		return -1;
 	}
@@ -195,7 +207,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		printf("no AHC available\r\n");
 	}
 	if (nvme_driver_init()!=0){
-		printf("failed to initialize NVME driver\r\n");
+		printf("failed to initialize NVMe protocol specification driver\r\n");
 	}
 	if (fs_subsystem_init()!=0){
 		printf("failed to initialize filesystem subsystem\r\n");
@@ -224,24 +236,12 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		return -1;
 	}
 	if (gpu_subsystem_init()!=0){
-		printf("failed to initialize GPU subsystem\r\n");
+		printf("failed to initialize GPU host controller subsystem\r\n");
 		while (1){};
 		return -1;
 	}
 	if (dma_device_driver_init()!=0){
 		printf("failed to initialize custom bulk DMA device host controller driver\r\n");
-	}
-	uint64_t usedPhysPages = 0;
-	uint64_t freePhysPages = 0;
-	if (getUsedPhysicalPages(&usedPhysPages)!=0){
-		printf("failed to get used physical pages\r\n");
-		while (1){};
-		return -1;
-	}
-	if (getFreePhysicalPages(&freePhysPages)!=0){
-		printf("failed to get free physical pages\r\n");
-		while (1){};
-		return -1;
 	}
 	if (tgsi_driver_init()!=0)
 		printf("failed to initialize GPU host controller TGSI shader driver\r\n");
@@ -261,30 +261,24 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	if (xhci_driver_init()!=0){
 		printf("extensible host controller not available\r\n");
 	}
-	if (gpt_verify(1)!=0){
+	if (gpt_verify(0x01)!=0){
 		printf("failed to verify GPT partition table\r\n");
 		while (1){};
 		return -1;
 	}
-	uint64_t va = 0;
-	uint64_t pagecnt = (MEM_MB*256)/PAGE_SIZE;
-	uint64_t before_us = get_time_us();
-	if (virtualAllocPages(&va, pagecnt, PTE_RW|PTE_NX, 0x0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate %d pages\r\n", pagecnt);	
+	uint64_t startTime = get_time_us();
+	unsigned char* pPageData = (unsigned char*)0x00;
+	uint64_t pageDataSize = MEM_MB*0x20;
+	if (virtualAlloc((uint64_t*)&pPageData, pageDataSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate physical volatile memory physical pages\r\n");
 		while (1){};
 		return -1;
 	}
-	uint64_t elapsed_us = get_time_us()-before_us;
-	if (elapsed_us){
-		printf("%dGB/s allocation\r\n", (1000000/((MEM_GB/PAGE_SIZE)/pagecnt))/elapsed_us);
-	}
-	if (virtualFreePages(va, pagecnt)!=0){
-		printf("failed to free %d pages\r\n", pagecnt);
-		while (1){};
-		return -1;
-	}
-	uint64_t usedPages = 0;
-	uint64_t freePages = 0;
+	uint64_t elapsedTime = get_time_us()-startTime;
+	printf("%fGB/s physical volatile memory allocation\r\n", (floorf(((1000000.0/((double)elapsedTime))/(double)(MEM_GB/pageDataSize))*10.0))/10.0);
+	virtualFree((uint64_t)pPageData, pageDataSize);
+/*	uint64_t usedPages = 0x00;
+	uint64_t freePages = 0x00;
 	if (getUsedPhysicalPages(&usedPages)!=0){
 		printf("failed to get used physical pages\r\n");
 		while (1){};
@@ -295,7 +289,7 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	printf("--page info--\r\n");
+	printf("--volatile physical page info--\r\n");
 	struct uvec4_8 green = {0, 255, 0, 0};
 	struct uvec4_8 red = {255, 0, 0, 0};
 	struct uvec4_8 old_fg = {0,0,0,0};
@@ -306,8 +300,8 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 	set_text_color(green, old_bg);
 	printf("free pages: %d\r\n", freePages);
 	set_text_color(old_fg, old_bg);
-	printf("--end of page info---\r\n");
-	struct gpt_header gptHeader = {0};
+	printf("--end of volatile physical page info--\r\n");
+*/	struct gpt_header gptHeader = {0};
 	if (gpt_get_header(1, &gptHeader)!=0){
 		printf("failed to get GPT header\r\n");
 		while (1){};

@@ -31,10 +31,12 @@ int fat32_init(void){
 int fat32_mount(uint64_t drive_id, uint64_t partition_id, struct fat32_mount_handle** ppHandle){
 	if (!ppHandle)
 		return -1;
-	struct fat32_mount_handle* pHandle = (struct fat32_mount_handle*)kmalloc(sizeof(struct fat32_mount_handle));
-	if (!pHandle)
+	struct fat32_mount_handle* pHandle = (struct fat32_mount_handle*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pHandle, sizeof(struct fat32_mount_handle))!=0){
+		printf("failed to allocate FAT32 filesystem protocol specification mount descriptor\r\n");
 		return -1;
-	memset((void*)pHandle, 0, sizeof(struct fat32_mount_handle));
+	}
+	memset((void*)pHandle, 0x00, sizeof(struct fat32_mount_handle));
 	pHandle->drive_id = drive_id;
 	pHandle->partition_id = partition_id;
 	if (fat32_verify(pHandle)!=0)
@@ -45,7 +47,7 @@ int fat32_mount(uint64_t drive_id, uint64_t partition_id, struct fat32_mount_han
 int fat32_unmount(struct fat32_mount_handle* pHandle){
 	if (!pHandle)
 		return -1;
-	kfree((void*)pHandle);
+	heap_free(0x01, (unsigned char*)pHandle, sizeof(struct fat32_mount_handle));
 	return 0;
 }
 int fat32_opendir(struct fat32_mount_handle* pMountHandle, unsigned char* filename, struct fat32_dir_handle** ppDirHandle){
@@ -62,9 +64,11 @@ int fat32_opendir(struct fat32_mount_handle* pMountHandle, unsigned char* filena
 			return -1;
 		firstDirCluster = ((uint32_t)fileEntry.entry_first_cluster_high)|((uint32_t)fileEntry.entry_first_cluster_low);
 	}
-	struct fat32_dir_handle* pDirHandle = (struct fat32_dir_handle*)kmalloc(sizeof(struct fat32_dir_handle));
-	if (!pDirHandle)
+	struct fat32_dir_handle* pDirHandle = (struct fat32_dir_handle*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pDirHandle, sizeof(struct fat32_dir_handle))!=0){
+		printf("failed to allocate FAT32 filesystem specification driver directory descriptor\r\n");
 		return -1;
+	}
 	memset((void*)pDirHandle, 0, sizeof(struct fat32_dir_handle));
 	pDirHandle->desc.firstDirCluster = firstDirCluster;
 	pDirHandle->currentDirCluster.cluster_value = firstDirCluster;
@@ -75,7 +79,7 @@ int fat32_opendir(struct fat32_mount_handle* pMountHandle, unsigned char* filena
 int fat32_closedir(struct fat32_dir_handle* pDirHandle){
 	if (!pDirHandle)
 		return -1;
-	kfree((void*)pDirHandle);
+	heap_free(0x01, (unsigned char*)pDirHandle, sizeof(struct fat32_dir_handle));
 	return 0;
 }
 int fat32_read_dir(struct fat32_dir_handle* pDirHandle, struct fat32_simple_file_entry* pFileEntry){
@@ -87,7 +91,6 @@ int fat32_read_dir(struct fat32_dir_handle* pDirHandle, struct fat32_simple_file
 		return -1;
 	uint64_t maxFileEntries = bytesPerCluster/sizeof(struct fat32_file_entry);
 	if (pDirHandle->currentDirIndex>=maxFileEntries-1){
-		printf("max entries\r\n");
 		if (fat32_readcluster(pMountHandle, pDirHandle->currentDirCluster.cluster_value, &pDirHandle->currentDirCluster)!=0)
 			return -1;
 		if (FAT32_CLUSTER_END_OF_CHAIN(pDirHandle->currentDirCluster.cluster_value))
@@ -95,8 +98,10 @@ int fat32_read_dir(struct fat32_dir_handle* pDirHandle, struct fat32_simple_file
 		pDirHandle->currentDirIndex = 0;
 	}
 	unsigned char* pClusterData = (unsigned char*)0x0;
-	if (virtualAlloc((uint64_t*)&pClusterData, bytesPerCluster, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0)
+	if (virtualAlloc((uint64_t*)&pClusterData, bytesPerCluster, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate FAT32 filesystem protocol specification cluster physical pages\r\n");
 		return -1;
+	}
 	if (fat32_read_cluster_data(pMountHandle, pDirHandle->currentDirCluster.cluster_value, pClusterData)!=0){
 		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
@@ -137,9 +142,11 @@ int fat32_openfile(struct fat32_mount_handle* pMountHandle, unsigned char* filen
 	if (fat32_find_file(pMountHandle, filename, &fileEntry, &fileLocation,0)!=0){
 		return -1;
 	}
-	struct fat32_file_handle* pFileHandle = (struct fat32_file_handle*)kmalloc(sizeof(struct fat32_file_handle));
-	if (!pFileHandle)
+	struct fat32_file_handle* pFileHandle = (struct fat32_file_handle*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pFileHandle, sizeof(struct fat32_file_handle))!=0){
+		printf("failed to allocate FAT32 filesystem specification driver file descriptor\r\n");
 		return -1;
+	}
 	memset((void*)pFileHandle, 0, sizeof(struct fat32_file_handle));
 	pFileHandle->fileLocation = fileLocation;
 	pFileHandle->fileEntry = fileEntry;
@@ -150,7 +157,10 @@ int fat32_openfile(struct fat32_mount_handle* pMountHandle, unsigned char* filen
 int fat32_closefile(struct fat32_file_handle* pFileHandle){
 	if (!pFileHandle)
 		return -1;
-	kfree((void*)pFileHandle);
+	if (heap_free(0x01, (unsigned char*)pFileHandle, sizeof(struct fat32_file_handle))!=0){
+		printf("failed to free FAT32 filesystem protocol specification file descriptor\r\n");
+		return -1;
+	}
 	return 0;
 }
 int fat32_get_file_size(struct fat32_file_handle* pFileHandle, uint32_t* pFileSize){
@@ -180,23 +190,25 @@ int fat32_renamefile(struct fat32_file_handle* pFileHandle, unsigned char* filen
 		return -1;
 	struct fat32_file_location* pFileLocation = &pFileHandle->fileLocation;
 	struct fat32_file_entry* pFileEntry = &pFileHandle->fileEntry;
-	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
-	if (!pClusterData)
+	unsigned char* pClusterData = (unsigned char*)0x00;
+	if (virtualAlloc((uint64_t*)&pClusterData, bytesPerCluster, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failled to allocate FAT32 filesystem protocol specification cluster physical pages\r\n");
 		return -1;
+	}
 	if (fat32_read_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
-		kfree((void*)pClusterData);
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
 	struct fat32_file_entry* pNewFileEntry = ((struct fat32_file_entry*)pClusterData)+pFileLocation->fileIndex;
 	if (fat32_string_to_filename(pNewFileEntry->filename, filename)!=0){
-		kfree((void*)pClusterData);
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
 	if (fat32_write_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
-		kfree((void*)pClusterData);
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
-	kfree((void*)pClusterData);
+	virtualFree((uint64_t)pClusterData, bytesPerCluster);
 	return 0;
 }
 int fat32_readfile(struct fat32_file_handle* pFileHandle, unsigned char* pFileBuffer, uint32_t size){
@@ -224,17 +236,21 @@ int fat32_readfile(struct fat32_file_handle* pFileHandle, unsigned char* pFileBu
 			return -1;
 		if (!sizeAligned&&i==clusterCount-1){
 			uint64_t alignOffset = size%bytesPerCluster;
-			unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
-			if (!pClusterData)
+			unsigned char* pClusterData = (unsigned char*)0x00;
+			if (virtualAlloc((uint64_t*)&pClusterData, bytesPerCluster, PTE_RW|PTE_NX, 0x00)!=0){
+				printf("failed to allocate FAT32 filesystem protocol specification cluster physical pages\r\n");
 				return -1;
+			}
 			if (fat32_read_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
-				kfree((void*)pClusterData);
+				virtualFree((uint64_t)pClusterData, bytesPerCluster);
 				return -1;
 			}
 			memcpy((unsigned char*)(pFileBuffer+(i*bytesPerCluster)), (unsigned char*)pClusterData, alignOffset);
-			kfree((void*)pClusterData);
-			if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0)
+			virtualFree((uint64_t)pClusterData, bytesPerCluster);
+			if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0){
+				printf("failed to read FAT32 filesystem protocol specification cluster physical page data\r\n");
 				return -1;
+			}
 			continue;
 		}
 		unsigned char* pClusterData = pFileBuffer+(i*bytesPerCluster);
@@ -317,14 +333,17 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 	uint64_t alignOffset = size%bytesPerCluster;
 	for (uint64_t i = 0;i<clustersNeeded;i++){
 		if (!isAligned&&i==clustersNeeded-1){
-			unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
-			if (!pClusterData)
-				return -1;
-			memcpy((unsigned char*)pClusterData, (pFileBuffer+(i*bytesPerCluster)), alignOffset);
-			if (fat32_write_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
+			unsigned char* pClusterData = (unsigned char*)0x00;
+			if (virtualAlloc((uint64_t*)&pClusterData, bytesPerCluster, PTE_RW|PTE_NX, 0x00)!=0){
+				printf("failed to allocate FAT32 filesystem protocol specification cluster physical pages\r\n");
 				return -1;
 			}
-			kfree((void*)pClusterData);
+			memcpy((unsigned char*)pClusterData, (pFileBuffer+(i*bytesPerCluster)), alignOffset);
+			if (fat32_write_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
+				virtualFree((uint64_t)pClusterData, bytesPerCluster);
+				return -1;
+			}
+			virtualFree((uint64_t)pClusterData, bytesPerCluster);
 			fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster);
 			continue;
 		}
@@ -337,21 +356,23 @@ int fat32_writefile(struct fat32_file_handle* pFileHandle, unsigned char* pFileB
 		}
 	}
 	pFileEntry->file_size = size;
-	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
-	if (!pClusterData)
+	unsigned char* pClusterData = (unsigned char*)0x00;
+	if (virtualAlloc((uint64_t*)&pClusterData, bytesPerCluster, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate FAT32 filesystem protocol specification cluster physical pages\r\n");
 		return -1;
+	}
 	if (fat32_read_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
-		kfree((void*)pClusterData);
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
 	struct fat32_file_entry* pNewFileEntry = ((struct fat32_file_entry*)pClusterData)+pFileLocation->fileIndex;
 	*pNewFileEntry = pFileHandle->fileEntry;
 	uint32_t entry = ((uint32_t)pFileHandle->fileEntry.entry_first_cluster_high<<16)|((uint32_t)pFileHandle->fileEntry.entry_first_cluster_low);
 	if (fat32_write_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
-		kfree((void*)pClusterData);
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
-	kfree((void*)pClusterData);	
+	virtualFree((uint64_t)pClusterData, bytesPerCluster);
 	return 0;
 }
 int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* filename, uint8_t file_attribs){
@@ -364,15 +385,15 @@ int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* fil
 	if (fat32_get_bytes_per_cluster(pMountHandle, &bytesPerCluster)!=0)
 		return -1;
 	struct fat32_file_location dirLocation = {0};
-	struct fat32_file_entry dirEntry = {0};
-	uint64_t pathstart = 0;
+	struct fat32_file_entry fileEntry = {0};
+	uint64_t pathstart = 0x00;
 	dirLocation.fileCluster = bpb.ebr.root_cluster_number;
 	for (uint64_t i = 0;filename[i];i++){
 		if (filename[i]!='/'&&filename[i]!='\\')
 			continue;
 		unsigned char lastCharacter = filename[i];
 		filename[i] = 0;
-		if (fat32_find_file_in_dir(pMountHandle, dirLocation.fileCluster, filename+pathstart, &dirEntry, &dirLocation, FAT32_FILE_ATTRIBUTE_DIRECTORY)!=0){
+		if (fat32_find_file_in_dir(pMountHandle, dirLocation.fileCluster, filename+pathstart, &fileEntry, &dirLocation, FAT32_FILE_ATTRIBUTE_DIRECTORY)!=0){
 			printf("failed to find %s in cluster %d\r\n", filename+pathstart, dirLocation.fileCluster);
 			return -1;
 		}
@@ -380,10 +401,10 @@ int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* fil
 		pathstart = i+1;
 	}
 	struct fat32_cluster_entry currentCluster = {0};
-	currentCluster.cluster_value = ((uint32_t)(dirEntry.entry_first_cluster_high)<<16)|((uint32_t)dirEntry.entry_first_cluster_low);
-	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
-	if (!pClusterData){
-		printf("failed to allocate cluster data\r\n");
+	currentCluster.cluster_value = ((uint32_t)(fileEntry.entry_first_cluster_high)<<16)|((uint32_t)fileEntry.entry_first_cluster_low);
+	unsigned char* pClusterData = (unsigned char*)0x00;
+	if (virtualAlloc((uint64_t*)&pClusterData, bytesPerCluster, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate FAT32 filesystem protocol specification cluster physical pages\r\n");
 		return -1;
 	}
 	uint64_t max_file_entries = bytesPerCluster/sizeof(struct fat32_file_entry);
@@ -403,10 +424,10 @@ int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* fil
 			pFileEntry->file_size = 0;
 			pFileEntry->file_attribs = file_attribs;
 			if (fat32_write_cluster_data(pMountHandle, currentCluster.cluster_value, pClusterData)!=0){
-				kfree((void*)pClusterData);
+				virtualFree((uint64_t)pClusterData, bytesPerCluster);
 				return -1;
 			}
-			kfree((void*)pClusterData);
+			virtualFree((uint64_t)pClusterData, bytesPerCluster);
 			return 0;
 		}
 		lastCluster = currentCluster;
@@ -415,13 +436,13 @@ int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* fil
 	}
 	struct fat32_cluster_entry newCluster = {0};
 	if (fat32_allocate_cluster(pMountHandle, (uint32_t*)&newCluster)!=0){
-		printf("failed to allocate cluster\r\n");
-		kfree((void*)pClusterData);
+		printf("failed to allocate FAT32 filesystem protocol specification cluster physical page data\r\n");
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
 	if (fat32_writecluster(pMountHandle, lastCluster.cluster_value, newCluster)!=0){
 		printf("failed to write to new cluster\r\n");
-		kfree((void*)pClusterData);
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
 	struct fat32_file_entry* pNewFileEntry = (struct fat32_file_entry*)pClusterData;
@@ -429,16 +450,16 @@ int fat32_createfile(struct fat32_mount_handle* pMountHandle, unsigned char* fil
 	pNewFileEntry->file_size = 0;
 	pNewFileEntry->file_attribs = file_attribs;
 	if (fat32_string_to_filename(pNewFileEntry->filename, filename+pathstart)!=0){
-		printf("failed to convert filename to 8.3\r\n");
-		kfree((void*)pClusterData);
+		printf("failed to convert filename to 8.3 filename specification\r\n");
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
 	if (fat32_write_cluster_data(pMountHandle, newCluster.cluster_value, pClusterData)!=0){
-		printf("failed to write cluster data\r\n");
-		kfree((void*)pClusterData);
+		printf("failed to write FAT32 filesystem protocol specificaiton cluster physical page data to non-volatile memory\r\n");
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
-	kfree((void*)pClusterData);
+	virtualFree((uint64_t)pClusterData, bytesPerCluster);
 	return 0;
 }
 int fat32_deletefile(struct fat32_file_handle* pFileHandle){
@@ -467,20 +488,22 @@ int fat32_deletefile(struct fat32_file_handle* pFileHandle){
 			return -1;
 		currentCluster = nextCluster;
 	}
-	unsigned char* pClusterData = (unsigned char*)kmalloc(bytesPerCluster);
-	if (!pClusterData)
+	unsigned char* pClusterData = (unsigned char*)0x00;
+	if (virtualAlloc((uint64_t*)&pClusterData, bytesPerCluster, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate FAT32 filesystem protocol specification cluster physical pages\r\n");
 		return -1;
+	}
 	if (fat32_read_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
-		kfree((void*)pClusterData);
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
 	struct fat32_file_entry* pNewFileEntry = ((struct fat32_file_entry*)pClusterData)+pFileLocation->fileIndex;
 	memset((void*)pNewFileEntry, 0, sizeof(struct fat32_file_entry));
 	if (fat32_write_cluster_data(pMountHandle, pFileLocation->fileCluster, pClusterData)!=0){
-		kfree((void*)pClusterData);
+		virtualFree((uint64_t)pClusterData, bytesPerCluster);
 		return -1;
 	}
-	kfree((void*)pClusterData);
+	virtualFree((uint64_t)pClusterData, bytesPerCluster);
 	return 0;
 }
 int fat32_get_simple_file_entry(struct fat32_file_entry fileEntry, struct fat32_simple_file_entry* pSimpleFileEntry){
@@ -610,43 +633,46 @@ int fat32_find_file_in_dir(struct fat32_mount_handle* pMountHandle, uint32_t dir
 	struct fat32_bpb bpb = {0};
 	if (fat32_get_bpb(pMountHandle, &bpb)!=0)
 		return -1;
-	uint64_t bytes_per_cluster = 0;
-	if (fat32_get_bytes_per_cluster(pMountHandle, &bytes_per_cluster)!=0)
+	uint64_t bytesPerCluster = 0x00;
+	if (fat32_get_bytes_per_cluster(pMountHandle, &bytesPerCluster)!=0){
+		printf("failed to get FAT32 filesystem protocol specification cluster physical page data size\r\n");
 		return -1;
-	uint64_t max_dir_entries = bytes_per_cluster/sizeof(struct fat32_file_entry);
+	}
+	uint64_t maxDirEntryCount = bytesPerCluster/sizeof(struct fat32_file_entry);
 	struct fat32_cluster_entry currentCluster = {0};
 	currentCluster.cluster_value = dirCluster;
-	uint64_t clusterDataPages = align_up(bytes_per_cluster, PAGE_SIZE)/PAGE_SIZE;
-	struct fat32_file_entry* pClusterData = (struct fat32_file_entry*)0x0;
-	if (virtualAllocPages((uint64_t*)&pClusterData, clusterDataPages, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0)
+	unsigned char* pClusterData = (unsigned char*)0x00;
+	if (virtualAlloc((uint64_t*)&pClusterData, bytesPerCluster, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate FAT32 filesystem protocol specificaiton cluster physical pages\r\n");
 		return -1;
+	}
 	while (FAT32_CONTINUE_CLUSTER(currentCluster.cluster_value)){
 		if (fat32_read_cluster_data(pMountHandle, currentCluster.cluster_value, (unsigned char*)pClusterData)!=0){
 			break;
 		}
-		for (uint64_t file_index = 0;file_index<max_dir_entries;file_index++){
-			struct fat32_file_entry* pCurrentFileEntry = pClusterData+file_index;
+		for (uint64_t fileIndex = 0x00;fileIndex<maxDirEntryCount;fileIndex++){
+			struct fat32_file_entry* pCurrentFileEntry = ((struct fat32_file_entry*)pClusterData)+fileIndex;
 			if (fat32_file_entry_namecmp(*pCurrentFileEntry, filename)!=0)
 				continue;
-			if (file_attrib!=0&&!(pCurrentFileEntry->file_attribs&file_attrib)){
+			if (file_attrib!=0x00&&!(pCurrentFileEntry->file_attribs&file_attrib)){
 				continue;
 			}
 			if (pCurrentFileEntry->file_attribs&FAT32_FILE_ATTRIBUTE_LFN)
 				continue;
 			struct fat32_file_location fileLocation = {0};
 			fileLocation.fileCluster = currentCluster.cluster_value;
-			fileLocation.fileIndex = file_index;
+			fileLocation.fileIndex = fileIndex;
 			fileLocation.fileDataCluster = (((uint32_t)pCurrentFileEntry->entry_first_cluster_high)<<16)|(uint32_t)pCurrentFileEntry->entry_first_cluster_low;
 			*pFileLocation = fileLocation;
 			*pFileEntry = *pCurrentFileEntry;
-			virtualFreePages((uint64_t)pClusterData, clusterDataPages);
+			virtualFree((uint64_t)pClusterData, bytesPerCluster);
 			return 0;
 		}
 		if (fat32_readcluster(pMountHandle, currentCluster.cluster_value, &currentCluster)!=0){
 			break;
 		}
 	}
-	virtualFreePages((uint64_t)pClusterData, clusterDataPages);
+	virtualFree((uint64_t)pClusterData, bytesPerCluster);
 	return -1;
 }
 int fat32_find_file_in_root(struct fat32_mount_handle* pMountHandle, unsigned char* filename, struct fat32_file_entry* pFileEntry,struct fat32_file_location* pFileLocation, uint8_t file_attribs){

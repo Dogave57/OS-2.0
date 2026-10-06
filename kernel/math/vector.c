@@ -158,6 +158,30 @@ KAPI struct fvec3_64 crossf3_64(struct fvec3_64 vec1, struct fvec3_64 vec2){
 	result.z = (vec1.x*vec2.y)-(vec1.y*vec2.x);
 	return result;
 }
+KAPI int32_t dp2_32(struct vec2_32 vec1, struct vec2_32 vec2){
+	int32_t result = (vec1.x*vec2.x)+(vec1.y*vec2.y);
+	return result;
+}
+KAPI int64_t dp2_64(struct vec2_64 vec1, struct vec2_64 vec2){
+	int64_t result = (vec1.x*vec2.x)+(vec1.y*vec2.y);
+	return result;
+}
+KAPI uint32_t dpu2_32(struct uvec2_32 vec1, struct uvec2_32 vec2){
+	uint32_t result = (vec1.x*vec2.x)+(vec1.y*vec2.y);
+	return result;
+}
+KAPI uint64_t dpu2_64(struct uvec2_64 vec1, struct uvec2_64 vec2){
+	uint64_t result = (vec1.x*vec2.x)+(vec1.y*vec2.y);
+	return result;
+}
+KAPI float dpf2_32(struct fvec2_32 vec1, struct fvec2_32 vec2){
+	float result = (vec1.x*vec2.x)+(vec1.y*vec2.y);
+	return result;
+}
+KAPI double dpf2_64(struct fvec2_64 vec1, struct fvec2_64 vec2){
+	double result = (vec1.x*vec2.x)+(vec1.y*vec2.y);
+	return result;
+}
 KAPI float distf32(struct fvec2_32 vec1, struct fvec2_32 vec2){
 	float result = (float)sqrtf((float)(((vec2.x-vec1.x)*(vec2.x-vec1.x))+((vec2.y-vec1.y)*(vec2.y-vec1.y))));
 	return result;

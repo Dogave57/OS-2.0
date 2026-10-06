@@ -42,8 +42,10 @@ int gdt_init(void){
 	return 0;
 }
 int gdt_tss_init(void){
-	if (virtualAlloc((uint64_t*)&pSafeStack, safeStackSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0)
+	if (virtualAlloc((uint64_t*)&pSafeStack, safeStackSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate safe stack physical pages\r\n");
 		return -1;
+	}
 	pSafeStackTop = pSafeStack+safeStackSize;
 	memset((void*)&tss, 0, sizeof(struct tss_entry_t));
 	tss.rsp0 = (uint64_t)(pSafeStackTop-PAGE_SIZE);

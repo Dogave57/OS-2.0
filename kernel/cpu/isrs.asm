@@ -298,7 +298,7 @@ extern pCurrentThread
 extern lapic_set_tick_us
 extern virtualMapPage
 extern vmm_getPageTableEntry
-extern physicalAllocPage
+extern physicalAlloc
 extern virtualGetPageFlags
 extern lapic_tick_count
 extern xhci_interrupter
@@ -984,9 +984,9 @@ mov qword rdx, rsp
 push rbx
 push rcx
 mov qword rcx, rdx
-mov qword rdx, 2
+mov qword rdx, 4096
 sub qword rsp, 32
-call physicalAllocPage
+call physicalAlloc
 add qword rsp, 32
 pop rcx
 pop rbx

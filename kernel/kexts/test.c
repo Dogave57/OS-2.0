@@ -156,7 +156,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	}
 	struct gpu_vertex_buffer_cube_face* pVertexBuffer = (struct gpu_vertex_buffer_cube_face*)0x00;
 	uint64_t vertexBufferSize = sizeof(struct gpu_vertex_buffer_cube_face);
-	if (virtualAlloc((uint64_t*)&pVertexBuffer, vertexBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualAlloc((uint64_t*)&pVertexBuffer, vertexBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0)!=0){
 		printf("failed to allocate physical page for GPU host controller triangle vertex buffer\r\n");
 		gpu_cmd_context_deinit(gpuId, cmdContextId);
 		return -1;
@@ -214,7 +214,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	}
 	unsigned char* pIndexBuffer = (unsigned char*)0x0;
 	uint64_t indexBufferSize = sizeof(uint8_t)*36;
-	if (virtualAlloc((uint64_t*)&pIndexBuffer, indexBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualAlloc((uint64_t*)&pIndexBuffer, indexBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x00)!=0){
 		printf("failed to allocate physical page for GPU host controller index buffer\r\n");
 		virtualFree((uint64_t)pVertexBuffer, vertexBufferSize);
 		virtualFree((uint64_t)pIndexBuffer, indexBufferSize);
@@ -245,9 +245,11 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
 	createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
 	createResourceInfo.resourceInfo.contextId = contextId;
+	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R8_UINT;
 	createResourceInfo.resourceInfo.normal.width = indexBufferSize;
 	createResourceInfo.resourceInfo.normal.height = 0x01;
 	createResourceInfo.resourceInfo.normal.depth = 0x01;
+	createResourceInfo.resourceInfo.normal.arraySize = 0x01;
 	createResourceInfo.resourceInfo.normal.target = GPU_TARGET_BUFFER;
 	createResourceInfo.resourceInfo.normal.bind = GPU_BIND_INDEX_BUFFER;
 	createResourceInfo.resourceInfo.normal.flags = 0x00;
@@ -308,7 +310,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	transferToDeviceInfo.boxRect.height = 0x01;
 	transferToDeviceInfo.boxRect.depth = 0x01;
 	if (gpu_transfer_to_device(gpuId, indexBufferResourceId, transferToDeviceInfo)!=0){
-		printf("failed to transfer GPU host controller index buerf resource physical pages to GPU host controller\r\n");
+		printf("failed to transfer GPU host controller index buffer resource physical pages to GPU host controller\r\n");
 		virtualFree((uint64_t)pVertexBuffer, vertexBufferSize);
 		virtualFree((uint64_t)pIndexBuffer, indexBufferSize);
 		gpu_cmd_context_deinit(gpuId, cmdContextId);
@@ -319,7 +321,7 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	textureResolution.x = 256;
 	textureResolution.y = 256;
 	uint64_t textureBufferSize = textureResolution.x*textureResolution.y*sizeof(struct uvec4_8);
-	if (virtualAlloc((uint64_t*)&pTextureBuffer, textureBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualAlloc((uint64_t*)&pTextureBuffer, textureBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0)!=0){
 		printf("failed to allocate physical pages for GPU host controller texture\r\n");
 		virtualFree((uint64_t)pVertexBuffer,  vertexBufferSize);
 		gpu_cmd_context_deinit(gpuId, cmdContextId);
@@ -665,8 +667,8 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	}
 	unsigned char* pFontBuffer = (unsigned char*)0x00;
 	uint64_t fontBufferSize = fontFileInfo.fileSize;
-	if (virtualAlloc((uint64_t*)&pFontBuffer, fontBufferSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate physical pages for GPU host controller font physical pages\r\n");
+	if (virtualAlloc((uint64_t*)&pFontBuffer, fontBufferSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate GPU host controller font physical volatile pages\r\n");
 		fs_close(0x01, fontFileId);
 		return -1;
 	}

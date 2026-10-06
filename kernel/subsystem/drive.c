@@ -10,11 +10,11 @@
 static struct subsystem_desc* pDriveSubsystem = (struct subsystem_desc*)0x0;
 static struct subsystem_desc* pDriveDriverSubsystem = (struct subsystem_desc*)0x0;
 int drive_subsystem_init(void){
-	if (subsystem_init(&pDriveSubsystem, 8192)!=0){
+	if (subsystem_init(&pDriveSubsystem, 0x2000)!=0){
 		printf("failed to initialize drive subsystem\r\n");
 		return -1;
 	}
-	if (subsystem_init(&pDriveDriverSubsystem, 8192)!=0){
+	if (subsystem_init(&pDriveDriverSubsystem, 0x2000)!=0){
 		printf("failed to initialize drive driver subsystem\r\n");
 		return -1;
 	}	
@@ -27,7 +27,6 @@ int drive_subsystem_init(void){
 		printf("failed to register boot drive placeholder\r\n");
 		return -1;
 	}
-	printf("boot non-volatile storage device placeholder ID: %d\r\n", driveId);
 	return 0;
 }
 KAPI int drive_register_boot_drive(uint64_t driverId, uint8_t port){
@@ -44,11 +43,10 @@ KAPI int drive_register_boot_drive(uint64_t driverId, uint8_t port){
 		return -1;
 	}
 	if (driveId!=0x01){
-		printf("boot non-volatile storage device has unexpected ID: %d\r\n", driveId);
+		printf("boot non-volatile storage device has unexpected identifier: %d\r\n", driveId);
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	printf("boot non-volatile storage device ID: %d\r\n", driveId);
 	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
@@ -57,14 +55,15 @@ KAPI int drive_driver_register(struct drive_driver_vtable vtable, uint64_t* pDri
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct drive_driver_desc* pDriverDesc = (struct drive_driver_desc*)kmalloc(sizeof(struct drive_driver_desc));
-	if (!pDriverDesc){
+	struct drive_driver_desc* pDriverDesc = (struct drive_driver_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pDriverDesc, sizeof(struct drive_driver_desc))!=0){
+		printf("failed to allocate non-volatile memory subsystem non-volatile memory protocol driver descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	memset((void*)pDriverDesc, 0, sizeof(struct drive_driver_desc));
 	pDriverDesc->vtable = vtable;
-	uint64_t driverId = 0;
+	uint64_t driverId = 0x00;
 	if (subsystem_alloc_entry(pDriveDriverSubsystem, (unsigned char*)pDriverDesc, &driverId)!=0){
 		printf("failed to allocate driver descriptor subsystem entry\r\n");
 		mutex_unlock(&mutex);
@@ -82,7 +81,7 @@ KAPI int drive_driver_unregister(uint64_t driverId){
 		mutex_unlock(&mutex);
 		return -1;	
 	}
-	kfree((void*)pDriverDesc);
+	heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct drive_driver_desc));
 	if (subsystem_free_entry(pDriveDriverSubsystem, driverId)!=0){
 		mutex_unlock(&mutex);
 		return -1;	
@@ -114,17 +113,17 @@ KAPI int drive_register(uint64_t driverId, uint64_t port, uint64_t* pDriveId){
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock_isr_safe(&mutex);
-	struct drive_desc* pDriveDesc = (struct drive_desc*)kmalloc(sizeof(struct drive_desc));
-	if (!pDriveDesc){
+	struct drive_desc* pDriveDesc = (struct drive_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pDriveDesc, sizeof(struct drive_desc))!=0){
+		printf("failed to allocate non-volatile memory device subsystem non-volatile memory device descriptor\r\n");
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
-	memset((void*)pDriveDesc, 0, sizeof(struct drive_desc));
 	pDriveDesc->driverId = driverId;
 	pDriveDesc->port = port;
-	uint64_t driveId = 0;
+	uint64_t driveId = 0x00;
 	if (subsystem_alloc_entry(pDriveSubsystem, (unsigned char*)pDriveDesc, &driveId)!=0){
-		kfree((void*)pDriveDesc);
+		heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct drive_desc));
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
@@ -132,24 +131,25 @@ KAPI int drive_register(uint64_t driverId, uint64_t port, uint64_t* pDriveId){
 	if (driverId==0xFFFFFFFFFFFFFFFF){
 		*pDriveId = driveId;
 		mutex_unlock_isr_safe(&mutex);
-		return 0;
+		return 0x00;
 	}
 	struct drive_driver_desc* pDriverDesc = (struct drive_driver_desc*)0x0;
 	if (drive_driver_get_desc(driverId, &pDriverDesc)!=0){
-		kfree((void*)pDriveDesc);
+		printf("failed to get non-volatile memory device protocol specification driver descriptor\r\n");
+		heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct drive_desc));
 		subsystem_free_entry(pDriveSubsystem, driveId);
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
 	if (!pDriverDesc->vtable.driveRegister){
-		printf("invalid drive register routine\r\n");
-		kfree((void*)pDriveDesc);
+		printf("unexpected non-volatile memory device protocol specification driver register routine QWORD\r\n");
+		heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct drive_desc));
 		subsystem_free_entry(pDriveSubsystem, driveId);
 		mutex_unlock_isr_safe(&mutex);
-		return -1;	
+		return -1;
 	}
 	if (pDriverDesc->vtable.driveRegister(driveId)!=0){
-		kfree((void*)pDriveDesc);
+		heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct drive_desc));
 		subsystem_free_entry(pDriveSubsystem, driveId);
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
@@ -184,7 +184,7 @@ KAPI int drive_unregister(uint64_t driveId){
 			return -1;
 		}
 	}
-	kfree((void*)pDriveDesc);
+	heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct drive_desc));
 	if (subsystem_free_entry(pDriveSubsystem, driveId)!=0){
 		mutex_unlock_isr_safe(&mutex);
 		return -1;

@@ -24,7 +24,7 @@ int ahci_driver_init(void){
 int ahci_init(void){
 	if (ahci_get_info(&ahciInfo)!=0)
 		return -1;
-	if (virtualMapPages((uint64_t)ahciInfo.pBase, (uint64_t)ahciInfo.pBase, PTE_RW|PTE_NX, 2, 1, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualMapPages((uint64_t)ahciInfo.pBase, (uint64_t)ahciInfo.pBase, PTE_RW|PTE_NX, 0x02, 0x01, 0x00)!=0){
 		printf("failed to map AHCI controller registers\r\n");
 		return -1;
 	}
@@ -186,19 +186,22 @@ int ahci_init_cmd_list(struct ahci_cmd_list_desc* pCmdListDesc){
 	if (!pCmdListDesc)
 		return -1;
 	volatile struct ahci_cmd_hdr* pCmdList = (volatile struct ahci_cmd_hdr*)0x0;
-	if (virtualAllocPage((uint64_t*)&pCmdList, PTE_RW|PTE_NX, 0, PAGE_TYPE_MMIO)!=0)
+	if (virtualAllocPage((uint64_t*)&pCmdList, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate AHC command descriptor list physical page\r\n");
 		return -1;
+	}
 	uint64_t maxTableSize = sizeof(struct ahci_cmd_table)+(AHCI_MAX_PRDT_ENTRIES*sizeof(struct ahci_prdt_entry));
 	uint64_t cmdTableListSize = maxTableSize*AHCI_MAX_CMD_ENTRIES;
-	uint64_t cmdTableListPages = align_up(cmdTableListSize, PAGE_SIZE)/PAGE_SIZE;
 	volatile struct ahci_cmd_table* pCmdTableList = (volatile struct ahci_cmd_table*)0x0;
-	if (virtualAllocPages((uint64_t*)&pCmdTableList, cmdTableListPages, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0)
+	if (virtualAlloc((uint64_t*)&pCmdTableList, cmdTableListSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate AHC command table descriptor list physical pages\r\n");
 		return -1;
+	}
 	memset((void*)pCmdList, 0, sizeof(struct ahci_cmd_hdr)*AHCI_MAX_CMD_ENTRIES);
 	memset((void*)pCmdTableList, 0, cmdTableListSize);
 	pCmdListDesc->pCmdList = pCmdList;
 	pCmdListDesc->pCmdTableList = pCmdTableList;
-	pCmdListDesc->cmdTableListPages = cmdTableListPages;
+	pCmdListDesc->cmdTableListSize = cmdTableListSize;
 	pCmdListDesc->currentEntry = 0;
 	if (virtualToPhysical((uint64_t)pCmdList, (uint64_t*)&pCmdListDesc->pCmdList_pa)!=0){
 		return -1;
@@ -215,7 +218,7 @@ int ahci_deinit_cmd_list(struct ahci_cmd_list_desc* pCmdListDesc){
 		return -1;
 	if (virtualFreePage((uint64_t)pCmdListDesc->pCmdList, 0)!=0)
 		return -1;
-	if (virtualFreePages((uint64_t)pCmdListDesc->pCmdTableList, pCmdListDesc->cmdTableListPages)!=0)
+	if (virtualFree((uint64_t)pCmdListDesc->pCmdTableList, pCmdListDesc->cmdTableListSize)!=0)
 		return -1;
 	return 0;
 }
@@ -302,8 +305,14 @@ int ahci_poll_port_finish(uint8_t port, uint8_t cmd_max){
 int ahci_debug_cmd_table(volatile struct ahci_cmd_hdr* pCmdHdr, volatile struct ahci_cmd_table* pCmdTable){
 	if (!pCmdHdr||!pCmdTable)
 		return -1;
-	virtualMapPage((uint64_t)pCmdHdr, (uint64_t)pCmdHdr, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, 0, PAGE_TYPE_MMIO);
-	virtualMapPage((uint64_t)pCmdTable, (uint64_t)pCmdTable, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, 0, PAGE_TYPE_MMIO);
+	if (virtualMapPage((uint64_t)pCmdHdr, (uint64_t)pCmdTable, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x01, 0x00)!=0){
+		printf("failed to map advanced host controller specification command header descriptor physical page\r\n");
+		return -1;
+	}
+	if (virtualMapPage((uint64_t)pCmdTable, (uint64_t)pCmdTable, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x01, 0x00)!=0){
+		printf("failed to map advanced host controller specification command descriptor list physical page\r\n");
+		return -1;
+	}
 	if (!pCmdHdr->cmd_table_base){
 		printf("invalid cmd table\r\n");
 		return -1;

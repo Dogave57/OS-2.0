@@ -93,9 +93,9 @@ int tgsi_driver_subsystem_shader_init(uint64_t gpuId, uint64_t contextId, uint64
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct tgsi_driver_shader_desc* pShaderDesc = (struct tgsi_driver_shader_desc*)kmalloc(sizeof(struct tgsi_driver_shader_desc));
-	if (!pShaderDesc){
-		printf("failed to allocate GPU host controller TGSI shader descriptor\r\n");
+	struct tgsi_driver_shader_desc* pShaderDesc = (struct tgsi_driver_shader_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pShaderDesc, sizeof(struct tgsi_driver_shader_desc))!=0){
+		printf("failed to allocate TGSI driver shader descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -134,7 +134,7 @@ int tgsi_driver_subsystem_shader_deinit(uint64_t gpuId, uint64_t contextId, uint
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	kfree((void*)pShaderDesc);
+	heap_free(0x01, (unsigned char*)pShaderDesc, sizeof(struct tgsi_driver_shader_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }

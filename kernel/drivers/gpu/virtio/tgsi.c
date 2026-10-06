@@ -343,11 +343,11 @@ int virtio_gpu_tgsi_shader_instruction_declare(struct gpu_instruction_info* pIns
 			static const unsigned char* scalarTypeNameList[256] = {
 				[GPU_SHADER_SCALAR_TYPE_FLOAT]="FLT",
 				[GPU_SHADER_SCALAR_TYPE_UINT]="UINT",
-				[GPU_SHADER_SCALAR_TYPE_SINT]="SINT",	
+				[GPU_SHADER_SCALAR_TYPE_SINT]="INT",	
 			};	
 			static const unsigned char* scalarLengthNameList[256]= {
-				[sizeof(uint8_t)]="8",
-				[sizeof(uint16_t)]="16",
+				[sizeof(uint8_t)]="32",
+				[sizeof(uint16_t)]="32",
 				[sizeof(uint32_t)]="32",
 				[sizeof(uint64_t)]="64",
 			};
@@ -563,7 +563,7 @@ int virtio_gpu_tgsi_shader_translate(uint64_t gpuId, uint64_t contextId, uint64_
 	}
 	unsigned char* pInstructionList = (unsigned char*)0x00;
 	uint64_t instructionListSize = PAGE_SIZE*0x40;
-	if (virtualAlloc((uint64_t*)&pInstructionList, instructionListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAlloc((uint64_t*)&pInstructionList, instructionListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY)!=0){
 		printf("failed to lazy allocate physical pages for GPU host controller instruction info descriptor list\r\n");
 		mutex_unlock(&mutex);	
 		return -1;

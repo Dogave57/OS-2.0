@@ -122,11 +122,11 @@ int text_subsystem_init(void){
 	memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
 	createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
 	createResourceInfo.resourceInfo.contextId = contextId;
-	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R8_SNORM;
+	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R8G8_SNORM;
 	createResourceInfo.resourceInfo.normal.width = glyphTextureRect.x;
 	createResourceInfo.resourceInfo.normal.height = glyphTextureRect.y;
 	createResourceInfo.resourceInfo.normal.depth = 0x01;
-	createResourceInfo.resourceInfo.normal.arraySize = 0x00;
+	createResourceInfo.resourceInfo.normal.arraySize = 0x01;
 	createResourceInfo.resourceInfo.normal.target = GPU_TARGET_TEXTURE_2D;
 	createResourceInfo.resourceInfo.normal.bind = GPU_BIND_SAMPLER_VIEW|GPU_BIND_RENDER_TARGET;
 	if (gpu_resource_create(pMonitorDesc->gpuId, createResourceInfo, &glyphTextureResourceId)!=0){
@@ -273,18 +273,25 @@ int text_subsystem_init(void){
 		"in fvec4_32 resolutionIn : @generic!2\n"
 		"samp samplerState\n"
 		"sview samplerView : @2D @float\n"
-		"temp fvec1_32 sdfEntry\n"
-		"sdfEntry = tex(fvec1_32, texCoordIn, samplerState, @2D)\n"
-		"temp fvec2_32 deriv\n"
-		"deriv.x = ddx(sdfEntry)\n"
-		"deriv.y = ddy(sdfEntry)\n"
-		"if (slt(sdfEntry, vec!fvec1_32(0.0)))\n"
+		"temp fvec2_32 sdfEntry\n"
+		"sdfEntry = tex(fvec2_32, texCoordIn, samplerState, @2D)\n"
+		"if (sle(sdfEntry.x, vec!fvec1_32(-0.95)))\n"
 		"kill\n"
 		"endif\n"
-		"temp fvec1_32 derivLength\n"
-		"derivLength = add(abs(deriv.x), abs(deriv.y))\n"
+		"sdfEntry = mul(sdfEntry, vec!fvec2_32(127.0, 127.0))\n"
+		"temp fvec2_32 scaleVector\n"
+		"scaleVector = mul(resolutionIn.xy, rcp(resolutionIn.zw))\n"
+		"temp fvec2_32 frameTexCoord\n"
+		"temp fvec2_32 texCoord\n"
+		"temp fvec2_32 texCoordFract\n"
+		"frameTexCoord = mul(texCoordIn, resolutionIn.xy)\n"
+		"texCoord = mul(texCoordIn, resolutionIn.zw)\n"
+		"texCoordFract = fract(texCoord)\n"
 		"temp fvec1_32 smoothValue\n"
-		"smoothValue = mul(sdfEntry, rcp(max(derivLength, vec!fvec1_32(0.01))))\n"
+		"temp fvec2_32 smoothDelta\n"
+		"smoothDelta = add(min(div(sdfEntry, abs(sdfEntry)), vec!fvec2_32(0.0, 0.0)), texCoordFract)\n"
+		"smoothValue = floor(sqrt(dp(sdfEntry, sdfEntry)))\n"
+		"smoothValue = mul(smoothValue, rcp(spreadIn))\n"
 		"smoothValue = clamp(smoothValue, vec!fvec1_32(0.0), vec!fvec1_32(1.0))\n"
 		"temp fvec4_32 color\n"
 		"color = vec!fvec4_32(1.0, 0.0, 1.0, 1.0)\n"
@@ -367,12 +374,10 @@ int text_subsystem_init(void){
 	memset((void*)&createSamplerViewObjectInfo, 0, sizeof(struct gpu_create_sampler_view_object_info));
 	createSamplerViewObjectInfo.header.objectType = GPU_OBJECT_TYPE_SAMPLER_VIEW;
 	createSamplerViewObjectInfo.resourceId = glyphTextureResourceId;
-	createSamplerViewObjectInfo.format = GPU_FORMAT_R8_SNORM;
+	createSamplerViewObjectInfo.format = GPU_FORMAT_R8G8_SNORM;
 	createSamplerViewObjectInfo.firstLevel = 0x00;
 	createSamplerViewObjectInfo.lastLevel = 0x00;
-	for (uint64_t i = 0;i<0x04;i++){
-		createSamplerViewObjectInfo.swizzle.swizzleList[i] = GPU_SWIZZLE_RED;
-	}
+	*(uint32_t*)createSamplerViewObjectInfo.swizzle.swizzleList = 0x01010201;
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createSamplerViewObjectInfo, &samplerViewObjectId)!=0){
 		printf("failed to create GPU host controller sampler view object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
@@ -615,7 +620,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	struct uvec2_32 glyphTextureBufferRect = {0};
 	glyphTextureBufferRect.x = textSubsystemInfo.accelerationInfo.glyphTextureRect.x;
 	glyphTextureBufferRect.y = textSubsystemInfo.accelerationInfo.glyphTextureRect.y;
-	uint64_t glyphTextureBufferSize = (glyphTextureBufferRect.x*glyphTextureBufferRect.y)*sizeof(int8_t);
+	uint64_t glyphTextureBufferSize = (glyphTextureBufferRect.x*glyphTextureBufferRect.y)*sizeof(int16_t);
 	uint8_t glyphSpread = 0x04;
 	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
 		printf("failed to allocate physical pages for GPU host controller glyph SDF floating point DWORD sampler view physical page data\r\n");

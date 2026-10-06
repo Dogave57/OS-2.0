@@ -48,7 +48,7 @@ int usb_bot_send_packet(struct usb_bot_drive_desc* pDesc, struct usb_bot_packet_
 	struct xhci_usb_packet_request usbPacketRequest = {0};
 	memset((void*)&usbPacketRequest, 0, sizeof(struct xhci_usb_packet_request));
 	pPacketRequest->cmd.signature = BOT_CMD_SIGNATURE;
-	pPacketRequest->cmd.cmd_id = 1;
+	pPacketRequest->cmd.cmd_id = 0x01;
 	usbPacketRequest.interfaceId = pDesc->interfaceId;
 	usbPacketRequest.endpointId = pDesc->outputEndpointId;
 	usbPacketRequest.pBuffer = (unsigned char*)&pPacketRequest->cmd;
@@ -107,7 +107,7 @@ int usb_bot_send_packet_no_data(struct usb_bot_drive_desc* pDesc, struct usb_bot
 	struct xhci_usb_packet_request usbPacketRequest = {0};
 	memset((void*)&usbPacketRequest, 0, sizeof(struct xhci_usb_packet_request));
 	pPacketRequest->cmd.signature = BOT_CMD_SIGNATURE;
-	pPacketRequest->cmd.cmd_id = 1;	
+	pPacketRequest->cmd.cmd_id = 0x01;	
 	usbPacketRequest.interfaceId = pDesc->interfaceId;
 	usbPacketRequest.endpointId = pDesc->outputEndpointId;
 	usbPacketRequest.pBuffer = (unsigned char*)&pPacketRequest->cmd;
@@ -537,7 +537,7 @@ int usb_bot_get_sense_key_name(uint8_t senseKey, const unsigned char** ppKeyName
 int usb_bot_init_bot_desc_list(void){
 	uint64_t descListSize = sizeof(struct usb_bot_drive_desc)*255*255;
 	struct usb_bot_drive_desc* pDescList = (struct usb_bot_drive_desc*)0x0;
-	if (virtualAlloc((uint64_t*)&pDescList, descListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAlloc((uint64_t*)&pDescList, descListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY)!=0){
 		return -1;
 	}
 	memset((void*)pDescList, 0, descListSize);
@@ -696,7 +696,6 @@ int usb_bot_subsystem_drive_unregister(uint64_t driveId){
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}	
-	kfree((void*)pBotDesc);
 	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }

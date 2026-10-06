@@ -2,58 +2,46 @@
 #define _PMM
 #include <stdint.h>
 #include "kernel_include.h"
-#include "vmm.h"
+#include "bootloader.h"
+#include "mem/vmm.h"
 #define MEM_GB ((uint64_t)1073741824)
 #define MEM_MB ((uint64_t)1048576)
 #define MEM_KB ((uint64_t)1024)
-#define PAGE_SIZE (4096)
-#define PAGE_TYPE_RESERVED (0)
-#define PAGE_TYPE_FREE (1)
-#define PAGE_TYPE_NORMAL (2)
-#define PAGE_TYPE_STACK (3)
-#define PAGE_TYPE_HEAP (4)
-#define PAGE_TYPE_MMIO (5)
-#define PAGE_TYPE_FIRMWARE_DATA (6)
-#define PAGE_TYPE_PMM (7)
-#define PAGE_TYPE_VMM (8)
-#define PAGE_INVALID (0)
-#define PAGE_FREE (1)
-#define PAGE_INUSE (2)
-#define PAGE_RESERVED (3)
-struct p_page{
-	uint8_t status;
-	uint8_t pageType;
-	uint64_t virtualAddress;
-	uint8_t padding0[6];
-}__attribute__((packed));
-struct p_pt_info{
-	uint64_t pt_size;
-	uint64_t freeEntryCnt;
-	uint64_t usedEntryCnt;
-	uint64_t maxFreeEntries;
-	uint64_t maxUsedEntries;
-	struct p_page* pPageEntries;
-	struct p_page** pFreeEntries;
-	struct p_page** pUsedEntries;
+#define PAGE_SIZE (MEM_KB*0x04)
+struct pmm_page_segment_desc{
+	EFI_MEMORY_DESCRIPTOR* pPageDataMemoryDesc;
+	unsigned char* pPageData;
+	uint64_t pageDataCommit;
+	uint64_t pageDataReserve;
 };
-extern uint64_t installedMemory;
-extern uint64_t freeMemory;
-extern uint64_t totalMemory;
-extern uint64_t maxPhysicalAddress;
+struct pmm_page_data_info{
+	struct pmm_page_segment_desc* pPageSegmentDescList;
+	uint64_t pageSegmentDescListSize;
+	uint64_t pageSegmentDescReserve;
+	uint64_t pageSegmentDescCommit;
+};
+struct pmm_page_size_desc{
+	uint64_t pageSize;
+	uint64_t* pFreePageList;
+	uint64_t freePageListSize;
+	uint64_t freePageCount;
+};
+struct pmm_info{
+	uint64_t totalMemory;
+	uint64_t installedMemory;
+	uint64_t freeMemory;
+	struct pmm_page_data_info pageDataInfo;
+	struct pmm_page_size_desc* pPageSizeDescList;
+	uint64_t pageSizeDescListSize;
+	uint64_t pageSizeDescCount;
+};
 int pmm_init(void);
-KAPI int getTotalMemory(uint64_t* pTotalMemory);
-KAPI int getInstalledMemory(uint64_t* pInstalledMemory);
-KAPI int getFreeMemory(uint64_t* pFreeMemory);
-int allocatePageTable(void);
-int initPageTable(void);
-KAPI int physicalAllocPage(uint64_t* pPhysicalAddress, uint8_t pageType);
-KAPI int physicalFreePage(uint64_t physicalAddress);
-KAPI int physicalMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint8_t pageType);
-KAPI int physicalUnmapPage(uint64_t physicalAddress);
-int physicalAllocRaw(uint64_t* pPhysicalAddress, uint64_t size);
-int physicalFreeRaw(uint64_t physicalAddress, uint64_t size);
-int getPhysicalPageTable(uint64_t* pPa, uint64_t* pSize);
-KAPI int getUsedPhysicalPages(uint64_t* pUsedPages);
-KAPI int getFreePhysicalPages(uint64_t* pFreePages);
-KAPI int physicalToVirtual(uint64_t pa, uint64_t* pVa);
+KAPI int pmm_get_total_memory(uint64_t* pTotalMemory);
+KAPI int pmm_get_installed_memory(uint64_t* pInstalledMemory);
+KAPI int pmm_get_free_memory(uint64_t* pFreeMemory);
+int physical_page_size_get_desc(uint64_t pageSize, struct pmm_page_size_desc** ppPageSizeDesc);
+KAPI int physicalAlloc(uint64_t* pPhysicalAddress, uint64_t pageSize);
+KAPI int physicalFree(uint64_t physicalAddress, uint64_t pageSize);
+int physical_alloc_raw(uint64_t* pPhysicalAddress, uint64_t size);
+int pmm_page_data_get_info(struct pmm_page_data_info** ppPhysicalPageDataInfo);
 #endif

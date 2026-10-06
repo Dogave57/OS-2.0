@@ -1,315 +1,234 @@
-#include "mem/vmm.h"
 #include "mem/pmm.h"
-#include "align.h"
-#include "panic.h"
+#include "mem/vmm.h"
 #include "stdlib/stdlib.h"
 #include "cpu/mutex.h"
-#include "cpu/thread.h"
 #include "mem/heap.h"
-struct heap_block_list* pBlockLists = (struct heap_block_list*)0x0;
-uint64_t blockList_cnt = 0;
-int heap_init(void){
-	blockList_cnt = HEAP_LIST_COUNT;
-	uint64_t blockSize = 16;
-	uint64_t blockListSize = sizeof(struct heap_block_list)*blockList_cnt;
-	uint64_t blockListPages = blockListSize/PAGE_SIZE;
-	if (blockListSize%PAGE_SIZE)
-		blockListPages++;
-	if (virtualAllocPages((uint64_t*)&pBlockLists, blockListPages, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
-		printf("failed to allocate block lists\r\n");
+struct heap_mem_info heapMemInfo = {0};
+int heap_mem_init(void){
+	struct heap_desc* pHeapDescList = (struct heap_desc*)0x00;
+	uint64_t heapDescListSize = HEAP_MAX_COUNT*sizeof(struct heap_desc);
+	if (virtualAlloc((uint64_t*)&pHeapDescList, heapDescListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY)!=0){
+		printf("failed to allocate heap descriptor list lazy allocated physical pages\r\n");
 		return -1;
 	}
-	for (uint64_t i = 0;i<blockList_cnt;i++,blockSize*=4){
-		struct heap_block_list* pList = pBlockLists+i;
-		pList->blockSize = blockSize;
-		pList->pFirstNode = (struct heap_block_node*)0x0;
-		pList->pLastNode = (struct heap_block_node*)0x0;
-	}
-	for (uint64_t i = 0;i<4;i++){
-		uint64_t* pBlock = (uint64_t*)kmalloc(16);
-		if (!pBlock){
-			printf("failed to allocate heap block %d\r\n", i);
-			return -1;
-		}
-		*pBlock = 67;
-		kfree((void*)pBlock);
-	}
-	for (uint64_t i = 0;i<5;i++){
-		uint64_t* pBlock = (uint64_t*)kmalloc(1024);
-		if (!pBlock){
-			printf("failed to allocate heap block %d\r\n", i);
-			return -1;
-		}
-		uint64_t* pBlock2 = (uint64_t*)kmalloc(64);
-		if (!pBlock2){
-			printf("failed to allocate heap block 2: %d\r\n", i);
-			return -1;
-		}
-		*pBlock = 67;
-		*pBlock2 = 67;
-		if (!(i%2))
-			continue;
-		if (kfree((void*)pBlock)!=0){
-			printf("failed to free block\r\n");
-			while (1){};
-			return -1;
-		}
-	}
-	uint64_t* test1 = (uint64_t*)kmalloc(1024);
-	if (!test1){
-		printf("failed to allocate test1\r\n");
+	uint64_t* pFreeHeapList = (uint64_t*)0x00;
+	uint64_t freeHeapListSize = HEAP_MAX_COUNT*sizeof(uint64_t);
+	if (virtualAlloc((uint64_t*)&pFreeHeapList, freeHeapListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY)!=0){
+		printf("failed to allocate free heap descirptor list lazy allocated physical pages\r\n");
+		virtualFree((uint64_t)pHeapDescList, heapDescListSize);
 		return -1;
 	}
-	if (kfree((void*)test1)!=0){
-		printf("heap free mechanism failed so it litreally cooked bro\r\n");
+	heapMemInfo.pHeapDescList = pHeapDescList;
+	heapMemInfo.heapDescListSize = heapDescListSize;
+	heapMemInfo.heapCount = 0x00;
+	heapMemInfo.pFreeHeapList = pFreeHeapList;
+	heapMemInfo.freeHeapListSize = freeHeapListSize;
+	heapMemInfo.freeHeapCount = 0x00;
+	return 0;
+}
+int heap_mem_deinit(void){
+	if (virtualFree((uint64_t)heapMemInfo.pHeapDescList, heapMemInfo.heapDescListSize)!=0){
+		printf("failed to free hepa volatile memory heap descriptor lazy allocated physical pages\r\n");
+		virtualFree((uint64_t)heapMemInfo.pFreeHeapList, heapMemInfo.freeHeapListSize);
 		return -1;
 	}
-	uint64_t* test2 = (uint64_t*)kmalloc(1024);
-	if (!test2){
-		printf("failed to allocate test2\r\n");
-		return -1;
-	}
-	if (test1!=test2){
-		printf("heap free mechanism is cooked bro\r\n");
+	if (virtualFree((uint64_t)heapMemInfo.pFreeHeapList, heapMemInfo.freeHeapListSize)!=0){
+		printf("failed to free heap volatile memory free heap descriptor physical pages\r\n");
 		return -1;
 	}
 	return 0;
 }
-KAPI void* kmalloc(uint64_t size){
+KAPI int heap_init(uint64_t reserveDataSize, uint64_t minBlockSize, uint64_t maxBlockSize, uint64_t* pHeapId){
+	if (!pHeapId)
+		return -1;
 	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);	
-	if (size<HEAP_MIN_BLOCK_SIZE)
-		size = HEAP_MIN_BLOCK_SIZE;
-	if (size>HEAP_MAX_BLOCK_SIZE){
-		uint64_t totalSize = size+sizeof(struct heap_block_hdr);
-		uint64_t pagesNeeded = align_up(totalSize, PAGE_SIZE)/PAGE_SIZE;
-		uint64_t pPages = 0;
-		if (virtualAllocPages(&pPages, pagesNeeded, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
+	mutex_lock(&mutex);
+	unsigned char* pReserveData = (unsigned char*)0x00;
+	if (virtualAlloc((uint64_t*)&pReserveData, reserveDataSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate heap volatile memory reserve lazy allocated physical pages\r\n");
+		mutex_unlock(&mutex);
+		return -1;		
+	}
+	struct heap_block_size_desc* pBlockSizeDescList = (struct heap_block_size_desc*)0x00;
+	uint64_t blockSizeDescCount = 0x00;
+	uint64_t blockSizeDescListSize = sizeof(struct heap_block_size_desc)*0x40;
+	if (virtualAlloc((uint64_t*)&pBlockSizeDescList, blockSizeDescListSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate heap volatile memory block size descriptor list physical pages\r\n");
+		virtualFree((uint64_t)pReserveData, reserveDataSize);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	uint64_t blockSize = minBlockSize;
+	for (blockSizeDescCount = 0x00;;blockSizeDescCount++){
+		if (blockSize>maxBlockSize)
+			break;
+		struct heap_block_size_desc* pBlockSizeDesc = pBlockSizeDescList+blockSizeDescCount;
+		memset((void*)pBlockSizeDesc, 0, sizeof(struct heap_block_size_desc));
+		uint64_t* pFreeBlockList = (uint64_t*)0x00;
+		uint64_t freeBlockListSize = reserveDataSize/blockSize;
+		if (virtualAlloc((uint64_t*)&pFreeBlockList, freeBlockListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY)!=0){
+			printf("failed to allocate block size descriptor free block list lazy allocated physical pages\r\n");
+			virtualFree((uint64_t)pReserveData, reserveDataSize);
+			virtualFree((uint64_t)pBlockSizeDescList, blockSizeDescListSize);
 			mutex_unlock(&mutex);
-			return (void*)0x0;
-		}	
-		struct heap_block_hdr* pHdr = (struct heap_block_hdr*)pPages;
-		pHdr->heapTracked = 0;
-		pHdr->pageCnt = pagesNeeded;
-		pHdr->va = pPages;
-		mutex_unlock(&mutex);
-		return (void*)(pHdr+1);
-	}
-	if (!pBlockLists){
-		if (heap_init()!=0){
-			mutex_unlock(&mutex);
-			return (void*)0x0;
-		}
-	}
-	struct heap_block_list* pBlockList = (struct heap_block_list*)0x0;
-	if (heap_get_block_list(&pBlockList, size)!=0){
-		printf("failed to get block list\r\n");
-		mutex_unlock(&mutex);
-		return (void*)0x0;
-	}
-	uint64_t block_va = 0;
-	if (heap_get_block(&block_va, pBlockList)!=0){
-		printf("failed to get block\r\n");
-		mutex_unlock(&mutex);
-		return (void*)0x0;	
-	}
-	if (heap_pop_block(pBlockList)!=0){
-		printf("failed to pop block\r\n");
-		mutex_unlock(&mutex);
-		return (void*)0x0;
-	}
-	struct heap_block_hdr* pHdr = (struct heap_block_hdr*)block_va;
-	pHdr->heapTracked = 1;
-	mutex_unlock(&mutex);	
-	return (void*)(pHdr+1);
-}
-KAPI int kfree(void* pBlock){
-	static struct mutex_t mutex = {0};
-	mutex_lock(&mutex);	
-	if (!pBlockLists){
-		if (heap_init()!=0){
 			return -1;
 		}
+		pBlockSizeDesc->blockSize = blockSize;
+		pBlockSizeDesc->pFreeBlockList = pFreeBlockList;
+		pBlockSizeDesc->freeBlockListSize = freeBlockListSize;
+		pBlockSizeDesc->freeBlockCount = 0x00;
+		blockSize*=0x02;
 	}
-	if (!pBlock){
-		mutex_unlock(&mutex);
-		return -1;
+	uint64_t heapId = 0x00;
+	if (!heapMemInfo.freeHeapCount){
+		heapId = heapMemInfo.heapCount;
 	}
-	struct heap_block_hdr* pHdr = (struct heap_block_hdr*)pBlock;
-	pHdr--;
-	if (!pHdr->heapTracked){
-		uint64_t pPages = (uint64_t)pHdr->va;
-		mutex_unlock(&mutex);
-		return virtualFreePages(pPages, pHdr->pageCnt);
+	if (heapMemInfo.freeHeapCount){
+		heapMemInfo.freeHeapCount--;
+		heapId = *(heapMemInfo.pFreeHeapList+heapMemInfo.freeHeapCount);
 	}
-	if (pHdr->va!=((uint64_t)pHdr)){
-		panic("heap corruptiond detected\r\n");
-		mutex_unlock(&mutex);
-		while (1){};
-		return -1;
-	}
-	struct heap_block_list* pList = pHdr->pList;
-	if (heap_push_block(pList, pHdr->va)!=0){
-		printf("failed to push free block\r\n");
-		mutex_unlock(&mutex);
-		return -1;
-	}
+	printf("heap volatile memory block size descriptor count: %d\r\n", blockSizeDescCount);
+	struct heap_desc* pHeapDesc = heapMemInfo.pHeapDescList+heapId;
+	memset((void*)pHeapDesc, 0, sizeof(struct heap_desc));
+	pHeapDesc->heapInfo.pReserveData = pReserveData;
+	pHeapDesc->heapInfo.reserveDataSize = reserveDataSize;
+	pHeapDesc->heapInfo.reserveDataLength = 0x00;
+	pHeapDesc->heapInfo.pBlockSizeDescList = pBlockSizeDescList;
+	pHeapDesc->heapInfo.blockSizeDescListSize = blockSizeDescListSize;
+	pHeapDesc->heapInfo.blockSizeDescCount = blockSizeDescCount;
+	pHeapDesc->heapInfo.minBlockSize = minBlockSize;
+	pHeapDesc->heapInfo.maxBlockSize = maxBlockSize;
+	*pHeapId = heapId+0x01;
 	mutex_unlock(&mutex);
 	return 0;
 }
-int heap_get_block_list(struct heap_block_list** ppBlockList, uint64_t size){
-	if (!ppBlockList||!size)
+KAPI int heap_deinit(uint64_t heapId){
+	if (!heapId)
 		return -1;
-	for (uint64_t i = 0;i<blockList_cnt;i++){
-		struct heap_block_list* pBlockList = pBlockLists+i;
-		if (pBlockList->blockSize<size)
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct heap_desc* pHeapDesc = heapMemInfo.pHeapDescList+heapId-0x01;
+	if (virtualFree((uint64_t)pHeapDesc->heapInfo.pReserveData, pHeapDesc->heapInfo.reserveDataSize)!=0){
+		printf("failed to free heap volatile memory reserve lazy allocated physical pages\r\n");
+		virtualFree((uint64_t)pHeapDesc->heapInfo.pBlockSizeDescList, pHeapDesc->heapInfo.blockSizeDescListSize);
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	for (uint64_t i = 0x00;i<pHeapDesc->heapInfo.blockSizeDescCount;i++){
+		struct heap_block_size_desc* pBlockSizeDesc = pHeapDesc->heapInfo.pBlockSizeDescList+i;
+		if (virtualFree((uint64_t)pBlockSizeDesc->pFreeBlockList, pBlockSizeDesc->freeBlockListSize)!=0){
+			printf("failed to free heap volatile memory block size descriptor free block QWORD offset list\r\n");
+			virtualFree((uint64_t)pHeapDesc->heapInfo.pBlockSizeDescList, pHeapDesc->heapInfo.blockSizeDescListSize);
+			mutex_unlock(&mutex);
+			return -1;
+		}
+	}
+	if (virtualFree((uint64_t)pHeapDesc->heapInfo.pBlockSizeDescList, pHeapDesc->heapInfo.blockSizeDescListSize)!=0){
+		printf("failed to free heap volatile memory block size list physical pages\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	*(heapMemInfo.pFreeHeapList+heapMemInfo.freeHeapCount) = heapId-0x01;
+	heapMemInfo.freeHeapCount++;
+	mutex_unlock(&mutex);
+	return 0;
+}
+int heap_get_desc(uint64_t heapId, struct heap_desc** ppHeapDesc){
+	if (!heapId||!ppHeapDesc)
+		return -1;
+	struct heap_desc* pHeapDesc = heapMemInfo.pHeapDescList+heapId-0x01;
+	if (!pHeapDesc){
+		printf("unexpected heap volatile memory heap descriptor\r\n");
+		return -1;
+	}
+	*ppHeapDesc = pHeapDesc;
+	return 0;
+}
+int heap_block_size_get_desc(struct heap_desc* pHeapDesc, uint64_t blockSize, struct heap_block_size_desc** ppBlockSizeDesc){
+	if (!pHeapDesc||!blockSize||!ppBlockSizeDesc)
+		return -1;
+	for (uint64_t i = 0x00;i<pHeapDesc->heapInfo.blockSizeDescCount;i++){
+		struct heap_block_size_desc* pBlockSizeDesc = pHeapDesc->heapInfo.pBlockSizeDescList+i;
+		if (pBlockSizeDesc->blockSize<blockSize)
 			continue;
-		*ppBlockList = pBlockList;
+		*ppBlockSizeDesc = pBlockSizeDesc;
 		return 0;
 	}
 	return -1;
 }
-int heap_fill_block_list(struct heap_block_list* pBlockList){
-	if (!pBlockList)
+KAPI int heap_alloc(uint64_t heapId, unsigned char** ppData, uint64_t dataSize){
+	if (!heapId||!dataSize||!ppData)
 		return -1;
-	uint64_t blockSize = pBlockList->blockSize+sizeof(struct heap_block_hdr);
-	uint64_t blocksToAlloc = HEAP_BLOCK_PER_NODE;
-	uint64_t blockDataSize = align_up(blockSize*blocksToAlloc, PAGE_SIZE);
-	uint64_t blockDataPages = blockDataSize/PAGE_SIZE;
-	uint64_t pPage = 0;
-	if (virtualAllocPages(&pPage, blockDataPages, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
-		return -1;
-	}
-	struct heap_block_node* pNewNode = (struct heap_block_node*)0x0;
-	if (heap_alloc_block_node(pBlockList)!=0){
-		printf("failed to allocate block node\r\n");
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct heap_desc* pHeapDesc = (struct heap_desc*)0x00;
+	if (heap_get_desc(heapId, &pHeapDesc)!=0){
+		printf("failed to get heap volatile memory descriptor\r\n");
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	pNewNode = pBlockList->pLastNode;
-	if (!pNewNode){
-		printf("invalid last node when filling block list\r\n");
-		return -1;
-	}
-	pNewNode->pPage = pPage;
-	pNewNode->pageCnt = blockDataPages;
-	for (uint64_t i = 0;i<HEAP_BLOCK_PER_NODE;i++){
-		uint64_t block_va = pPage+(i*blockSize);
-		if (heap_push_block(pBlockList, block_va)!=0){
-			printf("failed to push block\r\n");
+	if (dataSize>pHeapDesc->heapInfo.maxBlockSize){
+		unsigned char* pData = (unsigned char*)0x00;
+		if (virtualAlloc((uint64_t*)&pData, dataSize, PTE_RW|PTE_NX, 0x00)!=0){
+			printf("failed to allocate heap volatile memory extensive physical pages\r\n");
+			mutex_unlock(&mutex);
 			return -1;
 		}
-	}
-	return 0;
-}
-int heap_push_block(struct heap_block_list* pBlockList, uint64_t va){
-	if (!pBlockList){
-		printf("invalid block list\r\n");
-		return -1;
-	}
-	if (!va){
-		printf("invalid block va\r\n");
-		return -1;
-	}
-	struct heap_block_node* pLastNode = pBlockList->pLastNode;
-	if (!pLastNode){
-		if (heap_alloc_block_node(pBlockList)!=0){
-			printf("failed to allocate new node\r\n");
-			return -1;
-		}
-		pLastNode = pBlockList->pLastNode;
-	}
-	if (!pLastNode){
-		printf("failed to allocate new node\r\n");
-		return -1;
-	}
-	if (pLastNode->freeBlockCnt>HEAP_BLOCK_PER_NODE){
-		printf("node too full!\r\n");
-		return -1;
-	}
-	pLastNode->va[pLastNode->freeBlockCnt] = va;
-	struct heap_block_hdr* pHdr = (struct heap_block_hdr*)va;
-	pHdr->heapTracked = 1;
-	pHdr->pList = pBlockList;
-	pHdr->va = va;
-	pLastNode->freeBlockCnt++;
-	if (pLastNode->freeBlockCnt>HEAP_BLOCK_PER_NODE){
-		if (heap_free_block_node(pBlockList, pLastNode)!=0){
-			printf("failed to free node\r\n");
-			return -1;
-		}
+		*ppData = pData;
+		mutex_unlock(&mutex);
 		return 0;
 	}
-	return 0;
-}
-int heap_pop_block(struct heap_block_list* pBlockList){
-	if (!pBlockList)
-		return -1;
-	struct heap_block_node* pLastNode = pBlockList->pLastNode;
-	if (!pLastNode){
-		printf("no last node\r\n");
+	struct heap_block_size_desc* pBlockSizeDesc = (struct heap_block_size_desc*)0x00;
+	if (heap_block_size_get_desc(pHeapDesc, dataSize, &pBlockSizeDesc)!=0){
+		printf("failed to get heap volatile memory block size descriptor\r\n");
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (!pLastNode->freeBlockCnt)
-		return -1;
-	pLastNode->freeBlockCnt--;
+	dataSize = pBlockSizeDesc->blockSize;
+	if (pBlockSizeDesc->freeBlockCount){
+		pBlockSizeDesc->freeBlockCount--;
+		uint64_t dataOffset = *(pBlockSizeDesc->pFreeBlockList+pBlockSizeDesc->freeBlockCount);
+		unsigned char* pData = pHeapDesc->heapInfo.pReserveData+dataOffset;
+		*ppData = pData;
+		mutex_unlock(&mutex);
+		return 0;
+	}
+	unsigned char* pData = pHeapDesc->heapInfo.pReserveData+pHeapDesc->heapInfo.reserveDataLength;
+	pHeapDesc->heapInfo.reserveDataLength+=dataSize;
+	*ppData = pData;
+	mutex_unlock(&mutex);
 	return 0;
 }
-int heap_get_block(uint64_t* pVa, struct heap_block_list* pBlockList){
-	if (!pVa||!pBlockList)
+KAPI int heap_free(uint64_t heapId, unsigned char* pData, uint64_t dataSize){
+	if (!heapId||!pData||!dataSize)
 		return -1;
-	struct heap_block_node* pLastNode = pBlockList->pLastNode;
-	if (!pLastNode){
-		if (heap_fill_block_list(pBlockList)!=0){
-			printf("failed to fill block list\r\n");
+	static struct mutex_t mutex = {0};
+	mutex_lock(&mutex);
+	struct heap_desc* pHeapDesc = (struct heap_desc*)0x00;
+	if (heap_get_desc(heapId, &pHeapDesc)!=0){
+		printf("failed to get heap volatile memory descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
+	if (dataSize>pHeapDesc->heapInfo.maxBlockSize){
+		if (virtualFree((uint64_t)pData, dataSize)!=0){
+			printf("failed to free extensive heap volatile memory physical pages\r\n");
+			mutex_unlock(&mutex);
 			return -1;
 		}
+		mutex_unlock(&mutex);
+		return 0;
 	}
-	pLastNode = pBlockList->pLastNode;
-	if (!pLastNode){
-		printf("invalid last node\r\n");	
-		return -1;
-	}
-	if (!pLastNode->freeBlockCnt){
-		printf("no blocks available\r\n");
-		return -1;
-	}
-	uint64_t va = pLastNode->va[pLastNode->freeBlockCnt-1];
-	*pVa = va;
-	return 0;
-}
-int heap_alloc_block_node(struct heap_block_list* pBlockList){
-	if (!pBlockList)
-		return -1;
-	struct heap_block_node* pNewNode = (struct heap_block_node*)0x0;
-	if (virtualAllocPage((uint64_t*)&pNewNode, PTE_RW, 0, PAGE_TYPE_HEAP)!=0){
-		printf("failed to allocate page for new block node\r\n");
+	struct heap_block_size_desc* pBlockSizeDesc = (struct heap_block_size_desc*)0x00;
+	if (heap_block_size_get_desc(pHeapDesc, dataSize, &pBlockSizeDesc)!=0){
+		printf("failed to get heap block size descriptor\r\n");
+		mutex_unlock(&mutex);
 		return -1;
 	}
-	pNewNode->pPage = 0;
-	pNewNode->pageCnt = 0;
-	pNewNode->freeBlockCnt = 0;
-	pNewNode->pflink = (struct heap_block_node*)0x0;
-	pNewNode->pblink = (struct heap_block_node*)0x0;
-	if (pBlockList->pLastNode)
-		pBlockList->pLastNode->pflink = pNewNode;
-	pNewNode->pblink = pBlockList->pLastNode;
-	pBlockList->pLastNode = pNewNode;
-	if (!pBlockList->pFirstNode)
-		pBlockList->pFirstNode = pNewNode;
-	return 0;
-}
-int heap_free_block_node(struct heap_block_list* pBlockList, struct heap_block_node* pBlock){
-	if (!pBlockList||!pBlock)
-		return -1;
-	if (pBlock->pflink)
-		pBlock->pflink->pblink = pBlock->pblink;
-	if (pBlock->pblink)
-		pBlock->pblink->pflink = pBlock->pflink;
-	if (pBlock==pBlockList->pFirstNode)
-		pBlockList->pFirstNode = pBlock->pflink;
-	if (pBlock==pBlockList->pLastNode)
-		pBlockList->pLastNode = pBlock->pblink;
-	if (virtualFreePage((uint64_t)pBlock, 0)!=0)
-		return -1;
+	dataSize = pBlockSizeDesc->blockSize;
+	uint64_t dataOffset = pData-pHeapDesc->heapInfo.pReserveData;
+	*(pBlockSizeDesc->pFreeBlockList+pBlockSizeDesc->freeBlockCount) = dataOffset;	
+	pBlockSizeDesc->freeBlockCount++;
+	mutex_unlock(&mutex);
 	return 0;
 }

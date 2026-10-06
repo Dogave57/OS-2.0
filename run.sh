@@ -5,7 +5,7 @@ OS=$(uname -s)
 bash restore_firmware.sh
 case "$OS" in
 "Linux")
-sudo qemu-system-x86_64 $LINUX_FLAGS -m 4G -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive file=drive.img,if=none,id=nvme_drive,format=raw -device nvme,drive=nvme_drive,serial=serial -serial $SERIAL_PATH -smp cores=4 -machine q35
+sudo qemu-system-x86_64 $LINUX_FLAGS -m 1G -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive file=drive.img,if=none,id=nvme_drive,format=raw -device nvme,drive=nvme_drive,serial=serial -serial $SERIAL_PATH -smp cores=4 -machine q35
 ;;
 "Darwin")
 sudo qemu-system-x86_64 $MACOS_FLAGS -m 4G -drive if=pflash,format=raw,file=uefi-firmware/OVMF_CODE.fd -drive file=drive.img,if=none,id=nvme_drive,format=raw -device nvme,id=nvme_device,drive=nvme_drive,serial=deadbeef -smp cores=4 -machine q35

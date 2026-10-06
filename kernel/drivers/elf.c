@@ -21,7 +21,7 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 		return -1;
 	}
 	unsigned char* pFileBuffer = (unsigned char*)0x0;
-	if (virtualAlloc((uint64_t*)&pFileBuffer, fileInfo.fileSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAlloc((uint64_t*)&pFileBuffer, fileInfo.fileSize, PTE_RW|PTE_NX, 0x00)!=0){
 		fs_close(mount_id, fileId);
 		return -1;
 	}
@@ -53,14 +53,21 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 	}
 	pCurrentPh = pFirstPh;
 	unsigned char* pImage = (unsigned char*)0x0;
-	if (virtualAlloc((uint64_t*)&pImage, imageSize, PTE_RW, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAlloc((uint64_t*)&pImage, imageSize, PTE_RW, 0x00)!=0){
+		printf("failed to allocate ELF protocol specification image physical pages\r\n");
 		virtualFree((uint64_t)pFileBuffer, fileInfo.fileSize);
 		return -1;
 	}
-	struct elf_handle* pHandle = (struct elf_handle*)kmalloc(sizeof(struct elf_handle));
-	if (!pHandle){
+	if (virtualAlloc((uint64_t*)&pImage, imageSize, PTE_RW, 0x00)!=0){
+		printf("failed to allocate ELF protocol specification non-volatile memory physical pages\r\n");
 		virtualFree((uint64_t)pFileBuffer, fileInfo.fileSize);
-		virtualFree((uint64_t)pImage, imageSize);	
+		return -1;
+	}
+	struct elf_handle* pHandle = (struct elf_handle*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pHandle, sizeof(struct elf_handle))!=0){
+		printf("failed to allocate ELF binary physical page data handle descriptor\r\n");
+		virtualFree((uint64_t)pFileBuffer, fileInfo.fileSize);
+		virtualFree((uint64_t)pImage, imageSize);
 		return -1;
 	}
 	memset((void*)pHandle, 0, sizeof(struct elf_handle));
@@ -68,8 +75,9 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 	pHandle->pFileBuffer = pFileBuffer;
 	pHandle->pImage = pImage;
 	pHandle->imageSize = imageSize;
-	struct elf_handle* pBaseKernelHandle = (struct elf_handle*)kmalloc(sizeof(struct elf_handle));
-	if (!pBaseKernelHandle){
+	struct elf_handle* pBaseKernelHandle = (struct elf_handle*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pBaseKernelHandle, sizeof(struct elf_handle))!=0){
+		printf("failed to allocate base kernel physical page data handle descriptor\r\n");
 		virtualFree((uint64_t)pFileBuffer, fileInfo.fileSize);
 		virtualFree((uint64_t)pImage, imageSize);
 		return -1;
@@ -106,7 +114,7 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 		printf("dynamic table is mandatory\r\n");
 		virtualFree((uint64_t)pImage, imageSize);
 		virtualFree((uint64_t)pFileBuffer, fileInfo.fileSize);
-		kfree((void*)pHandle);
+		heap_free(0x01, (unsigned char*)pHandle, sizeof(struct elf_handle));
 		return -1;
 	}
 	struct elf64_rel* pRelTable = (struct elf64_rel*)0x0;
@@ -138,14 +146,14 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 		printf("no string table\r\n");
 		virtualFree((uint64_t)pFileBuffer, fileInfo.fileSize);
 		virtualFree((uint64_t)pImage, imageSize);
-		kfree((void*)pHandle);
+		heap_free(0x01, (unsigned char*)pHandle, sizeof(struct elf_handle));
 		return -1;
 	}
 	if (!pSymbolTable){
 		printf("no symbol table\r\n");
 		virtualFree((uint64_t)pFileBuffer, fileInfo.fileSize);
 		virtualFree((uint64_t)pImage, imageSize);
-		kfree((void*)pHandle);
+		heap_free(0x01, (unsigned char*)pHandle, sizeof(struct elf_handle));
 		return -1;
 	}
 	if (pHashData)
@@ -161,7 +169,7 @@ int elf_load(uint64_t mount_id, unsigned char* filename, struct elf_handle** ppH
 			struct elf_handle* pDlHandle = (struct elf_handle*)0x0;
 			if (elf_load_dl(pHandle, pDlName, &pDlHandle)!=0){
 				printf("failed to load %s\r\n", pDlName);
-				kfree((void*)pHandle);
+				heap_free(0x01, (unsigned char*)pHandle, sizeof(struct elf_handle));
 				return -1;
 			}
 			break;
@@ -300,12 +308,12 @@ int elf_unload(struct elf_handle* pHandle){
 	while (pCurrentDlHandle){
 		struct elf_handle* pNext = pCurrentDlHandle->pFlink;
 		if (elf_unload_dl(pHandle, pCurrentDlHandle)!=0){
-			kfree((void*)pHandle);
+			heap_free(0x01, (unsigned char*)pHandle, sizeof(struct elf_handle));
 			return -1;
 		}
 		pCurrentDlHandle = pNext;	
 	}
-	kfree((void*)pHandle);
+	heap_free(0x01, (unsigned char*)pHandle, sizeof(struct elf_handle));
 	return 0;
 }
 int elf_cache_dt(struct elf_handle* pHandle){

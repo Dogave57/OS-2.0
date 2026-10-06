@@ -76,7 +76,7 @@ int pcie_subsystem_init(void){
 int pcie_subsystem_init_bus_desc_list(void){
 	uint64_t busDescListSize = PCIE_MAX_BUS_COUNT*sizeof(struct pcie_bus_desc);
 	struct pcie_bus_desc* pBusDescList = (struct pcie_bus_desc*)0x0;
-	if (virtualAlloc((uint64_t*)&pBusDescList, busDescListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0)
+	if (virtualAlloc((uint64_t*)&pBusDescList, busDescListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY)!=0)
 		return -1;
 	busDescListInfo.pBusDescList = pBusDescList;
 	busDescListInfo.busDescListSize = busDescListSize;
@@ -92,7 +92,7 @@ int pcie_subsystem_deinit_bus_desc_list(void){
 int pcie_subsystem_init_device_desc_list(void){
 	uint64_t deviceDescListSize = PCIE_MAX_DEVICE_COUNT*sizeof(struct pcie_device_desc);
 	struct pcie_device_desc* pDeviceDescList = (struct pcie_device_desc*)0x0;
-	if (virtualAlloc((uint64_t*)&pDeviceDescList, deviceDescListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAlloc((uint64_t*)&pDeviceDescList, deviceDescListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY)!=0){
 		return -1;
 	}	
 	deviceDescListInfo.pDeviceDescList = pDeviceDescList;
@@ -108,9 +108,11 @@ int pcie_subsystem_deinit_device_desc_list(void){
 }
 int pcie_subsystem_init_function_desc_list(void){
 	uint64_t functionDescListSize = PCIE_MAX_FUNCTION_COUNT*sizeof(struct pcie_function_desc);	
-	struct pcie_function_desc* pFunctionDescList = (struct pcie_function_desc*)0x0;
-	if (virtualAlloc((uint64_t*)&pFunctionDescList, functionDescListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0)
+	struct pcie_function_desc* pFunctionDescList = (struct pcie_function_desc*)0x00;
+	if (virtualAlloc((uint64_t*)&pFunctionDescList, functionDescListSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate PCIe subsystem routine descriptor list\r\n");
 		return -1;
+	}
 	functionDescListInfo.pFunctionDescList = pFunctionDescList;
 	functionDescListInfo.functionDescListSize = functionDescListSize;	
 	return 0;
@@ -157,8 +159,9 @@ int pcie_subsystem_driver_register(struct pcie_driver_vtable vtable, uint16_t cl
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock_isr_safe(&mutex);
-	struct pcie_driver_desc* pDriverDesc = (struct pcie_driver_desc*)kmalloc(sizeof(struct pcie_driver_desc));
-	if (!pDriverDesc){
+	struct pcie_driver_desc* pDriverDesc = (struct pcie_driver_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pDriverDesc, sizeof(struct pcie_driver_desc))!=0){
+		printf("failed to allocate PCIe subsystem driver descriptor\r\n");
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
@@ -173,16 +176,16 @@ int pcie_subsystem_driver_register(struct pcie_driver_vtable vtable, uint16_t cl
 		pDriverDesc->pFlink = pDriverDesc;
 	}
 	pLastDriverDesc = pDriverDesc;
-	uint64_t driverId = 0;
+	uint64_t driverId = 0x00;
 	if (subsystem_alloc_entry(pDriverSubsystem, (unsigned char*)pDriverDesc, &driverId)!=0){
-		kfree((void*)pDriverDesc);	
+		heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct pcie_driver_desc));
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}	
 	if (pcie_subsystem_resolve_function_drivers(driverId)!=0){
 		printf("failed to attempt to resolve unresolved functions with driver with ID %d\r\n", driverId);
 		subsystem_free_entry(pDriverSubsystem, driverId);
-		kfree((void*)pDriverDesc);
+		heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct pcie_driver_desc));
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
@@ -210,6 +213,7 @@ int pcie_subsystem_driver_unregister(uint64_t driverId){
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}	
+	heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct pcie_driver_desc));
 	mutex_unlock_isr_safe(&mutex);
 	return 0;
 }
@@ -254,7 +258,7 @@ int pcie_subsystem_resolve_function_drivers(uint64_t driverId){
 					printf("failed to resolve PCIe function at bus %d, device %d, function %d with driver with ID: %d\r\n", location.bus, location.dev, location.func, driverId);
 					continue;
 				}
-				pFunctionDesc->resolved = 1;
+				pFunctionDesc->resolved = 0x01;
 				pFunctionDesc->driverId = driverId;
 				pDeviceDesc->unresolvedCount--;
 			}

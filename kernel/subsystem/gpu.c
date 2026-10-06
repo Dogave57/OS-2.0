@@ -30,9 +30,9 @@ KAPI int gpu_driver_register(struct gpu_driver_vtable vtable, struct gpu_driver_
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)kmalloc(sizeof(struct gpu_driver_desc));
-	if (!pDriverDesc){
-		printf("failed to allocate GPU driver descriptor\r\n");
+	struct gpu_driver_desc* pDriverDesc = (struct gpu_driver_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pDriverDesc, sizeof(struct gpu_driver_desc))!=0){
+		printf("failed to allocate GPU host controller driver descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -40,7 +40,7 @@ KAPI int gpu_driver_register(struct gpu_driver_vtable vtable, struct gpu_driver_
 	uint64_t driverId = 0;
 	if (subsystem_alloc_entry(gpuDriverSubsystemInfo.pSubsystemDesc, (unsigned char*)pDriverDesc, &driverId)!=0){
 		printf("failed to allocate subsystem entry for GPU driver descriptor\r\n");
-		kfree((void*)pDriverDesc);
+		heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct gpu_driver_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -69,7 +69,7 @@ KAPI int gpu_driver_unregister(uint64_t driverId){
 	}
 	if (subsystem_free_entry(gpuDriverSubsystemInfo.pSubsystemDesc, driverId)!=0){
 		printf("failed to free GPU driver descriptor subsystem entry\r\n");
-		kfree((void*)pDriverDesc);
+		heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct gpu_driver_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -77,7 +77,7 @@ KAPI int gpu_driver_unregister(uint64_t driverId){
 		gpuDriverSubsystemInfo.pLastDriverDesc = pDriverDesc->pBlink;
 	if (pDriverDesc==gpuDriverSubsystemInfo.pFirstDriverDesc)
 		gpuDriverSubsystemInfo.pFirstDriverDesc = pDriverDesc->pFlink;
-	kfree((void*)pDriverDesc);
+	heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct gpu_driver_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -104,9 +104,9 @@ KAPI int gpu_shader_driver_register(struct gpu_shader_driver_vtable vtable, stru
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct gpu_shader_driver_desc* pDriverDesc = (struct gpu_shader_driver_desc*)kmalloc(sizeof(struct gpu_shader_driver_desc));
-	if (!pDriverDesc){
-		printf("failed to allocate GPU host controller shader driver descriptor\r\n");
+	struct gpu_shader_driver_desc* pDriverDesc = (struct gpu_shader_driver_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pDriverDesc, sizeof(struct gpu_shader_driver_desc))!=0){
+		printf("failed to allocate GPU subsystem shader protocol driver descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -130,7 +130,7 @@ KAPI int gpu_shader_driver_register(struct gpu_shader_driver_vtable vtable, stru
 	if (pDriverDesc->vtable.driverInit(driverId)!=0){
 		printf("failed to initialize GPU host controller shader driver\r\n");
 		subsystem_free_entry(gpuShaderDriverSubsystemInfo.pSubsystemDesc, driverId);
-		kfree((void*)pDriverDesc);
+		heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct gpu_shader_driver_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -150,13 +150,13 @@ KAPI int gpu_shader_driver_unregister(uint64_t driverId){
 	if (pDriverDesc->vtable.driverDeinit(driverId)!=0){
 		printf("failed to deinitialize GPU host controller shader driver\r\n");
 		subsystem_free_entry(gpuShaderDriverSubsystemInfo.pSubsystemDesc, driverId);
-		kfree((void*)pDriverDesc);
+		heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct gpu_shader_driver_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (subsystem_free_entry(gpuShaderDriverSubsystemInfo.pSubsystemDesc, driverId)!=0){
 		printf("failed to free GPU host controller shader driver subsystem descriptor entry\r\n");
-		kfree((void*)pDriverDesc);
+		heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct gpu_shader_driver_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -166,7 +166,7 @@ KAPI int gpu_shader_driver_unregister(uint64_t driverId){
 	if (gpuShaderDriverSubsystemInfo.pLastDriverDesc==pDriverDesc){
 		gpuShaderDriverSubsystemInfo.pLastDriverDesc = pDriverDesc->pBlink;
 	}
-	kfree((void*)pDriverDesc);
+	heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct gpu_shader_driver_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -212,8 +212,9 @@ KAPI int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpu
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct gpu_desc* pGpuDesc = (struct gpu_desc*)kmalloc(sizeof(struct gpu_desc));
-	if (!pGpuDesc){
+	struct gpu_desc* pGpuDesc = (struct gpu_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pGpuDesc, sizeof(struct gpu_desc))!=0){
+		printf("failed to allocate GPU subsystem GPU host controller descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -221,7 +222,7 @@ KAPI int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpu
 	uint64_t gpuId = 0;
 	if (subsystem_alloc_entry(gpuSubsystemInfo.pSubsystemDesc, (unsigned char*)pGpuDesc, &gpuId)!=0){
 		printf("failed to allocate subsystem entry for GPU descriptor\r\n");
-		kfree((void*)pGpuDesc);
+		heap_free(0x01, (unsigned char*)pGpuDesc, sizeof(struct gpu_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}	
@@ -229,7 +230,7 @@ KAPI int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpu
 	if (subsystem_init(&pCmdContextSubsystemDesc, GPU_MAX_CMD_CONTEXT_COUNT)!=0){
 		printf("failed to initialize GPU command context subsystem\r\n");
 		subsystem_free_entry(gpuSubsystemInfo.pSubsystemDesc, gpuId);
-		kfree((void*)pGpuDesc);
+		heap_free(0x01, (unsigned char*)pGpuDesc, sizeof(struct gpu_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -237,7 +238,7 @@ KAPI int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpu
 	if (subsystem_init(&pObjectSubsystemDesc, GPU_MAX_OBJECT_COUNT)!=0){
 		printf("failed to initialize GPU object subsystem\r\n");
 		subsystem_free_entry(gpuSubsystemInfo.pSubsystemDesc, gpuId);
-		kfree((void*)pGpuDesc);	
+		heap_free(0x01, (unsigned char*)pGpuDesc, sizeof(struct gpu_desc));
 		subsystem_deinit(pCmdContextSubsystemDesc);
 		mutex_unlock(&mutex);
 		return -1;
@@ -246,7 +247,7 @@ KAPI int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpu
 	if (subsystem_init(&pContextSubsystemDesc, GPU_MAX_CONTEXT_COUNT)!=0){
 		printf("failed to initialize GPU context subsystem\r\n");
 		subsystem_free_entry(gpuSubsystemInfo.pSubsystemDesc, gpuId);
-		kfree((void*)pGpuDesc);
+		heap_free(0x01, (unsigned char*)pGpuDesc, sizeof(struct gpu_desc));
 		subsystem_deinit(pObjectSubsystemDesc);
 		subsystem_deinit(pCmdContextSubsystemDesc);
 		mutex_unlock(&mutex);
@@ -256,7 +257,7 @@ KAPI int gpu_register(uint64_t driverId, struct gpu_info gpuInfo, uint64_t* pGpu
 	if (subsystem_init(&pResourceSubsystemDesc, GPU_MAX_RESOURCE_COUNT)!=0){
 		printf("failed to initialize GPU resource subsystem\r\n");
 		subsystem_free_entry(gpuSubsystemInfo.pSubsystemDesc, gpuId);
-		kfree((void*)pGpuDesc);
+		heap_free(0x01, (unsigned char*)pGpuDesc, sizeof(struct gpu_desc));
 		subsystem_deinit(pObjectSubsystemDesc);
 		subsystem_deinit(pContextSubsystemDesc);
 		subsystem_deinit(pCmdContextSubsystemDesc);
@@ -301,7 +302,7 @@ KAPI int gpu_unregister(uint64_t gpuId){
 		return -1;
 	}
 	if (subsystem_free_entry(gpuSubsystemInfo.pSubsystemDesc, gpuId)!=0){
-		kfree((void*)pGpuDesc);
+		heap_free(0x01, (unsigned char*)pGpuDesc, sizeof(struct gpu_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -319,7 +320,7 @@ KAPI int gpu_unregister(uint64_t gpuId){
 		subsystem_deinit(pGpuDesc->resourceSubsystemInfo.pSubsystemDesc);
 	if (pGpuDesc->resourceBlobSubsystemInfo.pSubsystemDesc)
 		subsystem_deinit(pGpuDesc->resourceBlobSubsystemInfo.pSubsystemDesc);
-	kfree((void*)pGpuDesc);
+	heap_free(0x01, (unsigned char*)pGpuDesc, sizeof(struct gpu_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -352,16 +353,16 @@ KAPI int gpu_monitor_register(uint64_t gpuId, struct gpu_monitor_info monitorInf
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)kmalloc(sizeof(struct gpu_monitor_desc));
-	if (!pMonitorDesc){
+	struct gpu_monitor_desc* pMonitorDesc = (struct gpu_monitor_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pMonitorDesc, sizeof(struct gpu_monitor_desc))!=0){
+		printf("failed to allocate GPU host controller monitor descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	memset((void*)pMonitorDesc, 0, sizeof(struct gpu_monitor_desc));
 	uint64_t monitorId = 0;
 	if (subsystem_alloc_entry(gpuMonitorSubsystemInfo.pSubsystemDesc, (unsigned char*)pMonitorDesc, &monitorId)!=0){
 		printf("failed to allocate subsystem entry for monitor descriptor\r\n");
-		kfree((void*)pMonitorDesc);
+		heap_free(0x01, (unsigned char*)pMonitorDesc, sizeof(struct gpu_monitor_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -389,7 +390,7 @@ KAPI int gpu_monitor_unregister(uint64_t monitorId){
 		return -1;
 	}
 	if (subsystem_free_entry(gpuMonitorSubsystemInfo.pSubsystemDesc, monitorId)!=0){
-		kfree((void*)pMonitorDesc);
+		heap_free(0x01, (unsigned char*)pMonitorDesc, sizeof(struct gpu_monitor_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -397,7 +398,7 @@ KAPI int gpu_monitor_unregister(uint64_t monitorId){
 		gpuMonitorSubsystemInfo.pFirstMonitorDesc = pMonitorDesc->pFlink;
 	if (pMonitorDesc==gpuMonitorSubsystemInfo.pLastMonitorDesc)
 		gpuMonitorSubsystemInfo.pLastMonitorDesc = pMonitorDesc->pBlink;
-	kfree((void*)pMonitorDesc);
+	heap_free(0x01, (unsigned char*)pMonitorDesc, sizeof(struct gpu_monitor_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -437,8 +438,8 @@ int gpu_cmd_context_register(uint64_t gpuId, uint64_t* pCmdContextId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_cmd_context_desc* pCmdContextDesc = (struct gpu_cmd_context_desc*)kmalloc(sizeof(struct gpu_cmd_context_desc));
-	if (!pCmdContextDesc){
+	struct gpu_cmd_context_desc* pCmdContextDesc = (struct gpu_cmd_context_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pCmdContextDesc, sizeof(struct gpu_cmd_context_desc))!=0){
 		printf("failed to allocate GPU host controller command context descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -486,7 +487,7 @@ int gpu_cmd_context_unregister(uint64_t gpuId, uint64_t cmdContextId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	kfree((void*)pCmdContextDesc);
+	heap_free(0x01, (unsigned char*)pCmdContextDesc, sizeof(struct gpu_cmd_context_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -527,8 +528,8 @@ int gpu_object_register(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_object_desc* pObjectDesc = (struct gpu_object_desc*)kmalloc(sizeof(struct gpu_object_desc));
-	if (!pObjectDesc){
+	struct gpu_object_desc* pObjectDesc = (struct gpu_object_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pObjectDesc, sizeof(struct gpu_object_desc))!=0){
 		printf("failed to allocate GPU host controller object descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -537,7 +538,7 @@ int gpu_object_register(uint64_t gpuId, uint64_t objectType, uint64_t* pObjectId
 	uint64_t objectId = 0;
 	if (subsystem_alloc_entry(pGpuDesc->objectSubsystemInfo.pSubsystemDesc, (unsigned char*)pObjectDesc, &objectId)!=0){
 		printf("failed to allocate GPU host controller object subsystem entry\r\n");
-		kfree((void*)pObjectDesc);
+		heap_free(0x01, (unsigned char*)pObjectDesc, sizeof(struct gpu_object_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -566,13 +567,12 @@ int gpu_object_unregister(uint64_t gpuId, uint64_t objectId){
 	struct gpu_object_desc* pObjectDesc = (struct gpu_object_desc*)0x0;
 	if (gpu_object_get_desc(gpuId, objectId, &pObjectDesc)!=0){
 		printf("failed to get GPU host controller object descriptor\r\n");
-		kfree((void*)pObjectDesc);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (subsystem_free_entry(pGpuDesc->objectSubsystemInfo.pSubsystemDesc, objectId)!=0){
 		printf("failed to free GPU host controller object subsystem entry\r\n");
-		kfree((void*)pObjectDesc);
+		heap_free(0x01, (unsigned char*)pObjectDesc, sizeof(struct gpu_object_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -580,7 +580,7 @@ int gpu_object_unregister(uint64_t gpuId, uint64_t objectId){
 		pObjectDesc->pBlink->pFlink = pObjectDesc->pFlink;
 	if (pObjectDesc->pFlink)
 		pObjectDesc->pFlink->pBlink = pObjectDesc->pBlink;
-	kfree((void*)pObjectDesc);
+	heap_free(0x01, (unsigned char*)pObjectDesc, sizeof(struct gpu_object_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -621,8 +621,8 @@ int gpu_context_register(uint64_t gpuId, uint64_t* pContextId){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_context_desc* pContextDesc = (struct gpu_context_desc*)kmalloc(sizeof(struct gpu_context_desc));
-	if (!pContextDesc){
+	struct gpu_context_desc* pContextDesc = (struct gpu_context_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pContextDesc, sizeof(struct gpu_context_desc))!=0){
 		printf("failed to allocate GPU host controller context descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -664,7 +664,7 @@ int gpu_context_unregister(uint64_t gpuId, uint64_t contextId){
 	}
 	if (subsystem_free_entry(pGpuDesc->contextSubsystemInfo.pSubsystemDesc, contextId)!=0){
 		printf("failed to free GPU host controller context subsystem entry\r\n");
-		kfree((void*)pContextDesc);
+		heap_free(0x01, (unsigned char*)pContextDesc, sizeof(struct gpu_context_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -680,7 +680,6 @@ int gpu_context_unregister(uint64_t gpuId, uint64_t contextId){
 	if (pContextDesc==pGpuDesc->contextSubsystemInfo.pLastContextDesc){
 		pGpuDesc->contextSubsystemInfo.pLastContextDesc = pContextDesc->pBlink;
 	}
-	kfree((void*)pContextDesc);
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -905,16 +904,17 @@ int gpu_resource_register(uint64_t gpuId, struct gpu_resource_info resourceInfo,
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct gpu_resource_desc* pResourceDesc = (struct gpu_resource_desc*)kmalloc(sizeof(struct gpu_resource_desc));
-	if (!pResourceDesc){
+	struct gpu_resource_desc* pResourceDesc = (struct gpu_resource_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pResourceDesc, sizeof(struct gpu_resource_desc))!=0){
+		printf("failed to allocate GPU host controller resource descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	memset((void*)pResourceDesc, 0, sizeof(struct gpu_resource_desc));
 	pResourceDesc->gpuId = gpuId;
 	pResourceDesc->resourceInfo = resourceInfo;
-	uint64_t resourceId = 0;
+	uint64_t resourceId = 0x00;
 	if (subsystem_alloc_entry(pGpuDesc->resourceSubsystemInfo.pSubsystemDesc, (unsigned char*)pResourceDesc, &resourceId)!=0){
+		heap_free(0x01, (unsigned char*)pResourceDesc, sizeof(struct gpu_resource_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -946,7 +946,7 @@ int gpu_resource_unregister(uint64_t gpuId, uint64_t resourceId){
 		return -1;
 	}
 	if (subsystem_free_entry(pGpuDesc->resourceSubsystemInfo.pSubsystemDesc, resourceId)!=0){
-		kfree((void*)pResourceDesc);
+		heap_free(0x01, (unsigned char*)pResourceDesc, sizeof(struct gpu_resource_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -960,7 +960,7 @@ int gpu_resource_unregister(uint64_t gpuId, uint64_t resourceId){
 	if (pResourceDesc==pGpuDesc->resourceSubsystemInfo.pLastResourceDesc){
 		pGpuDesc->resourceSubsystemInfo.pLastResourceDesc = pResourceDesc->pBlink;
 	}
-	kfree((void*)pResourceDesc);
+	heap_free(0x01, (unsigned char*)pResourceDesc, sizeof(struct gpu_resource_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }

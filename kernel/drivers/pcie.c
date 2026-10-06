@@ -15,7 +15,7 @@ int pcie_init(void){
 	}
 	uint64_t virtualSpace = pcie_info.pBase_phys;
 	uint64_t mmioBasePages = 16;
-	if (virtualMapPages(pcie_info.pBase_phys, virtualSpace, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, mmioBasePages, 1, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualMapPages(pcie_info.pBase_phys, virtualSpace, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, mmioBasePages, 0x01, 0x00)!=0){
 		printf("failed to map PCIE controller registers\r\n");
 		return -1;
 	}
@@ -50,7 +50,7 @@ int pcie_get_ecam_base(struct pcie_location location, uint64_t* pBase){
 	uint64_t ecam_offset = (bus<<20)+(dev<<15)+(func<<12);
 	uint64_t base_phys = pcie_info.pBase_phys+ecam_offset;
 	uint64_t base_virtual = pcie_info.pBase+ecam_offset;
-	if (virtualMapPages(base_phys, base_virtual, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 32, 1, 0, PAGE_TYPE_MMIO)!=0)
+	if (virtualMapPages(base_phys, base_virtual, PTE_RW|PTE_PCD|PTE_PWT|PTE_NX, 32, 0x01, 0x00)!=0)
 		return -1;
 	*pBase = base_virtual;
 	return 0;
@@ -447,8 +447,8 @@ int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix
 	oldStatus = msgControl.msix_enable;
 	msgControl.msix_enable = 0;
 	*pMsgControl = msgControl;
-	if (virtualMapPage((uint64_t)pEntry, (uint64_t)pEntry, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0){
-		pMsgControl->msix_enable = oldStatus;
+	if (virtualMapPage((uint64_t)pEntry, (uint64_t)pEntry, PTE_RW|PTE_NX, 0x01, 0x00)!=0){
+		printf("failed to map MSI-X protocol specification MSI-X table entry descriptor physical page\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -503,7 +503,7 @@ int pcie_msix_enable_entry(struct pcie_location location, volatile struct pcie_m
 	volatile struct pcie_msix_table_entry* pMsixEntry = (volatile struct pcie_msix_table_entry*)0x0;
 	if (pcie_get_msix_entry(location, &pMsixEntry, pMsgControl, msix_vector)!=0)
 		return -1;
-	if (virtualMapPage((uint64_t)pMsixEntry, (uint64_t)pMsixEntry, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0)
+	if (virtualMapPage((uint64_t)pMsixEntry, (uint64_t)pMsixEntry, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x01, 0x00)!=0)
 		return -1;
 	union pcie_msix_table_entry_vector_ctrl vectorCtrl = {0};
 	vectorCtrl.raw = 0;

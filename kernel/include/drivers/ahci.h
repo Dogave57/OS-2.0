@@ -136,7 +136,7 @@ struct ahci_drive_info{
 struct ahci_cmd_list_desc{
 	volatile struct ahci_cmd_hdr* pCmdList;
 	volatile struct ahci_cmd_table* pCmdTableList;
-	uint64_t cmdTableListPages;
+	uint64_t cmdTableListSize;
 	uint64_t currentEntry;
 	uint64_t pCmdList_pa;
 	uint64_t pCmdTableList_pa;

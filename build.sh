@@ -127,6 +127,7 @@ sudo cp build/build/kernel.elf efimnt/KERNEL/KERNEL.ELF
 sudo cp build/build/kexts/test.elf efimnt/KEXTS/TEST.ELF
 sudo cp esp_fs/FONTS/* efimnt/FONTS/
 sudo ls -R efimnt
+sudo lsblk
 sudo losetup -d /dev/loop0
 sudo umount -r efimnt
 sudo rm -rf efimnt

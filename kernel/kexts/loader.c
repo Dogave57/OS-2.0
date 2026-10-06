@@ -22,8 +22,10 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 		return -1;
 	uint64_t time_us = get_time_us();
 	struct elf_handle* pHandle = (struct elf_handle*)0x0;
-	if (elf_load(mount_id, filename, &pHandle)!=0)
+	if (elf_load(mount_id, filename, &pHandle)!=0){
+		printf("failed to load ELF protocol specification kernel extension\r\n");
 		return -1;
+	}
 	printf("took %dus to load elf\r\n", get_time_us()-time_us);
 	uint64_t pid = 0;
 	if (kext_register(pHandle, &pid)!=0){
@@ -31,17 +33,17 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 		elf_unload(pHandle);
 		return -1;
 	}
-	struct kext_desc_t* pKextDesc = (struct kext_desc_t*)kmalloc(sizeof(struct kext_desc_t));
-	if (!pKextDesc){
+	struct kext_desc_t* pKextDesc = (struct kext_desc_t*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pKextDesc, sizeof(struct kext_desc_t))!=0){
 		printf("failed to allocate kext descriptor\r\n");
 		elf_unload(pHandle);
 		return -1;
 	}
-	struct kext_bootstrap_args_t* pArgs = (struct kext_bootstrap_args_t*)kmalloc(sizeof(struct kext_bootstrap_args_t));
-	if (!pArgs){
-		printf("failed to allocate bootstrap arguments\r\n");
+	struct kext_bootstrap_args_t* pArgs = (struct kext_bootstrap_args_t*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pArgs, sizeof(struct kext_bootstrap_args_t))!=0){
+		printf("failed to allocate kext bootstrap arguments descriptor\r\n");
+		heap_free(0x01, (unsigned char*)pKextDesc, sizeof(struct kext_desc_t));
 		elf_unload(pHandle);
-		kfree((void*)pKextDesc);
 		return -1;
 	}
 	memset((void*)pArgs, 0, sizeof(struct kext_bootstrap_args_t));
@@ -54,17 +56,17 @@ int kext_load(uint64_t mount_id, unsigned char* filename, uint64_t* pPid){
 	if (elf_get_entry(pHandle, (uint64_t*)&pKextEntry)!=0){
 		printf("failed to get ELF binary entry\r\n");
 		elf_unload(pHandle);
-		kfree((void*)pKextDesc);
+		heap_free(0x01, (unsigned char*)pKextDesc, sizeof(struct kext_desc_t));
 		return -1;
 	}
 	if (thread_create((uint64_t)kext_bootstrap, 0, 0, &tid, (uint64_t)pArgs)!=0){
 		printf("failed to create thread\r\n");
-		kfree((void*)pArgs);
+		heap_free(0x01, (unsigned char*)pArgs, sizeof(struct kext_bootstrap_args_t));
 		elf_unload(pHandle);
 		return -1;
 	}
 	while (!thread_exists(tid)){}
-	kfree((void*)pArgs);
+	heap_free(0x01, (unsigned char*)pArgs, sizeof(struct kext_bootstrap_args_t));
 	if (kext_unregister(pid)!=0){
 		printf("failed to unregister kext\r\n");
 		elf_unload(pHandle);
@@ -88,12 +90,14 @@ int kext_register(struct elf_handle* pElfHandle, uint64_t* pPid){
 	if (!pElfHandle||!pPid)
 		return -1;
 	uint64_t pid = 0;
-	struct kext_desc_t* pKextDesc = (struct kext_desc_t*)kmalloc(sizeof(struct kext_desc_t));
-	if (!pKextDesc)
+	struct kext_desc_t* pKextDesc = (struct kext_desc_t*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pKextDesc, sizeof(struct kext_desc_t))!=0){
+		printf("failed to allocate kext descriptor\r\n");
 		return -1;
+	}
 	memset((void*)pKextDesc, 0, sizeof(struct kext_desc_t));
 	if (subsystem_alloc_entry(pSubsystemDesc, (unsigned char*)pKextDesc, &pid)!=0){
-		kfree((void*)pKextDesc);
+		heap_free(0x01, (unsigned char*)pKextDesc, sizeof(struct kext_desc_t));
 		return -1;
 	}
 	pKextDesc->pElfHandle = pElfHandle;

@@ -53,7 +53,7 @@ int dma_device_register(struct pcie_location location){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (virtualMapPage((uint64_t)pBaseRegisters_phys, (uint64_t)pBaseRegisters, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualMapPage((uint64_t)pBaseRegisters_phys, (uint64_t)pBaseRegisters, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 1, 0)!=0){
 		printf("failed to map custom bulk DMA host controller BAR0 physical page\r\n");
 		mutex_unlock(&mutex);
 		return -1;

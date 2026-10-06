@@ -25,34 +25,47 @@ int fluxfs_init(void){
 int fluxfs_mount(uint64_t drive_id, uint64_t partition_id, struct fluxfs_mount** ppMount){
 	if (!ppMount)
 		return -1;
-	struct fluxfs_mount* pMount = (struct fluxfs_mount*)kmalloc(sizeof(struct fluxfs_mount));
-	if (!pMount)
+	struct fluxfs_mount* pMount = (struct fluxfs_mount*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pMount, sizeof(struct fluxfs_mount))!=0){
+		printf("failed to allocate FluxFS filesystem protocol specification driver mount descriptor\r\n");
 		return -1;
-	memset((void*)pMount, 0, sizeof(struct fluxfs_mount));
+	}
 	pMount->drive_id = drive_id;
 	pMount->partition_id = partition_id;
 	if (fluxfs_verify(pMount)!=0){
-		kfree((void*)pMount);
+		printf("unexpected FluxFS filesystem protocol specification non-volatile memory\r\n");
+		heap_free(0x01, (unsigned char*)pMount, sizeof(struct fluxfs_mount));
 		return -1;
 	}
 	pMount->cacheInfo.cachedSectors = 16;
 	pMount->cacheInfo.lastCachedSectorGroup = 0xFFFFFFFFFFFFFFFF;
-	unsigned char* pSectorCache = (unsigned char*)kmalloc(pMount->cacheInfo.cachedSectors*DRIVE_SECTOR_SIZE);
+	unsigned char* pSectorCache = (unsigned char*)0x00;
+	uint64_t sectorCacheSize = DRIVE_SECTOR_SIZE*pMount->cacheInfo.cachedSectors;
+	if (virtualAlloc((uint64_t*)&pSectorCache, sectorCacheSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate FluxFS filesystem protocol specification sector cache physical pages\r\n");
+		heap_free(0x01, (unsigned char*)pMount, sizeof(struct fluxfs_mount));
+		return -1;
+	}
 	if (!pSectorCache){
-		kfree((void*)pMount);
+		heap_free(0x01, (unsigned char*)pMount, sizeof(struct fluxfs_mount));
 		return -1;
 	}
 	pMount->pSectorCache = pSectorCache;
+	pMount->sectorCacheSize = sectorCacheSize;
 	*ppMount = pMount;
 	return 0;
 }
 int fluxfs_unmount(struct fluxfs_mount* pMount){
 	if (!pMount)
 		return -1;
-	if (kfree((void*)pMount->pSectorCache)!=0)
+	if (virtualFree((uint64_t)pMount->pSectorCache, pMount->sectorCacheSize)!=0){
+		printf("failed to free FluxFS filesystem protocol specification sector cache physical pages\r\n");
 		return -1;
-	if (kfree((void*)pMount)!=0)
+	}
+	if (heap_free(0x01, (unsigned char*)pMount, sizeof(struct fluxfs_mount))!=0){
+		printf("failed to free FluxFS filesystem protocol specification mount descriptor\r\n");
 		return -1;
+	}
 	return 0;
 }
 int fluxfs_open(struct fluxfs_mount* pMount, unsigned char* filename, struct fluxfs_file_handle** ppFileHandle){
@@ -64,8 +77,10 @@ int fluxfs_open(struct fluxfs_mount* pMount, unsigned char* filename, struct flu
 int fluxfs_close(struct fluxfs_file_handle* pFileHandle){
 	if (!pFileHandle)
 		return -1;
-	if (kfree((void*)pFileHandle)!=0)
+	if (heap_free(0x01, (unsigned char*)pFileHandle, sizeof(struct fluxfs_file_handle))!=0){
+		printf("failed to free FluxFS filesystem protocol specification file descriptor\r\n");
 		return -1;
+	}
 	return 0;
 }
 int fluxfs_create(struct fluxfs_mount* pMount, unsigned char* filename, uint64_t fileAttribs){
@@ -86,10 +101,10 @@ int fluxfs_create(struct fluxfs_mount* pMount, unsigned char* filename, uint64_t
 			return -1;
 	}	
 	for (uint64_t i = 0;i<10;i++){
-		uint64_t newCluster = 0;
-		if (fluxfs_allocate_cluster(pMount, &newCluster)!=0)
+		uint64_t clusterId = 0x00;
+		if (fluxfs_allocate_cluster(pMount, &clusterId)!=0)
 			return -1;
-		printf("new cluster: %d\r\n", newCluster);
+		printf("cluster identifier: %d\r\n", clusterId);
 	}
 	return 0;
 }
@@ -301,7 +316,7 @@ int fluxfs_format(uint64_t drive_id, uint64_t partition_id){
 	uint64_t sectorsCached = MEM_MB/DRIVE_SECTOR_SIZE;
 	uint64_t sectorCacheSize = DRIVE_SECTOR_SIZE*sectorsCached;
 	unsigned char* pSectorData = (unsigned char*)0x0;
-	if (virtualAlloc((uint64_t*)&pSectorData, sectorCacheSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0)
+	if (virtualAlloc((uint64_t*)&pSectorData, sectorCacheSize, PTE_RW|PTE_NX, 0x00)!=0)
 		return -1;
 	sectorGroupCached = 0xFFFFFFFFFFFFFFFF;	
 	for (uint64_t i = 1;i<partitionClusters;i++){

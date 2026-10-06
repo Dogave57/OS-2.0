@@ -346,12 +346,11 @@ struct ttf_contour_entry_desc{
 	uint64_t reserved0;
 }__attribute__((packed));
 struct ttf_segment_entry_desc{
-	uint16_t activePixelCount;
-	uint16_t firstActivePixelOffset;
-	uint16_t lastActivePixelOffset;
-	uint16_t cornerPixelList[4];
-	uint16_t reserved0;
-}__attribute__((packed));
+	uint32_t activePixelCount;
+	uint32_t firstActivePixelOffset;
+	uint32_t lastActivePixelOffset;
+	uint32_t reserved0;
+};
 struct ttf_point_entry_desc{
 	struct fvec2_64 position;
 	struct ttf_glyf_point_flags flags;
@@ -362,7 +361,7 @@ struct ttf_pixel_entry_desc{
 	int16_t windingDelta;
 	uint16_t nextActivePixelOffset;
 	uint16_t reserved0;
-}__attribute__((packed));
+};
 struct ttf_bytecode_execution_info{
 	uint8_t readOnly;
 	struct ttf_point_entry_desc* pPointDescList;
@@ -390,7 +389,7 @@ struct ttf_bytecode_context_desc{
 	uint64_t returnStackSize;
 	struct ttf_bytecode_function_desc* pFunctionDescList;
 	uint64_t functionDescListSize;
-	uint8_t* pBytecode;
+	uint8_t* pBytecode; 
 	uint64_t bytecodeLength;
 	struct ttf_bytecode_execution_state executionState;
 };
@@ -434,10 +433,10 @@ int ttf_glyph_get_id_fmt_4(struct ttf_font_desc* pFontDesc, struct ttf_subtable_
 int ttf_glyph_get_id(struct ttf_font_desc* pFontDesc, uint16_t platformId, uint16_t encodingId, uint32_t characterCode, uint32_t* pGlyphId);
 int ttf_glyph_get_glyf_table(struct ttf_font_desc* pFontDesc, uint32_t glyphId, unsigned char** ppGlyfTableBase, uint32_t* pGlyfTableLength);
 int ttf_glyf_point_get_vector(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint64_t pointFlagsIndex, struct uvec2_32 vectorIndexList, struct uvec2_32* pVector, struct uvec2_32* pNewVectorIndexList);
-int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, uint32_t glyphId, uint8_t* pTextureBuffer, struct uvec2_32 textureBufferRect, uint8_t spread);
+int ttf_glyf_tesselate(struct ttf_font_desc* pFontDesc, struct text_subsystem_glyph_info* pSubsystemGlyphInfo);
 int ttf_font_load(unsigned char* pFontBuffer, uint64_t fontBufferSize, struct text_subsystem_font_desc* pSubsystemFontDesc);
 int ttf_font_unload(struct text_subsystem_font_desc* pSubsystemFontDesc);
 int ttf_font_verify(unsigned char* pFontBuffer, uint64_t fontBufferSize);
 int ttf_font_glyph_get_id(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId);
-int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, int8_t* pTextureBuffer, struct uvec2_32 textureBufferRect, uint8_t spread);
+int ttf_font_glyph_tesselate(struct text_subsystem_font_desc* pSubsystemFontDecs, struct text_subsystem_glyph_info* pSubsystemGlyphInfo);
 #endif

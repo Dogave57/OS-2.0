@@ -81,39 +81,41 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 	unsigned char* pLastStackGuard = (unsigned char*)0x0;
 	uint64_t stackGuardSize = MEM_MB;
 	uint64_t stackSize = (stackGuardSize*2)+stackReserve;
-	if (virtualAlloc((uint64_t*)&pStack, stackSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
+	if (virtualAlloc((uint64_t*)&pStack, stackSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY)!=0){
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	pLastStackGuard = pStack+stackGuardSize+stackReserve;
-	if (virtualMapPages((uint64_t)0x0, (uint64_t)pStack, 0, align_up(stackGuardSize, PAGE_SIZE)/PAGE_SIZE, 1, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualMapPages((uint64_t)0x0, (uint64_t)pStack, 0, align_up(stackGuardSize, PAGE_SIZE)/PAGE_SIZE, 0x01, 0x00)!=0){
 		virtualFree((uint64_t)pStack, stackSize);
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	if (virtualMapPages((uint64_t)0x0, (uint64_t)pLastStackGuard, 0, align_up(stackGuardSize, PAGE_SIZE)/PAGE_SIZE, 1, 0, PAGE_TYPE_NORMAL)!=0){
+	if (virtualMapPages((uint64_t)0x0, (uint64_t)pLastStackGuard, 0, align_up(stackGuardSize, PAGE_SIZE)/PAGE_SIZE, 0x01, 0x00)!=0){
 		virtualFree((uint64_t)pStack, stackSize);
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	pStack+=stackGuardSize;
 	for (uint64_t i = 0;i<stackCommitPages;i++){
-		uint64_t pa = 0;
+		uint64_t pa = 0x00;
 		uint64_t va = ((uint64_t)pStack)+stackReserve-(i*PAGE_SIZE);
-		if (physicalAllocPage(&pa, PAGE_TYPE_NORMAL)!=0){
+		if (physicalAlloc(&pa, PAGE_SIZE)!=0){
+			printf("failed to allocate thread stack volatile physical page\r\n");
 			virtualFree((uint64_t)pStack, stackSize);
 			mutex_unlock(&mutex);
 			return -1;
 		}
-		if (virtualMapPage(pa, va, PTE_RW|PTE_NX, 1, 0, PAGE_TYPE_NORMAL)!=0){
+		if (virtualMapPage(pa, va, PTE_RW|PTE_NX, 0x01, 0x00)!=0){
 			virtualFree((uint64_t)pStack, stackSize);
-			physicalFreePage(pa);
+			physicalFree((uint64_t)pa, PAGE_SIZE);
 			mutex_unlock(&mutex);
 			return -1;
 		}
 	}
-	struct thread_t* pThread = (struct thread_t*)kmalloc(sizeof(struct thread_t));
-	if (!pThread){
+	struct thread_t* pThread = (struct thread_t*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pThread, sizeof(struct thread_t))!=0){
+		printf("failed to allocate thread descriptor\r\n");
 		virtualFree((uint64_t)pStack, stackSize);
 		mutex_unlock(&mutex);
 		return -1;
@@ -129,7 +131,7 @@ KAPI int thread_create(uint64_t rip, uint64_t stackCommit, uint64_t stackReserve
 	struct thread_context_t* pContext = &pThread->context;
 	uint64_t tid = 0;
 	if (thread_register(pThread, &tid)!=0){
-		kfree((void*)pThread);
+		heap_free(0x01, (unsigned char*)pThread, sizeof(struct thread_t));
 		virtualFree((uint64_t)pStack, stackSize);
 		mutex_unlock(&mutex);
 		return -1;
@@ -180,19 +182,19 @@ KAPI int thread_destroy(uint64_t tid){
 	unsigned char* pRealStack = (unsigned char*)(pThread->pStack+pThread->stackGuardSize);
 	uint64_t stackGuardPages = align_up(pThread->stackGuardSize, PAGE_SIZE)/PAGE_SIZE;
 	if (virtualFree((uint64_t)pRealStack, pThread->stackReserve)!=0){
-		kfree((void*)pThread);
+		heap_free(0x01, (unsigned char*)pThread, sizeof(struct thread_t));
 		mutex_unlock(&mutex);
 		__asm__ volatile("sti");
 		return -1;
 	}
 	if (virtualUnmapPages(pThread->pStack, stackGuardPages, 0)!=0){
-		kfree((void*)pThread);
+		heap_free(0x01, (unsigned char*)pThread, sizeof(struct thread_t));
 		mutex_unlock(&mutex);
 		__asm__ volatile("sti");
 		return -1;
 	}
 	if (virtualUnmapPages((uint64_t)pLastStackGuard, stackGuardPages, 0)!=0){
-		kfree((void*)pThread);
+		heap_free(0x01, (unsigned char*)pThread, sizeof(struct thread_t));
 		mutex_unlock(&mutex);
 		__asm__ volatile("sti");
 		return -1;
@@ -202,7 +204,7 @@ KAPI int thread_destroy(uint64_t tid){
 		__asm__ volatile("sti");
 		return -1;
 	}
-	kfree((void*)pThread);
+	heap_free(0x01, (unsigned char*)pThread, sizeof(struct thread_t));
 	if (tid==current_tid){
 		while (1){
 			thread_yield();

@@ -21,8 +21,9 @@ int usb_driver_register(struct usb_driver_vtable vtable, uint8_t interfaceClass,
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock_isr_safe(&mutex);
-	struct usb_driver_desc* pDriverDesc = (struct usb_driver_desc*)kmalloc(sizeof(struct usb_driver_desc));
-	if (!pDriverDesc){
+	struct usb_driver_desc* pDriverDesc = (struct usb_driver_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pDriverDesc, sizeof(struct usb_driver_desc))!=0){
+		printf("failed to allocate USB host controller device driver descriptor\r\n");
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
@@ -38,18 +39,18 @@ int usb_driver_register(struct usb_driver_vtable vtable, uint8_t interfaceClass,
 	}
 	pDriverDesc->pBlink = pLastDriverDesc;
 	pLastDriverDesc = pDriverDesc;
-	uint64_t driverId = 0;
+	uint64_t driverId = 0x00;
 	if (subsystem_alloc_entry(pDriverSubsystemDesc, (unsigned char*)pDriverDesc, &driverId)!=0){
-		printf("failed to allocate subsystem entry\r\n");
-		kfree((void*)pDriverDesc);
+		printf("failed to allocate USB host controller device protocol driver subsystem QWORD entry\r\n");
+		heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct usb_driver_desc));
 		mutex_unlock_isr_safe(&mutex);
-		return -1;
+		return -1;	
 	}
 	pDriverDesc->driverId = driverId;
 	struct xhci_info xhciInfo = {0};
 	if (xhci_get_info(&xhciInfo)!=0){
 		printf("failed to get XHC info\r\n");
-		kfree((void*)pDriverDesc);
+		heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct usb_driver_desc));
 		subsystem_free_entry(pDriverSubsystemDesc, driverId);
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
@@ -97,7 +98,7 @@ int usb_driver_unregister(uint64_t driverId){
 		pFirstDriverDesc = pDriverDesc->pFlink;
 	if (pDriverDesc==pLastDriverDesc)
 		pLastDriverDesc = pDriverDesc->pBlink;
-	kfree((void*)pDriverDesc);
+	heap_free(0x01, (unsigned char*)pDriverDesc, sizeof(struct usb_driver_desc));
 	if (subsystem_free_entry(pDriverSubsystemDesc, driverId)!=0){
 		printf("failed to free entry\r\n");
 		mutex_unlock(&mutex);

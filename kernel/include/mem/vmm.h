@@ -15,7 +15,7 @@
 #define PTE_NX (1ull<<63)
 #define PTE_LAZY (1ull<<9)
 #define PTE_ADDR_MASK ((uint64_t)0x000FFFFFFFFFF000)
-#define PTE_GET_ADDR(entry)(((uint64_t)entry)&PTE_ADDR_MASK)
+#define PTE_GET_ADDRESS(entry)(((uint64_t)entry)&PTE_ADDR_MASK)
 #define PTE_GET_FLAGS(entry)(((uint64_t)entry)&~PTE_ADDR_MASK)
 #define PTE_GET_PAT(entry)(((uint64_t)entry)&PTE_PAT)
 #define PTE_IS_PRESENT(entry)((((uint64_t)entry)&PTE_PRESENT))
@@ -35,27 +35,31 @@
 #define VMM_RANGE_BASE ((uint64_t)0xffff800000000000)
 #define VMM_IDENTITY_MAP_BASE ((uint64_t)0xffff800000000000)
 #define MAP_FLAG_LAZY (1<<0)
+struct vmm_info{
+	uint64_t* pml4List;
+	uint64_t pNextVirtualPage;
+};
 int vmm_init(void);
-int vmm_getPageTableEntry(uint64_t va, uint64_t** ppEntry);
-int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t index);
-KAPI int virtualMapPage(uint64_t pa, uint64_t va, uint64_t flags, unsigned int shared, uint64_t map_flags, uint32_t pageType);
-KAPI int virtualMapPages(uint64_t pa, uint64_t va, uint64_t flags, uint64_t page_cnt, unsigned int shared, uint64_t map_flags, uint32_t pageType);
-KAPI int virtualUnmapPage(uint64_t va, uint64_t map_flags);
-KAPI int virtualUnmapPages(uint64_t va, uint64_t page_cnt, uint64_t map_flags);
-KAPI int virtualToPhysical(uint64_t va, uint64_t* pPa);
-KAPI int virtualAllocPage(uint64_t* pVa, uint64_t flags, uint64_t map_flags, uint32_t pageType);
-KAPI int virtualFreePage(uint64_t va, uint64_t map_flags);
-KAPI int virtualAllocPages(uint64_t* pVa, uint64_t page_cnt, uint64_t flags, uint64_t map_flags, uint32_t pageType);
-KAPI int virtualFreePages(uint64_t va, uint64_t pagecnt);
-KAPI int virtualAlloc(uint64_t* pva, uint64_t size, uint64_t flags, uint64_t map_flags, uint32_t pageType);
-KAPI int virtualFree(uint64_t va, uint64_t size);
-KAPI int virtualProtectPage(uint64_t va, uint64_t prot);
-KAPI int virtualProtectPages(uint64_t va, uint64_t pageCount, uint64_t prot);
-KAPI int virtualGetPageFlags(uint64_t va, uint64_t* pFlags);
-KAPI int virtualGetSpace(uint64_t* pVa, uint64_t pageCount);
+int vmm_getPageTableEntry(uint64_t virtualAddress, uint64_t** ppEntry);
+int vmm_getNextLevel(uint64_t* pCurrentLevel, uint64_t** ppNextLevel, uint64_t nextLevelIndex);
+KAPI int virtualMapPage(uint64_t physicalAddress, uint64_t virtualAddress, uint64_t flags, uint8_t shared, uint64_t mapFlags);
+KAPI int virtualMapPages(uint64_t physicalAddress, uint64_t virtualAddress, uint64_t flags, uint64_t pageCount, uint8_t shared, uint64_t mapFlags);
+KAPI int virtualUnmapPage(uint64_t virtualAddress, uint64_t mapFlags);
+KAPI int virtualUnmapPages(uint64_t virtualAddress, uint64_t pageCount, uint64_t mapFlags);
+KAPI int virtualToPhysical(uint64_t virtualAddress, uint64_t* pPhysicalAddress);
+KAPI int virtualAllocPage(uint64_t* pVirtualAddress, uint64_t flags, uint64_t mapFlags);
+KAPI int virtualFreePage(uint64_t virtualAddress, uint64_t mapFlags);
+KAPI int virtualAllocPages(uint64_t* pVirtualAddress, uint64_t pageCount, uint64_t flags, uint64_t mapFlags);
+KAPI int virtualFreePages(uint64_t virtaulAddress, uint64_t pageCount);
+KAPI int virtualAlloc(uint64_t* pVirtualAddress, uint64_t dataSize, uint64_t flags, uint64_t mapFlags);
+KAPI int virtualFree(uint64_t virtualAddress, uint64_t dataSize);
+KAPI int virtualProtectPage(uint64_t pPageData, uint64_t protectionFlag);
+KAPI int virtualProtectPages(uint64_t pPageData, uint64_t pageCount, uint64_t protectionFlag);
+KAPI int virtualGetPageFlags(uint64_t pPageData, uint64_t* pFlags);
+KAPI int virtualGetSpace(uint64_t* ppPageData, uint64_t pageDataSize);
 KAPI int pt_loaded(void);
-uint64_t get_pt(void);
-int load_pt(uint64_t pml4);
+uint64_t get_pml4(void);
+int load_pml4(uint64_t pml4);
 int flush_tlb(uint64_t va);
 int flush_full_tlb(void);
 #endif

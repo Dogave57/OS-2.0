@@ -39,13 +39,16 @@ int nvme_driver_init(void){
 		nvme_driver_deinit_isr_mapping_table();
 		return -1;
 	}
+	printf("NVMe protocol specification driver PCIe subsystem identifier: %d\r\n", driverInfo.pcieDriverId);
 	return 0;
 }
 int nvme_driver_init_isr_mapping_table(void){
 	struct nvme_isr_mapping_table_entry* pMappingTable = (struct nvme_isr_mapping_table_entry*)0x0;
 	uint64_t mappingTableSize = sizeof(struct nvme_isr_mapping_table_entry)*IDT_MAX_ENTRIES;
-	if (virtualAlloc((uint64_t*)&pMappingTable, mappingTableSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0)
+	if (virtualAlloc((uint64_t*)&pMappingTable, mappingTableSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate NVMe protocol specification ISR vector mapping table descriptor list physical pages\r\n");
 		return -1;
+	}
 	driverInfo.pIsrMappingTable = pMappingTable;
 	driverInfo.isrMappingTableSize = mappingTableSize;
 	return 0;
@@ -131,11 +134,12 @@ int nvme_alloc_completion_queue(struct nvme_drive_desc* pDriveDesc, uint64_t max
 		maxEntryCount = NVME_DEFAULT_CQE_COUNT;
 	uint64_t completionQueueSize = maxEntryCount*sizeof(struct nvme_completion_qe);
 	struct nvme_completion_qe* pCompletionQueue = (struct nvme_completion_qe*)0x0;
-	uint64_t pCompletionQueue_phys = 0;
-	if (virtualAlloc((uint64_t*)&pCompletionQueue, completionQueueSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+	uint64_t pCompletionQueue_phys = 0x00;
+	if (virtualAlloc((uint64_t*)&pCompletionQueue, completionQueueSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x00)!=0){
+		printf("failed to allocate NVMe protocol specification completion queue entry descriptor list physical pages\r\n");
 		mutex_unlock(&mutex);
 		return -1;
-	}	
+	}
 	if (virtualToPhysical((uint64_t)pCompletionQueue, &pCompletionQueue_phys)!=0){
 		virtualFree((uint64_t)pCompletionQueue, completionQueueSize);
 		mutex_unlock(&mutex);
@@ -369,7 +373,7 @@ int nvme_alloc_submission_queue(struct nvme_drive_desc* pDriveDesc, uint64_t max
 	uint64_t submissionQueueSize = maxEntryCount*sizeof(struct nvme_submission_qe);
 	volatile struct nvme_submission_qe* pSubmissionQueue = (volatile struct nvme_submission_qe*)0x0;
 	uint64_t pSubmissionQueue_phys = 0;
-	if (virtualAlloc((uint64_t*)&pSubmissionQueue, submissionQueueSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualAlloc((uint64_t*)&pSubmissionQueue, submissionQueueSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x00)!=0){
 		printf("failed to allocate submission queue\r\n");
 		mutex_unlock(&mutex);
 		return -1;
@@ -383,7 +387,7 @@ int nvme_alloc_submission_queue(struct nvme_drive_desc* pDriveDesc, uint64_t max
 	memset((void*)pSubmissionQueue, 0, submissionQueueSize);
 	struct nvme_submission_qe_desc** ppSubmissionQeDescList = (struct nvme_submission_qe_desc**)0x0;
 	uint64_t submissionQueueDescListSize = sizeof(struct nvme_submission_qe_desc*)*maxEntryCount;
-	if (virtualAlloc((uint64_t*)&ppSubmissionQeDescList, submissionQueueDescListSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
+	if (virtualAlloc((uint64_t*)&ppSubmissionQeDescList, submissionQueueDescListSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x00)!=0){
 		printf("failed to allocate submission queue desc list\r\n");
 		virtualFree((uint64_t)pSubmissionQueue, submissionQueueSize);
 		mutex_unlock(&mutex);
@@ -677,7 +681,7 @@ int nvme_read(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint64_t
 	uint64_t* pPageList = (uint64_t*)0x0;
 	uint64_t pPageList_phys = 0;
 	if (sectorCount>sectorCountPerPage){
-		if (virtualAllocPage((uint64_t*)&pPageList, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
+		if (virtualAllocPage((uint64_t*)&pPageList, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x00)!=0){
 			printf("failed to allocate page for page list\r\n");
 			return -1;
 		}	
@@ -757,7 +761,7 @@ int nvme_write(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint64_
 	uint64_t* pPageList = (uint64_t*)0x0;
 	uint64_t pPageList_phys = 0;
 	if (sectorCount>sectorCountPerPage){
-		if (virtualAllocPage((uint64_t*)&pPageList, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
+		if (virtualAllocPage((uint64_t*)&pPageList, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x00)!=0){
 			printf("failed to allocate page for page list\r\n");
 			return -1;
 		}	
@@ -806,11 +810,11 @@ int nvme_write(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, uint64_
 int nvme_namespace_init(struct nvme_drive_desc* pDriveDesc, uint32_t namespaceId, struct nvme_namespace_desc** ppNamespaceDesc){
 	if (!pDriveDesc||!ppNamespaceDesc)
 		return -1;
-	struct nvme_namespace_info* pNamespaceInfo = (struct nvme_namespace_info*)0x0;
-	if (virtualAllocPage((uint64_t*)&pNamespaceInfo, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate page for namespace info\r\n");
+	struct nvme_namespace_info* pNamespaceInfo = (struct nvme_namespace_info*)0x00;
+	if (virtualAllocPage((uint64_t*)&pNamespaceInfo, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate NVMe protocol specification namespace info descriptor physical page\r\n");
 		return -1;
-	}	
+	}
 	struct nvme_completion_qe_desc completionQeDesc = {0};
 	memset((void*)&completionQeDesc, 0, sizeof(struct nvme_completion_qe_desc));
 	struct nvme_completion_qe* pCompletionQe = &completionQeDesc.completionQe;
@@ -885,7 +889,7 @@ int nvme_drive_init(struct pcie_location location){
 		printf("PCIe non-volatile memory device does not follow NVMe protocol\r\n");
 		return -1;
 	}
-	printf("initializing NVMe drive at bus %d, dev %d, func %d\r\n", location.bus, location.dev, location.func);
+	printf("initializing NVMe protocol specification non-volatile memory device bus: %d, device: %d, routine: %d\r\n", location.bus, location.dev, location.func);
 	uint64_t pBaseRegisters_phys = 0;
 	if (pcie_get_bar(location, 0x0, (uint64_t*)&pBaseRegisters_phys)!=0){
 		printf("failed to get BAR0\r\n");
@@ -895,30 +899,31 @@ int nvme_drive_init(struct pcie_location location){
 	if (virtualGetSpace((uint64_t*)&pBaseRegisters, MEM_MB/PAGE_SIZE)!=0){
 		printf("failed to get virtual addressing space for NVMe drive base registers\r\n");
 		return -1;
-	}	
-	if (virtualMapPages((uint64_t)pBaseRegisters_phys, (uint64_t)pBaseRegisters, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, MEM_MB/PAGE_SIZE, 0, 0, PAGE_TYPE_MMIO)!=0){
-		printf("failed to map NVMe drive registers\r\n");
+	}
+	if (virtualMapPages((uint64_t)pBaseRegisters_phys, (uint64_t)pBaseRegisters, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, MEM_MB/PAGE_SIZE, 0x00, 0x00)!=0){
+		printf("failed to map NVMe protocol specification non-volatile memory device base DWORD register set\r\n");
 		return -1;
 	}
-	struct nvme_drive_desc* pDriveDesc = (struct nvme_drive_desc*)kmalloc(sizeof(struct nvme_drive_desc));
-	if (!pDriveDesc){
+	struct nvme_drive_desc* pDriveDesc = (struct nvme_drive_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pDriveDesc, sizeof(struct nvme_drive_desc))!=0){
+		printf("failed to allocate NVMe protocol non-volatile memory device descriptor\r\n");
 		return -1;
-	}	
+	}
 	memset((void*)pDriveDesc, 0, sizeof(struct nvme_drive_desc));
 	volatile struct pcie_msix_msg_ctrl* pMsgControl = (struct pcie_msix_msg_ctrl*)0x0;
 	if (pcie_msix_get_msg_ctrl(location, &pMsgControl)!=0){
 		printf("failed to get MSI-X msg control\r\n");
-		kfree((void*)pDriveDesc);
+		heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct nvme_drive_desc));
 		return -1;
 	}
 	pDriveDesc->pBaseRegisters_phys = pBaseRegisters_phys;
-	pDriveDesc->pBaseRegisters = pBaseRegisters;	
+	pDriveDesc->pBaseRegisters = pBaseRegisters;
 	pDriveDesc->pDoorbellBase = (volatile uint32_t*)((uint64_t)pBaseRegisters+NVME_DOORBELL_LIST_OFFSET);	
 	pDriveDesc->pMsgControl = pMsgControl;
 	pDriveDesc->location = location;
 	if (nvme_disable(pDriveDesc)!=0){
 		printf("failed to disable NVMe drive controller\r\n");
-		kfree((void*)pDriveDesc);
+		heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct nvme_drive_desc));
 		return -1;
 	}	
 	struct nvme_completion_qe_desc completionQeDesc = {0};
@@ -929,7 +934,7 @@ int nvme_drive_init(struct pcie_location location){
 	allocQueuePacket.queueType = NVME_QUEUE_TYPE_ADMIN_CQ;
 	if (nvme_alloc_admin_completion_queue(pDriveDesc, &allocQueuePacket)!=0){
 		printf("failed to allocate admin completion queue\r\n");
-		kfree((void*)pDriveDesc);
+		heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct nvme_drive_desc));
 		return -1;
 	}	
 	struct nvme_completion_queue_desc* pAdminCompletionQueueDesc = allocQueuePacket.admin_cq.pCompletionQueueDesc;	
@@ -938,7 +943,7 @@ int nvme_drive_init(struct pcie_location location){
 	allocQueuePacket.admin_sq.pCompletionQueueDesc = pAdminCompletionQueueDesc;
 	if (nvme_alloc_admin_submission_queue(pDriveDesc, &allocQueuePacket)!=0){
 		printf("failed to allocate admin submission queue\r\n");
-		kfree((void*)pDriveDesc);
+		heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct nvme_drive_desc));
 		return -1;
 	}
 	struct nvme_submission_queue_desc* pAdminSubmissionQueueDesc = allocQueuePacket.admin_sq.pSubmissionQueueDesc;
@@ -955,11 +960,11 @@ int nvme_drive_init(struct pcie_location location){
 	controllerConfig.io_completion_queue_entry_size = 4;	
 	pDriveDesc->pBaseRegisters->controller_config = controllerConfig;	
 	struct nvme_controller_info* pControllerInfo = (struct nvme_controller_info*)0x0;
-	if (virtualAllocPage((uint64_t*)&pControllerInfo, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate NVMe controller info page\r\n");	
-		nvme_drive_deinit(pDriveDesc);	
+	if (virtualAllocPage((uint64_t*)&pControllerInfo, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate NVMe protocol specification host controller info descriptor physical page\r\n");
+		nvme_drive_deinit(pDriveDesc);
 		return -1;
-	}	
+	}
 	memset((void*)pControllerInfo, 0, PAGE_SIZE);	
 	pDriveDesc->pControllerInfo = pControllerInfo;
 	if (nvme_identify(pDriveDesc, 0x0, NVME_IDENTIFY_CODE_CONTROLLER, (unsigned char*)pControllerInfo, &completionQeDesc)!=0){
@@ -979,9 +984,9 @@ int nvme_drive_init(struct pcie_location location){
 		maxTransferLength = MEM_KB*256;
 	pDriveDesc->maxTransferLength = maxTransferLength;
 	uint32_t* pActiveNamespaceList = (uint32_t*)0x0;
-	if (virtualAllocPage((uint64_t*)&pActiveNamespaceList, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate active namespace list\r\n");
-		nvme_drive_deinit(pDriveDesc);	
+	if (virtualAllocPage((uint64_t*)&pActiveNamespaceList, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate NVMe protocol specification active namespace descriptor list\r\n");
+		nvme_drive_deinit(pDriveDesc);
 		return -1;
 	}
 	memset((void*)pActiveNamespaceList, 0, PAGE_SIZE);
@@ -1000,17 +1005,17 @@ int nvme_drive_init(struct pcie_location location){
 		printf("status code (%s)\r\n", statusCodeName);
 		printf("status code type (%s)\r\n", statusCodeTypeName);
 		nvme_drive_deinit(pDriveDesc);
-		virtualFreePage((uint64_t)pActiveNamespaceList, 0);
+		virtualFreePage((uint64_t)pActiveNamespaceList, 0x00);
 		return -1;
 	}	
 	struct nvme_namespace_desc* pActiveNamespaceDescList = (struct nvme_namespace_desc*)0x0;
 	uint64_t activeNamespaceDescListSize = pControllerInfo->namespace_count*sizeof(struct nvme_namespace_desc);
-	if (virtualAlloc((uint64_t*)&pActiveNamespaceDescList, activeNamespaceDescListSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, MAP_FLAG_LAZY, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate active namespace descriptor list\r\n");
+	if (virtualAlloc((uint64_t*)&pActiveNamespaceDescList, activeNamespaceDescListSize, PTE_RW|PTE_NX, MAP_FLAG_LAZY)!=0){
+		printf("failed to allocate NVMe protocol specification driver active namespace descriptor list\r\n");
+		virtualFreePage((uint64_t)pActiveNamespaceList, 0x00);
 		nvme_drive_deinit(pDriveDesc);
-		virtualFreePage((uint64_t)pActiveNamespaceList, 0);
 		return -1;
-	}	
+	}
 	pDriveDesc->pActiveNamespaceDescList = pActiveNamespaceDescList;
 	pDriveDesc->activeNamespaceDescListSize = activeNamespaceDescListSize;
 	for (uint64_t i = 0;i<PAGE_SIZE/sizeof(uint32_t)&&pActiveNamespaceList[i];i++){
@@ -1092,11 +1097,11 @@ int nvme_drive_deinit(struct nvme_drive_desc* pDriveDesc){
 	if (!pDriveDesc)
 		return -1;
 	struct nvme_namespace_desc* pCurrentNamespace = pDriveDesc->pFirstActiveNamespace;
-	for (uint64_t i = 0;i<pDriveDesc->activeNamespaceCount&&pCurrentNamespace;i++){
+	for (uint64_t i = 0x00;i<pDriveDesc->activeNamespaceCount&&pCurrentNamespace;i++){
 		drive_unregister(pCurrentNamespace->driveSubsystemId);	
 		pCurrentNamespace = pCurrentNamespace->pFlink;
 	}	
-	for (uint64_t i = 1;i<pDriveDesc->submissionQueueCount;i++){
+	for (uint64_t i = 0x01;i<pDriveDesc->submissionQueueCount;i++){
 		struct nvme_submission_queue_desc* pSubmissionQueueDesc = &pDriveDesc->submissionQueueList[i];
 		if (!pSubmissionQueueDesc->pSubmissionQueue)
 			break;
@@ -1106,7 +1111,7 @@ int nvme_drive_deinit(struct nvme_drive_desc* pDriveDesc){
 		packet.io_sq.pSubmissionQueueDesc = pSubmissionQueueDesc;
 		nvme_free_io_submission_queue(&packet);
 	}
-	for (uint64_t i = 1;i<pDriveDesc->completionQueueCount;i++){
+	for (uint64_t i = 0x01;i<pDriveDesc->completionQueueCount;i++){
 		struct nvme_completion_queue_desc* pCompletionQueueDesc = &pDriveDesc->completionQueueList[i];
 		if (!pCompletionQueueDesc->pCompletionQueue)
 			break;
@@ -1129,12 +1134,14 @@ int nvme_drive_deinit(struct nvme_drive_desc* pDriveDesc){
 		virtualFreePage((uint64_t)pDriveDesc->pActiveNamespaceDescList, 0);
 	if (pDriveDesc->pControllerInfo)
 		virtualFreePage((uint64_t)pDriveDesc->pControllerInfo, 0);
-	kfree((void*)pDriveDesc);
+	heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct nvme_drive_desc));
 	return 0;
 }
 int nvme_pcie_subsystem_function_register(struct pcie_location location){
-	if (nvme_drive_init(location)!=0)
+	if (nvme_drive_init(location)!=0){
+		printf("failed to initialize non-volatile memory device in which follows NVMe protocol specification\r\n");
 		return -1;
+	}
 	return 0;
 }
 int nvme_pcie_subsystem_function_unregister(struct pcie_location location){

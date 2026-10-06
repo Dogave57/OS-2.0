@@ -40,13 +40,14 @@
 #define FONT_NAME_TYPE_POSTSCRIPT_NAME_PREFIX (0x19)
 
 struct text_subsystem_glyph_vertex;
+struct text_subsystem_glyph_info;
 struct text_subsystem_font_desc;
 typedef int(*fontDriverDeinitFunc)(void);
 typedef int(*fontDriverFontLoadFunc)(unsigned char* pFontBuffer, uint64_t fontBufferSize, struct text_subsystem_font_desc* pSubsystemFontDesc);
 typedef int(*fontDriverFontUnloadFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc);
 typedef int(*fontDriverFontVerifyFunc)(unsigned char* pFontBuffer, uint64_t fontBufferSize);
 typedef int(*fontDriverFontGlyphGetIdFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint64_t characterCode, uint64_t* pGlyphId);
-typedef int(*fontDriverFontGlyphTesselateFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc, uint32_t glyphId, int8_t* pTextureBuffer, struct uvec2_32 textureBufferRect, uint8_t glyphSpread);
+typedef int(*fontDriverFontGlyphTesselateFunc)(struct text_subsystem_font_desc* pSubsystemFontDesc, struct text_subsystem_glyph_info* pSubsystemGlyphInfo);
 static unsigned char mainfont_data[254][16]={
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  },       //0x00 
         { 0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD, 0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00  },       //0x01 
@@ -195,15 +196,22 @@ struct text_subsystem_font_driver_desc{
 	struct text_subsystem_font_driver_desc* pFlink;
 	struct text_subsystem_font_driver_desc* pBlink;
 };
+struct text_subsystem_font_name_desc{
+	uint8_t name[256];
+	uint64_t nameLength;
+	uint16_t platformId;
+};
 struct text_subsystem_glyph_vertex{
 	struct fvec2_32 position;
 	struct fvec2_32 textureCoord;
 	struct fvec4_32 color;
 }__attribute__((packed));
-struct text_subsystem_font_name_desc{
-	uint8_t name[256];
-	uint64_t nameLength;
-	uint16_t platformId;
+struct text_subsystem_glyph_info{
+	uint64_t glyphId;
+	struct fvec2_32* pTextureBuffer;
+	uint64_t textureBufferSize;
+	struct uvec2_32 textureBufferRect;
+	float maxContourDistance;
 };
 struct text_subsystem_font_desc{
 	uint64_t fontId;

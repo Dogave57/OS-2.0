@@ -122,7 +122,7 @@ int text_subsystem_init(void){
 	memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
 	createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
 	createResourceInfo.resourceInfo.contextId = contextId;
-	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R8_SNORM;
+	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32G32_FLOAT;
 	createResourceInfo.resourceInfo.normal.width = glyphTextureRect.x;
 	createResourceInfo.resourceInfo.normal.height = glyphTextureRect.y;
 	createResourceInfo.resourceInfo.normal.depth = 0x01;
@@ -145,7 +145,7 @@ int text_subsystem_init(void){
 	memset((void*)&createResourceInfo, 0, sizeof(struct gpu_create_resource_info));
 	createResourceInfo.resourceInfo.resourceType = GPU_RESOURCE_TYPE_3D;
 	createResourceInfo.resourceInfo.contextId = contextId;
-	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32G32_FLOAT;
+	createResourceInfo.resourceInfo.normal.format = GPU_FORMAT_R32_FLOAT;
 	createResourceInfo.resourceInfo.normal.width = sizeof(struct text_subsystem_glyph_vertex)*0x06;
 	createResourceInfo.resourceInfo.normal.height = 0x01;
 	createResourceInfo.resourceInfo.normal.depth = 0x01;
@@ -273,27 +273,20 @@ int text_subsystem_init(void){
 		"in fvec4_32 resolutionIn : @generic!2\n"
 		"samp samplerState\n"
 		"sview samplerView : @2D @float\n"
-		"temp fvec1_32 sdfEntry\n"
-		"sdfEntry = tex(fvec1_32, texCoordIn, samplerState, @2D)\n"
-		"if (slt(sdfEntry, vec!fvec1_32(0.0)))\n"
-		"kill\n"
-		"endif\n"
-		"temp fvec2_32 scaleVector\n"
-		"scaleVector = mul(resolutionIn.xy, rcp(resolutionIn.zw))\n"
-		"temp fvec2_32 frameTexCoord\n"
+		"temp fvec2_32 sdfEntry\n"
 		"temp fvec2_32 texCoord\n"
-		"temp fvec2_32 texCoordFract\n"
-		"frameTexCoord = mul(texCoordIn, resolutionIn.xy)\n"
-		"texCoord = mul(texCoordIn, resolutionIn.zw)\n"
-		"texCoordFract = fract(texCoord)\n"
-		"temp fvec1_32 smoothValue\n"
-		"temp fvec2_32 smoothDelta\n"
-		"smoothDelta = add(min(div(sdfEntry, abs(sdfEntry)), vec!fvec2_32(0.0, 0.0)), texCoordFract)\n"
-		"sdfEntry = add(sdfEntry, mul(smoothDelta, rcp(spreadIn)))\n"
-		"smoothValue = clamp(sdfEntry, vec!fvec1_32(0.0), vec!fvec1_32(1.0))\n"
+		"texCoord = min(mul(round(mul(texCoordIn, resolutionIn.xy)), rcp(resolutionIn.xy)), vec!fvec2_32(0.99, 0.99))\n"
+		"sdfEntry = tex(fvec2_32, texCoord, samplerState, @2D)\n"
+		"temp fvec2_32 magnitudeVector\n"
+		"magnitudeVector = sub(mul(texCoord, resolutionIn.xy), sdfEntry)\n"
+		"magnitudeVector = abs(sub(magnitudeVector, mul(texCoordIn, resolutionIn.xy)))\n"
+		"temp fvec1_32 magnitude\n"
+		"magnitude = sqrt(dp(magnitudeVector, magnitudeVector))\n"
 		"temp fvec4_32 color\n"
 		"color = vec!fvec4_32(1.0, 0.0, 1.0, 1.0)\n"
-		"color.w = smoothValue\n"
+		"if (sgt(magnitude, vec!fvec1_32(1.5)))\n"
+		"color.w = vec!fvec1_32(0.0)\n"
+		"endif\n"
 		"colorOut = color\n";
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
@@ -372,12 +365,10 @@ int text_subsystem_init(void){
 	memset((void*)&createSamplerViewObjectInfo, 0, sizeof(struct gpu_create_sampler_view_object_info));
 	createSamplerViewObjectInfo.header.objectType = GPU_OBJECT_TYPE_SAMPLER_VIEW;
 	createSamplerViewObjectInfo.resourceId = glyphTextureResourceId;
-	createSamplerViewObjectInfo.format = GPU_FORMAT_R8_SNORM;
+	createSamplerViewObjectInfo.format = GPU_FORMAT_R32G32_FLOAT;
 	createSamplerViewObjectInfo.firstLevel = 0x00;
 	createSamplerViewObjectInfo.lastLevel = 0x00;
-	for (uint64_t i = 0;i<0x04;i++){
-		createSamplerViewObjectInfo.swizzle.swizzleList[i] = GPU_SWIZZLE_RED;
-	}
+	*(uint32_t*)createSamplerViewObjectInfo.swizzle.swizzleList = 0x01010201;
 	if (gpu_object_create(pMonitorDesc->gpuId, contextId, (struct gpu_create_object_info*)&createSamplerViewObjectInfo, &samplerViewObjectId)!=0){
 		printf("failed to create GPU host controller sampler view object\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
@@ -386,8 +377,8 @@ int text_subsystem_init(void){
 	}
 	struct text_subsystem_glyph_vertex* pGlyphVertexBuffer = (struct text_subsystem_glyph_vertex*)0x00;
 	uint64_t glyphVertexBufferSize = sizeof(struct text_subsystem_glyph_vertex)*0x06;
-	if (virtualAlloc((uint64_t*)&pGlyphVertexBuffer, glyphVertexBufferSize, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0, PAGE_TYPE_MMIO)!=0){
-		printf("failed to allocate physical pages for GPU host controller vertex buffer\r\n");
+	if (virtualAlloc((uint64_t*)&pGlyphVertexBuffer, glyphVertexBufferSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate GPU host controller glyph vertex buffer physical pages\r\n");
 		subsystem_deinit(pFontDriverSubsystemDesc);
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
@@ -490,7 +481,12 @@ KAPI int text_subsystem_font_driver_register(struct text_subsystem_font_driver_i
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct text_subsystem_font_driver_desc* pFontDriverDesc = (struct text_subsystem_font_driver_desc*)kmalloc(sizeof(struct text_subsystem_font_driver_desc));
+	struct text_subsystem_font_driver_desc* pFontDriverDesc = (struct text_subsystem_font_driver_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pFontDriverDesc, sizeof(struct text_subsystem_font_driver_desc))!=0){
+		printf("failed to allocate heap volatile memory text subsystem font protocol specification driver descriptor\r\n");
+		mutex_unlock(&mutex);
+		return -1;
+	}
 	uint64_t fontDriverId = 0x00;
 	if (!pFontDriverDesc){
 		printf("failed to allocate text subsystem font driver descriptor\r\n");
@@ -499,7 +495,7 @@ KAPI int text_subsystem_font_driver_register(struct text_subsystem_font_driver_i
 	}
 	if (subsystem_alloc_entry(textSubsystemInfo.fontDriverSubsystemInfo.pSubsystemDesc, (unsigned char*)pFontDriverDesc, &fontDriverId)!=0){
 		printf("failed to allocate text subsystem font driver descriptor entry\r\n");
-		kfree((void*)pFontDriverDesc);
+		heap_free(0x01, (unsigned char*)pFontDriverDesc, sizeof(struct text_subsystem_font_driver_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -541,7 +537,7 @@ KAPI int text_subsystem_font_driver_unregister(uint64_t fontDriverId){
 		pFontDriverDesc->pFlink->pBlink = pFontDriverDesc->pBlink;
 	if (pFontDriverDesc->pBlink)
 		pFontDriverDesc->pBlink->pFlink = pFontDriverDesc->pFlink;
-	kfree((void*)pFontDriverDesc);
+	heap_free(0x01, (unsigned char*)pFontDriverDesc, sizeof(struct text_subsystem_font_driver_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }
@@ -550,16 +546,16 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	struct text_subsystem_font_desc* pFontDesc = (struct text_subsystem_font_desc*)kmalloc(sizeof(struct text_subsystem_font_desc));
+	struct text_subsystem_font_desc* pFontDesc = (struct text_subsystem_font_desc*)0x00;
 	uint64_t fontId = 0x00;
-	if (!pFontDesc){
+	if (heap_alloc(0x01, (unsigned char**)&pFontDesc, sizeof(struct text_subsystem_font_desc))!=0){
 		printf("failed to allocate text subsystem font descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
 	if (subsystem_alloc_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, (unsigned char*)pFontDesc, &fontId)!=0){
 		printf("failed to allocate text subsystem entry for font descriptor\r\n");
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -576,10 +572,10 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		}
 		struct text_subsystem_font_name_desc** ppFontNameDescList = (struct text_subsystem_font_name_desc**)0x00;
 		uint64_t fontNameDescListSize = sizeof(struct text_subsystem_font_name_desc*)*TEXT_SUBSYSTEM_MAX_FONT_NAME_COUNT;
-		if (virtualAlloc((uint64_t*)&ppFontNameDescList, fontNameDescListSize, PTE_RW|PTE_NX, 0x00, PAGE_TYPE_NORMAL)!=0){
+		if (virtualAlloc((uint64_t*)&ppFontNameDescList, fontNameDescListSize, PTE_RW|PTE_NX, 0x00)!=0){
 			printf("failed to allocate physical pages for font name descriptor list\r\n");
 			subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-			kfree((void*)pFontDesc);
+			heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 			mutex_unlock(&mutex);
 			return -1;
 		}
@@ -596,7 +592,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	if (!fontLoaded){
 		printf("failed to find GPU host controller font driver to load font\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -608,23 +604,24 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	}
 	textSubsystemInfo.fontSubsystemInfo.pLastFontDesc = pFontDesc;
 	uint64_t glyphId = 0x00;
-	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, (uint64_t)'A', &glyphId)!=0){
-		printf("failed to get glyph ID via font driver\r\n");
+	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, (uint64_t)'a', &glyphId)!=0){
+		printf("failed to get font protocol specification driver QWORD glyph identifier\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	printf("glyph ID: %d\r\n", glyphId);
-	int8_t* pGlyphTextureBuffer = (int8_t*)0x00;
+	struct fvec2_32* pGlyphTextureBuffer = (struct fvec2_32*)0x00;
 	struct uvec2_32 glyphTextureBufferRect = {0};
 	glyphTextureBufferRect.x = textSubsystemInfo.accelerationInfo.glyphTextureRect.x;
 	glyphTextureBufferRect.y = textSubsystemInfo.accelerationInfo.glyphTextureRect.y;
-	uint64_t glyphTextureBufferSize = (glyphTextureBufferRect.x*glyphTextureBufferRect.y)*sizeof(int8_t);
-	uint8_t glyphSpread = 0x04;
-	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0){
-		printf("failed to allocate physical pages for GPU host controller glyph SDF floating point DWORD sampler view physical page data\r\n");
-		kfree((void*)pFontDesc);
+	uint64_t glyphTextureBufferSize = (glyphTextureBufferRect.x*glyphTextureBufferRect.y)*sizeof(struct fvec2_32);
+	float glyphMaxContourDistance = 4.0f;
+	float glyphSpread = 4.0f;
+	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX, 0x01)!=0){
+		printf("failed to allocate text subsystem glyph texture buffer physical pages\r\n");
+		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -633,15 +630,25 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	backgroundColor.y = 1.0f;
 	backgroundColor.z = 1.0f;
 	backgroundColor.w = 1.0f;
-	for (uint64_t i = 0;i<glyphTextureBufferSize;i++){
-		*(((int8_t*)pGlyphTextureBuffer)+i) = -127;
+	for (uint64_t i = 0x00;i<glyphTextureBufferSize/sizeof(struct fvec2_32);i++){
+		struct fvec2_32 sdfEntry = {0};
+		sdfEntry.x = glyphMaxContourDistance;
+		sdfEntry.y = glyphMaxContourDistance;
+		*(pGlyphTextureBuffer+i) = sdfEntry;
 	}
 	uint64_t startTime = get_time_us();
-	if (pFontDriverDesc->driverInfo.vtable.fontGlyphTesselate(pFontDesc, glyphId, pGlyphTextureBuffer, glyphTextureBufferRect, glyphSpread)!=0){
-		printf("failed to tesselate font glyph via font driver\r\n");
-		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
+	struct text_subsystem_glyph_info glyphInfo = {0};
+	memset((void*)&glyphInfo, 0x00, sizeof(struct text_subsystem_glyph_info));
+	glyphInfo.glyphId = glyphId;
+	glyphInfo.pTextureBuffer = pGlyphTextureBuffer;
+	glyphInfo.textureBufferSize = glyphTextureBufferSize;
+	glyphInfo.textureBufferRect = glyphTextureBufferRect;
+	glyphInfo.maxContourDistance = glyphMaxContourDistance;
+	if (pFontDriverDesc->driverInfo.vtable.fontGlyphTesselate(pFontDesc, &glyphInfo)!=0){
+		printf("failed to tesselate font protocol specification driver glyph\r\n");
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -651,7 +658,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		printf("failed to bind GPU host controller rasterizer state object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -659,7 +666,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		printf("failed to bind GPU Host controller DSA state object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -667,7 +674,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		printf("failed to bind GPU host controller blend state list object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -675,7 +682,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		printf("failed to bind GPU host controller vertex element list object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -683,7 +690,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		printf("failed to bind GPU host controller vertex shader object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -691,7 +698,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		printf("failed to bind GPU host controller fragment shader object\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -699,7 +706,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		printf("failed to attach GPU host controller texture resource physical pages to GPU host controller resource\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -712,7 +719,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		printf("failed to transfer GPU host controller texture buffer resource physical pages to GPU host controller\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -728,15 +735,15 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	pScaleVector->z = 0.0f;
 	pScaleVector->w = 1.0f;
 	struct fvec4_32* pSpreadVector = pScaleVector+0x01;
-	pSpreadVector->x = (float)glyphSpread;
+	pSpreadVector->x = glyphSpread;
 	pSpreadVector->y = 0.0f;
 	pSpreadVector->z = 0.0f;
 	pSpreadVector->w = 1.0f;
 	struct fvec4_32* pResolutionVector = pSpreadVector+0x01;
-	pResolutionVector->x = ((float)textSubsystemInfo.pMonitorDesc->monitorInfo.resolution.width)*pScaleVector->x;
-	pResolutionVector->y = ((float)textSubsystemInfo.pMonitorDesc->monitorInfo.resolution.height)*pScaleVector->y;
-	pResolutionVector->z = (float)glyphTextureBufferRect.x;
-	pResolutionVector->w = (float)glyphTextureBufferRect.y;
+	pResolutionVector->x = (float)glyphTextureBufferRect.x;
+	pResolutionVector->y = (float)glyphTextureBufferRect.y;
+	pResolutionVector->z = 0.0f;
+	pResolutionVector->w = 0.0f;
 	gpu_cmd_context_reset(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId);
 	struct gpu_set_vertex_buffer_list_cmd_info setVertexBufferListCmdInfo = {0};
 	memset((void*)&setVertexBufferListCmdInfo, 0, sizeof(struct gpu_set_vertex_buffer_list_cmd_info));
@@ -792,7 +799,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		printf("failed to submit GPU host controller command list to GPU host controller\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -807,7 +814,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	if (gpu_transfer_from_device(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.pMonitorDesc->monitorInfo.framebufferResourceId, transferFromDeviceInfo)!=0){
 		printf("failed to transfer GPU host controller framebuffer data to GPU host controller framebuffer physical pages\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}
@@ -819,7 +826,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	if (gpu_resource_flush(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.pMonitorDesc->monitorInfo.framebufferResourceId, flushRect)!=0){
 		printf("failed to flush GPU host controller resource framebuffer physical pages to GPU host controller\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
-		kfree((void*)pFontDesc);
+		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
 	}	
@@ -854,7 +861,7 @@ KAPI int text_subsystem_font_unload(uint64_t fontId){
 		pFontDesc->pFlink->pBlink = pFontDesc->pBlink;
 	if (pFontDesc->pBlink)
 		pFontDesc->pBlink->pFlink = pFontDesc->pFlink;
-	kfree((void*)pFontDesc);
+	heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 	mutex_unlock(&mutex);
 	return 0;
 }

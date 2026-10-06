@@ -8,9 +8,11 @@ int exfat_mount(uint64_t drive_id, uint64_t partition_id, struct exfat_mount_han
 	if (!ppHandle)
 		return -1;
 	uint64_t handleSize = sizeof(struct exfat_mount_handle);
-	struct exfat_mount_handle* pHandle = (struct exfat_mount_handle*)kmalloc(handleSize);
-	if (!pHandle)
+	struct exfat_mount_handle* pHandle = (struct exfat_mount_handle*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pHandle, sizeof(struct exfat_mount_handle))!=0){
+		printf("failed to allocate EXFAT filesystem protocol specification mount descriptor\r\n");
 		return -1;
+	}
 	memset((void*)pHandle, 0, handleSize);
 	pHandle->drive_id = drive_id;
 	pHandle->partition_id = partition_id;
@@ -28,15 +30,17 @@ int exfat_unmount(struct exfat_mount_handle* pHandle){
 		uint64_t clusterCachePages = ((pHandle->cacheInfo.clusterCache_end-pHandle->cacheInfo.clusterCache_start)*DRIVE_SECTOR_SIZE)/PAGE_SIZE;
 		virtualFreePages((uint64_t)pHandle->cacheInfo.clusterCache, clusterCachePages);
 	}
-	kfree((void*)pHandle);
+	heap_free(0x01, (unsigned char*)pHandle, sizeof(struct exfat_mount_handle));
 	return 0;
 }
 int exfat_open_file(struct exfat_mount_handle* pHandle, uint16_t* filename, struct exfat_file_handle** ppFileHandle){
 	if (!ppFileHandle)
 		return -1;
-	struct exfat_file_handle* pFileHandle = (struct exfat_file_handle*)kmalloc(sizeof(struct exfat_file_handle));
-	if (!pFileHandle)
+	struct exfat_file_handle* pFileHandle = (struct exfat_file_handle*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pFileHandle, sizeof(struct exfat_file_handle))!=0){
+		printf("failed to allocate EXFAT filesystem protocol specification file descriptor\r\n");
 		return -1;
+	}
 	uint64_t bytesPerCluster = 0;
 	if (exfat_get_bytes_per_cluster(pHandle, &bytesPerCluster)!=0){
 		return -1;
@@ -47,7 +51,7 @@ int exfat_open_file(struct exfat_mount_handle* pHandle, uint16_t* filename, stru
 int exfat_close_file(struct exfat_file_handle* pFileHandle){
 	if (!pFileHandle)
 		return -1;
-	kfree((void*)pFileHandle);
+	heap_free(0x01, (unsigned char*)pFileHandle, sizeof(struct exfat_file_handle));
 	return 0;
 }
 int exfat_find_file_in_root(struct exfat_mount_handle* pHandle, uint16_t* filename, struct exfat_file_location* pFileLocation){
@@ -82,7 +86,7 @@ int exfat_read_cluster(struct exfat_mount_handle* pHandle, uint64_t cluster, uin
 		virtualFreePages((uint64_t)pHandle->cacheInfo.clusterCache, clusterCachePages);
 		pHandle->cacheInfo.clusterCache = (unsigned char*)0x0;
 	}
-	if (virtualAllocPage((uint64_t*)&pSectorData, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0)
+	if (virtualAllocPage((uint64_t*)&pSectorData, PTE_RW|PTE_NX, 0x00)!=0)
 		return -1;
 	if (partition_read_sectors(pHandle->drive_id, pHandle->partition_id, clusterSector, 8, pSectorData)!=0){
 		virtualFreePage((uint64_t)pSectorData, 0);
@@ -112,11 +116,13 @@ int exfat_write_cluster(struct exfat_mount_handle* pHandle, uint64_t cluster, ui
 	uint64_t clusterBit = cluster%8;
 	uint64_t clusterSector = fatSector+(clusterByte/DRIVE_SECTOR_SIZE);
 	uint64_t clusterOffset = clusterByte%DRIVE_SECTOR_SIZE;
-	unsigned char* pSectorData = (unsigned char*)kmalloc(DRIVE_SECTOR_SIZE);
-	if (!pSectorData)
+	unsigned char* pSectorData = (unsigned char*)0x00;
+	if (virtualAlloc((uint64_t*)&pSectorData, DRIVE_SECTOR_SIZE, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate EXFAT filesystem protocol specification sector physical pages\r\n");
 		return -1;
+	}
 	if (partition_read_sectors(pHandle->drive_id, pHandle->partition_id, clusterSector, 1, pSectorData)!=0){
-		kfree((void*)pSectorData);
+		virtualFree((uint64_t)pSectorData, DRIVE_SECTOR_SIZE);
 		return -1;
 	}
 	unsigned char* pValue = pSectorData+clusterOffset;
@@ -125,7 +131,7 @@ int exfat_write_cluster(struct exfat_mount_handle* pHandle, uint64_t cluster, ui
 	else
 		*pValue&=~(1<<clusterBit);
 	if (partition_write_sectors(pHandle->drive_id, pHandle->partition_id, clusterSector, 1, pSectorData)!=0){
-		kfree((void*)pSectorData);
+		virtualFree((uint64_t)pSectorData, DRIVE_SECTOR_SIZE);
 		return -1;
 	}
 	if (pHandle->cacheInfo.clusterCache&&clusterSector>=pHandle->cacheInfo.clusterCache_start&&clusterSector<=pHandle->cacheInfo.clusterCache_end){
@@ -136,7 +142,7 @@ int exfat_write_cluster(struct exfat_mount_handle* pHandle, uint64_t cluster, ui
 		else
 			*pCacheValue&=~(1<<clusterBit);
 	}
-	kfree((void*)pSectorData);
+	virtualFree((uint64_t)pSectorData, DRIVE_SECTOR_SIZE);
 	return 0;
 }
 int exfat_read_cluster_data(struct exfat_mount_handle* pHandle, uint64_t cluster, unsigned char* pClusterData){
@@ -246,20 +252,24 @@ int exfat_boot_region_validate(struct exfat_mount_handle* pHandle){
 	if (!pHandle)
 		return -1;
 	uint64_t bootRegionSize = EXFAT_BOOT_REGION_SECTORS*DRIVE_SECTOR_SIZE;
-	unsigned char* pBootRegion = (unsigned char*)kmalloc(bootRegionSize);
-	if (!pBootRegion)
+	unsigned char* pBootRegion = (unsigned char*)0x00;
+	if (virtualAlloc((uint64_t*)&pBootRegion, bootRegionSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate EXFAT filesystem protocol specification boot region physical pages\r\n");
 		return -1;
-	unsigned char* pBackupBootRegion = (unsigned char*)kmalloc(bootRegionSize);
-	if (!pBackupBootRegion)
+	}
+	unsigned char* pBackupBootRegion = (unsigned char*)0x00;
+	if (virtualAlloc((uint64_t*)&pBackupBootRegion, bootRegionSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate EXFAT filesystem protocol specification backup boot region physical pages\r\n");
 		return -1;
+	}
 	if (partition_read_sectors(pHandle->drive_id, pHandle->partition_id, EXFAT_BOOT_REGION_SECTOR, EXFAT_BOOT_REGION_SECTORS, pBootRegion)!=0){
-		kfree((void*)pBootRegion);
-		kfree((void*)pBackupBootRegion);
+		virtualFree((uint64_t)pBootRegion, bootRegionSize);
+		virtualFree((uint64_t)pBackupBootRegion, bootRegionSize);
 		return -1;
 	}
 	if (partition_read_sectors(pHandle->drive_id, pHandle->partition_id, EXFAT_BACKUP_BOOT_REGION_SECTOR, EXFAT_BOOT_REGION_SECTORS, pBackupBootRegion)!=0){
-		kfree((void*)pBootRegion);
-		kfree((void*)pBackupBootRegion);
+		virtualFree((uint64_t)pBootRegion, bootRegionSize);
+		virtualFree((uint64_t)pBackupBootRegion, bootRegionSize);
 		return -1;
 	}
 	uint32_t bootRegionChecksum = 0;
@@ -267,13 +277,13 @@ int exfat_boot_region_validate(struct exfat_mount_handle* pHandle){
 	uint32_t validChecksum = (uint32_t)(*(uint32_t*)(pBootRegion+(DRIVE_SECTOR_SIZE*11)));
 	uint32_t validBackupChecksum = (uint32_t)(*(uint32_t*)(pBackupBootRegion+(DRIVE_SECTOR_SIZE*11)));
 	if (exfat_get_boot_region_checksum((unsigned char*)pBootRegion, &bootRegionChecksum)!=0){
-		kfree((void*)pBootRegion);
-		kfree((void*)pBackupBootRegion);
+		virtualFree((uint64_t)pBootRegion, bootRegionSize);
+		virtualFree((uint64_t)pBackupBootRegion, bootRegionSize);
 		return -1;
 	}
 	if (exfat_get_boot_region_checksum((unsigned char*)pBackupBootRegion, &backupBootRegionChecksum)!=0){
-		kfree((void*)pBootRegion);
-		kfree((void*)pBackupBootRegion);
+		virtualFree((uint64_t)pBootRegion, bootRegionSize);
+		virtualFree((uint64_t)pBackupBootRegion, bootRegionSize);
 		return -1;
 	}
 	if (validChecksum!=bootRegionChecksum){

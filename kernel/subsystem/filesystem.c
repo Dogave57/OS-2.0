@@ -21,9 +21,14 @@ KAPI int fs_mount(uint64_t drive_id, uint64_t partition_id, uint64_t* pId){
 	static struct mutex_t mutex = {0};
 	mutex_lock_isr_safe(&mutex);
 	uint64_t id = 0;
-	struct fs_mount* pMount = (struct fs_mount*)kmalloc(sizeof(struct fs_mount));
+	struct fs_mount* pMount = (struct fs_mount*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pMount, sizeof(struct fs_mount))!=0){
+		printf("failed to allocate filesystem mount descriptor\r\n");
+		mutex_unlock_isr_safe(&mutex);
+		return -1;
+	}
 	if (subsystem_alloc_entry(pMountSubsystem, (unsigned char*)pMount, &id)!=0){
-		kfree((void*)pMount);
+		heap_free(0x01, (unsigned char*)pMount, sizeof(struct fs_mount));
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}
@@ -46,7 +51,7 @@ KAPI int fs_mount(uint64_t drive_id, uint64_t partition_id, uint64_t* pId){
 		mutex_unlock_isr_safe(&mutex);
 		return 0;
 	}
-	kfree((void*)pMount);
+	heap_free(0x01, (unsigned char*)pMount, sizeof(struct fs_mount));
 	if (subsystem_free_entry(pMountSubsystem, id)!=0){
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
@@ -67,7 +72,7 @@ KAPI int fs_unmount(uint64_t id){
 		return -1;
 	}
 	pMount->pDriver->vtable.unmount(pMount);
-	kfree((void*)pMount);
+	heap_free(0x01, (unsigned char*)pMount, sizeof(struct fs_mount));
 	if (subsystem_free_entry(pMountSubsystem, id)!=0){
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
@@ -404,8 +409,9 @@ KAPI int fs_driver_register(struct fs_driver_vtable vtable, struct fs_driver_des
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock_isr_safe(&mutex);
-	struct fs_driver_desc* pDriverDesc = (struct fs_driver_desc*)kmalloc(sizeof(struct fs_driver_desc));
-	if (!pDriverDesc){
+	struct fs_driver_desc* pDriverDesc = (struct fs_driver_desc*)0x00;
+	if (heap_alloc(0x01, (unsigned char**)&pDriverDesc, sizeof(struct fs_driver_desc))!=0){
+		printf("failed to allocate file subsystem non-volatile memory protocol specification driver descriptor\r\n");
 		mutex_unlock_isr_safe(&mutex);
 		return -1;
 	}

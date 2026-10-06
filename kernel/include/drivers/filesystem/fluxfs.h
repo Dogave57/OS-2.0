@@ -40,6 +40,7 @@ struct fluxfs_mount{
 	struct fluxfs_cache_info cacheInfo;
 	struct fluxfs_header fsHeader;
 	unsigned char* pSectorCache;
+	uint64_t sectorCacheSize;
 }__attribute__((packed));
 struct fluxfs_file_handle{
 	struct fluxfs_mount* pMount;

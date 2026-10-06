@@ -130,8 +130,10 @@ int gpt_get_header(uint64_t id, struct gpt_header* pGptHeader){
 		return 0;
 	}
 	unsigned char sectorData[DRIVE_SECTOR_SIZE] = {0};
-	if (drive_read_sectors(id, 1, 1, (unsigned char*)sectorData)!=0)
+	if (drive_read_sectors(id, 1, 1, (unsigned char*)sectorData)!=0){
+		printf("failed to read GPT protocol specification header sector physical page data from non-volatile memory\r\n");
 		return -1;
+	}
 	struct gpt_header gptHeader = *(struct gpt_header*)(sectorData);
 	if (gptHeader.signature!=GPT_SIGNATURE)
 		return -1;
@@ -185,9 +187,11 @@ int gpt_get_partition_table_checksum(uint64_t id, uint32_t* pChecksum){
 	uint64_t partition_table_size = gptHeader.partition_count*GPT_PARTITION_ENTRY_SIZE;
 	uint64_t partition_table_sectors = align_up(partition_table_size, DRIVE_SECTOR_SIZE)/DRIVE_SECTOR_SIZE;
 	struct gpt_partition* pPartitionTable = (struct gpt_partition*)0x0;
-	uint32_t checksum = 0;
-	if (virtualAlloc((uint64_t*)&pPartitionTable, partition_table_size, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0)
+	uint32_t checksum = 0x00;
+	if (virtualAlloc((uint64_t*)&pPartitionTable, partition_table_size, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate GPT protocol specification partition table physical pages\r\n");
 		return -1;
+	}
 	if (drive_read_sectors(id, partition_table_lba, partition_table_sectors, (unsigned char*)pPartitionTable)!=0){
 		virtualFree((uint64_t)pPartitionTable, partition_table_size);
 		return -1;
@@ -212,9 +216,11 @@ int gpt_get_backup_partition_table_checksum(uint64_t id, uint32_t* pChecksum){
 	uint64_t partition_table_size = gptHeader.partition_count*GPT_PARTITION_ENTRY_SIZE;
 	uint64_t partition_table_sectors = align_up(partition_table_size, DRIVE_SECTOR_SIZE)/DRIVE_SECTOR_SIZE;
 	struct gpt_partition* pPartitionTable = (struct gpt_partition*)0x0;
-	uint32_t checksum = 0;
-	if (virtualAlloc((uint64_t*)&pPartitionTable, partition_table_size, PTE_RW|PTE_NX, 0, PAGE_TYPE_NORMAL)!=0)
+	uint32_t checksum = 0x00;
+	if (virtualAlloc((uint64_t*)&pPartitionTable, partition_table_size, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate GPT protocol specification partition table physical pages\r\n");
 		return -1;
+	}
 	if (drive_read_sectors(id, partition_table_lba, partition_table_sectors, (unsigned char*)pPartitionTable)!=0){
 		virtualFree((uint64_t)pPartitionTable, partition_table_size);
 		return -1;
@@ -243,12 +249,12 @@ int gpt_get_header_checksum(uint64_t id, uint32_t* pChecksum){
 int gpt_verify(uint64_t id){
 	struct gpt_header gptHeader = {0};
 	if (gpt_get_header(id, &gptHeader)!=0){
-		printf("failed to get GPT header\r\n");
+		printf("failed to get GPT protocol specification header physical page data\r\n");
 		return -1;
 	}
-	uint32_t partition_table_checksum = 0;
-	uint32_t backup_partition_table_checksum = 0;
-	uint32_t header_checksum = 0;
+	uint32_t partition_table_checksum = 0x00;
+	uint32_t backup_partition_table_checksum = 0x00;
+	uint32_t header_checksum = 0x00;
 	if (gpt_get_partition_table_checksum(id, &partition_table_checksum)!=0){
 		printf("failed to get partition table checksum\r\n");
 		return -1;
