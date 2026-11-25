@@ -63,7 +63,7 @@ int virtio_gpu_init(void){
 		printf("failed to disable legacy VGA GPU host controller\r\n");
 		return -1;
 	}
-	volatile struct pcie_msix_msg_ctrl* pMsgControl = (volatile struct pcie_msix_msg_ctrl*)0x0;
+	struct pcie_msix_msg_ctrl* pMsgControl = (struct pcie_msix_msg_ctrl*)0x00;
 	if (pcie_msix_get_msg_ctrl(gpuInfo.location, &pMsgControl)!=0){
 		printf("failed to get virtual I/O GPU MSI-X message control\r\n");
 		return -1;	
@@ -1311,25 +1311,25 @@ int virtio_gpu_get_info(struct virtio_gpu_info* pInfo){
 		blockBase+=pConfigCap->bar_offset;	
 		switch (pConfigCap->config_type){
 			case VIRTIO_GPU_BLOCK_BASE_REGISTERS:{
-				gpuInfo.pBaseRegisters = (volatile struct virtio_gpu_base_registers*)blockBase;			 
+				gpuInfo.pBaseRegisters = (struct virtio_gpu_base_registers*)blockBase;			 
 				break;
 			}
 			case VIRTIO_GPU_BLOCK_NOTIFY_REGISTERS:{
 				struct virtio_gpu_pcie_config_cap_notify* pNotifyCap = (struct virtio_gpu_pcie_config_cap_notify*)pConfigCap;
-				gpuInfo.pNotifyRegisters = (volatile uint32_t*)blockBase;
+				gpuInfo.pNotifyRegisters = (uint32_t*)blockBase;
 				gpuInfo.notifyOffsetMultiplier = pNotifyCap->notify_offset_multiplier;
 				break;				   
 			}
 			case VIRTIO_GPU_BLOCK_INTERRUPT_REGISTERS:{
-				gpuInfo.pInterruptRegisters = (volatile struct virtio_gpu_interrupt_registers*)blockBase;
+				gpuInfo.pInterruptRegisters = (struct virtio_gpu_interrupt_registers*)blockBase;
 				break;				      
 			}
 			case VIRTIO_GPU_BLOCK_DEVICE_REGISTERS:{
-				gpuInfo.pDeviceRegisters = (volatile struct virtio_gpu_device_registers*)blockBase;
+				gpuInfo.pDeviceRegisters = (struct virtio_gpu_device_registers*)blockBase;
 				break;				
 			}
 			case VIRTIO_GPU_BLOCK_PCIE_REGISTERS:{
-				gpuInfo.pPcieRegisters = (volatile struct virtio_gpu_pcie_registers*)blockBase;
+				gpuInfo.pPcieRegisters = (struct virtio_gpu_pcie_registers*)blockBase;
 				break;				 
 			}
 		}	

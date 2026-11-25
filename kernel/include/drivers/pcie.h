@@ -1,8 +1,25 @@
 #ifndef _PCIE
 #define _PCIE
-#define PCIE_CLASS_DRIVE_CONTROLLER (0x01)
+#define PCIE_CLASS_NVM_HC (0x01)
+#define PCIE_CLASS_NETWORK_HC (0x02)
+#define PCIE_CLASS_DISPLAY_HC (0x03)
+#define PCIE_CLASS_MULTI_MEDIA_DEVICE (0x04)
+#define PCIE_CLASS_MEMORY_HC (0x05)
+#define PCIE_CLASS_BRIDGE_DEVICE (0x06)
+#define PCIE_CLASS_COMMUNICATION_HC (0x07)
+#define PCIE_CLASS_SYSTEM_PERIPHERAL_HC (0x08)
+#define PCIE_CLASS_INPUT_DEVICE_HC (0x09)
+#define PCIE_CLASS_DOCK_STATION (0x0A)
+#define PCIE_CLASS_COPROESSOR (0x0B)
+#define PCIE_CLASS_SERIAL_HC (0x0C)
+#define PCIE_CLASS_WIRELESS_HC (0x0D)
+#define PCIE_CLASS_I2O_HC (0x0E)
+#define PCIE_CLASS_SATELLITE_HC (0x0F)
+#define PCIE_CLASS_CRYPTO_HC (0x10)
+#define PCIE_CLASS_SIGNAL_HC (0x11)
+#define PCIE_CLASS_NEURAL_HC (0x12)
+#define PCIE_CLASS_UNKNOWN (0xFF)
 #define PCIE_SUBCLASS_NVME_CONTROLLER (0x08)
-#define PCIE_CLASS_USB_HC (0x0C)
 #define PCIE_SUBCLASS_USB (0x03)
 #define PCIE_PROGIF_XHC (0x30)
 #define PCIE_CAP_ID_PM (0x04)
@@ -96,7 +113,7 @@ union pcie_msix_table_entry_msg_data{
 		uint32_t vector:8;
 		uint32_t delivery_mode:3;
 		uint32_t reserved0:3;
-		uint32_t level:1;
+		uint32_t level:1;	
 		uint32_t trigger:1;
 		uint32_t reserved1:16;
 	};
@@ -139,21 +156,21 @@ int pcie_get_subclass(struct pcie_location location, uint8_t* pSubclass);
 int pcie_function_exists(struct pcie_location location);
 int pcie_get_function_by_class(uint8_t class, uint8_t subclass, struct pcie_location* pLocation);
 int pcie_get_function_by_id(uint16_t vendor_id, uint16_t device_id, struct pcie_location* pLocation);
-int pcie_msix_get_msg_ctrl(struct pcie_location location, volatile struct pcie_msix_msg_ctrl** ppMsgControl);
-int pcie_msi_get_msg_ctrl(struct pcie_location location, volatile struct pcie_msi_msg_ctrl** ppMsgControl);
-int pcie_msi_get_entry_size(struct pcie_location location, volatile struct pcie_msi_msg_ctrl* pMsgControl, uint64_t* pEntrySize);
-int pcie_get_msi_entry(struct pcie_location location, volatile unsigned char** ppEntry, volatile struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector);
-int pcie_set_msi_entry(struct pcie_location location, volatile struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector, uint64_t lapic_id, uint8_t interrupt_vector);
-int pcie_msi_enable(volatile struct pcie_msi_msg_ctrl* pMsgControl);
-int pcie_msi_disable(volatile struct pcie_msi_msg_ctrl* pMsgControl);
-int pcie_msix_get_table_base(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, volatile struct pcie_msix_table_entry** ppTableBase);
-int pcie_msix_get_pba_base(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, volatile uint8_t** ppPba);
-int pcie_get_msix_entry(struct pcie_location location, volatile struct pcie_msix_table_entry** ppEntry, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
-int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector, uint64_t lapic_id, uint8_t interrupt_vector);
-int pcie_msix_enable(volatile struct pcie_msix_msg_ctrl* pMsgControl);
-int pcie_msix_disable(volatile struct pcie_msix_msg_ctrl* pMsgControl);
-int pcie_msix_enable_entry(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
-int pcie_msix_disable_entry(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
-int pcie_msix_clear_pba(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
-int pcie_msix_get_pba(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
+int pcie_msix_get_msg_ctrl(struct pcie_location location, struct pcie_msix_msg_ctrl** ppMsgControl);
+int pcie_msi_get_msg_ctrl(struct pcie_location location, struct pcie_msi_msg_ctrl** ppMsgControl);
+int pcie_msi_get_entry_size(struct pcie_location location, struct pcie_msi_msg_ctrl* pMsgControl, uint64_t* pEntrySize);
+int pcie_get_msi_entry(struct pcie_location location, unsigned char** ppEntry, struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector);
+int pcie_set_msi_entry(struct pcie_location location, struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector, uint64_t lapic_id, uint8_t interrupt_vector);
+int pcie_msi_enable(struct pcie_msi_msg_ctrl* pMsgControl);
+int pcie_msi_disable(struct pcie_msi_msg_ctrl* pMsgControl);
+int pcie_msix_get_table_base(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, struct pcie_msix_table_entry** ppTableBase);
+int pcie_msix_get_pba_base(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint8_t** ppPba);
+int pcie_get_msix_entry(struct pcie_location location, struct pcie_msix_table_entry** ppEntry, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
+int pcie_set_msix_entry(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector, uint64_t lapic_id, uint8_t interrupt_vector);
+int pcie_msix_enable(struct pcie_msix_msg_ctrl* pMsgControl);
+int pcie_msix_disable(struct pcie_msix_msg_ctrl* pMsgControl);
+int pcie_msix_enable_entry(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
+int pcie_msix_disable_entry(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
+int pcie_msix_clear_pba(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
+int pcie_msix_get_pba(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector);
 #endif

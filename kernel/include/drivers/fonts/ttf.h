@@ -343,8 +343,11 @@ struct ttf_table_name_record{
 	uint16_t string_offset;
 }__attribute__((packed));
 struct ttf_contour_entry_desc{
-	uint64_t reserved0;
-}__attribute__((packed));
+	int16_t windingDelta;
+	struct uvec2_16* pRangeList;
+	uint64_t scanlineIndex;
+	uint64_t intersectionCount;
+};
 struct ttf_segment_entry_desc{
 	uint32_t activePixelCount;
 	uint32_t firstActivePixelOffset;
@@ -354,13 +357,10 @@ struct ttf_segment_entry_desc{
 struct ttf_point_entry_desc{
 	struct fvec2_64 position;
 	struct ttf_glyf_point_flags flags;
-	uint8_t reserved0[15];
-}__attribute__((packed));
+};
 struct ttf_pixel_entry_desc{
 	uint16_t contourIndex;
-	int16_t windingDelta;
 	uint16_t nextActivePixelOffset;
-	uint16_t reserved0;
 };
 struct ttf_bytecode_execution_info{
 	uint8_t readOnly;

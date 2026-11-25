@@ -1142,14 +1142,14 @@ struct virtio_gpu_monitor_desc{
 };
 struct virtio_gpu_info{
 	struct pcie_location location;
-	volatile struct virtio_gpu_base_registers* pBaseRegisters;
-	volatile uint32_t* pNotifyRegisters;
+	struct virtio_gpu_base_registers* pBaseRegisters;
+	uint32_t* pNotifyRegisters;
 	uint32_t notifyOffsetMultiplier;
-	volatile struct virtio_gpu_interrupt_registers* pInterruptRegisters;
-	volatile struct virtio_gpu_device_registers* pDeviceRegisters;
-	volatile struct virtio_gpu_pcie_registers* pPcieRegisters;
+	struct virtio_gpu_interrupt_registers* pInterruptRegisters;
+	struct virtio_gpu_device_registers* pDeviceRegisters;
+	struct virtio_gpu_pcie_registers* pPcieRegisters;
 
-	volatile struct pcie_msix_msg_ctrl* pMsgControl;	
+	struct pcie_msix_msg_ctrl* pMsgControl;	
 	uint64_t queueCount;	
 	struct virtio_gpu_isr_mapping_table_entry* pIsrMappingTable;
 	uint64_t isrMappingTableSize;	

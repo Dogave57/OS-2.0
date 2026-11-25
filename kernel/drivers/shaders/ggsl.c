@@ -702,7 +702,7 @@ int ggsl_driver_expression_get_info(struct ggsl_driver_shader_desc* pShaderDesc,
 			return -1;
 		}
 		struct gpu_declare_info* pDeclareInfo = &pDeclareInstructionInfo->declareInfo;
-		memset((void*)pDeclareInstructionInfo, 0, sizeof(struct gpu_instruction_info_dcl));
+		memset((void*)pDeclareInstructionInfo, 0x00, sizeof(struct gpu_instruction_info_dcl));
 		pDeclareInstructionInfo->header.opcode = GPU_SHADER_OPCODE_DECLARE;
 		pDeclareInstructionInfo->header.length = sizeof(struct gpu_instruction_info_dcl);
 		pDeclareInfo->declareLocation.declareType = GPU_SHADER_DECLARE_TYPE_TEMP;
@@ -1522,10 +1522,10 @@ int ggsl_driver_instruction_temp(struct ggsl_driver_shader_desc* pShaderDesc, st
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	memset((void*)pDeclareInstructionInfo, 0, sizeof(struct gpu_instruction_info_dcl));
+	struct gpu_declare_info* pDeclareInfo = &pDeclareInstructionInfo->declareInfo;
+	memset((void*)pDeclareInstructionInfo, 0x00, sizeof(struct gpu_instruction_info_dcl));
 	pDeclareInstructionInfo->header.opcode = GPU_SHADER_OPCODE_DECLARE;
 	pDeclareInstructionInfo->header.length = sizeof(struct gpu_instruction_info_dcl);
-	struct gpu_declare_info* pDeclareInfo = &pDeclareInstructionInfo->declareInfo;
 	pDeclareInfo->declareLocation.declareType = GPU_SHADER_DECLARE_TYPE_TEMP;
 	pDeclareInfo->vectorCount = 0x01;
 	pDeclareInfo->scalarType = pFormatIdentInfo->scalarType;
@@ -1533,7 +1533,7 @@ int ggsl_driver_instruction_temp(struct ggsl_driver_shader_desc* pShaderDesc, st
 	pDeclareInfo->scalarCount = pFormatIdentInfo->scalarCount;
 	pDeclareInfo->scalarFormat = pFormatIdentInfo->scalarFormat;
 	if (ggsl_driver_instruction_declare_push(pShaderDesc, pGetInstructionInfo, 0x01)!=0){
-		printf("failed to push GPU host controller GGSL shader protocol driver declaration instruction info descriptor\r\n");
+		printf("failed to push GGSL shader protocol specification drlver declaration instruction info descriptor\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}

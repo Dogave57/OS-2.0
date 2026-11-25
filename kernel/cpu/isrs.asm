@@ -280,6 +280,7 @@ global ctx_switch_time
 global xhci_interrupter_isr
 global nvme_completion_queue_isr
 global virtio_gpu_response_queue_isr
+global intel_hda_driver_isr
 extern print
 extern lprint
 extern printf
@@ -304,6 +305,7 @@ extern lapic_tick_count
 extern xhci_interrupter
 extern nvme_completion_queue_interrupt
 extern virtio_gpu_response_queue_interrupt
+extern intel_hda_driver_interrupt
 extern schedulerHalt
 extern gpu_panic
 extern pSafeStackTop
@@ -762,7 +764,7 @@ iretq
 nvme_completion_queue_isr:
 cli
 pushaq
-mov qword rbp, rsp
+mov rbp, rsp
 and rsp, -16
 sub qword rsp, 32
 call nvme_completion_queue_interrupt
@@ -773,13 +775,13 @@ add qword rsp, 32
 sub qword rsp, 32
 call lapic_send_eoi
 add qword rsp, 32
-mov qword rsp, rbp
-popaq	
+mov rsp, rbp
+popaq
 ret
 virtio_gpu_response_queue_isr:
 cli
 pushaq
-mov qword rbp, rsp
+mov rbp, rsp
 and rsp, -16
 sub qword rsp, 32
 call virtio_gpu_response_queue_interrupt
@@ -790,8 +792,25 @@ add qword rsp, 32
 sub qword rsp, 32
 call lapic_send_eoi
 add qword rsp, 32
-mov qword rsp, rbp
+mov rsp, rbp
 popaq
+ret
+intel_hda_driver_isr:
+cli
+pushaq
+mov rbp, rsp
+and rsp, -16
+sub qword rsp, 32
+call intel_hda_driver_interrupt
+add qword rsp, 32
+sub qword rsp, 32
+call entropy_shuffle
+add qword rsp, 32
+sub qword rsp, 32
+call lapic_send_eoi
+add qword rsp, 32
+mov rsp, rbp
+popaq	
 ret
 isr0_msg db "divide by zero ISR triggered", 10, 0
 exception_handler_entry:

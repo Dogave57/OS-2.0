@@ -157,7 +157,7 @@ int nvme_alloc_completion_queue(struct nvme_drive_desc* pDriveDesc, uint64_t max
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	volatile struct pcie_msix_msg_ctrl* pMsgControl = pDriveDesc->pMsgControl;	
+	struct pcie_msix_msg_ctrl* pMsgControl = pDriveDesc->pMsgControl;	
 	if (pcie_msix_enable(pMsgControl)!=0){
 		virtualFree((uint64_t)pCompletionQueue, completionQueueSize);
 		mutex_unlock(&mutex);
@@ -910,7 +910,7 @@ int nvme_drive_init(struct pcie_location location){
 		return -1;
 	}
 	memset((void*)pDriveDesc, 0, sizeof(struct nvme_drive_desc));
-	volatile struct pcie_msix_msg_ctrl* pMsgControl = (struct pcie_msix_msg_ctrl*)0x0;
+	struct pcie_msix_msg_ctrl* pMsgControl = (struct pcie_msix_msg_ctrl*)0x0;
 	if (pcie_msix_get_msg_ctrl(location, &pMsgControl)!=0){
 		printf("failed to get MSI-X msg control\r\n");
 		heap_free(0x01, (unsigned char*)pDriveDesc, sizeof(struct nvme_drive_desc));
@@ -918,7 +918,7 @@ int nvme_drive_init(struct pcie_location location){
 	}
 	pDriveDesc->pBaseRegisters_phys = pBaseRegisters_phys;
 	pDriveDesc->pBaseRegisters = pBaseRegisters;
-	pDriveDesc->pDoorbellBase = (volatile uint32_t*)((uint64_t)pBaseRegisters+NVME_DOORBELL_LIST_OFFSET);	
+	pDriveDesc->pDoorbellBase = (uint32_t*)(((unsigned char*)pBaseRegisters)+NVME_DOORBELL_LIST_OFFSET);
 	pDriveDesc->pMsgControl = pMsgControl;
 	pDriveDesc->location = location;
 	if (nvme_disable(pDriveDesc)!=0){

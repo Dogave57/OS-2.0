@@ -6,6 +6,7 @@
 #include "mem/vmm.h"
 #include "mem/heap.h"
 #include "crypto/random.h"
+#include "math/basic.h"
 #include "math/vector.h"
 #include "math/trig.h"
 #include "align.h"
@@ -250,43 +251,38 @@ int text_subsystem_init(void){
 		"out fvec2_32 positionOut : @position\n"
 		"out fvec4_32 colorOut : @color\n"
 		"out fvec2_32 texCoordOut : @generic!0\n"
-		"out fvec1_32 spreadOut : @generic!1\n"
-		"out fvec4_32 resolutionOut : @generic!2\n"
+		"out fvec4_32 resolutionOut : @generic!1\n"
 		"in fvec2_32 positionIn\n"
 		"in fvec2_32 texCoordIn\n"
 		"in fvec4_32 colorIn\n"
 		"const fvec2_32 translation\n"
 		"const fvec2_32 scale\n"
-		"const fvec4_32 spread\n"
 		"const fvec4_32 resolution\n"
 		"positionOut.xy = add(mul(positionIn, scale), translation)\n"
 		"positionOut.w = positionIn\n"
 		"colorOut = colorIn\n"
 		"texCoordOut = texCoordIn\n"
-		"spreadOut = spread\n"
 		"resolutionOut = resolution\n";
 	static const unsigned char fragmentShaderCode[]="GGSL\n"
 		"out fvec4_32 colorOut : @color\n"
 		"in fvec4_32 colorIn : @color @perspective\n"
 		"in fvec2_32 texCoordIn : @generic!0 @perspective\n"
-		"in fvec1_32 spreadIn : @generic!1\n"
-		"in fvec4_32 resolutionIn : @generic!2\n"
+		"in fvec4_32 resolutionIn : @generic!1\n"
 		"samp samplerState\n"
 		"sview samplerView : @2D @float\n"
 		"temp fvec2_32 sdfEntry\n"
 		"temp fvec2_32 texCoord\n"
-		"texCoord = min(mul(round(mul(texCoordIn, resolutionIn.xy)), rcp(resolutionIn.xy)), vec!fvec2_32(0.99, 0.99))\n"
+		"texCoord = min(div(round(mul(texCoordIn, resolutionIn.xy)), resolutionIn.xy), vec!fvec2_32(1.0, 1.0))\n"
 		"sdfEntry = tex(fvec2_32, texCoord, samplerState, @2D)\n"
+		"sdfEntry = add(sdfEntry, mul(sub(texCoordIn, texCoord), resolutionIn.xy))\n"
 		"temp fvec2_32 magnitudeVector\n"
-		"magnitudeVector = sub(mul(texCoord, resolutionIn.xy), sdfEntry)\n"
-		"magnitudeVector = abs(sub(magnitudeVector, mul(texCoordIn, resolutionIn.xy)))\n"
+		"magnitudeVector.x = abs(sdfEntry.x)\n"
+		"magnitudeVector.y = abs(sdfEntry.y)\n"
 		"temp fvec1_32 magnitude\n"
 		"magnitude = sqrt(dp(magnitudeVector, magnitudeVector))\n"
 		"temp fvec4_32 color\n"
 		"color = vec!fvec4_32(1.0, 0.0, 1.0, 1.0)\n"
-		"if (sgt(magnitude, vec!fvec1_32(1.5)))\n"
-		"color.w = vec!fvec1_32(0.0)\n"
-		"endif\n"
+		"color.w = div(max(vec!fvec1_32(0.0), sub(vec!fvec1_32(4.0), magnitude)), magnitude)\n"
 		"colorOut = color\n";
 	uint64_t vertexShaderObjectId = 0x00;
 	uint64_t fragmentShaderObjectId = 0x00;
@@ -306,9 +302,6 @@ int text_subsystem_init(void){
 		subsystem_deinit(pFontSubsystemDesc);
 		return -1;
 	}
-	uint64_t value = 0x00;
-	atou64((unsigned char*)"1234", 0x04, &value);
-	printf("test: %d\r\n", value);
 	struct gpu_create_shader_object_info createShaderObjectInfo = {0};
 	memset((void*)&createShaderObjectInfo, 0, sizeof(struct gpu_create_shader_object_info));
 	createShaderObjectInfo.header.objectType = GPU_OBJECT_TYPE_SHADER;
@@ -604,8 +597,8 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	}
 	textSubsystemInfo.fontSubsystemInfo.pLastFontDesc = pFontDesc;
 	uint64_t glyphId = 0x00;
-	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, (uint64_t)'a', &glyphId)!=0){
-		printf("failed to get font protocol specification driver QWORD glyph identifier\r\n");
+	if (pFontDriverDesc->driverInfo.vtable.fontGlyphGetId(pFontDesc, (uint64_t)'A', &glyphId)!=0){
+		printf("failed to get font protocol specification driver QWORD font glyph identifier\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
@@ -616,26 +609,25 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	glyphTextureBufferRect.x = textSubsystemInfo.accelerationInfo.glyphTextureRect.x;
 	glyphTextureBufferRect.y = textSubsystemInfo.accelerationInfo.glyphTextureRect.y;
 	uint64_t glyphTextureBufferSize = (glyphTextureBufferRect.x*glyphTextureBufferRect.y)*sizeof(struct fvec2_32);
-	float glyphMaxContourDistance = 4.0f;
-	float glyphSpread = 4.0f;
-	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX, 0x01)!=0){
-		printf("failed to allocate text subsystem glyph texture buffer physical pages\r\n");
+	float glyphMaxContourDistance = sqrtf((float)dpu2_32(glyphTextureBufferRect, glyphTextureBufferRect));
+	if (virtualAlloc((uint64_t*)&pGlyphTextureBuffer, glyphTextureBufferSize, PTE_RW|PTE_NX, 0x00)!=0){
+		printf("failed to allocate text subsystem SDF sampler view physical pages\r\n");
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
 		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
+	}
+	for (uint64_t i = 0x00;i<glyphTextureBufferSize/sizeof(struct fvec2_32);i++){
+		struct fvec2_32 sdfEntry = {0};
+		sdfEntry.x = -1.0f;
+		sdfEntry.y = -1.0f;
+		*(pGlyphTextureBuffer+i) = sdfEntry;
 	}
 	struct fvec4_32 backgroundColor = {0};
 	backgroundColor.x = 1.0f;
 	backgroundColor.y = 1.0f;
 	backgroundColor.z = 1.0f;
 	backgroundColor.w = 1.0f;
-	for (uint64_t i = 0x00;i<glyphTextureBufferSize/sizeof(struct fvec2_32);i++){
-		struct fvec2_32 sdfEntry = {0};
-		sdfEntry.x = glyphMaxContourDistance;
-		sdfEntry.y = glyphMaxContourDistance;
-		*(pGlyphTextureBuffer+i) = sdfEntry;
-	}
 	uint64_t startTime = get_time_us();
 	struct text_subsystem_glyph_info glyphInfo = {0};
 	memset((void*)&glyphInfo, 0x00, sizeof(struct text_subsystem_glyph_info));
@@ -646,8 +638,8 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	glyphInfo.maxContourDistance = glyphMaxContourDistance;
 	if (pFontDriverDesc->driverInfo.vtable.fontGlyphTesselate(pFontDesc, &glyphInfo)!=0){
 		printf("failed to tesselate font protocol specification driver glyph\r\n");
-		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		subsystem_free_entry(textSubsystemInfo.fontSubsystemInfo.pSubsystemDesc, fontId);
+		virtualFree((uint64_t)pGlyphTextureBuffer, glyphTextureBufferSize);
 		heap_free(0x01, (unsigned char*)pFontDesc, sizeof(struct text_subsystem_font_desc));
 		mutex_unlock(&mutex);
 		return -1;
@@ -723,7 +715,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	struct fvec4_32 constantBuffer[4] = {0};
+	struct fvec4_32 constantBuffer[3] = {0};
 	struct fvec4_32* pTranslationVector = (struct fvec4_32*)constantBuffer;
 	pTranslationVector->x = 0.5f;
 	pTranslationVector->y = 0.5f;
@@ -734,16 +726,11 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	pScaleVector->y = 0.5f;
 	pScaleVector->z = 0.0f;
 	pScaleVector->w = 1.0f;
-	struct fvec4_32* pSpreadVector = pScaleVector+0x01;
-	pSpreadVector->x = glyphSpread;
-	pSpreadVector->y = 0.0f;
-	pSpreadVector->z = 0.0f;
-	pSpreadVector->w = 1.0f;
-	struct fvec4_32* pResolutionVector = pSpreadVector+0x01;
+	struct fvec4_32* pResolutionVector = pScaleVector+0x01;
 	pResolutionVector->x = (float)glyphTextureBufferRect.x;
 	pResolutionVector->y = (float)glyphTextureBufferRect.y;
-	pResolutionVector->z = 0.0f;
-	pResolutionVector->w = 0.0f;
+	pResolutionVector->z = ((float)textSubsystemInfo.pMonitorDesc->monitorInfo.resolution.width)*pScaleVector->x;
+	pResolutionVector->w = ((float)textSubsystemInfo.pMonitorDesc->monitorInfo.resolution.height)*pScaleVector->y;
 	gpu_cmd_context_reset(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId);
 	struct gpu_set_vertex_buffer_list_cmd_info setVertexBufferListCmdInfo = {0};
 	memset((void*)&setVertexBufferListCmdInfo, 0, sizeof(struct gpu_set_vertex_buffer_list_cmd_info));
@@ -781,7 +768,7 @@ KAPI int text_subsystem_font_load(unsigned char* pFontBuffer, uint64_t fontBuffe
 	setConstantBufferCmdInfo.shaderType = GPU_SHADER_TYPE_VERTEX;
 	setConstantBufferCmdInfo.index = 0x00;
 	setConstantBufferCmdInfo.pBuffer = (unsigned char*)constantBuffer;
-	setConstantBufferCmdInfo.bufferSize = sizeof(struct fvec4_32)*0x04;
+	setConstantBufferCmdInfo.bufferSize = sizeof(struct fvec4_32)*0x03;
 	gpu_cmd_context_push_cmd(textSubsystemInfo.pMonitorDesc->gpuId, textSubsystemInfo.accelerationInfo.commandContextId, (struct gpu_cmd_info_header*)&setConstantBufferCmdInfo);
 	struct gpu_draw_vbo_cmd_info drawVboCmdInfo = {0};
 	memset((void*)&drawVboCmdInfo, 0, sizeof(struct gpu_draw_vbo_cmd_info));

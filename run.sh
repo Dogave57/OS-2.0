@@ -1,6 +1,6 @@
 SERIAL_PATH="/dev/null"
-MACOS_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci -device usb-mouse,bus=xhci.0 -device usb-kbd,bus=xhci.0 -display cocoa,gl=es,zoom-to-fit=on,full-screen=on -device virtio-gpu-gl -serial stdio -d guest_errors,unimp -accel tcg,thread=multi"
-LINUX_FLAGS="-device qemu-xhci,id=xhci -device usb-mouse,bus=xhci.0 -device usb-kbd,bus=xhci.0 -device virtio-gpu-gl -display sdl,gl=es -vga none -serial stdio"
+MACOS_FLAGS="-cpu max,+x2apic,+apic -device qemu-xhci,id=xhci -device usb-mouse,bus=xhci.0 -device usb-kbd,bus=xhci.0 -display cocoa,gl=es,zoom-to-fit=on,full-screen=on -device virtio-gpu-gl -device intel-hda,debug=4 -audiodev coreaudio,id=hda_device -device hda-output,audiodev=hda_device -serial stdio -d guest_errors,unimp -accel tcg,thread=multi"
+LINUX_FLAGS="-device qemu-xhci,id=xhci -device usb-mouse,bus=xhci.0 -device usb-kbd,bus=xhci.0 -device virtio-gpu-gl -device intel-hda,debug=4 -audiodev alsa,id=hda_device -device hda-output,audiodev=hda_device -serial stdio -display gtk,gl=es -vga none"
 OS=$(uname -s)
 bash restore_firmware.sh
 case "$OS" in

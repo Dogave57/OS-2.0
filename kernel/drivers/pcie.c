@@ -293,21 +293,21 @@ int pcie_get_function_by_id(uint16_t vendor_id, uint16_t device_id, struct pcie_
 	}
 	return -1;
 }
-int pcie_msix_get_msg_ctrl(struct pcie_location location, volatile struct pcie_msix_msg_ctrl** ppMsgControl){
+int pcie_msix_get_msg_ctrl(struct pcie_location location, struct pcie_msix_msg_ctrl** ppMsgControl){
 	if (!ppMsgControl)
 		return -1;
 	if (pcie_get_cap_ptr(location, 0x11, (struct pcie_cap_link**)ppMsgControl)!=0)
 		return -1;
 	return 0;
 }
-int pcie_msi_get_msg_ctrl(struct pcie_location location, volatile struct pcie_msi_msg_ctrl** ppMsgControl){
+int pcie_msi_get_msg_ctrl(struct pcie_location location, struct pcie_msi_msg_ctrl** ppMsgControl){
 	if (!ppMsgControl)
 		return -1;
 	if (pcie_get_cap_ptr(location, 0x5, (struct pcie_cap_link**)ppMsgControl)!=0)
 		return -1;
 	return 0;
 }
-int pcie_msi_get_entry_size(struct pcie_location location, volatile struct pcie_msi_msg_ctrl* pMsgControl, uint64_t* pEntrySize){
+int pcie_msi_get_entry_size(struct pcie_location location, struct pcie_msi_msg_ctrl* pMsgControl, uint64_t* pEntrySize){
 	if (!pMsgControl||!pEntrySize)
 		return -1;
 	struct pcie_msi_msg_ctrl msgControl = *pMsgControl;
@@ -315,7 +315,7 @@ int pcie_msi_get_entry_size(struct pcie_location location, volatile struct pcie_
 	entrySize+=msgControl.per_vector_masking_capable ? 8 : 0;
 	return 0;
 }
-int pcie_get_msi_entry(struct pcie_location location, volatile unsigned char** ppEntry, volatile struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector){
+int pcie_get_msi_entry(struct pcie_location location, unsigned char** ppEntry, struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector){
 	if (!ppEntry||!pMsgControl)
 		return -1;
 	uint64_t entrySize = 0;
@@ -327,12 +327,12 @@ int pcie_get_msi_entry(struct pcie_location location, volatile unsigned char** p
 	*ppEntry = pEntry;
 	return 0;
 }
-int pcie_set_msi_entry(struct pcie_location location, volatile struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector, uint64_t lapic_id, uint8_t interrupt_vector){
+int pcie_set_msi_entry(struct pcie_location location, struct pcie_msi_msg_ctrl* pMsgControl, uint64_t msi_vector, uint64_t lapic_id, uint8_t interrupt_vector){
 	if (!pMsgControl)
 		return -1;
 	struct pcie_msi_msg_ctrl msgControl = *pMsgControl;
-	volatile unsigned char* pEntry = (unsigned char*)0x0;
-	uint64_t entrySize = 0;
+	unsigned char* pEntry = (unsigned char*)0x0;
+	uint64_t entrySize = 0x00;
 	if (pcie_get_msi_entry(location, &pEntry, pMsgControl, msi_vector)!=0){
 		printf("failed to get MSI table entry\r\n");
 		return -1;
@@ -354,19 +354,19 @@ int pcie_set_msi_entry(struct pcie_location location, volatile struct pcie_msi_m
 	msgData.reserved0 = 0;
 	memset((void*)pEntry, 0, entrySize);
 	if (msgControl.long_address_capable){
-		volatile struct pcie_msi_table_entry_64* pTableEntry = (volatile struct pcie_msi_table_entry_64*)pEntry;
+		struct pcie_msi_table_entry_64* pTableEntry = (struct pcie_msi_table_entry_64*)pEntry;
 		pTableEntry->msg_addr_low = (uint32_t)(msgAddress&0xFFFFFFFF);
 		pTableEntry->msg_addr_high = (uint32_t)((msgAddress>>32)&0xFFFFFFFF);
 		pTableEntry->msg_data = msgData;
 	}
 	if (!msgControl.long_address_capable){
-		volatile struct pcie_msi_table_entry_32* pTableEntry = (volatile struct pcie_msi_table_entry_32*)pEntry;
+		struct pcie_msi_table_entry_32* pTableEntry = (struct pcie_msi_table_entry_32*)pEntry;
 		pTableEntry->msg_addr = (uint32_t)(msgAddress&0xFFFFFFFF);
 		pTableEntry->msg_data = msgData;
 	}
 	return 0;
 }
-int pcie_msi_enable(volatile struct pcie_msi_msg_ctrl* pMsgControl){
+int pcie_msi_enable(struct pcie_msi_msg_ctrl* pMsgControl){
 	if (!pMsgControl)
 		return -1;
 	struct pcie_msi_msg_ctrl msgControl = *pMsgControl;
@@ -376,7 +376,7 @@ int pcie_msi_enable(volatile struct pcie_msi_msg_ctrl* pMsgControl){
 	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
-int pcie_msi_disable(volatile struct pcie_msi_msg_ctrl* pMsgControl){
+int pcie_msi_disable(struct pcie_msi_msg_ctrl* pMsgControl){
 	if (!pMsgControl)
 		return -1;
 	struct pcie_msi_msg_ctrl msgControl = *pMsgControl;
@@ -386,7 +386,7 @@ int pcie_msi_disable(volatile struct pcie_msi_msg_ctrl* pMsgControl){
 	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
-int pcie_msix_get_table_base(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, volatile struct pcie_msix_table_entry** ppTableBase){
+int pcie_msix_get_table_base(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, struct pcie_msix_table_entry** ppTableBase){
 	if (!pMsgControl||!ppTableBase)
 		return -1;
 	struct pcie_msix_msg_ctrl msgControl = *pMsgControl;
@@ -395,15 +395,15 @@ int pcie_msix_get_table_base(struct pcie_location location, volatile struct pcie
 	uint8_t bus = location.bus;
 	uint8_t dev = location.dev;
 	uint8_t func = location.func;
-	volatile struct pcie_msix_table_entry* pTableBase = (volatile struct pcie_msix_table_entry*)0x0;
-	uint64_t bar_base = 0;
+	struct pcie_msix_table_entry* pTableBase = (struct pcie_msix_table_entry*)0x00;
+	uint64_t bar_base = 0x00;
 	if (pcie_get_bar(location, tableBar, &bar_base)!=0)
 		return -1;
-	pTableBase = (volatile struct pcie_msix_table_entry*)((bar_base&~0xF)+tableOffset);
+	pTableBase = (struct pcie_msix_table_entry*)((bar_base&~0xF)+tableOffset);
 	*ppTableBase = pTableBase;
 	return 0;
 }
-int pcie_msix_get_pba_base(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, volatile uint8_t** ppPba){
+int pcie_msix_get_pba_base(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint8_t** ppPba){
 	if (!pMsgControl||!ppPba)
 		return -1;
 	struct pcie_msix_msg_ctrl msgControl = *pMsgControl;
@@ -417,42 +417,42 @@ int pcie_msix_get_pba_base(struct pcie_location location, volatile struct pcie_m
 	*ppPba = pPba;
 	return 0;
 }
-int pcie_get_msix_entry(struct pcie_location location, volatile struct pcie_msix_table_entry** ppEntry, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
+int pcie_get_msix_entry(struct pcie_location location, struct pcie_msix_table_entry** ppEntry, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
 	if (!ppEntry||!pMsgControl)
 		return -1;
 	uint8_t bus = location.bus;
 	uint8_t dev = location.dev;
 	uint8_t func = location.func;
-	volatile struct pcie_msix_table_entry* pTableBase = (volatile struct pcie_msix_table_entry*)0x0;
+	struct pcie_msix_table_entry* pTableBase = (struct pcie_msix_table_entry*)0x00;
 	if (pcie_msix_get_table_base(location, pMsgControl, &pTableBase)!=0)
 		return -1;
-	volatile struct pcie_msix_table_entry* pEntry = pTableBase+msix_vector;
+	struct pcie_msix_table_entry* pEntry = pTableBase+msix_vector;
 	*ppEntry = pEntry;
 	return 0;
 }
-int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector, uint64_t lapic_id, uint8_t interrupt_vector){
+int pcie_set_msix_entry(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector, uint64_t lapic_id, uint8_t interrupt_vector){
 	if (!pMsgControl)
 		return -1;
 	static struct mutex_t mutex = {0};
 	mutex_lock(&mutex);
-	volatile struct pcie_msix_table_entry* pMsixTable = (volatile struct pcie_msix_table_entry*)0x0;
+	struct pcie_msix_table_entry* pMsixTable = (struct pcie_msix_table_entry*)0x0;
 	if (pcie_msix_get_table_base(location, pMsgControl, &pMsixTable)!=0){
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	volatile struct pcie_msix_table_entry* pEntry = (volatile struct pcie_msix_table_entry*)0x0;
+	struct pcie_msix_table_entry* pEntry = (struct pcie_msix_table_entry*)0x00;
 	pEntry = pMsixTable+msix_vector;
-	uint32_t oldStatus = 0;
+	uint32_t oldStatus = 0x00;
 	struct pcie_msix_msg_ctrl msgControl = *pMsgControl;
 	oldStatus = msgControl.msix_enable;
-	msgControl.msix_enable = 0;
+	msgControl.msix_enable = 0x00;
 	*pMsgControl = msgControl;
 	if (virtualMapPage((uint64_t)pEntry, (uint64_t)pEntry, PTE_RW|PTE_NX, 0x01, 0x00)!=0){
 		printf("failed to map MSI-X protocol specification MSI-X table entry descriptor physical page\r\n");
 		mutex_unlock(&mutex);
 		return -1;
 	}
-	uint64_t lapic_base = 0;
+	uint64_t lapic_base = 0x00;
 	if (lapic_get_base(&lapic_base)!=0){
 		pMsgControl->msix_enable = oldStatus;
 		mutex_unlock(&mutex);
@@ -466,7 +466,7 @@ int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix
 	memset((void*)&msgData, 0, sizeof(union pcie_msix_table_entry_msg_data));
 	msgData.vector = interrupt_vector;
 	pEntry->msg_data = msgData;
-	pEntry->vector_ctrl.raw = 0;
+	pEntry->vector_ctrl.raw = 0x00;
 	msgControl = *pMsgControl;
 	msgControl.msix_enable = oldStatus;
 	__asm__ volatile("sfence" ::: "memory");
@@ -475,7 +475,7 @@ int pcie_set_msix_entry(struct pcie_location location, volatile struct pcie_msix
 	mutex_unlock(&mutex);
 	return 0;
 }
-int pcie_msix_enable(volatile struct pcie_msix_msg_ctrl* pMsgControl){
+int pcie_msix_enable(struct pcie_msix_msg_ctrl* pMsgControl){
 	if (!pMsgControl)
 		return -1;
 	struct pcie_msix_msg_ctrl msgControl = *pMsgControl;
@@ -486,7 +486,7 @@ int pcie_msix_enable(volatile struct pcie_msix_msg_ctrl* pMsgControl){
 	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
-int pcie_msix_disable(volatile struct pcie_msix_msg_ctrl* pMsgControl){
+int pcie_msix_disable(struct pcie_msix_msg_ctrl* pMsgControl){
 	if (!pMsgControl)
 		return -1;
 	struct pcie_msix_msg_ctrl msgControl = *pMsgControl;
@@ -497,10 +497,10 @@ int pcie_msix_disable(volatile struct pcie_msix_msg_ctrl* pMsgControl){
 	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
-int pcie_msix_enable_entry(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
+int pcie_msix_enable_entry(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
 	if (!pMsgControl)
 		return -1;
-	volatile struct pcie_msix_table_entry* pMsixEntry = (volatile struct pcie_msix_table_entry*)0x0;
+	struct pcie_msix_table_entry* pMsixEntry = (struct pcie_msix_table_entry*)0x00;
 	if (pcie_get_msix_entry(location, &pMsixEntry, pMsgControl, msix_vector)!=0)
 		return -1;
 	if (virtualMapPage((uint64_t)pMsixEntry, (uint64_t)pMsixEntry, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x01, 0x00)!=0)
@@ -511,10 +511,10 @@ int pcie_msix_enable_entry(struct pcie_location location, volatile struct pcie_m
 	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
-int pcie_msix_disable_entry(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
+int pcie_msix_disable_entry(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
 	if (!pMsgControl)
 		return -1;
-	volatile struct pcie_msix_table_entry* pMsixEntry = (volatile struct pcie_msix_table_entry*)0x0;
+	struct pcie_msix_table_entry* pMsixEntry = (struct pcie_msix_table_entry*)0x0;
 	if (pcie_get_msix_entry(location, &pMsixEntry, pMsgControl, msix_vector)!=0)
 		return -1;
 	union pcie_msix_table_entry_vector_ctrl vectorCtrl = pMsixEntry->vector_ctrl;
@@ -523,11 +523,11 @@ int pcie_msix_disable_entry(struct pcie_location location, volatile struct pcie_
 	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
-int pcie_msix_clear_pba(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
+int pcie_msix_clear_pba(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
 	if (!pMsgControl)
 		return -1;
-	volatile uint32_t* pPba = (volatile uint32_t*)0x0;
-	if (pcie_msix_get_pba_base(location, pMsgControl, (volatile uint8_t**)&pPba)!=0)
+	uint32_t* pPba = (uint32_t*)0x00;
+	if (pcie_msix_get_pba_base(location, pMsgControl, (uint8_t**)&pPba)!=0)
 		return -1;
 	uint64_t pba_dword = msix_vector/32;
 	uint64_t pba_bit = msix_vector%32;
@@ -537,11 +537,11 @@ int pcie_msix_clear_pba(struct pcie_location location, volatile struct pcie_msix
 	__asm__ volatile("sfence" ::: "memory");
 	return 0;
 }
-int pcie_msix_get_pba(struct pcie_location location, volatile struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
+int pcie_msix_get_pba(struct pcie_location location, struct pcie_msix_msg_ctrl* pMsgControl, uint64_t msix_vector){
 	if (!pMsgControl)
 		return -1;
-	volatile uint32_t* pPba = (volatile uint32_t*)0x0;
-	if (pcie_msix_get_pba_base(location, pMsgControl, (volatile uint8_t**)&pPba)!=0)
+	uint32_t* pPba = (uint32_t*)0x00;
+	if (pcie_msix_get_pba_base(location, pMsgControl, (uint8_t**)&pPba)!=0)
 		return -1;
 	uint64_t pba_dword = msix_vector/32;
 	uint64_t pba_bit = msix_vector%32;

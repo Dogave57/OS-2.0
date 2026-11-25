@@ -28,6 +28,7 @@ struct pcie_function_desc{
 	struct pcie_location location;
 	uint64_t driverId;
 	uint8_t resolved;
+	uint64_t driverReserve;
 };
 struct pcie_bus_desc_list_info{
 	struct pcie_bus_desc* pBusDescList;

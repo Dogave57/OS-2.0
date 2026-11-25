@@ -637,8 +637,8 @@ struct nvme_drive_desc{
 	struct nvme_namespace_desc* pFirstActiveNamespace;
 	struct nvme_namespace_desc* pLastActiveNamespace;	
 	uint64_t maxTransferLength;	
-	volatile struct pcie_msix_msg_ctrl* pMsgControl;
-	volatile uint32_t* pDoorbellBase;
+	struct pcie_msix_msg_ctrl* pMsgControl;
+	uint32_t* pDoorbellBase;
 };
 struct nvme_driver_info{
 	uint64_t pcieDriverId;

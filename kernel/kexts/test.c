@@ -656,8 +656,8 @@ __attribute__((ms_abi)) int kext_entry(uint64_t pid){
 	gpu_cmd_context_deinit(gpuId, cmdContextId);
 	uint64_t fontFileId = 0x00;
 	struct fs_file_info fontFileInfo = {0};
-	if (fs_open(0x01, "FONTS/UBUNTU.TTF", 0x00, &fontFileId)!=0){
-		printf("failed to open GPU host controller font file\r\n");
+	if (fs_open(0x01, "FONTS/CALIBRI.TTF", 0x00, &fontFileId)!=0){
+		printf("failed to open true type font protocol specification file non-volatile memory\r\n");
 		return -1;
 	}
 	if (fs_getFileInfo(0x01, fontFileId, &fontFileInfo)!=0){

@@ -15,13 +15,13 @@
 #include "drivers/usb/xhci.h"
 struct pcie_location xhciLocation = {0};
 struct xhci_info xhciInfo = {0};
-uint64_t driverId = 0;
+uint64_t driverId = 0x00;
 int xhci_driver_init(void){
 	struct pcie_driver_vtable vtable = {0};
 	memset((void*)&vtable, 0, sizeof(struct pcie_driver_vtable));	
 	vtable.registerFunction = xhci_subsystem_register_function;
 	vtable.unregisterFunction = xhci_subsystem_unregister_function;
-	if (pcie_subsystem_driver_register(vtable, PCIE_CLASS_USB_HC, PCIE_SUBCLASS_USB, &driverId)!=0){
+	if (pcie_subsystem_driver_register(vtable, PCIE_CLASS_SERIAL_HC, PCIE_SUBCLASS_USB, &driverId)!=0){
 		printf("failed to register extensible host controller driver with PCIe host controller subsystem\r\n");
 		return -1;
 	}
@@ -503,7 +503,7 @@ int xhci_init_transfer_ring(struct xhci_device* pDevice, uint8_t interfaceId, ui
 		virtualFreePage((uint64_t)pTransferRing, 0);
 		return -1;
 	}
-	memset((void*)pTransferRing, 0, PAGE_SIZE);
+	memset_64((void*)pTransferRing, 0x00, PAGE_SIZE);
 	struct xhci_transfer_ring_info* pTransferRingInfo = (struct xhci_transfer_ring_info*)0x0;
 	if (xhci_get_transfer_ring(pDevice->deviceContext.slotId, endpointIndex, &pTransferRingInfo)!=0){
 		printf("failed to get transfer ring descriptor\r\n");
@@ -807,16 +807,17 @@ int xhci_init_firmware_handoff(void){
 	return 0;
 }
 int xhci_init_interrupter(void){
+	printf("extensible host controller driver ISR trigger\r\n");
 	volatile struct xhci_interrupter* pInt = (volatile struct xhci_interrupter*)0x0;
 	if (xhci_get_interrupter_base(XHCI_DEFAULT_INTERRUPTER_ID, &pInt)!=0){
 		printf("failed to get interrupter registers\r\n");
 		return -1;
 	}
-	uint64_t interruptVector = 0;
-	volatile struct pcie_msix_msg_ctrl* pMsixMsgControl = (volatile struct pcie_msix_msg_ctrl*)0x0;
-	volatile struct pcie_msix_table_entry* pMsixEntry = (volatile struct pcie_msix_table_entry*)0x0;
-	volatile struct pcie_msi_msg_ctrl* pMsiMsgControl = (volatile struct pcie_msi_msg_ctrl*)0x0;
-	volatile struct pcie_msi_table_entry* pMsiEntry = (volatile struct pcie_msi_table_entry*)0x0;
+	uint64_t interruptVector = 0x00;
+	struct pcie_msix_msg_ctrl* pMsixMsgControl = (struct pcie_msix_msg_ctrl*)0x00;
+	struct pcie_msix_table_entry* pMsixEntry = (struct pcie_msix_table_entry*)0x00;
+	struct pcie_msi_msg_ctrl* pMsiMsgControl = (struct pcie_msi_msg_ctrl*)0x00;
+	struct pcie_msi_table_entry* pMsiEntry = (struct pcie_msi_table_entry*)0x00;
 	if (!pcie_msi_get_msg_ctrl(xhciInfo.location, &pMsiMsgControl)){
 		xhciInfo.interruptMode = XHCI_INT_MODE_MSI;
 		pcie_msi_enable(pMsiMsgControl);
@@ -835,7 +836,7 @@ int xhci_init_interrupter(void){
 		return -1;
 	}
 	if (xhciInfo.interruptMode==XHCI_INT_MODE_MSI){
-		if (pcie_get_msi_entry(xhciInfo.location, (volatile unsigned char**)&pMsiEntry, pMsiMsgControl, interruptVector)!=0){
+		if (pcie_get_msi_entry(xhciInfo.location, (unsigned char**)&pMsiEntry, pMsiMsgControl, interruptVector)!=0){
 			printf("failed to get MSI table entry\r\n");
 			return -1;
 		}
@@ -850,13 +851,13 @@ int xhci_init_interrupter(void){
 		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
 		return -1;
 	}
-	uint64_t lapic_id = 0;
+	uint64_t lapic_id = 0x00;
 	if (lapic_get_id(&lapic_id)!=0){
 		printf("failed to get lapic ID\r\n");
 		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
 		return -1;
 	}
-	uint8_t interrupterVector = 0;
+	uint8_t interrupterVector = 0x00;
 	if (idt_get_free_vector(&interrupterVector)!=0){
 		printf("failed to get free interrupter vector\r\n");
 		xhci_deinit_trb_event_list(&xhciInfo.interrupterInfo.eventRingInfo);
@@ -877,7 +878,7 @@ int xhci_init_interrupter(void){
 			return -1;
 		}
 	}
-	volatile struct xhci_segment_table_entry* pSegmentTable = (volatile struct xhci_segment_table_entry*)0x0;
+	struct xhci_segment_table_entry* pSegmentTable = (struct xhci_segment_table_entry*)0x0;
 	uint64_t pSegmentTable_phys = 0;
 	if (virtualAllocPage((uint64_t*)&pSegmentTable, PTE_RW|PTE_NX|PTE_PCD|PTE_PWT, 0x00)!=0){
 		printf("failed to allocate event segment table\r\n");

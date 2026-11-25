@@ -21,6 +21,7 @@
 #include "subsystem/pcie.h"
 #include "subsystem/text.h"
 #include "subsystem/gpu.h"
+#include "subsystem/audio.h"
 #include "drivers/gpt.h"
 #include "drivers/gpu/virtio/virtio.h"
 #include "drivers/filesystem/fat32.h"
@@ -31,6 +32,7 @@
 #include "drivers/fonts/ttf.h"
 #include "drivers/shaders/tgsi.h"
 #include "drivers/shaders/ggsl.h"
+#include "drivers/audio/intel-hda.h"
 #include "math/basic.h"
 #include "crypto/guid.h"
 #include "crypto/random.h"
@@ -259,7 +261,19 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		printf("failed to initialize GPU host controller .TTF font driver\r\n");
 	}
 	if (xhci_driver_init()!=0){
-		printf("extensible host controller not available\r\n");
+		printf("failed to initialize extensible host controller driver\r\n");
+		while (1){};
+		return -1;
+	}
+	if (audio_subsystem_init()!=0){
+		printf("failed to initialize audio host controller subsystem\r\n");
+		while (1){};
+		return -1;
+	}
+	if (intel_hda_driver_init()!=0){
+		printf("failed to initialize intel HDA protocol specification driver\r\n");
+		while (1){};
+		return -1;
 	}
 	if (gpt_verify(0x01)!=0){
 		printf("failed to verify GPT partition table\r\n");
@@ -366,12 +380,13 @@ int kmain(unsigned char* pstack, struct bootloader_args* blargs){
 		while (1){};
 		return -1;
 	}
-	uint64_t pid = 0;
+	uint64_t pid = 0x00;
 	if (kext_load(0x01, "KEXTS/TEST.ELF", &pid)!=0){
 		printf("failed to load kext\r\n");
 		while (1){};
 		return -1;
 	}
+	printf("finished running kernel extension non-volatile memory\r\n");
 	while (1){};
 	return 0;	
 }
